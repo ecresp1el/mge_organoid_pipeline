@@ -50,7 +50,42 @@ capture_structure <- function(x) {
 }
 
 ## ---- load object ------------------------------------------------------------
-serialized_object <- readRDS(input_rds_path)
+read_error <- NULL
+serialized_object <- tryCatch(
+  readRDS(input_rds_path),
+  error = function(e) {
+    read_error <<- conditionMessage(e)
+    NULL
+  }
+)
+
+if (!is.null(read_error)) {
+  writeLines(
+    c(
+      paste("Input path:", input_rds_path),
+      "Status: FAILED to read RDS file.",
+      paste("Error:", read_error),
+      "",
+      "Next steps:",
+      "- Ensure any required packages for the serialized object are installed.",
+      "- For Seurat objects, install the SeuratObject package in your R session."
+    ),
+    con = text_output_path
+  )
+
+  provenance_payload <- list(
+    input_path = input_rds_path,
+    class = NA_character_,
+    size_bytes = NA_real_,
+    read_error = read_error,
+    session_info = utils::sessionInfo(),
+    timestamp = Sys.time()
+  )
+
+  saveRDS(provenance_payload, provenance_output_path)
+
+  stop("Failed to read RDS file. See output files for details.")
+}
 
 ## ---- collect metadata -------------------------------------------------------
 object_class <- class(serialized_object)
