@@ -20,6 +20,8 @@ ncol(md) # should be 11 for this case
 # make the umap if stored in the Seurat Object 
 DimPlot(
   mge_organoid_div30, 
-  reduction= "umap", 
+  reduction= "umap",
+  label = TRUE, 
+  repel = TRUE, 
   group.by = "seurat_clusters"
-)
+  )
