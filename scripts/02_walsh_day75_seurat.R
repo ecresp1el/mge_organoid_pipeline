@@ -140,8 +140,14 @@ run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes, plots_dir,
   set.seed(seeds$jackstraw)
   js_obj <- JackStraw(obj, dims = 50, num.replicate = 100, verbose = FALSE)
   js_obj <- ScoreJackStraw(js_obj, dims = 1:50)
-  js_overall <- js_obj@reductions$pca@jackstraw@overall
-  sig_pcs <- which(js_overall[, 2] < 0.05)
+  # Seurat 4.1.1 stores JackStraw p-values in p.rec; fall back if missing
+  if (!is.null(js_obj@reductions$pca@jackstraw@p.rec)) {
+    js_mat <- js_obj@reductions$pca@jackstraw@p.rec
+    col_score <- if ("Score" %in% colnames(js_mat)) "Score" else colnames(js_mat)[1]
+    sig_pcs <- which(js_mat[1:50, col_score, drop = TRUE] < 0.05)
+  } else {
+    stop("JackStraw results missing p.rec; cannot select PCs in this Seurat build")
+  }
   selected_pcs <- if (length(sig_pcs) > 0) max(sig_pcs) else 20L
   selected_pcs <- max(5L, min(selected_pcs, 50L))
   log_msg("JackStraw significant PCs (<0.05):", paste(sig_pcs, collapse = ", "))
