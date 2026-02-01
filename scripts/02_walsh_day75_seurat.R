@@ -110,6 +110,60 @@ load_or_run <- function(path, compute_fn) {
   obj
 }
 
+jackstraw_select_pcs <- function(obj, seeds, plots_dir, label) {
+  # Preflight on tiny run to ensure API works
+  js_ok <- FALSE
+  sig_pcs <- integer(0)
+  selected_pcs <- 20L
+  js_plot <- NULL
+  preflight <- try({
+    set.seed(seeds$jackstraw + 1L)
+    js_test <- JackStraw(obj, dims = 5, num.replicate = 10, verbose = FALSE)
+    js_test <- ScoreJackStraw(js_test, dims = 1:5)
+    test_df <- JackStrawData(js_test, reduction = "pca")
+    if (is.null(test_df) || nrow(test_df) == 0) stop("JackStrawData returned empty in preflight")
+    js_ok <- TRUE
+  }, silent = TRUE)
+
+  if (!js_ok) {
+    log_msg("JackStraw preflight failed under Seurat ", packageVersion("Seurat"), "; falling back to Elbow-only (fixed 20 PCs).")
+    elbow_plot <- ElbowPlot(obj, ndims = 50)
+    ggsave(file.path(plots_dir, paste0("elbow_", label, ".pdf")), elbow_plot, width = 8, height = 6)
+    ggsave(file.path(plots_dir, paste0("elbow_", label, ".png")), elbow_plot, width = 8, height = 6, dpi = 300)
+    return(list(selected_pcs = selected_pcs, sig_pcs = sig_pcs, js_success = FALSE))
+  }
+
+  # Full JackStraw
+  set.seed(seeds$jackstraw)
+  js_obj <- JackStraw(obj, dims = 50, num.replicate = 100, verbose = FALSE)
+  js_obj <- ScoreJackStraw(js_obj, dims = 1:50)
+  js_df <- JackStrawData(js_obj, reduction = "pca")
+  if (!("PC" %in% colnames(js_df))) stop("JackStrawData lacks PC column")
+  # p-value column may be named Score or p.value; pick first numeric non-PC column
+  pcol <- setdiff(colnames(js_df), "PC")
+  pcol <- pcol[pcol %in% c("Score", "p.value", "p.val")]
+  if (length(pcol) == 0) pcol <- setdiff(colnames(js_df), "PC")
+  if (length(pcol) == 0) stop("JackStrawData lacks p-value column")
+  pcol <- pcol[1]
+  js_df$pc_num <- as.integer(gsub("[^0-9]", "", js_df$PC))
+  js_df <- js_df[js_df$pc_num >= 1 & js_df$pc_num <= 50, ]
+  sig_pcs <- js_df$pc_num[js_df[[pcol]] < 0.05]
+  selected_pcs <- if (length(sig_pcs) > 0) max(sig_pcs) else 20L
+  selected_pcs <- max(5L, min(selected_pcs, 50L))
+  log_msg("JackStraw significant PCs (<0.05):", paste(sig_pcs, collapse = ", "))
+  log_msg("Selected PCs for downstream:", selected_pcs)
+
+  dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
+  js_plot <- JackStrawPlot(js_obj, dims = 1:50)
+  ggsave(file.path(plots_dir, paste0("jackstraw_", label, ".pdf")), js_plot, width = 8, height = 6)
+  ggsave(file.path(plots_dir, paste0("jackstraw_", label, ".png")), js_plot, width = 8, height = 6, dpi = 300)
+  elbow_plot <- ElbowPlot(obj, ndims = 50)
+  ggsave(file.path(plots_dir, paste0("elbow_", label, ".pdf")), elbow_plot, width = 8, height = 6)
+  ggsave(file.path(plots_dir, paste0("elbow_", label, ".png")), elbow_plot, width = 8, height = 6, dpi = 300)
+
+  list(selected_pcs = selected_pcs, sig_pcs = sig_pcs, js_success = TRUE)
+}
+
 run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes, plots_dir, label, ckpts) {
   obj <- load_or_run(ckpts$norm_hvg, function() {
     set.seed(seeds$hvg)
@@ -136,30 +190,9 @@ run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes, plots_dir,
     RunPCA(obj, features = hvgs, verbose = FALSE)
   })
 
-  # JackStraw + Elbow to choose PCs
-  set.seed(seeds$jackstraw)
-  js_obj <- JackStraw(obj, dims = 50, num.replicate = 100, verbose = FALSE)
-  js_obj <- ScoreJackStraw(js_obj, dims = 1:50)
-  # Seurat 4.1.1 stores JackStraw p-values in p.rec; fall back if missing
-  if (!is.null(js_obj@reductions$pca@jackstraw@p.rec)) {
-    js_mat <- js_obj@reductions$pca@jackstraw@p.rec
-    col_score <- if ("Score" %in% colnames(js_mat)) "Score" else colnames(js_mat)[1]
-    sig_pcs <- which(js_mat[1:50, col_score, drop = TRUE] < 0.05)
-  } else {
-    stop("JackStraw results missing p.rec; cannot select PCs in this Seurat build")
-  }
-  selected_pcs <- if (length(sig_pcs) > 0) max(sig_pcs) else 20L
-  selected_pcs <- max(5L, min(selected_pcs, 50L))
-  log_msg("JackStraw significant PCs (<0.05):", paste(sig_pcs, collapse = ", "))
-  log_msg("Selected PCs for downstream:", selected_pcs)
-
-  dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
-  js_plot <- JackStrawPlot(js_obj, dims = 1:50)
-  ggsave(file.path(plots_dir, paste0("jackstraw_", label, ".pdf")), js_plot, width = 8, height = 6)
-  ggsave(file.path(plots_dir, paste0("jackstraw_", label, ".png")), js_plot, width = 8, height = 6, dpi = 300)
-  elbow_plot <- ElbowPlot(obj, ndims = 50)
-  ggsave(file.path(plots_dir, paste0("elbow_", label, ".pdf")), elbow_plot, width = 8, height = 6)
-  ggsave(file.path(plots_dir, paste0("elbow_", label, ".png")), elbow_plot, width = 8, height = 6, dpi = 300)
+  js_info <- jackstraw_select_pcs(obj, seeds, plots_dir, label)
+  selected_pcs <- js_info$selected_pcs
+  sig_pcs <- js_info$sig_pcs
 
   set.seed(seeds$neighbors)
   obj <- FindNeighbors(obj, dims = 1:selected_pcs, k.param = 20, algorithm = 1, verbose = FALSE)
