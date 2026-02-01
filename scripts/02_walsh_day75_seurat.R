@@ -14,9 +14,10 @@ suppressPackageStartupMessages({
 
 check_versions <- function() {
   rv <- getRversion()
-  if (!(rv$major == "4" && rv$minor == "1.0")) stop(sprintf("R version must be 4.1.x; found %s", rv))
+  if (!(rv >= "4.1.0" && rv < "4.2.0")) stop(sprintf("R version must be 4.1.x; found %s", rv))
   sv <- packageVersion("Seurat")
-  if (sv != "4.2.0") stop(sprintf("Seurat must be 4.2.0; found %s", sv))
+  if (sv != "4.1.1") stop(sprintf("Seurat must be 4.1.1 with this module-based run (paper used 4.2.0.114); found %s", sv))
+  log_msg("Note: paper reported Seurat 4.2.0.114; running with module Seurat", sv, "on R", rv)
 }
 
 log_msg <- function(...) {

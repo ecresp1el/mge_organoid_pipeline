@@ -12,7 +12,7 @@
 ## #SBATCH --mail-user=you@umich.edu
 
 module load Bioinformatics
-module load r-seurat/4.1.1-R-4.2.0-5z5hgo7  # adjust to an R 4.1.x + Seurat 4.2.0 stack or the script will fail version checks
+module load r-seurat/4.1.1-R-4.1.1-qyci4bo
 
 REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
