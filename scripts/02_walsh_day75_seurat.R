@@ -14,10 +14,10 @@ suppressPackageStartupMessages({
 
 check_versions <- function() {
   rv <- getRversion()
-  if (!(rv >= "4.1.0" && rv < "4.2.0")) stop(sprintf("R version must be 4.1.x; found %s", rv))
+  if (!(rv >= "4.1.0" && rv < "4.3.0")) stop(sprintf("R version must be 4.1.x-4.2.x; found %s", rv))
   sv <- packageVersion("Seurat")
-  if (sv != "4.1.1") stop(sprintf("Seurat must be 4.1.1 with this module-based run (paper used 4.2.0.114); found %s", sv))
-  log_msg("Note: paper reported Seurat 4.2.0.114; running with module Seurat", sv, "on R", rv)
+  if (sv$major != 4) stop(sprintf("Seurat major version must be 4.x; found %s", sv))
+  log_msg("Using R", rv, "and Seurat", sv, "(paper reported Seurat 4.2.0.114)")
 }
 
 log_msg <- function(...) {
@@ -118,9 +118,18 @@ run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes) {
   obj <- FindClusters(obj, resolution = 2.0, algorithm = 1, verbose = FALSE)
 
   set.seed(seeds$umap)
-  obj <- RunUMAP(obj, dims = 1:20, seed.use = seeds$umap,
-                 n.neighbors = 30, min.dist = 0.3, spread = 1,
-                 metric = "cosine", umap.method = "umap-learn", verbose = FALSE)
+  obj <- RunUMAP(
+    obj,
+    dims = 1:20,
+    seed.use = seeds$umap,
+    n.neighbors = 30,
+    min.dist = 0.3,
+    spread = 1,
+    metric = "cosine",
+    umap.method = "uwot", # R-only; avoids python dependency
+    return.model = FALSE,
+    verbose = FALSE
+  )
 
   obj <- AddModuleScore(obj, features = list(hypoxia_genes), name = "HypoxiaScore", verbose = FALSE)
   obj$HypoxiaScore <- obj$HypoxiaScore1
@@ -159,6 +168,8 @@ main <- function() {
   log_msg("Stress gene lists (hypoxia):", paste(hypoxia_genes, collapse = ", "))
   log_msg("Stress gene lists (glycolysis):", paste(glycolysis_genes, collapse = ", "))
   log_msg("MT pattern: ^MT- ; QC: 1000-5000 genes, <15% MT")
+  log_msg("UMAP params: method=uwot (R), metric=cosine, n.neighbors=30, min.dist=0.3, spread=1, dims=1:20")
+  log_msg("Clustering: Louvain (algorithm=1), resolution=2.0; Neighbors: dims=1:20, k=20, algorithm=1")
 
   paths <- load_counts(project_root)
   counts_dfb <- read_counts_csv(paths$dFB)
