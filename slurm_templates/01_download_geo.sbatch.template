@@ -1,0 +1,24 @@
+#!/bin/bash
+#SBATCH --job-name=download_geo
+#SBATCH --time=02:00:00
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=8G
+#SBATCH --nodes=1
+#SBATCH --output=${PROJECT_ROOT}/logs/01_download_geo_%j.log
+#SBATCH --error=${PROJECT_ROOT}/logs/01_download_geo_%j.log
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=your_email@umich.edu
+## Optional: uncomment and set as needed for your environment
+## #SBATCH --account=your_account
+## #SBATCH --partition=standard
+
+# Template for downloading GEO datasets. Fill REPO_ROOT and PROJECT_ROOT before submission.
+REPO_ROOT="/path/to/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+
+set -euo pipefail
+
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT
+"${REPO_ROOT}/scripts/01_download_geo.sh" --project-root "${PROJECT_ROOT}"
