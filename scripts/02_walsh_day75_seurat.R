@@ -12,6 +12,7 @@ suppressPackageStartupMessages({
   library(ggplot2)
   library(dplyr)
   library(rlang)
+  library(future)
 })
 
 check_versions <- function() {
@@ -32,6 +33,8 @@ detect_threads <- function() {
   if (is.na(th) || th < 1) th <- 1L
   Sys.setenv(OMP_NUM_THREADS = th, MKL_NUM_THREADS = th, BLAS_THREADS = th, OPENBLAS_NUM_THREADS = th)
   log_msg("Threading: using", th, "threads for BLAS/OMP (from SLURM_CPUS_ON_NODE)")
+  plan(sequential)
+  options(future.seed = TRUE, future.rng.onMisuse = "ignore")
   th
 }
 
@@ -97,35 +100,55 @@ qc_filter <- function(obj) {
   subset(obj, subset = nFeature_RNA >= 1000 & nFeature_RNA <= 5000 & percent.mt < 15)
 }
 
-run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes, plots_dir, label) {
-  set.seed(seeds$hvg)
-  log_msg("Normalization: LogNormalize, scale.factor=1e4; HVG: vst, nfeatures=5000")
-  obj <- NormalizeData(obj, normalization.method = "LogNormalize", scale.factor = 1e4, verbose = FALSE)
-  obj <- FindVariableFeatures(obj, selection.method = "vst", nfeatures = 5000, verbose = FALSE)
+load_or_run <- function(path, compute_fn) {
+  if (file.exists(path)) {
+    log_msg("Loading checkpoint:", path)
+    return(readRDS(path))
+  }
+  obj <- compute_fn()
+  saveRDS(obj, path)
+  obj
+}
+
+run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes, plots_dir, label, ckpts) {
+  obj <- load_or_run(ckpts$norm_hvg, function() {
+    set.seed(seeds$hvg)
+    log_msg("Normalization: LogNormalize, scale.factor=1e4; HVG: vst, nfeatures=5000")
+    x <- NormalizeData(obj, normalization.method = "LogNormalize", scale.factor = 1e4, verbose = FALSE)
+    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 5000, verbose = FALSE)
+    x
+  })
   hvgs <- VariableFeatures(obj)
   log_msg("Scaling only HVGs:", length(hvgs))
 
-  set.seed(seeds$cc)
-  obj <- CellCycleScoring(obj, s.features = cc.genes.updated.2019$s.genes, g2m.features = cc.genes.updated.2019$g2m.genes, set.ident = FALSE)
-  log_msg("ScaleData regressors: S.Score, G2M.Score")
-  obj <- ScaleData(obj, features = hvgs, vars.to.regress = c("S.Score", "G2M.Score"), verbose = FALSE)
+  obj <- load_or_run(ckpts$cellcycle, function() {
+    set.seed(seeds$cc)
+    CellCycleScoring(obj, s.features = cc.genes.updated.2019$s.genes, g2m.features = cc.genes.updated.2019$g2m.genes, set.ident = FALSE)
+  })
 
-  set.seed(seeds$pca)
-  obj <- RunPCA(obj, features = hvgs, verbose = FALSE)
+  obj <- load_or_run(ckpts$scaled, function() {
+    log_msg("ScaleData regressors: S.Score, G2M.Score")
+    ScaleData(obj, features = hvgs, vars.to.regress = c("S.Score", "G2M.Score"), verbose = FALSE)
+  })
+
+  obj <- load_or_run(ckpts$pca, function() {
+    set.seed(seeds$pca)
+    RunPCA(obj, features = hvgs, verbose = FALSE)
+  })
 
   # JackStraw + Elbow to choose PCs
   set.seed(seeds$jackstraw)
-  obj <- JackStraw(obj, dims = 50, num.replicate = 100, verbose = FALSE)
-  obj <- ScoreJackStraw(obj, dims = 1:50)
-  js_pvals <- obj@reductions$pca@jackstraw$overall$p.values
-  sig_pcs <- which(js_pvals[, 2] < 0.05)
+  js_obj <- JackStraw(obj, dims = 50, num.replicate = 100, verbose = FALSE)
+  js_obj <- ScoreJackStraw(js_obj, dims = 1:50)
+  js_overall <- js_obj@reductions$pca@jackstraw@overall
+  sig_pcs <- which(js_overall[, 2] < 0.05)
   selected_pcs <- if (length(sig_pcs) > 0) max(sig_pcs) else 20L
   selected_pcs <- max(5L, min(selected_pcs, 50L))
   log_msg("JackStraw significant PCs (<0.05):", paste(sig_pcs, collapse = ", "))
   log_msg("Selected PCs for downstream:", selected_pcs)
 
   dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
-  js_plot <- JackStrawPlot(obj, dims = 1:50)
+  js_plot <- JackStrawPlot(js_obj, dims = 1:50)
   ggsave(file.path(plots_dir, paste0("jackstraw_", label, ".pdf")), js_plot, width = 8, height = 6)
   ggsave(file.path(plots_dir, paste0("jackstraw_", label, ".png")), js_plot, width = 8, height = 6, dpi = 300)
   elbow_plot <- ElbowPlot(obj, ndims = 50)
@@ -200,9 +223,11 @@ main <- function() {
   project_root <- normalizePath(args$project_root, mustWork = TRUE)
   results_dir <- file.path(project_root, "results", "walsh_day75")
   plots_dir <- file.path(results_dir, "plots")
+  ckpt_dir <- file.path(results_dir, "checkpoints")
   dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(ckpt_dir, recursive = TRUE, showWarnings = FALSE)
 
-  seeds <- list(hvg = 1001L, cc = 1002L, pca = 1003L, neighbors = 1004L, clusters = 1005L, umap = 1006L, plots = 1007L)
+  seeds <- list(hvg = 1001L, cc = 1002L, pca = 1003L, neighbors = 1004L, clusters = 1005L, umap = 1006L, plots = 1007L, jackstraw = 1008L)
   hypoxia_genes <- read_gene_list(args$hypoxia_genes)
   glycolysis_genes <- read_gene_list(args$glycolysis_genes)
 
@@ -219,16 +244,27 @@ main <- function() {
   log_msg("Counts dFB: genes", nrow(counts_dfb), "cells", ncol(counts_dfb))
   log_msg("Counts vFB: genes", nrow(counts_vfb), "cells", ncol(counts_vfb))
 
-  obj_dfb <- build_seurat(counts_dfb, "GSM7979671", "dFB_domain")
-  obj_vfb <- build_seurat(counts_vfb, "GSM7979672", "vFB_domain")
-  combined <- merge(obj_dfb, y = obj_vfb, add.cell.ids = c("GSM7979671", "GSM7979672"), project = "Walsh_d75")
+  ckpts_pre <- list(
+    merged = file.path(ckpt_dir, "walsh_merged_raw.rds"),
+    postqc = file.path(ckpt_dir, "walsh_postqc.rds"),
+    norm_hvg = file.path(ckpt_dir, "walsh_norm_hvg.rds"),
+    cellcycle = file.path(ckpt_dir, "walsh_cellcycle.rds"),
+    scaled = file.path(ckpt_dir, "walsh_scaled.rds"),
+    pca = file.path(ckpt_dir, "walsh_pca.rds")
+  )
+
+  combined <- load_or_run(ckpts_pre$merged, function() {
+    obj_dfb <- build_seurat(counts_dfb, "GSM7979671", "dFB_domain")
+    obj_vfb <- build_seurat(counts_vfb, "GSM7979672", "vFB_domain")
+    merge(obj_dfb, y = obj_vfb, add.cell.ids = c("GSM7979671", "GSM7979672"), project = "Walsh_d75")
+  })
   log_msg("Combined object size (MB):", signif(as.numeric(object.size(combined)) / 1024^2, 3))
 
-  combined_qc <- qc_filter(combined)
+  combined_qc <- load_or_run(ckpts_pre$postqc, function() qc_filter(combined))
   saveRDS(combined_qc, file.path(results_dir, "walsh_day75_postQC.rds"))
   log_msg("Post-QC cells:", ncol(combined_qc), "features:", nrow(combined_qc))
 
-  obj_initial <- run_pipeline(combined_qc, seeds, hypoxia_genes, glycolysis_genes, plots_dir, "pre_stress")
+  obj_initial <- run_pipeline(combined_qc, seeds, hypoxia_genes, glycolysis_genes, plots_dir, "pre_stress", ckpts_pre)
   saveRDS(obj_initial, file.path(results_dir, "walsh_day75_pre_stress_filter.rds"))
 
   stress_info <- stress_summary(obj_initial)
@@ -241,7 +277,14 @@ main <- function() {
   saveRDS(obj_filtered, file.path(results_dir, "walsh_day75_post_stress_prerun.rds"))
   log_msg("Cells after stress removal:", ncol(obj_filtered))
 
-  obj_final <- run_pipeline(obj_filtered, seeds, hypoxia_genes, glycolysis_genes, plots_dir, "post_stress")
+  ckpts_post <- list(
+    norm_hvg = file.path(ckpt_dir, "walsh_norm_hvg_poststress.rds"),
+    cellcycle = file.path(ckpt_dir, "walsh_cellcycle_poststress.rds"),
+    scaled = file.path(ckpt_dir, "walsh_scaled_poststress.rds"),
+    pca = file.path(ckpt_dir, "walsh_pca_poststress.rds")
+  )
+
+  obj_final <- run_pipeline(obj_filtered, seeds, hypoxia_genes, glycolysis_genes, plots_dir, "post_stress", ckpts_post)
   saveRDS(obj_final, file.path(results_dir, "walsh_day75_final.rds"))
 
   hypoxia_present <- hypoxia_genes[hypoxia_genes %in% rownames(obj_final)]
