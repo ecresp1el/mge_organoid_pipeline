@@ -6,9 +6,8 @@
 #SBATCH --nodes=1
 #SBATCH --output=${PROJECT_ROOT}/logs/03_plot_umaps_%j.log
 #SBATCH --error=${PROJECT_ROOT}/logs/03_plot_umaps_%j.log
-## Optional: uncomment as needed
-## #SBATCH --partition=standard
-## #SBATCH --account=your_account
+#SBATCH --partition=standard
+#SBATCH --account=parent0
 ## #SBATCH --mail-type=FAIL
 ## #SBATCH --mail-user=you@umich.edu
 

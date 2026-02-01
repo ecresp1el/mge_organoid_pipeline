@@ -8,9 +8,8 @@
 #SBATCH --error=${PROJECT_ROOT}/logs/01_download_geo_%j.log
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=your_email@umich.edu
-## Optional: uncomment and set as needed for your environment
-## #SBATCH --account=your_account
-## #SBATCH --partition=standard
+#SBATCH --account=parent0
+#SBATCH --partition=standard
 
 # Template for downloading GEO datasets. Fill REPO_ROOT and PROJECT_ROOT before submission.
 REPO_ROOT="/path/to/mge_organoid_pipeline"
