@@ -10,6 +10,7 @@ suppressPackageStartupMessages({
   library(Matrix)
   library(data.table)
   library(ggplot2)
+  library(dplyr)
 })
 
 check_versions <- function() {
