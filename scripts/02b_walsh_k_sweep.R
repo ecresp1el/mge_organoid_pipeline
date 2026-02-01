@@ -40,9 +40,9 @@ for (k in k_vals) {
   obj <- FindClusters(obj, resolution = 2.0, algorithm = 1, verbose = FALSE)
   set.seed(seeds$umap)
   red_name <- paste0("umap_k", k)
-  obj <- RunUMAP(obj, dims = 1:20, reduction.name = red_name, reduction.key = paste0("UMAP", k, "_"),
+  obj <- suppressWarnings(RunUMAP(obj, dims = 1:20, reduction.name = red_name, reduction.key = paste0("UMAP", k, "_"),
                  seed.use = seeds$umap, n.neighbors = 30, min.dist = 0.3, spread = 1,
-                 metric = "cosine", umap.method = "uwot", return.model = FALSE, verbose = FALSE)
+                 metric = "cosine", umap.method = "uwot", return.model = FALSE, verbose = FALSE))
 
   # Plots
   p_cluster <- DimPlot(obj, reduction = red_name, group.by = "seurat_clusters", label = TRUE, repel = TRUE, pt.size = 0.4, shuffle = FALSE, order = TRUE, raster = TRUE) +

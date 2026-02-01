@@ -202,7 +202,7 @@ run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes, plots_dir,
 
   # Main UMAP with selected PCs
   set.seed(seeds$umap)
-  obj <- RunUMAP(
+  obj <- suppressWarnings(RunUMAP(
     obj,
     dims = 1:selected_pcs,
     reduction.name = "umap_sel",
@@ -215,10 +215,10 @@ run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes, plots_dir,
     umap.method = "uwot",
     return.model = FALSE,
     verbose = FALSE
-  )
+  ))
 
   # Comparison UMAP fixed at 20 PCs
-  obj <- RunUMAP(
+  obj <- suppressWarnings(RunUMAP(
     obj,
     dims = 1:20,
     reduction.name = "umap20",
@@ -231,7 +231,7 @@ run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes, plots_dir,
     umap.method = "uwot",
     return.model = FALSE,
     verbose = FALSE
-  )
+  ))
 
   obj <- AddModuleScore(obj, features = list(hypoxia_genes), name = "HypoxiaScore", verbose = FALSE)
   obj$HypoxiaScore <- obj$HypoxiaScore1
