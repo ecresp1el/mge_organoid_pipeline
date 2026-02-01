@@ -97,7 +97,7 @@ qc_filter <- function(obj) {
   subset(obj, subset = nFeature_RNA >= 1000 & nFeature_RNA <= 5000 & percent.mt < 15)
 }
 
-run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes) {
+run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes, plots_dir, label) {
   set.seed(seeds$hvg)
   log_msg("Normalization: LogNormalize, scale.factor=1e4; HVG: vst, nfeatures=5000")
   obj <- NormalizeData(obj, normalization.method = "LogNormalize", scale.factor = 1e4, verbose = FALSE)
@@ -113,22 +113,60 @@ run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes) {
   set.seed(seeds$pca)
   obj <- RunPCA(obj, features = hvgs, verbose = FALSE)
 
+  # JackStraw + Elbow to choose PCs
+  set.seed(seeds$jackstraw)
+  obj <- JackStraw(obj, dims = 50, num.replicate = 100, verbose = FALSE)
+  obj <- ScoreJackStraw(obj, dims = 1:50)
+  js_pvals <- obj@reductions$pca@jackstraw$overall$p.values
+  sig_pcs <- which(js_pvals[, 2] < 0.05)
+  selected_pcs <- if (length(sig_pcs) > 0) max(sig_pcs) else 20L
+  selected_pcs <- max(5L, min(selected_pcs, 50L))
+  log_msg("JackStraw significant PCs (<0.05):", paste(sig_pcs, collapse = ", "))
+  log_msg("Selected PCs for downstream:", selected_pcs)
+
+  dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
+  js_plot <- JackStrawPlot(obj, dims = 1:50)
+  ggsave(file.path(plots_dir, paste0("jackstraw_", label, ".pdf")), js_plot, width = 8, height = 6)
+  ggsave(file.path(plots_dir, paste0("jackstraw_", label, ".png")), js_plot, width = 8, height = 6, dpi = 300)
+  elbow_plot <- ElbowPlot(obj, ndims = 50)
+  ggsave(file.path(plots_dir, paste0("elbow_", label, ".pdf")), elbow_plot, width = 8, height = 6)
+  ggsave(file.path(plots_dir, paste0("elbow_", label, ".png")), elbow_plot, width = 8, height = 6, dpi = 300)
+
   set.seed(seeds$neighbors)
-  obj <- FindNeighbors(obj, dims = 1:20, k.param = 20, algorithm = 1, verbose = FALSE)
+  obj <- FindNeighbors(obj, dims = 1:selected_pcs, k.param = 20, algorithm = 1, verbose = FALSE)
 
   set.seed(seeds$clusters)
   obj <- FindClusters(obj, resolution = 2.0, algorithm = 1, verbose = FALSE)
 
+  # Main UMAP with selected PCs
   set.seed(seeds$umap)
   obj <- RunUMAP(
     obj,
-    dims = 1:20,
+    dims = 1:selected_pcs,
+    reduction.name = "umap_sel",
+    reduction.key = "UMAPsel_",
     seed.use = seeds$umap,
     n.neighbors = 30,
     min.dist = 0.3,
     spread = 1,
     metric = "cosine",
-    umap.method = "uwot", # R-only; avoids python dependency
+    umap.method = "uwot",
+    return.model = FALSE,
+    verbose = FALSE
+  )
+
+  # Comparison UMAP fixed at 20 PCs
+  obj <- RunUMAP(
+    obj,
+    dims = 1:20,
+    reduction.name = "umap20",
+    reduction.key = "UMAP20_",
+    seed.use = seeds$umap + 1L,
+    n.neighbors = 30,
+    min.dist = 0.3,
+    spread = 1,
+    metric = "cosine",
+    umap.method = "uwot",
     return.model = FALSE,
     verbose = FALSE
   )
@@ -137,6 +175,8 @@ run_pipeline <- function(obj, seeds, hypoxia_genes, glycolysis_genes) {
   obj$HypoxiaScore <- obj$HypoxiaScore1
   obj <- AddModuleScore(obj, features = list(glycolysis_genes), name = "GlycolysisScore", verbose = FALSE)
   obj$GlycolysisScore <- obj$GlycolysisScore1
+  obj@misc$selected_pcs <- selected_pcs
+  obj@misc$jackstraw_sig_pcs <- sig_pcs
   obj
 }
 
@@ -188,7 +228,7 @@ main <- function() {
   saveRDS(combined_qc, file.path(results_dir, "walsh_day75_postQC.rds"))
   log_msg("Post-QC cells:", ncol(combined_qc), "features:", nrow(combined_qc))
 
-  obj_initial <- run_pipeline(combined_qc, seeds, hypoxia_genes, glycolysis_genes)
+  obj_initial <- run_pipeline(combined_qc, seeds, hypoxia_genes, glycolysis_genes, plots_dir, "pre_stress")
   saveRDS(obj_initial, file.path(results_dir, "walsh_day75_pre_stress_filter.rds"))
 
   stress_info <- stress_summary(obj_initial)
@@ -201,7 +241,7 @@ main <- function() {
   saveRDS(obj_filtered, file.path(results_dir, "walsh_day75_post_stress_prerun.rds"))
   log_msg("Cells after stress removal:", ncol(obj_filtered))
 
-  obj_final <- run_pipeline(obj_filtered, seeds, hypoxia_genes, glycolysis_genes)
+  obj_final <- run_pipeline(obj_filtered, seeds, hypoxia_genes, glycolysis_genes, plots_dir, "post_stress")
   saveRDS(obj_final, file.path(results_dir, "walsh_day75_final.rds"))
 
   hypoxia_present <- hypoxia_genes[hypoxia_genes %in% rownames(obj_final)]
@@ -210,7 +250,7 @@ main <- function() {
   log_msg("Glycolysis genes present:", paste(glycolysis_present, collapse = ", "))
 
   dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
-  common_args <- list(object = obj_final, reduction = "umap", pt.size = 0.4, shuffle = FALSE, order = TRUE, raster = TRUE)
+  common_args <- list(object = obj_final, reduction = "umap_sel", pt.size = 0.4, shuffle = FALSE, order = TRUE, raster = TRUE)
   set.seed(seeds$plots)
   p1 <- do.call(DimPlot, c(common_args, list(group.by = "seurat_clusters", label = TRUE, repel = TRUE))) +
     ggtitle("UMAP by Louvain cluster (res=2.0, dims 1:20)")
@@ -229,10 +269,22 @@ main <- function() {
   markers <- c("NKX2-1", "DLX2", "GAD1", "GAD2", "SST")
   markers_present <- markers[markers %in% rownames(obj_final)]
   if (length(markers_present) > 0) {
-    fp <- FeaturePlot(obj_final, features = markers_present, reduction = "umap", order = TRUE, raster = TRUE, pt.size = 0.3)
+    fp <- FeaturePlot(obj_final, features = markers_present, reduction = "umap_sel", order = TRUE, raster = TRUE, pt.size = 0.3)
     ggsave(file.path(plots_dir, "umap_marker_features.pdf"), fp, width = 10, height = 8)
     ggsave(file.path(plots_dir, "umap_marker_features.png"), fp, width = 10, height = 8, dpi = 300)
   }
+
+  # UMAP using fixed 20 PCs for comparison
+  common_args20 <- common_args
+  common_args20$reduction <- "umap20"
+  p1_20 <- do.call(DimPlot, c(common_args20, list(group.by = "seurat_clusters", label = TRUE, repel = TRUE))) +
+    ggtitle("UMAP (20 PCs) by Louvain cluster")
+  ggsave(file.path(plots_dir, "umap20_by_cluster.pdf"), p1_20, width = 8, height = 6)
+  ggsave(file.path(plots_dir, "umap20_by_cluster.png"), p1_20, width = 8, height = 6, dpi = 300)
+
+  p2_20 <- do.call(DimPlot, c(common_args20, list(group.by = "domain"))) + ggtitle("UMAP (20 PCs) by domain")
+  ggsave(file.path(plots_dir, "umap20_by_domain.pdf"), p2_20, width = 8, height = 6)
+  ggsave(file.path(plots_dir, "umap20_by_domain.png"), p2_20, width = 8, height = 6, dpi = 300)
 
   report <- c(
     sprintf("R version: %s", getRversion()),
