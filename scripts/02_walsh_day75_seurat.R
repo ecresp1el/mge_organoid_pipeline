@@ -11,6 +11,7 @@ suppressPackageStartupMessages({
   library(data.table)
   library(ggplot2)
   library(dplyr)
+  library(rlang)
 })
 
 check_versions <- function() {
@@ -209,19 +210,19 @@ main <- function() {
   log_msg("Glycolysis genes present:", paste(glycolysis_present, collapse = ", "))
 
   dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
-  common_args <- list(reduction = "umap", pt.size = 0.4, shuffle = FALSE, order = TRUE, raster = TRUE)
+  common_args <- list(object = obj_final, reduction = "umap", pt.size = 0.4, shuffle = FALSE, order = TRUE, raster = TRUE)
   set.seed(seeds$plots)
-  p1 <- DimPlot(obj_final, group.by = "seurat_clusters", label = TRUE, repel = TRUE, !!!common_args) +
+  p1 <- do.call(DimPlot, c(common_args, list(group.by = "seurat_clusters", label = TRUE, repel = TRUE))) +
     ggtitle("UMAP by Louvain cluster (res=2.0, dims 1:20)")
   ggsave(file.path(plots_dir, "umap_by_cluster.pdf"), p1, width = 8, height = 6)
   ggsave(file.path(plots_dir, "umap_by_cluster.png"), p1, width = 8, height = 6, dpi = 300)
   if ("domain" %in% colnames(obj_final@meta.data)) {
-    p2 <- DimPlot(obj_final, group.by = "domain", !!!common_args) + ggtitle("UMAP by domain (vFB vs dFB)")
+    p2 <- do.call(DimPlot, c(common_args, list(group.by = "domain"))) + ggtitle("UMAP by domain (vFB vs dFB)")
     ggsave(file.path(plots_dir, "umap_by_domain.pdf"), p2, width = 8, height = 6)
     ggsave(file.path(plots_dir, "umap_by_domain.png"), p2, width = 8, height = 6, dpi = 300)
   }
   if ("sample_id" %in% colnames(obj_final@meta.data)) {
-    p3 <- DimPlot(obj_final, group.by = "sample_id", !!!common_args) + ggtitle("UMAP by sample")
+    p3 <- do.call(DimPlot, c(common_args, list(group.by = "sample_id"))) + ggtitle("UMAP by sample")
     ggsave(file.path(plots_dir, "umap_by_sample.pdf"), p3, width = 8, height = 6)
     ggsave(file.path(plots_dir, "umap_by_sample.png"), p3, width = 8, height = 6, dpi = 300)
   }
@@ -246,7 +247,7 @@ main <- function() {
     "Threading: BLAS/OMP set from SLURM_CPUS_ON_NODE",
     "Neighbors: dims 1:20, k.param=20, algorithm=1 (exact)",
     "Clustering: Louvain (algorithm=1), resolution=2.0",
-    "UMAP: dims 1:20, umap-learn, metric=cosine, n.neighbors=30, min.dist=0.3, spread=1",
+    "UMAP: dims 1:20, umap.method=uwot (R), metric=cosine, n.neighbors=30, min.dist=0.3, spread=1",
     sprintf("Seeds: hvg=%s, cc=%s, pca=%s, neighbors=%s, clusters=%s, umap=%s",
             seeds$hvg, seeds$cc, seeds$pca, seeds$neighbors, seeds$clusters, seeds$umap),
     sprintf("Hypoxia genes: %s", paste(hypoxia_genes, collapse = ", ")),
