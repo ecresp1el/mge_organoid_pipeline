@@ -8,6 +8,12 @@
 - Raw GEO downloads:
   - Walsh: `PROJECT_ROOT/data/raw/walsh_2025_geo_files/`
   - Bershteyn: `PROJECT_ROOT/data/raw/bershteyn_2025_geo_files/`
+- Raw GEO downloads (new):
+  - Xiang_2018 (GSE97882): `PROJECT_ROOT/data/raw/xiang_2018_geo_files/`
+  - Samarasinghe_2021 (GSE165577): `PROJECT_ROOT/data/raw/samarasinghe_2021_geo_files/`
+- NeMO landing-page downloads (Siebert 2026, `nemo:dat-htzat9t`):
+  - `PROJECT_ROOT/data/raw/siebert_2026_nemo/` (metadata, BDBags, subset fetch + downloads)
+  - Status: **TBD** until NeMO publishes manifests/files.
 - Processed / results:
   - Walsh: `PROJECT_ROOT/results/walsh_day75/`
   - Bershteyn: `PROJECT_ROOT/results/bershteyn/`
@@ -49,6 +55,8 @@
 - Domain composition by Walsh group: `results/walsh_day75/walsh_domain_composition_by_group.tsv`
 
 ## Scripts (repo)
+- NeMO Siebert landing page/BDBag: `scripts/01b_download_siebert_nemo.sh`
+- Extra GEO downloads (Xiang_2018, Samarasinghe_2021): `scripts/01c_download_extra_geo.sh`
 - Main pipeline: `scripts/02_walsh_day75_seurat.R` (methods-locked QC/normalize/HVG/CC/Scale/PCA/stress removal/UMAP/clustering; checkpoints; Elbow fallback)
 - Sweeps: `scripts/02b_walsh_k_sweep.R`, `02c_walsh_dims_sweep.R`, `02d_walsh_resolution_sweep.R`, `02e_walsh_kres_sweep.R`
 - Annotation: `scripts/02f_walsh_annotation.R` (adds walsh_group labels, tables, annotated UMAP)
