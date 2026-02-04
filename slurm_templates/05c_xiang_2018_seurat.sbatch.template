@@ -1,0 +1,22 @@
+#!/bin/bash
+#SBATCH --job-name=xiang2018_seurat
+#SBATCH --time=06:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=48G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05c_xiang_2018_seurat_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05c_xiang_2018_seurat_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+module load Bioinformatics
+module load r-seurat/4.1.1-R-4.2.0-5z5hgo7
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+
+set -euo pipefail
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT
+Rscript "${REPO_ROOT}/scripts/05c_xiang_2018_seurat.R" --project-root "${PROJECT_ROOT}"

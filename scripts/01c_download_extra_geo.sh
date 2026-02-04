@@ -104,7 +104,9 @@ main() {
 
   declare -A bases
   bases["GSE97882"]="https://ftp.ncbi.nlm.nih.gov/geo/series/GSE97nnn/GSE97882"
+  bases["GSE98201"]="https://ftp.ncbi.nlm.nih.gov/geo/series/GSE98nnn/GSE98201"
   bases["GSE165577"]="https://ftp.ncbi.nlm.nih.gov/geo/series/GSE165nnn/GSE165577"
+  bases["GSE208672"]="https://ftp.ncbi.nlm.nih.gov/geo/series/GSE208nnn/GSE208672"
 
   # dataset_dir_name|subdir|filename|url_suffix
   local gse97882_files=(
@@ -114,6 +116,11 @@ main() {
     "xiang_2018_geo_files|soft|GSE97882_family.soft.gz|/soft/GSE97882_family.soft.gz"
     "xiang_2018_geo_files|suppl|filelist.txt|/suppl/filelist.txt"
     "xiang_2018_geo_files|suppl|GSE97882_RAW.tar|/suppl/GSE97882_RAW.tar"
+    # scRNA-seq SubSeries GSE98201 (10x matrix trio)
+    # scRNA-seq SubSeries GSE98201 (10x matrix trio)
+    "GSE98201|xiang_2018_geo_files/suppl|GSE98201_matrix.mtx.gz|/suppl/GSE98201_matrix.mtx.gz"
+    "GSE98201|xiang_2018_geo_files/suppl|GSE98201_genes.tsv.gz|/suppl/GSE98201_genes.tsv.gz"
+    "GSE98201|xiang_2018_geo_files/suppl|GSE98201_barcodes.tsv.gz|/suppl/GSE98201_barcodes.tsv.gz"
   )
 
   local gse165577_files=(
@@ -122,6 +129,13 @@ main() {
     "samarasinghe_2021_geo_files|soft|GSE165577_family.soft.gz|/soft/GSE165577_family.soft.gz"
     "samarasinghe_2021_geo_files|suppl|GSE165577_Filtered_counts_all_samples.csv.gz|/suppl/GSE165577_Filtered_counts_all_samples.csv.gz"
     "samarasinghe_2021_geo_files|suppl|GSE165577_Normalized_counts_all_samples.csv.gz|/suppl/GSE165577_Normalized_counts_all_samples.csv.gz"
+  )
+
+  local gse208672_files=(
+    "bershteyn_2023_geo_files|matrix|GSE208672_series_matrix.txt.gz|/matrix/GSE208672_series_matrix.txt.gz"
+    "bershteyn_2023_geo_files|miniml|GSE208672_family.xml.tgz|/miniml/GSE208672_family.xml.tgz"
+    "bershteyn_2023_geo_files|soft|GSE208672_family.soft.gz|/soft/GSE208672_family.soft.gz"
+    "bershteyn_2023_geo_files|suppl|GSE208672_Seurat_allsamples.rds.gz|/suppl/GSE208672_Seurat_allsamples.rds.gz"
   )
 
   process_dataset() {
@@ -137,14 +151,21 @@ main() {
     echo -e "url\tdestination\tsize_bytes\tsha256" > "$manifest"
 
     for entry in "${file_entries[@]}"; do
-      IFS='|' read -r _ subdir filename url_suffix <<< "$entry"
-      local dest="${target_dir}/${subdir}/${filename}"
-      local url="${base}${url_suffix}"
+      IFS='|' read -r entry_acc subdir filename url_suffix <<< "$entry"
+      local base_use="${bases[$entry_acc]:-${bases[$accession]}}"
+      local dest
+      if [[ "$subdir" == xiang_2018_geo_files* || "$subdir" == samarasinghe_2021_geo_files* || "$subdir" == bershteyn_2025_geo_files* || "$subdir" == walsh_2025_geo_files* ]]; then
+        dest="${dest_root}/${subdir}/${filename}"
+      else
+        dest="${target_dir}/${subdir}/${filename}"
+      fi
+      local url="${base_use}${url_suffix}"
       download_and_record "$url" "$dest" "$manifest"
     done
   }
 
   process_dataset "GSE97882" "xiang_2018_geo_files" gse97882_files
+  process_dataset "GSE208672" "bershteyn_2023_geo_files" gse208672_files
   process_dataset "GSE165577" "samarasinghe_2021_geo_files" gse165577_files
 
   echo "Done."

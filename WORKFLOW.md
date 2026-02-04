@@ -10,6 +10,8 @@
   - Bershteyn: `PROJECT_ROOT/data/raw/bershteyn_2025_geo_files/`
 - Raw GEO downloads (new):
   - Xiang_2018 (GSE97882): `PROJECT_ROOT/data/raw/xiang_2018_geo_files/`
+    - scRNA (GSE98201 10x): matrix/genes/barcodes in `.../suppl/GSE98201_*`
+  - Bershteyn_2023 (GSE208672): `PROJECT_ROOT/data/raw/bershteyn_2023_geo_files/` (includes supplied Seurat RDS)
   - Samarasinghe_2021 (GSE165577): `PROJECT_ROOT/data/raw/samarasinghe_2021_geo_files/`
 - NeMO landing-page downloads (Siebert 2026, `nemo:dat-htzat9t`):
   - `PROJECT_ROOT/data/raw/siebert_2026_nemo/` (metadata, BDBags, subset fetch + downloads)
@@ -61,6 +63,8 @@
 - Extra GEO downloads (Xiang_2018, Samarasinghe_2021): `scripts/01c_download_extra_geo.sh`
 - Samarasinghe 2021 Seurat/UMAP: `scripts/05_samarasinghe_2021_seurat.R`
 - Samarasinghe 2021 LIGER (paper settings): `scripts/05b_samarasinghe_2021_liger.R`
+- Xiang 2018 scRNA 10x (GSE98201) Seurat/UMAP: `scripts/05c_xiang_2018_seurat.R`
+- Bershteyn 2023 Seurat plotting: `scripts/05d_bershteyn_2023_seurat_plot.R`
 - Main pipeline: `scripts/02_walsh_day75_seurat.R` (methods-locked QC/normalize/HVG/CC/Scale/PCA/stress removal/UMAP/clustering; checkpoints; Elbow fallback)
 - Sweeps: `scripts/02b_walsh_k_sweep.R`, `02c_walsh_dims_sweep.R`, `02d_walsh_resolution_sweep.R`, `02e_walsh_kres_sweep.R`
 - Annotation: `scripts/02f_walsh_annotation.R` (adds walsh_group labels, tables, annotated UMAP)

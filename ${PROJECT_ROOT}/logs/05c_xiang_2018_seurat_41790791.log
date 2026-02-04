@@ -1,0 +1,10 @@
+
+    Provides Bioinformatics software.
+    For more information please use:
+
+        $ module help Bioinformatics
+
+
+Error in if (project_root == "") stop("PROJECT_ROOT or --project-root is required") : 
+  missing value where TRUE/FALSE needed
+Execution halted
