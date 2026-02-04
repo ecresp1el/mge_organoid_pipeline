@@ -19,15 +19,20 @@
 - Processed / results:
   - Walsh: `PROJECT_ROOT/results/walsh_day75/`
   - Bershteyn: `PROJECT_ROOT/results/bershteyn/`
-  - Samarasinghe_2021: `PROJECT_ROOT/results/samarasinghe_2021/` (Seurat + UMAP, TBD if rerun)
+  - Samarasinghe_2021: `PROJECT_ROOT/results/samarasinghe_2021/` (Seurat + UMAP; LIGER pending deps install)
   - Samarasinghe_2021 LIGER (paper-matched): `PROJECT_ROOT/results/samarasinghe_2021_liger/`
+  - Xiang_2018: `PROJECT_ROOT/results/xiang_2018/` (Seurat + UMAP from GSE98201)
+  - Bershteyn_2023: `PROJECT_ROOT/results/bershteyn_2023/` (Seurat RDS supplied; UMAP plotted)
 - Logs: `PROJECT_ROOT/logs/`
 - Job scripts: `PROJECT_ROOT/jobs/`
 
-## Main Seurat Objects
+## Main Seurat Objects / Plots
 - Walsh final (post-stress, annotated): `results/walsh_day75/walsh_day75_final_annotated.rds`
 - Walsh final (post-stress, unannotated): `results/walsh_day75/walsh_day75_final.rds`
-- Bershteyn Seurat object (converted from GEO-supplied serialized RDS): `results/bershteyn/bershteyn_2025_seurat.rds`
+- Bershteyn 2025 (GSE283775) Seurat: `results/bershteyn/bershteyn_2025_seurat.rds`
+- Bershteyn 2023 (GSE208672) Seurat: `results/bershteyn_2023/bershteyn_2023_seurat.rds`; UMAP `results/bershteyn_2023/plots/umap_by_cluster.{png,pdf}`
+- Xiang 2018 Seurat (GSE98201 10x): `results/xiang_2018/xiang_2018_seurat.rds`; UMAP `results/xiang_2018/plots/umap_by_cluster.{png,pdf}`
+- Samarasinghe 2021 Seurat: `results/samarasinghe_2021/samarasinghe_2021_seurat.rds` (UMAP pending LIGER run)
 
 ## Checkpoints (Walsh)
 `results/walsh_day75/checkpoints/`
@@ -60,7 +65,7 @@
 
 ## Scripts (repo)
 - NeMO Siebert landing page/BDBag: `scripts/01b_download_siebert_nemo.sh`
-- Extra GEO downloads (Xiang_2018, Samarasinghe_2021): `scripts/01c_download_extra_geo.sh`
+- Extra GEO downloads (Xiang_2018, Samarasinghe_2021, Bershteyn_2023): `scripts/01c_download_extra_geo.sh`
 - Samarasinghe 2021 Seurat/UMAP: `scripts/05_samarasinghe_2021_seurat.R`
 - Samarasinghe 2021 LIGER (paper settings): `scripts/05b_samarasinghe_2021_liger.R`
 - Xiang 2018 scRNA 10x (GSE98201) Seurat/UMAP: `scripts/05c_xiang_2018_seurat.R`
@@ -68,7 +73,6 @@
 - Main pipeline: `scripts/02_walsh_day75_seurat.R` (methods-locked QC/normalize/HVG/CC/Scale/PCA/stress removal/UMAP/clustering; checkpoints; Elbow fallback)
 - Sweeps: `scripts/02b_walsh_k_sweep.R`, `02c_walsh_dims_sweep.R`, `02d_walsh_resolution_sweep.R`, `02e_walsh_kres_sweep.R`
 - Annotation: `scripts/02f_walsh_annotation.R` (adds walsh_group labels, tables, annotated UMAP)
-- Bershteyn: Seurat object already provided; no processing script run here.
 
 ## Canonical plot paths to share
 - 15 clusters (labels 0–14): `results/walsh_day75/kres_sweep_plots/umap_by_cluster_res0.8_k30.png`
