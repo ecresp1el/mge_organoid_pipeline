@@ -1,0 +1,26 @@
+#!/bin/bash
+#SBATCH --job-name=samarasinghe_liger
+#SBATCH --time=12:00:00
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=96G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05b_samarasinghe_2021_liger_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05b_samarasinghe_2021_liger_%j.log
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=your_email@umich.edu
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+
+# Activate the Bioinformatics stack, then load Seurat (brings its own R 4.2.0)
+module load Bioinformatics
+module load r-seurat/4.1.1-R-4.2.0-5z5hgo7
+
+set -euo pipefail
+
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT
+Rscript "${REPO_ROOT}/scripts/05b_samarasinghe_2021_liger.R" --project-root "${PROJECT_ROOT}"

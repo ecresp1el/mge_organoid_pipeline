@@ -17,6 +17,8 @@
 - Processed / results:
   - Walsh: `PROJECT_ROOT/results/walsh_day75/`
   - Bershteyn: `PROJECT_ROOT/results/bershteyn/`
+  - Samarasinghe_2021: `PROJECT_ROOT/results/samarasinghe_2021/` (Seurat + UMAP, TBD if rerun)
+  - Samarasinghe_2021 LIGER (paper-matched): `PROJECT_ROOT/results/samarasinghe_2021_liger/`
 - Logs: `PROJECT_ROOT/logs/`
 - Job scripts: `PROJECT_ROOT/jobs/`
 
@@ -57,6 +59,8 @@
 ## Scripts (repo)
 - NeMO Siebert landing page/BDBag: `scripts/01b_download_siebert_nemo.sh`
 - Extra GEO downloads (Xiang_2018, Samarasinghe_2021): `scripts/01c_download_extra_geo.sh`
+- Samarasinghe 2021 Seurat/UMAP: `scripts/05_samarasinghe_2021_seurat.R`
+- Samarasinghe 2021 LIGER (paper settings): `scripts/05b_samarasinghe_2021_liger.R`
 - Main pipeline: `scripts/02_walsh_day75_seurat.R` (methods-locked QC/normalize/HVG/CC/Scale/PCA/stress removal/UMAP/clustering; checkpoints; Elbow fallback)
 - Sweeps: `scripts/02b_walsh_k_sweep.R`, `02c_walsh_dims_sweep.R`, `02d_walsh_resolution_sweep.R`, `02e_walsh_kres_sweep.R`
 - Annotation: `scripts/02f_walsh_annotation.R` (adds walsh_group labels, tables, annotated UMAP)
