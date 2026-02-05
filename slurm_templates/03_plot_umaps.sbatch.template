@@ -4,8 +4,8 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=24G
 #SBATCH --nodes=1
-#SBATCH --output=${PROJECT_ROOT}/logs/03_plot_umaps_%j.log
-#SBATCH --error=${PROJECT_ROOT}/logs/03_plot_umaps_%j.log
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/03_plot_umaps_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/03_plot_umaps_%j.log
 #SBATCH --partition=standard
 #SBATCH --account=parent0
 ## #SBATCH --mail-type=FAIL

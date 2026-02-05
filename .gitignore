@@ -2,3 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# Guardrail: Slurm does NOT expand shell variables in `#SBATCH --output/--error`.
+# Submitting templates that used `${PROJECT_ROOT}` previously created a literal
+# `${PROJECT_ROOT}/` directory inside the repo. Keep runtime artifacts out of git.
+${PROJECT_ROOT}/

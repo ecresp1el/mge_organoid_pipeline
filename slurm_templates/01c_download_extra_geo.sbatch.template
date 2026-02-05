@@ -4,16 +4,17 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
 #SBATCH --nodes=1
-#SBATCH --output=${PROJECT_ROOT}/logs/01c_download_extra_geo_%j.log
-#SBATCH --error=${PROJECT_ROOT}/logs/01c_download_extra_geo_%j.log
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/01c_download_extra_geo_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/01c_download_extra_geo_%j.log
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=your_email@umich.edu
 #SBATCH --account=parent0
 #SBATCH --partition=standard
 
 # Template for downloading GEO datasets GSE97882 (Xiang_2018) and GSE165577 (Samarasinghe_2021).
-# Fill REPO_ROOT and PROJECT_ROOT before submission.
-REPO_ROOT="/path/to/mge_organoid_pipeline"
+# NOTE: Slurm does not expand shell variables in `#SBATCH --output/--error`, so we
+# keep those as absolute paths to avoid writing logs into the repo.
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 
 set -euo pipefail

@@ -4,35 +4,87 @@
 - Repo (code/config only): `/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline`
 - Runtime workspace (data/jobs/results): `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder` (PROJECT_ROOT)
 
+## Directory Conventions (PROJECT_ROOT)
+Canonical layout for each study:
+
+```
+PROJECT_ROOT/
+  data/
+    raw/
+      <study>_geo_files/          # GEO downloads (series matrix, SOFT, MINiML, supp files)
+        matrix/
+        miniml/
+        soft/
+        suppl/
+        download_manifest.tsv
+      <study>_nemo/               # NeMO landing-page/BDBag downloads
+        metadata.json
+        manifest_download.tsv
+    processed/
+      <study_or_run_label>/       # Optional: intermediate extracts (e.g., raw tar extraction)
+  results/
+    <study_or_run_label>/
+      <study_or_run_label>_seurat.rds   # If generated/copied
+      plots/
+        umap_by_cluster.png
+        umap_by_cluster.pdf
+      checkpoints/                # Optional (Walsh pipeline)
+  logs/                           # Slurm logs
+  jobs/                           # Rendered sbatch files actually submitted
+```
+
 ## Key Data Locations
 - Raw GEO downloads:
   - Walsh: `PROJECT_ROOT/data/raw/walsh_2025_geo_files/`
   - Bershteyn: `PROJECT_ROOT/data/raw/bershteyn_2025_geo_files/`
-- Raw GEO downloads (new):
-  - Xiang_2018 (GSE97882): `PROJECT_ROOT/data/raw/xiang_2018_geo_files/`
-    - scRNA (GSE98201 10x): matrix/genes/barcodes in `.../suppl/GSE98201_*`
-  - Bershteyn_2023 (GSE208672): `PROJECT_ROOT/data/raw/bershteyn_2023_geo_files/` (includes supplied Seurat RDS)
-  - Samarasinghe_2021 (GSE165577): `PROJECT_ROOT/data/raw/samarasinghe_2021_geo_files/`
+- Raw GEO downloads (additional):
+  - Xiang_2018 (GSE97882; scRNA SubSeries GSE98201 10x): `PROJECT_ROOT/data/raw/xiang_2018_geo_files/`
+    - 10x matrix/genes/barcodes: `.../suppl/GSE98201_{matrix,genes,barcodes}.tsv.gz`
+  - Bershteyn_2023 (GSE208672; supplied Seurat RDS): `PROJECT_ROOT/data/raw/bershteyn_2023_geo_files/`
+  - Samarasinghe_2021 (GSE165577; counts CSVs): `PROJECT_ROOT/data/raw/samarasinghe_2021_geo_files/`
 - NeMO landing-page downloads (Siebert 2026, `nemo:dat-htzat9t`):
   - `PROJECT_ROOT/data/raw/siebert_2026_nemo/` (metadata, BDBags, subset fetch + downloads)
   - Status: **TBD** until NeMO publishes manifests/files.
 - Processed / results:
   - Walsh: `PROJECT_ROOT/results/walsh_day75/`
-  - Bershteyn: `PROJECT_ROOT/results/bershteyn/`
-  - Samarasinghe_2021: `PROJECT_ROOT/results/samarasinghe_2021/` (Seurat + UMAP; LIGER pending deps install)
-  - Samarasinghe_2021 LIGER (paper-matched): `PROJECT_ROOT/results/samarasinghe_2021_liger/`
-  - Xiang_2018: `PROJECT_ROOT/results/xiang_2018/` (Seurat + UMAP from GSE98201)
-  - Bershteyn_2023: `PROJECT_ROOT/results/bershteyn_2023/` (Seurat RDS supplied; UMAP plotted)
+  - Bershteyn_2025: `PROJECT_ROOT/results/bershteyn/` (plots only; provided Seurat object remains under `data/raw/...`)
+  - Xiang_2018: `PROJECT_ROOT/results/xiang_2018/` (Seurat + UMAP generated from GSE98201 10x)
+  - Bershteyn_2023: `PROJECT_ROOT/results/bershteyn_2023/` (provided Seurat object copied + UMAP plotted)
+  - Samarasinghe_2021: **not generated yet** (expected: `PROJECT_ROOT/results/samarasinghe_2021/`)
+  - Samarasinghe_2021 LIGER (paper-matched): **not generated yet** (expected: `PROJECT_ROOT/results/samarasinghe_2021_liger/`)
 - Logs: `PROJECT_ROOT/logs/`
 - Job scripts: `PROJECT_ROOT/jobs/`
 
 ## Main Seurat Objects / Plots
 - Walsh final (post-stress, annotated): `results/walsh_day75/walsh_day75_final_annotated.rds`
 - Walsh final (post-stress, unannotated): `results/walsh_day75/walsh_day75_final.rds`
-- Bershteyn 2025 (GSE283775) Seurat: `results/bershteyn/bershteyn_2025_seurat.rds`
+- Bershteyn 2025 (GSE283775) provided Seurat object: `data/raw/bershteyn_2025_geo_files/suppl/GSE283775_Seurat_scRNA_seq.rds.gz`
+  - UMAP: `results/bershteyn/plots/umap_by_cluster.{png,pdf}`
 - Bershteyn 2023 (GSE208672) Seurat: `results/bershteyn_2023/bershteyn_2023_seurat.rds`; UMAP `results/bershteyn_2023/plots/umap_by_cluster.{png,pdf}`
 - Xiang 2018 Seurat (GSE98201 10x): `results/xiang_2018/xiang_2018_seurat.rds`; UMAP `results/xiang_2018/plots/umap_by_cluster.{png,pdf}`
-- Samarasinghe 2021 Seurat: `results/samarasinghe_2021/samarasinghe_2021_seurat.rds` (UMAP pending LIGER run)
+- Samarasinghe 2021 (GSE165577) expected outputs (not generated yet):
+  - Seurat: `results/samarasinghe_2021/samarasinghe_2021_seurat.rds`
+  - UMAP: `results/samarasinghe_2021/plots/umap_by_cluster.{png,pdf}`
+
+## Study Status Audit (2026-02-04)
+
+To regenerate this table from the current state of `PROJECT_ROOT`, run:
+`scripts/00_audit_studies.sh --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder`
+
+| Study | Raw inputs available | Seurat object available | UMAP PNG available | Notes |
+| --- | --- | --- | --- | --- |
+| Walsh (GSE250482) | Yes (GEO RAW tar) | Yes (`results/walsh_day75/walsh_day75_final*.rds`) | Yes (`results/walsh_day75/plots/umap_by_cluster.png`) | Run label is `walsh_day75` (not `walsh_2025`). |
+| Bershteyn 2025 (GSE283775) | Yes (provided Seurat `.rds.gz`) | Yes (in `data/raw/.../suppl/`) | Yes (`results/bershteyn/plots/umap_by_cluster.png`) | Results folder currently contains plots only (no copied/saved `.rds`). |
+| Xiang 2018 (GSE98201) | Yes (10x matrix/genes/barcodes) | Yes (`results/xiang_2018/xiang_2018_seurat.rds`) | Yes (`results/xiang_2018/plots/umap_by_cluster.png`) | Built from GSE98201 trio under `.../suppl/`. |
+| Bershteyn 2023 (GSE208672) | Yes (provided Seurat `.rds.gz`) | Yes (`results/bershteyn_2023/bershteyn_2023_seurat.rds`) | Yes (`results/bershteyn_2023/plots/umap_by_cluster.png`) | Raw `suppl/` contains extra variants (`.rds`, `.gz2`) from download/read debugging. |
+| Samarasinghe 2021 (GSE165577) | Yes (filtered/normalized counts CSVs) | Not yet (script ready) | Not yet | Needs Seurat run (`scripts/05_samarasinghe_2021_seurat.R`). LIGER step pending. |
+| Siebert 2026 (NeMO `nemo:dat-htzat9t`) | Not published (metadata only) | No | No | Waiting on NeMO manifests/files; placeholder only. |
+
+## Known Deviations / Cleanup Items
+- If you ever see `PROJECT_ROOT/data/raw/{matrix,miniml,soft,suppl}/` at the top level (they should not exist), they are empty leftovers from an earlier download script bug; safe to delete.
+- Bershteyn 2025 results live in `results/bershteyn/` (legacy name; not suffixed with `_2025` like other studies). Option: rename to `results/bershteyn_2025/` later and update `scripts/03_plot_umaps.R`.
+- Bershteyn 2025 Seurat object is not copied into `results/` yet (it is provided under `data/raw/.../suppl/`).
+- Bershteyn 2023 raw `suppl/` contains multiple variants (`.rds`, `.rds.gz`, `.rds.gz2`) from download/read debugging; the canonical copy is `results/bershteyn_2023/bershteyn_2023_seurat.rds`.
 
 ## Checkpoints (Walsh)
 `results/walsh_day75/checkpoints/`
@@ -64,6 +116,7 @@
 - Domain composition by Walsh group: `results/walsh_day75/walsh_domain_composition_by_group.tsv`
 
 ## Scripts (repo)
+- Audit current study status: `scripts/00_audit_studies.sh` (prints a Markdown table)
 - NeMO Siebert landing page/BDBag: `scripts/01b_download_siebert_nemo.sh`
 - Extra GEO downloads (Xiang_2018, Samarasinghe_2021, Bershteyn_2023): `scripts/01c_download_extra_geo.sh`
 - Samarasinghe 2021 Seurat/UMAP: `scripts/05_samarasinghe_2021_seurat.R`
@@ -80,6 +133,9 @@
 - Walsh-group annotated UMAP: `results/walsh_day75/annotation_plots/umap_by_walsh_group.png`
 
 ## Notes
-- All runs use R 4.1.1 + Seurat 4.1.1 (module r-seurat/4.1.1-R-4.1.1-qyci4bo); Python UMAP is not used.
+- Great Lakes modules control R/Seurat (no in-job installs). Common patterns:
+  - Walsh pipeline: `module load Bioinformatics` + `module load r-seurat/4.1.1-R-4.1.1-qyci4bo`
+  - Plotting / Xiang / Bershteyn_2023: `module load Bioinformatics` + `module load r-seurat/4.1.1-R-4.2.0-5z5hgo7`
+- Slurm does **not** expand shell variables in `#SBATCH --output/--error`; templates use absolute log paths to keep runtime artifacts out of the repo.
 - Methods-locked parameters retained: QC 1000–5000 genes, <15% MT (^MT-); LogNormalize (scale.factor=1e4); HVG=5000 (vst); regress S.Score & G2M.Score; dims=1:20 for neighbors/UMAP; clustering resolution default 2.0 (sweeps explore alternatives); stress removal clusters mean score >0.5.
 - Checkpoints allow reruns without redoing QC/normalization/scaling; sweeps start from post-stress PCA checkpoint.
