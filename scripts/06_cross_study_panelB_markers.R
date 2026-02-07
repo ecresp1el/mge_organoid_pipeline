@@ -146,6 +146,12 @@ read_config <- function(config_path) {
   if (anyDuplicated(studies$study_id) > 0) {
     stop("studies$study_id must be unique.", call. = FALSE)
   }
+  if (nrow(studies) == 0) {
+    stop("studies must include at least one row.", call. = FALSE)
+  }
+  if (anyDuplicated(studies$study_label) > 0) {
+    stop("studies$study_label must be unique for fixed panel layout.", call. = FALSE)
+  }
 
   cfg$run_label <- as.character(cfg$run_label)
   if (!is.null(cfg$project_root)) cfg$project_root <- as.character(cfg$project_root)
@@ -510,8 +516,8 @@ print_audit <- function(issue_df) {
   }
 }
 
-main <- function() {
-  args <- parse_args(commandArgs(trailingOnly = TRUE))
+main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
+  args <- parse_args(cli_args)
   if (isTRUE(args$help)) {
     print_usage()
     quit(save = "no", status = 0)
@@ -546,11 +552,11 @@ main <- function() {
   })
   ordered_labels <- vapply(studies_info, function(x) x$study_label, character(1))
 
-  out_dir <- file.path(project_root, "results", run_label, "plots")
-  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+  out_dir <- normalize_abs(file.path(project_root, "results", run_label, "plots"), must_work = FALSE)
   if (!is_subpath(out_dir, project_root)) {
     stop("Output path must remain under PROJECT_ROOT.", call. = FALSE)
   }
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
   log_msg("Building Panel B rows for ", length(GENE_ORDER), " genes across ", length(studies_info), " studies.")
   row_plots <- vector("list", length(GENE_ORDER))
@@ -572,7 +578,7 @@ main <- function() {
   )
 
   fig <- wrap_plots(row_plots, ncol = 1) +
-    plot_layout(guides = "keep", heights = rep(1, length(row_plots))) +
+    plot_layout(heights = rep(1, length(row_plots))) +
     plot_annotation(
       title = "Panel B: Cross-study marker expression on existing UMAPs",
       theme = theme(
@@ -594,4 +600,6 @@ main <- function() {
   print_audit(issues)
 }
 
-main()
+if (sys.nframe() == 0) {
+  main()
+}
