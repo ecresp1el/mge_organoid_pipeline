@@ -1,0 +1,27 @@
+#!/bin/bash
+#SBATCH --job-name=panelb_markers
+#SBATCH --time=08:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=96G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_panelb_markers_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_panelb_markers_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+module load Bioinformatics
+module load r-seurat/4.1.1-R-4.2.0-5z5hgo7
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+CONFIG_PATH="${REPO_ROOT}/config/panel_b_cross_study_config.example.R"
+RUN_LABEL="panel_b_cross_study_v1"
+
+set -euo pipefail
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT
+Rscript "${REPO_ROOT}/scripts/06_cross_study_panelB_markers.R" \
+  --config "${CONFIG_PATH}" \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${RUN_LABEL}"

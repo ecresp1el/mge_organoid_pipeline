@@ -228,7 +228,7 @@ prepare_study <- function(study_row, project_root) {
     status = "ok",
     reason = NA_character_,
     detail = NA_character_,
-    obj = NULL,
+    expr_sub = NULL,
     coords = NULL
   )
 
@@ -287,31 +287,46 @@ prepare_study <- function(study_row, project_root) {
   colnames(coords) <- c("UMAP_1", "UMAP_2")
   coords$cell_id <- rownames(coords)
 
+  mat <- tryCatch(
+    suppressWarnings(GetAssayData(obj, assay = info$assay, slot = slot_name)),
+    error = function(e) e
+  )
+  if (inherits(mat, "error") || is.null(mat) || nrow(mat) == 0 || ncol(mat) == 0) {
+    info$status <- "missing_assay_data"
+    info$reason <- "Missing assay data"
+    info$detail <- paste0("assay=", info$assay, "; slot=", slot_name)
+    return(info)
+  }
+
+  cells <- coords$cell_id
+  if (!all(cells %in% colnames(mat))) {
+    info$status <- "missing_assay_data"
+    info$reason <- "Cell mismatch"
+    info$detail <- "UMAP cells not all present in assay matrix."
+    return(info)
+  }
+
+  gene_hits <- GENE_ORDER[GENE_ORDER %in% rownames(mat)]
+  expr_sub <- if (length(gene_hits) > 0) {
+    mat[gene_hits, cells, drop = FALSE]
+  } else {
+    NULL
+  }
+
+  rm(mat, obj)
+  invisible(gc(verbose = FALSE))
+
   info$expression_slot <- slot_name
-  info$obj <- obj
+  info$expr_sub <- expr_sub
   info$coords <- coords
   info
 }
 
 extract_gene_values <- function(study_info, gene) {
-  mat <- suppressWarnings(
-    GetAssayData(
-      study_info$obj,
-      assay = study_info$assay,
-      slot = study_info$expression_slot
-    )
-  )
-
-  if (!(gene %in% rownames(mat))) {
+  if (is.null(study_info$expr_sub) || !(gene %in% rownames(study_info$expr_sub))) {
     return(list(status = "missing_gene", expr = NULL, reason = "Gene not found"))
   }
-
-  cells <- study_info$coords$cell_id
-  if (!all(cells %in% colnames(mat))) {
-    return(list(status = "cell_mismatch", expr = NULL, reason = "Cell mismatch"))
-  }
-
-  vals <- as.numeric(mat[gene, cells, drop = TRUE])
+  vals <- as.numeric(study_info$expr_sub[gene, , drop = TRUE])
   list(status = "ok", expr = vals, reason = NA_character_)
 }
 
@@ -452,7 +467,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
   }
 
   p <- p +
-    facet_wrap(~study_label, nrow = 1, drop = FALSE, scales = "free") +
+    facet_wrap(~study_label, nrow = 1, drop = FALSE, scales = "fixed") +
     coord_equal() +
     scale_color_gradientn(
       colours = c("#f7fbff", "#6baed6", "#08306b"),
@@ -471,7 +486,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     theme_minimal(base_size = 8) +
     theme(
       panel.grid = element_blank(),
-      panel.border = element_rect(color = "grey80", fill = NA, linewidth = 0.3),
+      panel.border = element_rect(color = "grey80", fill = NA, size = 0.3),
       strip.background = element_rect(fill = "grey95", color = "grey80"),
       strip.text = element_text(size = 8, face = "bold"),
       axis.text = element_blank(),

@@ -13,6 +13,7 @@ Key scripts
 - Xiang UMAP: `scripts/05c_xiang_2018_seurat.R`
 - Bershteyn 2023 UMAP from provided RDS: `scripts/05d_bershteyn_2023_seurat_plot.R`
 - Cross-study Panel B markers (figure assembly only): `scripts/06_cross_study_panelB_markers.R`
+- Slurm template for Panel B: `slurm_templates/06_cross_study_panelB_markers.sbatch.template`
 - Status audit: `scripts/00_audit_studies.sh` (prints a Markdown table)
 
 Run Panel B interactively (no Slurm required)
