@@ -42,7 +42,7 @@ print_usage <- function() {
   cat(
     paste(
       "Usage:",
-      "  Rscript scripts/06_cross_study_panelB_markers.R --config <config.R> [--project-root <path>] [--run-label <label>]",
+      "  Rscript scripts/06_cross_study_panelB_markers.R --config <config.R> [--project-root <path>] [--run-label <label>] [--retain-seurat <true|false>] [--export-global <true|false>]",
       "",
       "Config file format:",
       "  A single R object (list) readable by dget(), with fields:",
@@ -50,6 +50,11 @@ print_usage <- function() {
       "    run_label",
       "    studies (data.frame with columns: study_id, study_label, object_path, reduction, assay,",
       "             and optional expression_slot)",
+      "",
+      "Optional flags:",
+      "  --retain-seurat true|false    keep full Seurat objects in returned study list (interactive debugging)",
+      "  --export-global true|false    export run objects to .GlobalEnv (panel_b_result, panel_b_studies, panel_b_rows, panel_b_issues)",
+      "  --show-progress true|false    print each gene-row plot during assembly (interactive use)",
       "",
       "Outputs:",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.{pdf,svg}",
@@ -89,6 +94,14 @@ parse_args <- function(args) {
     i <- i + 2
   }
   out
+}
+
+parse_bool_flag <- function(x, default = FALSE) {
+  if (is.null(x) || !nzchar(as.character(x))) return(default)
+  val <- tolower(as.character(x))
+  if (val %in% c("1", "true", "t", "yes", "y")) return(TRUE)
+  if (val %in% c("0", "false", "f", "no", "n")) return(FALSE)
+  stop("Invalid boolean flag value: ", x, call. = FALSE)
 }
 
 trim_trailing_slash <- function(x) {
@@ -240,7 +253,7 @@ choose_expression_slot <- function(obj, assay, preferred_slot) {
   NA_character_
 }
 
-prepare_study <- function(study_row, project_root) {
+prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   # Per-study preprocessing:
   # - validate object/reduction/assay availability
   # - extract UMAP coords
@@ -256,6 +269,7 @@ prepare_study <- function(study_row, project_root) {
     status = "ok",
     reason = NA_character_,
     detail = NA_character_,
+    seurat_obj = NULL,
     expr_sub = NULL,
     coords = NULL
   )
@@ -279,6 +293,9 @@ prepare_study <- function(study_row, project_root) {
     info$reason <- "Invalid object"
     info$detail <- paste("Class:", paste(class(obj), collapse = ","))
     return(info)
+  }
+  if (retain_seurat) {
+    info$seurat_obj <- obj
   }
 
   if (!(info$assay %in% names(obj@assays))) {
@@ -341,7 +358,11 @@ prepare_study <- function(study_row, project_root) {
     NULL
   }
 
-  rm(mat, obj)
+  if (retain_seurat) {
+    rm(mat)
+  } else {
+    rm(mat, obj)
+  }
   invisible(gc(verbose = FALSE))
 
   info$expression_slot <- slot_name
@@ -357,6 +378,25 @@ extract_gene_values <- function(study_info, gene) {
   }
   vals <- as.numeric(study_info$expr_sub[gene, , drop = TRUE])
   list(status = "ok", expr = vals, reason = NA_character_)
+}
+
+build_study_status_table <- function(studies_info) {
+  chunks <- lapply(studies_info, function(study_info) {
+    data.frame(
+      study_id = study_info$study_id,
+      study_label = study_info$study_label,
+      status = study_info$status,
+      reason = ifelse(is.na(study_info$reason), "", study_info$reason),
+      detail = ifelse(is.na(study_info$detail), "", study_info$detail),
+      reduction = study_info$reduction,
+      assay = study_info$assay,
+      expression_slot = ifelse(is.na(study_info$expression_slot), "", study_info$expression_slot),
+      n_cells = if (!is.null(study_info$coords)) nrow(study_info$coords) else NA_integer_,
+      n_marker_genes_available = if (!is.null(study_info$expr_sub)) nrow(study_info$expr_sub) else NA_integer_,
+      stringsAsFactors = FALSE
+    )
+  })
+  do.call(rbind, chunks)
 }
 
 build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
@@ -478,23 +518,10 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     )
 
   if (nrow(point_df) > 0) {
-    # Draw all cells in light gray first so zero-expression panels are still visibly populated.
-    p <- p + geom_point(
-      data = point_df,
-      aes(x = UMAP_1, y = UMAP_2),
-      inherit.aes = FALSE,
-      color = "grey88",
-      size = 0.10,
-      alpha = 0.9,
-      stroke = 0,
-      show.legend = FALSE
-    )
-
-    # Overlay expression color on top with shared row-wise limits.
     p <- p + geom_point(
       data = point_df,
       aes(x = UMAP_1, y = UMAP_2, color = expr),
-      size = 0.10,
+      size = 0.08,
       alpha = 0.85,
       stroke = 0,
       show.legend = FALSE
@@ -516,7 +543,8 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     facet_wrap(~study_label, nrow = 1, drop = FALSE, scales = "fixed") +
     coord_equal() +
     scale_color_gradientn(
-      colours = c("#f7fbff", "#6baed6", "#08306b"),
+      # Use a visible low-expression gray tone to avoid "blank-looking" panels.
+      colours = c("#d9d9d9", "#6baed6", "#08306b"),
       limits = limits,
       oob = scales::squish,
       name = gene
@@ -545,7 +573,18 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
       plot.margin = margin(2, 4, 2, 4)
     )
 
-  list(plot = p, issues = issue_df)
+  row_summary <- data.frame(
+    gene = gene,
+    gene_group = gene_group,
+    scale_min = limits[[1]],
+    scale_max = limits[[2]],
+    n_points = nrow(point_df),
+    n_placeholder_panels = nrow(placeholder_df),
+    n_studies_with_expression = length(unique(as.character(point_df$study_label))),
+    stringsAsFactors = FALSE
+  )
+
+  list(plot = p, issues = issue_df, summary = row_summary)
 }
 
 print_audit <- function(issue_df) {
@@ -612,12 +651,16 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   run_label <- args[["run-label"]]
   if (is.null(run_label) || !nzchar(run_label)) run_label <- cfg$run_label
   if (!nzchar(run_label)) stop("run_label is empty.", call. = FALSE)
+  retain_seurat <- parse_bool_flag(args[["retain-seurat"]], default = FALSE)
+  export_global <- parse_bool_flag(args[["export-global"]], default = FALSE)
+  show_progress <- parse_bool_flag(args[["show-progress"]], default = FALSE)
 
   log_msg("Preparing studies from config: ", args$config)
   studies_info <- lapply(seq_len(nrow(cfg$studies)), function(i) {
-    prepare_study(cfg$studies[i, , drop = FALSE], project_root)
+    prepare_study(cfg$studies[i, , drop = FALSE], project_root, retain_seurat = retain_seurat)
   })
   ordered_labels <- vapply(studies_info, function(x) x$study_label, character(1))
+  study_status <- build_study_status_table(studies_info)
 
   out_dir <- normalize_abs(file.path(project_root, "results", run_label, "plots"), must_work = FALSE)
   if (!is_subpath(out_dir, project_root)) {
@@ -627,14 +670,21 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
 
   log_msg("Building Panel B rows for ", length(GENE_ORDER), " genes across ", length(studies_info), " studies.")
   row_plots <- vector("list", length(GENE_ORDER))
+  names(row_plots) <- GENE_ORDER
   issue_chunks <- list()
+  row_summary_chunks <- list()
   for (i in seq_along(GENE_ORDER)) {
     gene <- GENE_ORDER[[i]]
     gene_group <- if (gene %in% ON_TARGET_GENES) "ON-target" else "OFF-target"
     row_res <- build_gene_row(gene, gene_group, studies_info, ordered_labels)
     row_plots[[i]] <- row_res$plot
+    if (show_progress) {
+      print(row_res$plot)
+    }
     if (nrow(row_res$issues) > 0) issue_chunks[[length(issue_chunks) + 1]] <- row_res$issues
+    row_summary_chunks[[length(row_summary_chunks) + 1]] <- row_res$summary
   }
+  row_summary <- do.call(rbind, row_summary_chunks)
   issues <- if (length(issue_chunks) > 0) do.call(rbind, issue_chunks) else data.frame(
     study_id = character(),
     study_label = character(),
@@ -665,6 +715,51 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
 
   log_msg("Done.")
   print_audit(issues)
+
+  result <- list(
+    project_root = project_root,
+    run_label = run_label,
+    genes = GENE_ORDER,
+    study_status = study_status,
+    row_summary = row_summary,
+    issues = issues,
+    output_paths = list(pdf = pdf_path, svg = svg_path),
+    row_plots = row_plots,
+    final_plot = fig,
+    studies_info = studies_info
+  )
+
+  if (export_global) {
+    assign("panel_b_result", result, envir = .GlobalEnv)
+    assign("panel_b_studies", study_status, envir = .GlobalEnv)
+    assign("panel_b_rows", row_summary, envir = .GlobalEnv)
+    assign("panel_b_issues", issues, envir = .GlobalEnv)
+    assign("panel_b_row_plots", row_plots, envir = .GlobalEnv)
+    assign("panel_b_final_plot", fig, envir = .GlobalEnv)
+  }
+
+  invisible(result)
+}
+
+run_panel_b_local <- function(config_path,
+                              project_root = NULL,
+                              run_label = NULL,
+                              retain_seurat = FALSE,
+                              export_global = TRUE,
+                              show_progress_plots = interactive()) {
+  # Interactive helper:
+  # - returns result list
+  # - optionally exports tables/objects to .GlobalEnv for inspection
+  args <- c("--config", config_path)
+  if (!is.null(project_root)) args <- c(args, "--project-root", project_root)
+  if (!is.null(run_label)) args <- c(args, "--run-label", run_label)
+  args <- c(
+    args,
+    "--retain-seurat", if (isTRUE(retain_seurat)) "true" else "false",
+    "--export-global", if (isTRUE(export_global)) "true" else "false",
+    "--show-progress", if (isTRUE(show_progress_plots)) "true" else "false"
+  )
+  main(args)
 }
 
 if (sys.nframe() == 0) {

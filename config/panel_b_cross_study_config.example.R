@@ -26,7 +26,8 @@ list(
       "results/samarasinghe_2021/samarasinghe_2021_seurat.rds",
       "results/varela_this_paper/varela_this_paper_seurat.rds"
     ),
-    reduction = c("umap", "umap", "umap", "umap", "umap"),
+    # Note: Walsh final object uses "umap_sel"/"umap20" rather than "umap".
+    reduction = c("umap_sel", "umap", "umap", "umap", "umap"),
     assay = c("RNA", "RNA", "RNA", "RNA", "RNA"),
     # Optional. Script defaults to "data" then falls back to "counts" if needed.
     expression_slot = c("data", "data", "data", "data", "data"),
