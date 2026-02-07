@@ -12,7 +12,18 @@ Key scripts
 - Downloads: `scripts/01c_download_extra_geo.sh` (Xiang_2018, Samarasinghe_2021, Bershteyn_2023)
 - Xiang UMAP: `scripts/05c_xiang_2018_seurat.R`
 - Bershteyn 2023 UMAP from provided RDS: `scripts/05d_bershteyn_2023_seurat_plot.R`
+- Cross-study Panel B markers (figure assembly only): `scripts/06_cross_study_panelB_markers.R`
 - Status audit: `scripts/00_audit_studies.sh` (prints a Markdown table)
+
+Run Panel B interactively (no Slurm required)
+- Edit config template: `config/panel_b_cross_study_config.example.R`
+- Run:
+  - `module load Bioinformatics`
+  - `module load r-seurat/4.1.1-R-4.2.0-5z5hgo7`
+  - `Rscript scripts/06_cross_study_panelB_markers.R --config config/panel_b_cross_study_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label panel_b_cross_study_v1`
+- Outputs:
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.pdf`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.svg`
 
 Docs
 - Workflow + directory conventions: `WORKFLOW.md`
