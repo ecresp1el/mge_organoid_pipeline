@@ -2,6 +2,25 @@
 
 # Assemble a single cross-study marker-expression figure (Panel B only)
 # from precomputed Seurat objects. This script performs no recomputation.
+#
+# Scope and assumptions:
+# - No analysis is performed (no normalization/scaling/PCA/UMAP/clustering/integration).
+# - Study identities, labels, ordering, object paths, assays, and reductions come from config.
+# - Fixed marker order is enforced to match the reference panel.
+# - Every study object path must be explicitly provided and must reside under PROJECT_ROOT.
+# - Missing object/reduction/assay/gene conditions are rendered as same-size placeholders.
+#
+# Inputs:
+# - Config file (`--config`) containing:
+#   - run_label
+#   - optional project_root
+#   - studies data.frame with explicit paths and plotting metadata
+# - Optional CLI overrides: --project-root and --run-label
+#
+# Outputs:
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.pdf
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.svg
+# - stdout audit of missing studies/genes/components
 
 suppressPackageStartupMessages({
   library(Seurat)
@@ -40,6 +59,7 @@ print_usage <- function() {
 }
 
 parse_args <- function(args) {
+  # Minimal flag parser to avoid external dependencies.
   out <- list()
   i <- 1
   while (i <= length(args)) {
@@ -87,6 +107,7 @@ is_subpath <- function(path, root) {
 }
 
 resolve_under_project_root <- function(path_value, project_root) {
+  # Enforce explicit, non-globbed study paths under PROJECT_ROOT only.
   if (!is.character(path_value) || length(path_value) != 1 || !nzchar(path_value)) {
     stop("Invalid path in config: must be non-empty string", call. = FALSE)
   }
@@ -110,6 +131,7 @@ resolve_under_project_root <- function(path_value, project_root) {
 }
 
 read_config <- function(config_path) {
+  # Strict schema checks keep study ordering/labels/config behavior deterministic.
   cfg <- tryCatch(
     dget(config_path),
     error = function(e) stop("Failed to read config via dget(): ", conditionMessage(e), call. = FALSE)
@@ -160,6 +182,7 @@ read_config <- function(config_path) {
 }
 
 read_rds_any <- function(path) {
+  # Robust reader for plain .rds and several gzip wrapping variants seen in GEO files.
   if (!grepl("\\.gz$", path, ignore.case = TRUE)) {
     return(readRDS(path))
   }
@@ -202,6 +225,7 @@ read_rds_any <- function(path) {
 }
 
 choose_expression_slot <- function(obj, assay, preferred_slot) {
+  # Prefer configured slot, then safe fallbacks commonly present in Seurat objects.
   candidates <- unique(c(preferred_slot, "data", "counts"))
   for (slot_name in candidates) {
     ok <- tryCatch(
@@ -217,6 +241,10 @@ choose_expression_slot <- function(obj, assay, preferred_slot) {
 }
 
 prepare_study <- function(study_row, project_root) {
+  # Per-study preprocessing:
+  # - validate object/reduction/assay availability
+  # - extract UMAP coords
+  # - extract only target genes to reduce memory footprint
   info <- list(
     study_id = study_row$study_id,
     study_label = study_row$study_label,
@@ -323,6 +351,7 @@ prepare_study <- function(study_row, project_root) {
 }
 
 extract_gene_values <- function(study_info, gene) {
+  # Pull one gene vector from the pre-extracted matrix for the row builder.
   if (is.null(study_info$expr_sub) || !(gene %in% rownames(study_info$expr_sub))) {
     return(list(status = "missing_gene", expr = NULL, reason = "Gene not found"))
   }
@@ -331,6 +360,10 @@ extract_gene_values <- function(study_info, gene) {
 }
 
 build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
+  # Build one full row (one gene across all studies):
+  # - collect expression points where available
+  # - emit placeholder panels where unavailable
+  # - compute shared row-wise limits for cross-study comparability
   point_chunks <- list()
   placeholder_chunks <- list()
   issue_chunks <- list()
@@ -445,10 +478,23 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     )
 
   if (nrow(point_df) > 0) {
+    # Draw all cells in light gray first so zero-expression panels are still visibly populated.
+    p <- p + geom_point(
+      data = point_df,
+      aes(x = UMAP_1, y = UMAP_2),
+      inherit.aes = FALSE,
+      color = "grey88",
+      size = 0.10,
+      alpha = 0.9,
+      stroke = 0,
+      show.legend = FALSE
+    )
+
+    # Overlay expression color on top with shared row-wise limits.
     p <- p + geom_point(
       data = point_df,
       aes(x = UMAP_1, y = UMAP_2, color = expr),
-      size = 0.06,
+      size = 0.10,
       alpha = 0.85,
       stroke = 0,
       show.legend = FALSE
@@ -503,6 +549,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
 }
 
 print_audit <- function(issue_df) {
+  # Compact audit report required for deterministic missing-data tracking.
   cat("\n=== Panel B audit ===\n")
   if (nrow(issue_df) == 0) {
     cat("No missing studies, missing UMAPs, or missing genes.\n")
@@ -532,6 +579,11 @@ print_audit <- function(issue_df) {
 }
 
 main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
+  # Entry point:
+  # - parse/validate args + config
+  # - prepare per-study extracts
+  # - build all gene rows
+  # - write PDF + SVG under PROJECT_ROOT/results/<run_label>/plots
   args <- parse_args(cli_args)
   if (isTRUE(args$help)) {
     print_usage()
