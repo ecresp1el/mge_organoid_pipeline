@@ -21,6 +21,12 @@
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.png
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.pdf
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.svg
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_on_target.png
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_on_target.pdf
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_on_target.svg
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_off_target.png
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_off_target.pdf
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_off_target.svg
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_study_status.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv
@@ -43,10 +49,11 @@ suppressPackageStartupMessages({
   library(patchwork)
 })
 
-ON_TARGET_GENES <- c("DCX", "GAD2", "DLX5", "LHX6", "MAF", "SST", "LHX8", "SP8")
+ON_TARGET_GENES <- c("DCX", "GAD2", "DLX5", "LHX6", "MAF", "SST")
 # NOTE: ACHE is the intended marker symbol (not ACHF).
-OFF_TARGET_GENES <- c("PAX6", "NEUROD2", "ISL1", "ACHE")
+OFF_TARGET_GENES <- c("LHX8", "SP8", "PAX6", "NEUROD2", "ISL1", "ACHE")
 GENE_ORDER <- c(ON_TARGET_GENES, OFF_TARGET_GENES)
+PNG_DPI <- 600
 DETAILED_LOG <- TRUE
 
 log_msg <- function(...) {
@@ -203,6 +210,140 @@ build_plot_study_context <- function(studies_info, ordered_labels) {
     studies_info = ordered_info,
     ordered_plot_labels = ordered_plot_labels,
     cells_summary = paste(cells_pairs, collapse = " | ")
+  )
+}
+
+build_target_block <- function(row_plots, block_title) {
+  wrap_plots(row_plots, ncol = 1) +
+    plot_layout(heights = rep(1, length(row_plots))) +
+    plot_annotation(
+      title = block_title,
+      theme = theme(
+        plot.title = element_text(size = 10, face = "bold", hjust = 0)
+      )
+    )
+}
+
+build_single_target_figure <- function(target_block,
+                                       target_label,
+                                       ordered_labels,
+                                       cells_summary,
+                                       row_order_text) {
+  wrap_plots(list(target_block), ncol = 1) +
+    plot_annotation(
+      title = paste0("Panel B: ", target_label, " marker expression on existing UMAPs"),
+      subtitle = paste0(
+        "Columns (left->right): ", paste(ordered_labels, collapse = " | "),
+        "\nPlotted cells: ", cells_summary,
+        "\nRow order (top->bottom): ", row_order_text
+      ),
+      theme = theme(
+        plot.title = element_text(size = 12, face = "bold", hjust = 0),
+        plot.subtitle = element_text(size = 9, hjust = 0)
+      )
+    )
+}
+
+save_figure_outputs <- function(fig, png_path, pdf_path, svg_path, width, height, dpi = PNG_DPI) {
+  log_msg("Writing PNG: ", png_path)
+  ggsave(
+    filename = png_path,
+    plot = fig,
+    width = width,
+    height = height,
+    units = "in",
+    dpi = dpi,
+    bg = "white",
+    limitsize = FALSE
+  )
+  log_msg("Writing PDF: ", pdf_path)
+  ggsave(
+    filename = pdf_path,
+    plot = fig,
+    width = width,
+    height = height,
+    units = "in",
+    limitsize = FALSE
+  )
+  log_msg("Writing SVG: ", svg_path)
+  ggsave(
+    filename = svg_path,
+    plot = fig,
+    width = width,
+    height = height,
+    units = "in",
+    device = grDevices::svg,
+    limitsize = FALSE
+  )
+}
+
+save_on_target_figure <- function(on_row_plots,
+                                  ordered_labels,
+                                  cells_summary,
+                                  row_order_genes,
+                                  out_dir,
+                                  fig_width,
+                                  fig_height) {
+  on_block <- build_target_block(on_row_plots, "ON-target")
+  on_fig <- build_single_target_figure(
+    target_block = on_block,
+    target_label = "ON-target",
+    ordered_labels = ordered_labels,
+    cells_summary = cells_summary,
+    row_order_text = paste(row_order_genes, collapse = ", ")
+  )
+  on_png <- file.path(out_dir, "panel_b_cross_study_markers_on_target.png")
+  on_pdf <- file.path(out_dir, "panel_b_cross_study_markers_on_target.pdf")
+  on_svg <- file.path(out_dir, "panel_b_cross_study_markers_on_target.svg")
+  save_figure_outputs(
+    fig = on_fig,
+    png_path = on_png,
+    pdf_path = on_pdf,
+    svg_path = on_svg,
+    width = fig_width,
+    height = fig_height,
+    dpi = PNG_DPI
+  )
+  list(
+    fig = on_fig,
+    png = on_png,
+    pdf = on_pdf,
+    svg = on_svg
+  )
+}
+
+save_off_target_figure <- function(off_row_plots,
+                                   ordered_labels,
+                                   cells_summary,
+                                   row_order_genes,
+                                   out_dir,
+                                   fig_width,
+                                   fig_height) {
+  off_block <- build_target_block(off_row_plots, "OFF-target")
+  off_fig <- build_single_target_figure(
+    target_block = off_block,
+    target_label = "OFF-target",
+    ordered_labels = ordered_labels,
+    cells_summary = cells_summary,
+    row_order_text = paste(row_order_genes, collapse = ", ")
+  )
+  off_png <- file.path(out_dir, "panel_b_cross_study_markers_off_target.png")
+  off_pdf <- file.path(out_dir, "panel_b_cross_study_markers_off_target.pdf")
+  off_svg <- file.path(out_dir, "panel_b_cross_study_markers_off_target.svg")
+  save_figure_outputs(
+    fig = off_fig,
+    png_path = off_png,
+    pdf_path = off_pdf,
+    svg_path = off_svg,
+    width = fig_width,
+    height = fig_height,
+    dpi = PNG_DPI
+  )
+  list(
+    fig = off_fig,
+    png = off_png,
+    pdf = off_pdf,
+    svg = off_svg
   )
 }
 
@@ -1178,10 +1319,13 @@ print_usage <- function() {
       "  --write-prepared true|false   write reusable panel_b_prepared_inputs.rds bundle (coords + marker matrix per study)",
       "  --write-study-objects true|false  publish validated per-study Seurat .rds files to prepared_objects_root",
       "  --prepared-objects-root <path>    relative/absolute path for published study objects (must stay under PROJECT_ROOT)",
+      "  PNG exports use high-quality dpi=600 for print review",
       "",
       "Outputs:",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.png",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.{pdf,svg}",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_on_target.{png,pdf,svg}",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_off_target.{png,pdf,svg}",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_study_status.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv",
@@ -3086,23 +3230,8 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     stop("Internal error: ON/OFF row blocks are empty after row assembly.", call. = FALSE)
   }
 
-  on_block <- wrap_plots(on_row_plots, ncol = 1) +
-    plot_layout(heights = rep(1, length(on_row_plots))) +
-    plot_annotation(
-      title = "ON-target",
-      theme = theme(
-        plot.title = element_text(size = 10, face = "bold", hjust = 0)
-      )
-    )
-
-  off_block <- wrap_plots(off_row_plots, ncol = 1) +
-    plot_layout(heights = rep(1, length(off_row_plots))) +
-    plot_annotation(
-      title = "OFF-target",
-      theme = theme(
-        plot.title = element_text(size = 10, face = "bold", hjust = 0)
-      )
-    )
+  on_block <- build_target_block(on_row_plots, "ON-target")
+  off_block <- build_target_block(off_row_plots, "OFF-target")
 
   fig <- wrap_plots(
     list(on_block, off_block),
@@ -3113,7 +3242,9 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       title = "Panel B: Cross-study marker expression on existing UMAPs",
       subtitle = paste0(
         "Columns (left->right): ", paste(ordered_labels, collapse = " | "),
-        "\nPlotted cells: ", plot_context$cells_summary
+        "\nPlotted cells: ", plot_context$cells_summary,
+        "\nON row order: ", paste(layout_spec$on_genes, collapse = ", "),
+        "\nOFF row order: ", paste(layout_spec$off_genes, collapse = ", ")
       ),
       theme = theme(
         plot.title = element_text(size = 12, face = "bold", hjust = 0),
@@ -3121,26 +3252,39 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       )
     )
 
-  fig_width <- max(16, length(studies_info_plot) * 2.9 + 3.5)
-  fig_height <- max(18, length(GENE_ORDER) * 2.0 + 5.0)
+  fig_width <- max(16, length(studies_info_plot) * 2.5 + 2.5)
+  fig_height <- max(20, length(GENE_ORDER) * 1.3 + 4.0)
+  fig_height_single <- max(12, max(length(on_row_plots), length(off_row_plots)) * 1.6 + 4.0)
   png_path <- file.path(out_dir, "panel_b_cross_study_markers.png")
   pdf_path <- file.path(out_dir, "panel_b_cross_study_markers.pdf")
   svg_path <- file.path(out_dir, "panel_b_cross_study_markers.svg")
-
-  log_msg("Writing PNG: ", png_path)
-  ggsave(
-    filename = png_path,
-    plot = fig,
+  save_figure_outputs(
+    fig = fig,
+    png_path = png_path,
+    pdf_path = pdf_path,
+    svg_path = svg_path,
     width = fig_width,
     height = fig_height,
-    units = "in",
-    dpi = 300,
-    bg = "white"
+    dpi = PNG_DPI
   )
-  log_msg("Writing PDF: ", pdf_path)
-  ggsave(filename = pdf_path, plot = fig, width = fig_width, height = fig_height, units = "in")
-  log_msg("Writing SVG: ", svg_path)
-  ggsave(filename = svg_path, plot = fig, width = fig_width, height = fig_height, units = "in", device = grDevices::svg)
+  on_export <- save_on_target_figure(
+    on_row_plots = on_row_plots,
+    ordered_labels = ordered_labels,
+    cells_summary = plot_context$cells_summary,
+    row_order_genes = layout_spec$on_genes,
+    out_dir = out_dir,
+    fig_width = fig_width,
+    fig_height = fig_height_single
+  )
+  off_export <- save_off_target_figure(
+    off_row_plots = off_row_plots,
+    ordered_labels = ordered_labels,
+    cells_summary = plot_context$cells_summary,
+    row_order_genes = layout_spec$off_genes,
+    out_dir = out_dir,
+    fig_width = fig_width,
+    fig_height = fig_height_single
+  )
 
   log_msg("Done.")
   print_study_diagnostics(study_status)
@@ -3167,6 +3311,12 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       png = png_path,
       pdf = pdf_path,
       svg = svg_path,
+      png_on_target = on_export$png,
+      pdf_on_target = on_export$pdf,
+      svg_on_target = on_export$svg,
+      png_off_target = off_export$png,
+      pdf_off_target = off_export$pdf,
+      svg_off_target = off_export$svg,
       study_status = study_status_path,
       marker_presence = marker_presence_path,
       assay_slot_summary = assay_slot_summary_path,
@@ -3184,6 +3334,8 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     ),
     row_plots = row_plots,
     final_plot = fig,
+    on_target_plot = on_export$fig,
+    off_target_plot = off_export$fig,
     studies_info = studies_info,
     plot_context = list(
       study_order = ordered_labels,

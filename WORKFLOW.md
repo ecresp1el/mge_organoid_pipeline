@@ -147,7 +147,8 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
   - Panel B marker list includes `ACHE` (not `ACHF`).
   - Xiang Panel B note: Xiang features are Ensembl-like IDs; symbol markers require symbol-to-Ensembl mapping for direct lookup.
   - Panel B symbol remap is dynamic: set optional `feature_map_path` per study in `config/panel_b_cross_study_config.example.R` and the script remaps current `GENE_ORDER` markers automatically.
-  - Panel B final figure is emitted as PNG/PDF/SVG with fixed layout logic: Varela left-most column when present, ON-target block on top, OFF-target block on bottom.
+  - Panel B combined figure is emitted as PNG/PDF/SVG with fixed layout logic: Varela left-most column when present, ON-target block on top, OFF-target block on bottom.
+  - Panel B also emits separate ON-only and OFF-only PNG/PDF/SVG files; PNG exports are high print quality (`dpi=600`).
   - Panel B figure labels now include plotted cell counts per study (`n=<cells>`), and the config example includes both `Bershteyn 2025` and `Bershteyn 2023`.
   - Panel B now also writes `results/<run_label>/plots/panel_b_prepared_inputs.rds` for downstream scripts (matched coords + marker matrix per study).
   - Panel B publishes validated per-study Seurat objects to a stable canonical path for downstream steps:

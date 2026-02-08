@@ -45,17 +45,25 @@ Run Panel B interactively (no Slurm required)
 - The script now writes a reusable input bundle for downstream scripts:
   - `panel_b_prepared_inputs.rds` (per-study UMAP coords + marker matrix + status/metadata fields)
   - This is Seurat-runtime independent and is written by default (`--write-prepared true`).
+- Panel B PNG exports are now written at high print quality (`dpi=600`).
+- In addition to the combined ON+OFF figure, the script now saves separate ON-only and OFF-only figures with matching formatting.
 - The script now also publishes validated per-study Seurat objects to a stable path for downstream pipeline stages:
   - `results/panel_b_prepared_objects/studies/<study_id>_panelb_ready_seurat.rds`
   - `results/panel_b_prepared_objects/panel_b_prepared_object_paths.tsv` (canonical manifest)
   - `<run_label>/plots/panel_b_prepared_object_paths.tsv` (run-scoped manifest snapshot)
 - Marker set used by Panel B (fixed order):
-  - ON-target: `DCX,GAD2,DLX5,LHX6,MAF,SST,LHX8,SP8`
-  - OFF-target: `PAX6,NEUROD2,ISL1,ACHE`
+  - ON-target: `DCX,GAD2,DLX5,LHX6,MAF,SST`
+  - OFF-target: `LHX8,SP8,PAX6,NEUROD2,ISL1,ACHE`
 - Outputs:
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.png`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.pdf`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.svg`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_on_target.png`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_on_target.pdf`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_on_target.svg`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_off_target.png`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_off_target.pdf`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_off_target.svg`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_study_status.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_assay_slot_summary.tsv`
