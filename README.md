@@ -18,7 +18,8 @@ Key scripts
 - Xiang UMAP: `scripts/05c_xiang_2018_seurat.R`
 - Bershteyn 2023 UMAP from provided RDS: `scripts/05d_bershteyn_2023_seurat_plot.R`
 - Cross-study Panel B markers (figure assembly only): `scripts/06_cross_study_panelB_markers.R`
-- Slurm template for Panel B: `slurm_templates/06_cross_study_panelB_markers.sbatch.template`
+- Slurm template for Panel B (Seurat v4 runtime): `slurm_templates/06_cross_study_panelB_markers.sbatch.template`
+- Slurm template for Panel B (Seurat v5 runtime / Assay5-aware): `slurm_templates/06_cross_study_panelB_markers_seurat5.sbatch.template`
 - Status audit: `scripts/00_audit_studies.sh` (prints a Markdown table)
 
 Run Panel B interactively (no Slurm required)
@@ -27,6 +28,8 @@ Run Panel B interactively (no Slurm required)
   - `module load Bioinformatics`
   - `module load r-seurat/4.1.1-R-4.2.0-5z5hgo7`
   - `Rscript scripts/06_cross_study_panelB_markers.R --config config/panel_b_cross_study_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label panel_b_cross_study_v1 --detailed-log true`
+- Note: for Assay5 studies (for example Varela), use a Seurat v5 runtime so the script can use `LayerData` directly.
+- Note: detailed logs now include assay slot inventory, assay layer inventory, feature namespace detection, cell overlap checks, and metadata structure summaries.
 - Outputs:
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.pdf`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.svg`
@@ -40,6 +43,15 @@ Run Panel B interactively (no Slurm required)
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_feature_space.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_issues.tsv`
+
+Run Panel B on Slurm
+- Seurat v4 runtime template:
+  - `cp slurm_templates/06_cross_study_panelB_markers.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/06_cross_study_panelB_markers.sbatch`
+  - `sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/06_cross_study_panelB_markers.sbatch`
+- Seurat v5 runtime template (recommended when config includes Assay5 objects):
+  - `cp slurm_templates/06_cross_study_panelB_markers_seurat5.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/06_cross_study_panelB_markers_seurat5.sbatch`
+  - `export SEURAT5_MODULE=<your-seurat-v5-module>`
+  - `sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/06_cross_study_panelB_markers_seurat5.sbatch`
 
 Docs
 - Workflow + directory conventions: `WORKFLOW.md`

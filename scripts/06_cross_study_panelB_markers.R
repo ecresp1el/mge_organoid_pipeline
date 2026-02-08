@@ -142,7 +142,8 @@ is_assay_runtime_incompatible <- function(detail, assay_class = "") {
   txt <- tolower(paste(detail, assay_class, collapse = " "))
   grepl("not an assay", txt, fixed = TRUE) ||
     grepl("assay5", txt, fixed = TRUE) ||
-    grepl("layer", txt, fixed = TRUE)
+    grepl("layer", txt, fixed = TRUE) ||
+    grepl("layerdata api unavailable", txt, fixed = TRUE)
 }
 
 get_assay_features <- function(obj, assay) {
@@ -153,6 +154,190 @@ get_assay_features <- function(obj, assay) {
   f3 <- tryCatch(rownames(obj[[assay]]), error = function(e) character(0))
   if (length(f3) > 0) return(unique(as.character(f3)))
   character(0)
+}
+
+get_ns_function <- function(fn_name, namespaces = c("SeuratObject", "Seurat")) {
+  for (pkg in namespaces) {
+    ns <- tryCatch(asNamespace(pkg), error = function(e) NULL)
+    if (is.null(ns)) next
+    if (exists(fn_name, envir = ns, mode = "function", inherits = FALSE)) {
+      return(get(fn_name, envir = ns, mode = "function", inherits = FALSE))
+    }
+  }
+  NULL
+}
+
+get_layer_data_fn <- function() {
+  get_ns_function("LayerData")
+}
+
+get_layers_fn <- function() {
+  get_ns_function("Layers")
+}
+
+get_assay_layers <- function(obj, assay) {
+  layers_fn <- get_layers_fn()
+  if (is.null(layers_fn)) return(character(0))
+
+  assay_obj <- tryCatch(obj[[assay]], error = function(e) NULL)
+  attempts <- list(
+    function() layers_fn(object = obj, assay = assay),
+    function() layers_fn(object = assay_obj),
+    function() layers_fn(assay_obj)
+  )
+  out <- character(0)
+  for (fn in attempts) {
+    candidate <- tryCatch(fn(), error = function(e) character(0))
+    if (length(candidate) > 0) {
+      out <- as.character(candidate)
+      break
+    }
+  }
+  out <- out[!is.na(out) & nzchar(out)]
+  unique(out)
+}
+
+read_assay_layer <- function(obj, assay, layer_name, layer_data_fn = get_layer_data_fn()) {
+  if (is.null(layer_data_fn)) {
+    return(simpleError("LayerData API unavailable in this Seurat runtime."))
+  }
+  assay_obj <- tryCatch(obj[[assay]], error = function(e) NULL)
+  attempts <- list(
+    function() layer_data_fn(object = obj, assay = assay, layer = layer_name),
+    function() layer_data_fn(object = obj, layer = layer_name),
+    function() layer_data_fn(obj, assay = assay, layer = layer_name),
+    function() if (!is.null(assay_obj)) layer_data_fn(object = assay_obj, layer = layer_name) else NULL,
+    function() if (!is.null(assay_obj)) layer_data_fn(assay_obj, layer = layer_name) else NULL
+  )
+  last_error <- NULL
+  for (fn in attempts) {
+    candidate <- tryCatch(
+      fn(),
+      error = function(e) {
+        last_error <<- e
+        NULL
+      }
+    )
+    if (!is.null(candidate)) return(candidate)
+  }
+  if (!is.null(last_error)) return(last_error)
+  simpleError(paste0("Layer ", layer_name, " unavailable."))
+}
+
+fetch_marker_matrix_layerdata <- function(obj, assay, preferred_slot, cells, genes) {
+  layer_data_fn <- get_layer_data_fn()
+  if (is.null(layer_data_fn)) {
+    return(list(
+      status = "error",
+      expression_slot = NA_character_,
+      expr_sub = NULL,
+      genes_present = character(0),
+      genes_missing = genes,
+      n_features_assay = NA_integer_,
+      n_cells_assay = NA_integer_,
+      n_cells_common = NA_integer_,
+      n_cells_umap_not_in_assay = NA_integer_,
+      n_cells_assay_not_in_umap = NA_integer_,
+      detail = "LayerData API unavailable in this Seurat runtime."
+    ))
+  }
+
+  old_assay <- tryCatch(as.character(DefaultAssay(obj)), error = function(e) "")
+  on.exit(
+    {
+      if (nzchar(old_assay)) {
+        tryCatch(DefaultAssay(obj) <- old_assay, error = function(e) NULL)
+      }
+    },
+    add = TRUE
+  )
+  tryCatch(DefaultAssay(obj) <- assay, error = function(e) NULL)
+
+  features <- get_assay_features(obj, assay)
+  features_known <- length(features) > 0
+  genes_present <- if (features_known) genes[genes %in% features] else character(0)
+  genes_missing <- setdiff(genes, genes_present)
+  layer_candidates <- unique(c(preferred_slot, "data", "counts"))
+  layers_available <- get_assay_layers(obj, assay)
+  if (length(layers_available) > 0) {
+    layer_candidates <- unique(c(layer_candidates[layer_candidates %in% layers_available], layers_available))
+  }
+
+  if (features_known && length(genes_present) == 0) {
+    return(list(
+      status = "ok",
+      expression_slot = preferred_slot,
+      expr_sub = NULL,
+      genes_present = genes_present,
+      genes_missing = genes_missing,
+      n_features_assay = ifelse(length(features) > 0, length(features), NA_integer_),
+      n_cells_assay = length(cells),
+      n_cells_common = length(cells),
+      n_cells_umap_not_in_assay = 0L,
+      n_cells_assay_not_in_umap = 0L,
+      detail = "No requested marker genes were found in assay features."
+    ))
+  }
+
+  last_error <- NULL
+  for (layer_name in layer_candidates) {
+    mat <- read_assay_layer(obj, assay = assay, layer_name = layer_name, layer_data_fn = layer_data_fn)
+    if (inherits(mat, "error") || is.null(mat)) {
+      if (inherits(mat, "error")) last_error <- mat
+      next
+    }
+
+    mat_nrow <- safe_nrow(mat)
+    mat_ncol <- safe_ncol(mat)
+    if (is.na(mat_nrow) || is.na(mat_ncol) || mat_nrow == 0 || mat_ncol == 0) next
+
+    mat_cells <- colnames(mat)
+    mat_features <- rownames(mat)
+    if (is.null(mat_cells) || is.null(mat_features)) next
+
+    common_cells <- intersect(cells, mat_cells)
+    if (length(common_cells) == 0) next
+    hit_features <- intersect(genes, mat_features)
+    if (length(hit_features) == 0) next
+
+    sub <- mat[hit_features, common_cells, drop = FALSE]
+    return(list(
+      status = "ok",
+      expression_slot = layer_name,
+      expr_sub = sub,
+      genes_present = rownames(sub),
+      genes_missing = setdiff(genes, rownames(sub)),
+      n_features_assay = mat_nrow,
+      n_cells_assay = mat_ncol,
+      n_cells_common = length(common_cells),
+      n_cells_umap_not_in_assay = length(setdiff(cells, mat_cells)),
+      n_cells_assay_not_in_umap = length(setdiff(mat_cells, cells)),
+      detail = ""
+    ))
+  }
+
+  layer_msg <- if (length(layers_available) > 0) {
+    paste0("available layers=", paste(layers_available, collapse = ","))
+  } else {
+    "no layers reported"
+  }
+  list(
+    status = "error",
+    expression_slot = NA_character_,
+    expr_sub = NULL,
+    genes_present = character(0),
+    genes_missing = genes,
+    n_features_assay = ifelse(length(features) > 0, length(features), NA_integer_),
+    n_cells_assay = NA_integer_,
+    n_cells_common = NA_integer_,
+    n_cells_umap_not_in_assay = NA_integer_,
+    n_cells_assay_not_in_umap = NA_integer_,
+    detail = if (!is.null(last_error)) {
+      paste(conditionMessage(last_error), "(", layer_msg, ")")
+    } else {
+      paste("LayerData returned no usable data (", layer_msg, ")")
+    }
+  )
 }
 
 fetch_marker_matrix <- function(obj, assay, preferred_slot, cells, genes) {
@@ -245,6 +430,7 @@ fetch_marker_matrix <- function(obj, assay, preferred_slot, cells, genes) {
 summarize_assay_slots <- function(obj, study_id, study_label) {
   assays <- names(obj@assays)
   slots <- c("counts", "data", "scale.data")
+  layer_data_fn <- get_layer_data_fn()
   chunks <- list()
   k <- 0
   for (assay_name in assays) {
@@ -260,6 +446,7 @@ summarize_assay_slots <- function(obj, study_id, study_label) {
           study_label = study_label,
           assay = assay_name,
           slot = slot_name,
+          accessor = "GetAssayData",
           status = "missing_or_error",
           matrix_class = "",
           n_features = NA_integer_,
@@ -274,8 +461,46 @@ summarize_assay_slots <- function(obj, study_id, study_label) {
           study_label = study_label,
           assay = assay_name,
           slot = slot_name,
+          accessor = "GetAssayData",
           status = ifelse(!is.na(d[[1]]) && !is.na(d[[2]]) && d[[1]] > 0 && d[[2]] > 0, "ok", "empty"),
           matrix_class = collapse_csv(class(mat)),
+          n_features = d[[1]],
+          n_cells = d[[2]],
+          detail = "",
+          stringsAsFactors = FALSE
+        )
+      }
+    }
+
+    layer_names <- get_assay_layers(obj, assay_name)
+    if (length(layer_names) == 0) next
+    for (layer_name in layer_names) {
+      k <- k + 1
+      layer_mat <- read_assay_layer(obj, assay = assay_name, layer_name = layer_name, layer_data_fn = layer_data_fn)
+      if (inherits(layer_mat, "error") || is.null(layer_mat)) {
+        chunks[[k]] <- data.frame(
+          study_id = study_id,
+          study_label = study_label,
+          assay = assay_name,
+          slot = layer_name,
+          accessor = "LayerData",
+          status = "missing_or_error",
+          matrix_class = "",
+          n_features = NA_integer_,
+          n_cells = NA_integer_,
+          detail = if (inherits(layer_mat, "error")) conditionMessage(layer_mat) else "layer missing",
+          stringsAsFactors = FALSE
+        )
+      } else {
+        d <- safe_dim(layer_mat)
+        chunks[[k]] <- data.frame(
+          study_id = study_id,
+          study_label = study_label,
+          assay = assay_name,
+          slot = layer_name,
+          accessor = "LayerData",
+          status = ifelse(!is.na(d[[1]]) && !is.na(d[[2]]) && d[[1]] > 0 && d[[2]] > 0, "ok", "empty"),
+          matrix_class = collapse_csv(class(layer_mat)),
           n_features = d[[1]],
           n_cells = d[[2]],
           detail = "",
@@ -290,6 +515,7 @@ summarize_assay_slots <- function(obj, study_id, study_label) {
       study_label = character(),
       assay = character(),
       slot = character(),
+      accessor = character(),
       status = character(),
       matrix_class = character(),
       n_features = integer(),
@@ -508,7 +734,7 @@ print_usage <- function() {
       "  --retain-seurat true|false    keep full Seurat objects in returned study list (interactive debugging)",
       "  --export-global true|false    export run objects to .GlobalEnv (panel_b_result, panel_b_studies, panel_b_rows, panel_b_issues)",
       "  --show-progress true|false    print each gene-row plot during assembly (interactive use)",
-      "  --detailed-log true|false     print per-study diagnostics (object structure, assay/reduction dims, cell matching)",
+      "  --detailed-log true|false     print per-study diagnostics (object structure, assay/reduction/layer dims, cell matching)",
       "",
       "Outputs:",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.{pdf,svg}",
@@ -743,6 +969,7 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     assays_available = NA_character_,
     assay_class = NA_character_,
     assay_slot_names = NA_character_,
+    assay_layers_available = NA_character_,
     reductions_available = NA_character_,
     n_cells_object = NA_integer_,
     n_features_assay = NA_integer_,
@@ -887,7 +1114,7 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     for (k in seq_len(nrow(info$assay_slot_summary))) {
       rr <- info$assay_slot_summary[k, , drop = FALSE]
       log_detail(
-        "  - ", rr$assay[[1]], "::", rr$slot[[1]], " -> ",
+        "  - [", rr$accessor[[1]], "] ", rr$assay[[1]], "::", rr$slot[[1]], " -> ",
         fmt_count(rr$n_features[[1]]), " x ", fmt_count(rr$n_cells[[1]]),
         " [", rr$status[[1]], "] ", rr$matrix_class[[1]]
       )
@@ -934,6 +1161,7 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   } else {
     ""
   }
+  info$assay_layers_available <- collapse_csv(get_assay_layers(obj, info$assay))
   assay_features <- get_assay_features(obj, info$assay)
   if (length(assay_features) > 0) {
     info$n_features_detected <- as.integer(length(unique(assay_features)))
@@ -958,7 +1186,8 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   log_detail(
     "Assay class/slots: ",
     ifelse(nzchar(info$assay_class), info$assay_class, "<unknown>"),
-    " | slots=", ifelse(nzchar(info$assay_slot_names), info$assay_slot_names, "<none>")
+    " | slots=", ifelse(nzchar(info$assay_slot_names), info$assay_slot_names, "<none>"),
+    " | layers=", ifelse(nzchar(info$assay_layers_available), info$assay_layers_available, "<none>")
   )
   log_detail(
     "Feature namespace: type=", ifelse(nzchar(info$feature_id_type), info$feature_id_type, "<unknown>"),
@@ -970,7 +1199,7 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     log_detail("Runtime note: ", info$runtime_note)
   }
   if (!is.na(info$assay_class) && grepl("Assay5", info$assay_class, fixed = TRUE)) {
-    note <- "Assay5 detected; full expression access may require Seurat v5 runtime."
+    note <- "Assay5 detected; script will attempt LayerData access (requires Seurat v5-compatible runtime)."
     info$runtime_note <- if (is.na(info$runtime_note) || !nzchar(info$runtime_note)) {
       note
     } else {
@@ -1060,7 +1289,7 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
       } else {
         paste0("assay=", info$assay, "; slot=", slot_name, " has empty matrix")
       }
-      log_detail("GetAssayData unavailable/empty; switching to FetchData fallback: ", direct_assay_error)
+      log_detail("GetAssayData unavailable/empty; switching to LayerData/FetchData fallbacks: ", direct_assay_error)
     } else {
       mat <- mat_try
       info$data_access_mode <- "direct_getassaydata"
@@ -1070,7 +1299,7 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
       "No non-empty slot among GetAssayData candidates: ",
       collapse_csv(unique(c(info$preferred_slot, "data", "counts")))
     )
-    log_detail(direct_assay_error, "; switching to FetchData fallback.")
+    log_detail(direct_assay_error, "; switching to LayerData/FetchData fallbacks.")
   }
 
   if (!is.null(mat)) {
@@ -1120,98 +1349,173 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
       NULL
     }
   } else {
-    fallback_res <- fetch_marker_matrix(
+    # GetAssayData can fail for Assay5; try LayerData first, then FetchData.
+    layer_res <- fetch_marker_matrix_layerdata(
       obj = obj,
       assay = info$assay,
       preferred_slot = info$preferred_slot,
       cells = cells,
       genes = GENE_ORDER
     )
-    if (!identical(fallback_res$status, "ok")) {
-      info$data_access_mode <- "assay_data_unavailable"
-      detail_parts <- character(0)
-      if (!is.na(direct_assay_error) && nzchar(direct_assay_error)) {
-        detail_parts <- c(detail_parts, direct_assay_error)
+    layerdata_error <- NA_character_
+
+    if (identical(layer_res$status, "ok")) {
+      info$data_access_mode <- "layerdata"
+      info$expression_slot <- layer_res$expression_slot
+      if (!is.na(layer_res$n_features_assay)) {
+        info$n_features_assay <- as.integer(layer_res$n_features_assay)
       }
-      if (!is.null(fallback_res$detail) && nzchar(fallback_res$detail)) {
-        detail_parts <- c(detail_parts, paste0("FetchData fallback: ", fallback_res$detail))
+      if (!is.na(layer_res$n_cells_assay)) {
+        info$n_cells_assay <- as.integer(layer_res$n_cells_assay)
       }
-      if (length(detail_parts) == 0) {
-        detail_parts <- "Unable to retrieve marker expression by GetAssayData or FetchData."
+      info$n_cells_common <- as.integer(layer_res$n_cells_common)
+      info$n_cells_umap_not_in_assay <- as.integer(layer_res$n_cells_umap_not_in_assay)
+      info$n_cells_assay_not_in_umap <- as.integer(layer_res$n_cells_assay_not_in_umap)
+      expr_sub <- layer_res$expr_sub
+      gene_hits <- layer_res$genes_present
+      gene_missing <- setdiff(GENE_ORDER, gene_hits)
+
+      if (!is.null(expr_sub)) {
+        common_cells <- intersect(cells, colnames(expr_sub))
+        if (length(common_cells) > 0) {
+          expr_sub <- expr_sub[, common_cells, drop = FALSE]
+          coords <- coords[match(common_cells, coords$cell_id), , drop = FALSE]
+          rownames(coords) <- coords$cell_id
+        } else {
+          expr_sub <- NULL
+        }
       }
-      info$detail <- paste(detail_parts, collapse = " | ")
-      if (is_assay_runtime_incompatible(info$detail, info$assay_class)) {
-        info$status <- "assay_runtime_incompatible"
-        info$reason <- "Assay runtime incompatible"
-        info$data_access_mode <- "assay_runtime_incompatible"
-        note <- paste0(
-          "Assay=", info$assay,
-          "; class=", ifelse(nzchar(info$assay_class), info$assay_class, "<unknown>"),
-          "; runtime cannot read this assay type."
-        )
-        info$runtime_note <- if (is.na(info$runtime_note) || !nzchar(info$runtime_note)) note else paste(info$runtime_note, note, sep = " | ")
-        log_detail("Status: assay_runtime_incompatible | ", info$detail)
+
+      if (!is.null(expr_sub)) {
+        expr_dims <- safe_dim(expr_sub)
+        info$assay_slot_dims <- paste0(fmt_count(expr_dims[[1]]), "x", fmt_count(expr_dims[[2]]))
       } else {
-        info$status <- "missing_assay_data"
-        info$reason <- "Missing assay data"
-        log_detail("Status: missing_assay_data | ", info$detail)
+        info$assay_slot_dims <- "0x0"
       }
-      return(info)
-    }
 
-    info$data_access_mode <- "fetchdata_fallback"
-    info$expression_slot <- fallback_res$expression_slot
-    if (!is.na(fallback_res$n_features_assay)) {
-      info$n_features_assay <- as.integer(fallback_res$n_features_assay)
-    }
-    if (!is.na(fallback_res$n_cells_assay)) {
-      info$n_cells_assay <- as.integer(fallback_res$n_cells_assay)
-    }
-    info$n_cells_common <- as.integer(fallback_res$n_cells_common)
-    info$n_cells_umap_not_in_assay <- as.integer(fallback_res$n_cells_umap_not_in_assay)
-    info$n_cells_assay_not_in_umap <- as.integer(fallback_res$n_cells_assay_not_in_umap)
-    expr_sub <- fallback_res$expr_sub
-    gene_hits <- fallback_res$genes_present
-    gene_missing <- setdiff(GENE_ORDER, gene_hits)
-
-    if (!is.null(expr_sub)) {
-      common_cells <- intersect(cells, colnames(expr_sub))
-      if (length(common_cells) > 0) {
-        expr_sub <- expr_sub[, common_cells, drop = FALSE]
-        coords <- coords[match(common_cells, coords$cell_id), , drop = FALSE]
-        rownames(coords) <- coords$cell_id
-      } else {
-        expr_sub <- NULL
-      }
-    }
-
-    if (!is.null(expr_sub)) {
-      expr_dims <- safe_dim(expr_sub)
-      info$assay_slot_dims <- paste0(fmt_count(expr_dims[[1]]), "x", fmt_count(expr_dims[[2]]))
-    } else {
-      info$assay_slot_dims <- "0x0"
-    }
-
-    log_detail(
-      "Expression data resolved via FetchData fallback using slot ",
-      info$expression_slot,
-      " (requested ", info$preferred_slot, ")"
-    )
-    log_detail(
-      "Cell overlap: common=", fmt_count(info$n_cells_common),
-      "; UMAP-only=", fmt_count(info$n_cells_umap_not_in_assay),
-      "; assay-only=", fmt_count(info$n_cells_assay_not_in_umap)
-    )
-
-    if (is.finite(info$n_cells_umap_not_in_assay) && info$n_cells_umap_not_in_assay > 0) {
-      info$status <- "missing_assay_data"
-      info$reason <- "Cell mismatch"
-      info$detail <- paste0(
-        "UMAP cells not in assay matrix: ",
-        fmt_count(info$n_cells_umap_not_in_assay)
+      log_detail(
+        "Expression data resolved via LayerData using layer ",
+        info$expression_slot,
+        " (requested ", info$preferred_slot, ")"
       )
-      log_detail("Status: missing_assay_data | ", info$detail)
-      return(info)
+      log_detail(
+        "Cell overlap: common=", fmt_count(info$n_cells_common),
+        "; UMAP-only=", fmt_count(info$n_cells_umap_not_in_assay),
+        "; assay-only=", fmt_count(info$n_cells_assay_not_in_umap)
+      )
+
+      if (is.finite(info$n_cells_umap_not_in_assay) && info$n_cells_umap_not_in_assay > 0) {
+        info$status <- "missing_assay_data"
+        info$reason <- "Cell mismatch"
+        info$detail <- paste0(
+          "UMAP cells not in assay matrix: ",
+          fmt_count(info$n_cells_umap_not_in_assay)
+        )
+        log_detail("Status: missing_assay_data | ", info$detail)
+        return(info)
+      }
+    } else {
+      if (!is.null(layer_res$detail) && nzchar(layer_res$detail)) {
+        layerdata_error <- layer_res$detail
+        log_detail("LayerData fallback unavailable: ", layerdata_error)
+      }
+
+      fallback_res <- fetch_marker_matrix(
+        obj = obj,
+        assay = info$assay,
+        preferred_slot = info$preferred_slot,
+        cells = cells,
+        genes = GENE_ORDER
+      )
+      if (!identical(fallback_res$status, "ok")) {
+        info$data_access_mode <- "assay_data_unavailable"
+        detail_parts <- character(0)
+        if (!is.na(direct_assay_error) && nzchar(direct_assay_error)) {
+          detail_parts <- c(detail_parts, direct_assay_error)
+        }
+        if (!is.na(layerdata_error) && nzchar(layerdata_error)) {
+          detail_parts <- c(detail_parts, paste0("LayerData fallback: ", layerdata_error))
+        }
+        if (!is.null(fallback_res$detail) && nzchar(fallback_res$detail)) {
+          detail_parts <- c(detail_parts, paste0("FetchData fallback: ", fallback_res$detail))
+        }
+        if (length(detail_parts) == 0) {
+          detail_parts <- "Unable to retrieve marker expression by GetAssayData, LayerData, or FetchData."
+        }
+        info$detail <- paste(detail_parts, collapse = " | ")
+        if (is_assay_runtime_incompatible(info$detail, info$assay_class)) {
+          info$status <- "assay_runtime_incompatible"
+          info$reason <- "Assay runtime incompatible"
+          info$data_access_mode <- "assay_runtime_incompatible"
+          note <- paste0(
+            "Assay=", info$assay,
+            "; class=", ifelse(nzchar(info$assay_class), info$assay_class, "<unknown>"),
+            "; runtime cannot read this assay type."
+          )
+          info$runtime_note <- if (is.na(info$runtime_note) || !nzchar(info$runtime_note)) note else paste(info$runtime_note, note, sep = " | ")
+          log_detail("Status: assay_runtime_incompatible | ", info$detail)
+        } else {
+          info$status <- "missing_assay_data"
+          info$reason <- "Missing assay data"
+          log_detail("Status: missing_assay_data | ", info$detail)
+        }
+        return(info)
+      }
+
+      info$data_access_mode <- "fetchdata_fallback"
+      info$expression_slot <- fallback_res$expression_slot
+      if (!is.na(fallback_res$n_features_assay)) {
+        info$n_features_assay <- as.integer(fallback_res$n_features_assay)
+      }
+      if (!is.na(fallback_res$n_cells_assay)) {
+        info$n_cells_assay <- as.integer(fallback_res$n_cells_assay)
+      }
+      info$n_cells_common <- as.integer(fallback_res$n_cells_common)
+      info$n_cells_umap_not_in_assay <- as.integer(fallback_res$n_cells_umap_not_in_assay)
+      info$n_cells_assay_not_in_umap <- as.integer(fallback_res$n_cells_assay_not_in_umap)
+      expr_sub <- fallback_res$expr_sub
+      gene_hits <- fallback_res$genes_present
+      gene_missing <- setdiff(GENE_ORDER, gene_hits)
+
+      if (!is.null(expr_sub)) {
+        common_cells <- intersect(cells, colnames(expr_sub))
+        if (length(common_cells) > 0) {
+          expr_sub <- expr_sub[, common_cells, drop = FALSE]
+          coords <- coords[match(common_cells, coords$cell_id), , drop = FALSE]
+          rownames(coords) <- coords$cell_id
+        } else {
+          expr_sub <- NULL
+        }
+      }
+
+      if (!is.null(expr_sub)) {
+        expr_dims <- safe_dim(expr_sub)
+        info$assay_slot_dims <- paste0(fmt_count(expr_dims[[1]]), "x", fmt_count(expr_dims[[2]]))
+      } else {
+        info$assay_slot_dims <- "0x0"
+      }
+
+      log_detail(
+        "Expression data resolved via FetchData fallback using slot ",
+        info$expression_slot,
+        " (requested ", info$preferred_slot, ")"
+      )
+      log_detail(
+        "Cell overlap: common=", fmt_count(info$n_cells_common),
+        "; UMAP-only=", fmt_count(info$n_cells_umap_not_in_assay),
+        "; assay-only=", fmt_count(info$n_cells_assay_not_in_umap)
+      )
+
+      if (is.finite(info$n_cells_umap_not_in_assay) && info$n_cells_umap_not_in_assay > 0) {
+        info$status <- "missing_assay_data"
+        info$reason <- "Cell mismatch"
+        info$detail <- paste0(
+          "UMAP cells not in assay matrix: ",
+          fmt_count(info$n_cells_umap_not_in_assay)
+        )
+        log_detail("Status: missing_assay_data | ", info$detail)
+        return(info)
+      }
     }
   }
 
@@ -1279,6 +1583,7 @@ build_study_status_table <- function(studies_info) {
       assays_available = ifelse(is.na(study_info$assays_available), "", study_info$assays_available),
       assay_class = ifelse(is.na(study_info$assay_class), "", study_info$assay_class),
       assay_slot_names = ifelse(is.na(study_info$assay_slot_names), "", study_info$assay_slot_names),
+      assay_layers_available = ifelse(is.na(study_info$assay_layers_available), "", study_info$assay_layers_available),
       reductions_available = ifelse(is.na(study_info$reductions_available), "", study_info$reductions_available),
       reduction = study_info$reduction,
       assay = study_info$assay,
@@ -1363,6 +1668,7 @@ build_assay_slot_summary_table <- function(studies_info) {
     study_label = character(),
     assay = character(),
     slot = character(),
+    accessor = character(),
     status = character(),
     matrix_class = character(),
     n_features = integer(),
@@ -1378,6 +1684,7 @@ build_assay_slot_summary_table <- function(studies_info) {
         study_label = study_info$study_label,
         assay = study_info$assay,
         slot = study_info$preferred_slot,
+        accessor = "",
         status = study_info$status,
         matrix_class = "",
         n_features = NA_integer_,
@@ -1492,6 +1799,7 @@ build_feature_space_table <- function(studies_info) {
       assay = study_info$assay,
       assay_class = ifelse(is.na(study_info$assay_class), "", study_info$assay_class),
       assay_slot_names = ifelse(is.na(study_info$assay_slot_names), "", study_info$assay_slot_names),
+      assay_layers_available = ifelse(is.na(study_info$assay_layers_available), "", study_info$assay_layers_available),
       n_features_detected = study_info$n_features_detected,
       feature_id_type = ifelse(is.na(study_info$feature_id_type), "", study_info$feature_id_type),
       feature_id_examples = ifelse(is.na(study_info$feature_id_examples), "", study_info$feature_id_examples),
@@ -1758,6 +2066,7 @@ print_study_diagnostics <- function(study_status) {
       paste0(
         "  assay class=", ifelse(nzchar(row$assay_class[[1]]), row$assay_class[[1]], "<NA>"),
         "; assay slots=", ifelse(nzchar(row$assay_slot_names[[1]]), row$assay_slot_names[[1]], "<NA>"),
+        "; assay layers=", ifelse(nzchar(row$assay_layers_available[[1]]), row$assay_layers_available[[1]], "<NA>"),
         "; feature_id_type=", ifelse(nzchar(row$feature_id_type[[1]]), row$feature_id_type[[1]], "<NA>"), "\n"
       )
     )

@@ -1,24 +1,35 @@
 #!/bin/bash
-# Panel B template pinned to Seurat v4 runtime.
-# If your config includes Assay5 objects, use
-# slurm_templates/06_cross_study_panelB_markers_seurat5.sbatch.template instead.
-#SBATCH --job-name=panelb_markers
+# Use this template when any study object uses Assay5/layers (for example, Varela).
+# It mirrors the standard Panel B job but loads a Seurat v5 module.
+# If your cluster module string differs, set SEURAT5_MODULE before submission.
+#
+# Example:
+#   export SEURAT5_MODULE="r-seurat/5.x.x-R-4.3.x-<module-hash>"
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/06_cross_study_panelB_markers_seurat5.sbatch
+
+#SBATCH --job-name=panelb_markers_v5
 #SBATCH --time=08:00:00
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=96G
 #SBATCH --nodes=1
-#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_panelb_markers_%j.log
-#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_panelb_markers_%j.log
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_panelb_markers_v5_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_panelb_markers_v5_%j.log
 #SBATCH --partition=standard
 #SBATCH --account=parent0
 
 module load Bioinformatics
-module load r-seurat/4.1.1-R-4.2.0-5z5hgo7
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.0.1-R-4.3.1}"
+if ! module load "${SEURAT5_MODULE}"; then
+  echo "ERROR: failed to load ${SEURAT5_MODULE}"
+  echo "Set SEURAT5_MODULE to an available Seurat v5 module on Great Lakes."
+  echo "Hint: module avail r-seurat"
+  exit 1
+fi
 
 REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 CONFIG_PATH="${REPO_ROOT}/config/panel_b_cross_study_config.example.R"
-RUN_LABEL="panel_b_cross_study_v1"
+RUN_LABEL="panel_b_cross_study_v1_seurat5"
 DETAILED_LOG="true"
 SHOW_PROGRESS="false"
 RETAIN_SEURAT="false"
@@ -27,7 +38,7 @@ set -euo pipefail
 set -x
 mkdir -p "${PROJECT_ROOT}/logs"
 
-echo "=== Panel B job context ==="
+echo "=== Panel B (Seurat v5) job context ==="
 date
 hostname
 echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
@@ -40,6 +51,7 @@ echo "RUN_LABEL=${RUN_LABEL}"
 echo "DETAILED_LOG=${DETAILED_LOG}"
 echo "SHOW_PROGRESS=${SHOW_PROGRESS}"
 echo "RETAIN_SEURAT=${RETAIN_SEURAT}"
+echo "SEURAT5_MODULE=${SEURAT5_MODULE}"
 module list 2>&1
 
 export PROJECT_ROOT

@@ -1,5 +1,6 @@
 # Interactive driver for Panel B plotting in RStudio.
 # Open this file in RStudio and run line-by-line.
+# For Assay5 objects (for example Varela), run in a Seurat v5-capable R session.
 
 # 1) Point RStudio at the repo.
 setwd("/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline")
