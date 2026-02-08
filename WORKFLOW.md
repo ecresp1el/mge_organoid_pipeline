@@ -128,6 +128,8 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 - Cross-study marker Panel B figure assembly (no analysis/recompute): `scripts/06_cross_study_panelB_markers.R`
 - Slurm template for cross-study Panel B (Seurat v4 runtime): `slurm_templates/06_cross_study_panelB_markers.sbatch.template`
 - Slurm template for cross-study Panel B (Seurat v5 runtime / Assay5-aware): `slurm_templates/06_cross_study_panelB_markers_seurat5.sbatch.template`
+- Human developing GE comparison placeholder (next stage draft): `scripts/07_compare_human_developing_ge_tbd.R`
+- Slurm template for human GE placeholder: `slurm_templates/07_compare_human_developing_ge_tbd.sbatch.template`
 - Main pipeline: `scripts/02_walsh_day75_seurat.R` (methods-locked QC/normalize/HVG/CC/Scale/PCA/stress removal/UMAP/clustering; checkpoints; Elbow fallback)
 - Sweeps: `scripts/02b_walsh_k_sweep.R`, `02c_walsh_dims_sweep.R`, `02d_walsh_resolution_sweep.R`, `02e_walsh_kres_sweep.R`
 - Annotation: `scripts/02f_walsh_annotation.R` (adds walsh_group labels, tables, annotated UMAP)
@@ -148,6 +150,11 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
   - Panel B final figure is emitted as PNG/PDF/SVG with fixed layout logic: Varela left-most column when present, ON-target block on top, OFF-target block on bottom.
   - Panel B figure labels now include plotted cell counts per study (`n=<cells>`), and the config example includes both `Bershteyn 2025` and `Bershteyn 2023`.
   - Panel B now also writes `results/<run_label>/plots/panel_b_prepared_inputs.rds` for downstream scripts (matched coords + marker matrix per study).
+  - Panel B publishes validated per-study Seurat objects to a stable canonical path for downstream steps:
+    `results/panel_b_prepared_objects/studies/<study_id>_panelb_ready_seurat.rds`
+    with manifest `results/panel_b_prepared_objects/panel_b_prepared_object_paths.tsv`.
+  - Stage 07 placeholder consumes that manifest and writes run-scoped planning artifacts under:
+    `results/<run_label>/human_ge_comparison_tbd/`.
 - Slurm does **not** expand shell variables in `#SBATCH --output/--error`; templates use absolute log paths to keep runtime artifacts out of the repo.
 - Methods-locked parameters retained: QC 1000–5000 genes, <15% MT (^MT-); LogNormalize (scale.factor=1e4); HVG=5000 (vst); regress S.Score & G2M.Score; dims=1:20 for neighbors/UMAP; clustering resolution default 2.0 (sweeps explore alternatives); stress removal clusters mean score >0.5.
 - Checkpoints allow reruns without redoing QC/normalization/scaling; sweeps start from post-stress PCA checkpoint.

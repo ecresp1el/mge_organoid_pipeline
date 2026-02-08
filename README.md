@@ -20,6 +20,8 @@ Key scripts
 - Cross-study Panel B markers (figure assembly only): `scripts/06_cross_study_panelB_markers.R`
 - Slurm template for Panel B (Seurat v4 runtime): `slurm_templates/06_cross_study_panelB_markers.sbatch.template`
 - Slurm template for Panel B (Seurat v5 runtime / Assay5-aware): `slurm_templates/06_cross_study_panelB_markers_seurat5.sbatch.template`
+- Human GE comparison placeholder (next stage draft): `scripts/07_compare_human_developing_ge_tbd.R`
+- Slurm template for Human GE placeholder: `slurm_templates/07_compare_human_developing_ge_tbd.sbatch.template`
 - Status audit: `scripts/00_audit_studies.sh` (prints a Markdown table)
 
 Run Panel B interactively (no Slurm required)
@@ -28,7 +30,7 @@ Run Panel B interactively (no Slurm required)
 - Run:
   - `module load Bioinformatics`
   - `module load r-seurat/4.1.1-R-4.2.0-5z5hgo7`
-  - `Rscript scripts/06_cross_study_panelB_markers.R --config config/panel_b_cross_study_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label panel_b_cross_study_v1 --detailed-log true --write-prepared true`
+  - `Rscript scripts/06_cross_study_panelB_markers.R --config config/panel_b_cross_study_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label panel_b_cross_study_v1 --detailed-log true --write-prepared true --write-study-objects true --prepared-objects-root results/panel_b_prepared_objects`
 - Note: for Assay5 studies (for example Varela), use a Seurat v5 runtime so the script can use `LayerData` directly.
 - Note: detailed logs now include assay slot inventory, assay layer inventory, feature namespace detection, cell overlap checks, and metadata structure summaries.
 - Example config now includes both Bershteyn studies as separate columns:
@@ -43,6 +45,10 @@ Run Panel B interactively (no Slurm required)
 - The script now writes a reusable input bundle for downstream scripts:
   - `panel_b_prepared_inputs.rds` (per-study UMAP coords + marker matrix + status/metadata fields)
   - This is Seurat-runtime independent and is written by default (`--write-prepared true`).
+- The script now also publishes validated per-study Seurat objects to a stable path for downstream pipeline stages:
+  - `results/panel_b_prepared_objects/studies/<study_id>_panelb_ready_seurat.rds`
+  - `results/panel_b_prepared_objects/panel_b_prepared_object_paths.tsv` (canonical manifest)
+  - `<run_label>/plots/panel_b_prepared_object_paths.tsv` (run-scoped manifest snapshot)
 - Marker set used by Panel B (fixed order):
   - ON-target: `DCX,GAD2,DLX5,LHX6,MAF,SST,LHX8,SP8`
   - OFF-target: `PAX6,NEUROD2,ISL1,ACHE`
@@ -59,8 +65,22 @@ Run Panel B interactively (no Slurm required)
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_feature_space.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_prepared_inputs.rds`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_prepared_object_paths.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_issues.tsv`
+  - `PROJECT_ROOT/results/panel_b_prepared_objects/studies/<study_id>_panelb_ready_seurat.rds`
+  - `PROJECT_ROOT/results/panel_b_prepared_objects/panel_b_prepared_object_paths.tsv`
+
+Next stage placeholder: Human developing GE comparison
+- Edit config template: `config/human_ge_comparison_tbd_config.example.R`
+- Run:
+  - `module load Bioinformatics`
+  - `module load r-seurat/5.1.0-R-4.4.1-c3m7yfq`
+  - `Rscript scripts/07_compare_human_developing_ge_tbd.R --config config/human_ge_comparison_tbd_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label human_ge_comparison_tbd_v1`
+- Outputs:
+  - `PROJECT_ROOT/results/<run_label>/human_ge_comparison_tbd/human_ge_input_manifest.tsv`
+  - `PROJECT_ROOT/results/<run_label>/human_ge_comparison_tbd/human_ge_missing_required_studies.tsv`
+  - `PROJECT_ROOT/results/<run_label>/human_ge_comparison_tbd/human_ge_comparison_tbd_notes.txt`
 
 How to interpret marker availability
 - `panel_b_marker_presence.tsv` is the per-study, per-gene truth table.

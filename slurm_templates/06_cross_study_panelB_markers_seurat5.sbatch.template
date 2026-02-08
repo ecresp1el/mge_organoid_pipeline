@@ -33,6 +33,9 @@ RUN_LABEL="panel_b_cross_study_v1_seurat5"
 DETAILED_LOG="true"
 SHOW_PROGRESS="false"
 RETAIN_SEURAT="false"
+WRITE_PREPARED="true"
+WRITE_STUDY_OBJECTS="true"
+PREPARED_OBJECTS_ROOT="results/panel_b_prepared_objects"
 
 set -euo pipefail
 set -x
@@ -51,6 +54,9 @@ echo "RUN_LABEL=${RUN_LABEL}"
 echo "DETAILED_LOG=${DETAILED_LOG}"
 echo "SHOW_PROGRESS=${SHOW_PROGRESS}"
 echo "RETAIN_SEURAT=${RETAIN_SEURAT}"
+echo "WRITE_PREPARED=${WRITE_PREPARED}"
+echo "WRITE_STUDY_OBJECTS=${WRITE_STUDY_OBJECTS}"
+echo "PREPARED_OBJECTS_ROOT=${PREPARED_OBJECTS_ROOT}"
 echo "SEURAT5_MODULE=${SEURAT5_MODULE}"
 module list 2>&1
 
@@ -61,4 +67,7 @@ Rscript "${REPO_ROOT}/scripts/06_cross_study_panelB_markers.R" \
   --run-label "${RUN_LABEL}" \
   --detailed-log "${DETAILED_LOG}" \
   --show-progress "${SHOW_PROGRESS}" \
-  --retain-seurat "${RETAIN_SEURAT}"
+  --retain-seurat "${RETAIN_SEURAT}" \
+  --write-prepared "${WRITE_PREPARED}" \
+  --write-study-objects "${WRITE_STUDY_OBJECTS}" \
+  --prepared-objects-root "${PREPARED_OBJECTS_ROOT}"

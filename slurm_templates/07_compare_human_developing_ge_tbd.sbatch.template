@@ -1,0 +1,40 @@
+#!/bin/bash
+# Placeholder for next-stage comparison against human developing GE.
+# Consumes prepared object manifest from Stage 06.
+
+#SBATCH --job-name=human_ge_tbd
+#SBATCH --time=02:00:00
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=32G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/07_human_ge_tbd_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/07_human_ge_tbd_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+module load Bioinformatics
+module load r-seurat/5.1.0-R-4.4.1-c3m7yfq
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+CONFIG_PATH="${REPO_ROOT}/config/human_ge_comparison_tbd_config.example.R"
+RUN_LABEL="human_ge_comparison_tbd_v1"
+
+set -euo pipefail
+set -x
+mkdir -p "${PROJECT_ROOT}/logs"
+
+echo "=== Human GE comparison (TBD) job context ==="
+date
+hostname
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "PROJECT_ROOT=${PROJECT_ROOT}"
+echo "CONFIG_PATH=${CONFIG_PATH}"
+echo "RUN_LABEL=${RUN_LABEL}"
+module list 2>&1
+
+export PROJECT_ROOT
+Rscript "${REPO_ROOT}/scripts/07_compare_human_developing_ge_tbd.R" \
+  --config "${CONFIG_PATH}" \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${RUN_LABEL}"

@@ -32,6 +32,9 @@
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_feature_space.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_prepared_inputs.rds
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_prepared_object_paths.tsv
+# - PROJECT_ROOT/results/panel_b_prepared_objects/studies/<study_id>_panelb_ready_seurat.rds
+# - PROJECT_ROOT/results/panel_b_prepared_objects/panel_b_prepared_object_paths.tsv
 # - stdout audit of missing studies/genes/components
 
 suppressPackageStartupMessages({
@@ -1157,12 +1160,13 @@ print_usage <- function() {
   cat(
     paste(
       "Usage:",
-      "  Rscript scripts/06_cross_study_panelB_markers.R --config <config.R> [--project-root <path>] [--run-label <label>] [--retain-seurat <true|false>] [--export-global <true|false>] [--detailed-log <true|false>]",
+      "  Rscript scripts/06_cross_study_panelB_markers.R --config <config.R> [--project-root <path>] [--run-label <label>] [--retain-seurat <true|false>] [--export-global <true|false>] [--detailed-log <true|false>] [--write-prepared <true|false>] [--write-study-objects <true|false>] [--prepared-objects-root <path>]",
       "",
       "Config file format:",
       "  A single R object (list) readable by dget(), with fields:",
       "    project_root (optional if --project-root or PROJECT_ROOT is set)",
       "    run_label",
+      "    prepared_objects_root (optional; defaults to results/panel_b_prepared_objects)",
       "    studies (data.frame with columns: study_id, study_label, object_path, reduction, assay,",
       "             and optional expression_slot, feature_map_path)",
       "",
@@ -1172,6 +1176,8 @@ print_usage <- function() {
       "  --show-progress true|false    print each gene-row plot during assembly (interactive use)",
       "  --detailed-log true|false     print per-study diagnostics (object structure, assay/reduction/layer dims, cell matching)",
       "  --write-prepared true|false   write reusable panel_b_prepared_inputs.rds bundle (coords + marker matrix per study)",
+      "  --write-study-objects true|false  publish validated per-study Seurat .rds files to prepared_objects_root",
+      "  --prepared-objects-root <path>    relative/absolute path for published study objects (must stay under PROJECT_ROOT)",
       "",
       "Outputs:",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.png",
@@ -1187,6 +1193,8 @@ print_usage <- function() {
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_feature_space.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_prepared_inputs.rds",
+      "  PROJECT_ROOT/results/panel_b_prepared_objects/studies/<study_id>_panelb_ready_seurat.rds",
+      "  PROJECT_ROOT/results/panel_b_prepared_objects/panel_b_prepared_object_paths.tsv",
       sep = "\n"
     )
   )
@@ -1325,6 +1333,14 @@ read_config <- function(config_path) {
 
   cfg$run_label <- as.character(cfg$run_label)
   if (!is.null(cfg$project_root)) cfg$project_root <- as.character(cfg$project_root)
+  if (!is.null(cfg$prepared_objects_root)) {
+    cfg$prepared_objects_root <- as.character(cfg$prepared_objects_root[[1]])
+  } else {
+    cfg$prepared_objects_root <- "results/panel_b_prepared_objects"
+  }
+  if (is.na(cfg$prepared_objects_root) || !nzchar(cfg$prepared_objects_root)) {
+    cfg$prepared_objects_root <- "results/panel_b_prepared_objects"
+  }
   cfg$studies <- studies
   cfg
 }
@@ -2353,6 +2369,134 @@ as_scalar_character <- function(x) {
   as.character(x[[1]])
 }
 
+to_project_relative <- function(path, project_root) {
+  if (is.null(path) || !nzchar(path) || !is_subpath(path, project_root)) return(path)
+  root_norm <- normalize_abs(project_root, must_work = FALSE)
+  path_norm <- normalize_abs(path, must_work = FALSE)
+  sub(paste0("^", root_norm, "/?"), "", path_norm)
+}
+
+link_or_copy_file <- function(src, dst) {
+  if (!file.exists(src)) {
+    return(list(ok = FALSE, method = "none", detail = "source does not exist"))
+  }
+  src_norm <- normalize_abs(src, must_work = FALSE)
+  dst_norm <- normalize_abs(dst, must_work = FALSE)
+  if (identical(src_norm, dst_norm)) {
+    return(list(ok = TRUE, method = "existing", detail = "source and destination are identical"))
+  }
+
+  if (file.exists(dst)) {
+    unlink(dst)
+  }
+  dir.create(dirname(dst), recursive = TRUE, showWarnings = FALSE)
+
+  linked <- tryCatch(file.link(src, dst), warning = function(w) FALSE, error = function(e) FALSE)
+  if (isTRUE(linked) && file.exists(dst)) {
+    return(list(ok = TRUE, method = "hardlink", detail = "published as hardlink"))
+  }
+
+  copied <- tryCatch(
+    file.copy(src, dst, overwrite = TRUE, copy.mode = TRUE, copy.date = TRUE),
+    warning = function(w) FALSE,
+    error = function(e) FALSE
+  )
+  if (isTRUE(copied) && file.exists(dst)) {
+    return(list(ok = TRUE, method = "copy", detail = "published as file copy"))
+  }
+
+  list(ok = FALSE, method = "none", detail = "failed to hardlink or copy")
+}
+
+publish_prepared_study_objects <- function(studies_info,
+                                           project_root,
+                                           prepared_objects_root,
+                                           run_label,
+                                           write_study_objects = TRUE) {
+  root <- resolve_under_project_root(prepared_objects_root, project_root)
+  if (!is_subpath(root, project_root)) {
+    stop("Prepared object root must remain under PROJECT_ROOT: ", root, call. = FALSE)
+  }
+  dir.create(root, recursive = TRUE, showWarnings = FALSE)
+
+  objects_dir <- file.path(root, "studies")
+  if (isTRUE(write_study_objects)) {
+    dir.create(objects_dir, recursive = TRUE, showWarnings = FALSE)
+  }
+
+  rows <- lapply(studies_info, function(study_info) {
+    source_path <- study_info$object_path
+    prepared_path <- ""
+    prepared_rel <- ""
+    publish_status <- "skipped"
+    publish_method <- ""
+    publish_detail <- ""
+
+    if (!isTRUE(write_study_objects)) {
+      publish_status <- "disabled"
+      publish_detail <- "write_study_objects=false"
+    } else if (!identical(study_info$status, "ok")) {
+      publish_status <- "skipped_study_not_ok"
+      publish_detail <- ifelse(is.na(study_info$reason), "", as.character(study_info$reason))
+    } else if (!file.exists(source_path)) {
+      publish_status <- "missing_source"
+      publish_detail <- "source object missing at publish time"
+    } else {
+      prepared_path <- file.path(objects_dir, paste0(study_info$study_id, "_panelb_ready_seurat.rds"))
+      pub <- link_or_copy_file(source_path, prepared_path)
+      if (isTRUE(pub$ok)) {
+        publish_status <- "published"
+        publish_method <- pub$method
+        publish_detail <- pub$detail
+        prepared_rel <- to_project_relative(prepared_path, project_root)
+      } else {
+        publish_status <- "publish_error"
+        publish_method <- pub$method
+        publish_detail <- pub$detail
+        prepared_path <- ""
+      }
+    }
+
+    data.frame(
+      run_label = run_label,
+      study_id = study_info$study_id,
+      study_label = study_info$study_label,
+      status = study_info$status,
+      reason = as_scalar_character(study_info$reason),
+      source_object_path = source_path,
+      source_object_path_rel = to_project_relative(source_path, project_root),
+      prepared_object_path = prepared_path,
+      prepared_object_path_rel = prepared_rel,
+      publish_status = publish_status,
+      publish_method = publish_method,
+      publish_detail = publish_detail,
+      assay = study_info$assay,
+      reduction = study_info$reduction,
+      data_access_mode = as_scalar_character(study_info$data_access_mode),
+      n_cells_common = study_info$n_cells_common,
+      n_marker_genes_present = study_info$n_marker_genes_present,
+      n_marker_genes_requested = study_info$n_marker_genes_requested,
+      feature_id_type = as_scalar_character(study_info$feature_id_type),
+      runtime_note = as_scalar_character(study_info$runtime_note),
+      stringsAsFactors = FALSE
+    )
+  })
+
+  manifest <- do.call(rbind, rows)
+  manifest_path <- file.path(root, "panel_b_prepared_object_paths.tsv")
+  utils::write.table(manifest, file = manifest_path, sep = "\t", quote = FALSE, row.names = FALSE)
+
+  list(
+    root = root,
+    root_rel = to_project_relative(root, project_root),
+    objects_dir = objects_dir,
+    objects_dir_rel = to_project_relative(objects_dir, project_root),
+    manifest = manifest,
+    manifest_path = manifest_path,
+    manifest_path_rel = to_project_relative(manifest_path, project_root)
+  )
+}
+
 build_prepared_input_bundle <- function(studies_info,
                                         project_root,
                                         run_label,
@@ -2736,6 +2880,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   # Entry point:
   # - parse/validate args + config
   # - prepare per-study extracts
+  # - publish validated per-study Seurat objects to a stable pipeline path
   # - validate plot layout and study order
   # - build all gene rows
   # - write reusable tables/bundle plus PNG + PDF + SVG under PROJECT_ROOT/results/<run_label>/plots
@@ -2772,6 +2917,14 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   show_progress <- parse_bool_flag(args[["show-progress"]], default = FALSE)
   detailed_log <- parse_bool_flag(args[["detailed-log"]], default = TRUE)
   write_prepared <- parse_bool_flag(args[["write-prepared"]], default = TRUE)
+  write_study_objects <- parse_bool_flag(args[["write-study-objects"]], default = TRUE)
+  prepared_objects_root <- args[["prepared-objects-root"]]
+  if (is.null(prepared_objects_root) || !nzchar(prepared_objects_root)) {
+    prepared_objects_root <- cfg$prepared_objects_root
+  }
+  if (!nzchar(prepared_objects_root)) {
+    prepared_objects_root <- "results/panel_b_prepared_objects"
+  }
   set_detailed_log(detailed_log)
   options(warn = 1)
 
@@ -2779,6 +2932,8 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   log_msg("Project root: ", project_root)
   log_msg("Detailed logging: ", ifelse(detailed_log, "enabled", "disabled"))
   log_msg("Write prepared bundle: ", ifelse(write_prepared, "enabled", "disabled"))
+  log_msg("Write study objects: ", ifelse(write_study_objects, "enabled", "disabled"))
+  log_msg("Prepared objects root: ", prepared_objects_root)
   log_msg("R version: ", R.version.string)
   log_msg("Seurat version: ", as.character(utils::packageVersion("Seurat")))
   log_msg("ggplot2 version: ", as.character(utils::packageVersion("ggplot2")))
@@ -2833,6 +2988,21 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   ident_counts_path <- file.path(out_dir, "panel_b_ident_counts.tsv")
   feature_space_path <- file.path(out_dir, "panel_b_feature_space.tsv")
   prepared_inputs_path <- file.path(out_dir, "panel_b_prepared_inputs.rds")
+  prepared_object_manifest_run_path <- file.path(out_dir, "panel_b_prepared_object_paths.tsv")
+
+  publish_res <- publish_prepared_study_objects(
+    studies_info = studies_info,
+    project_root = project_root,
+    prepared_objects_root = prepared_objects_root,
+    run_label = run_label,
+    write_study_objects = write_study_objects
+  )
+  prepared_object_manifest_global_path <- publish_res$manifest_path
+  log_msg(
+    "Prepared study object root: ", publish_res$root,
+    " (", publish_res$root_rel, ")"
+  )
+  log_msg("Prepared study object manifest: ", prepared_object_manifest_global_path)
 
   log_msg("Building Panel B rows for ", length(GENE_ORDER), " genes across ", length(studies_info_plot), " studies.")
   row_plots <- vector("list", length(GENE_ORDER))
@@ -2881,6 +3051,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   utils::write.table(feature_space, file = feature_space_path, sep = "\t", quote = FALSE, row.names = FALSE)
   utils::write.table(row_summary, file = row_summary_path, sep = "\t", quote = FALSE, row.names = FALSE)
   utils::write.table(issues, file = issues_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  utils::write.table(publish_res$manifest, file = prepared_object_manifest_run_path, sep = "\t", quote = FALSE, row.names = FALSE)
   if (isTRUE(write_prepared)) {
     prepared_bundle <- build_prepared_input_bundle(
       studies_info = studies_info,
@@ -2904,6 +3075,8 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   log_msg("Wrote metadata columns table: ", metadata_columns_path)
   log_msg("Wrote identity counts table: ", ident_counts_path)
   log_msg("Wrote feature-space table: ", feature_space_path)
+  log_msg("Wrote run-scoped prepared object manifest: ", prepared_object_manifest_run_path)
+  log_msg("Wrote global prepared object manifest: ", prepared_object_manifest_global_path)
   log_msg("Wrote row summary table: ", row_summary_path)
   log_msg("Wrote issue table: ", issues_path)
 
@@ -2977,6 +3150,8 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     project_root = project_root,
     run_label = run_label,
     write_prepared = write_prepared,
+    write_study_objects = write_study_objects,
+    prepared_objects_root = publish_res$root,
     genes = GENE_ORDER,
     study_status = study_status,
     marker_presence = marker_presence,
@@ -3001,6 +3176,9 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       ident_counts = ident_counts_path,
       feature_space = feature_space_path,
       prepared_inputs = if (isTRUE(write_prepared)) prepared_inputs_path else "",
+      prepared_object_manifest = prepared_object_manifest_run_path,
+      prepared_object_manifest_global = prepared_object_manifest_global_path,
+      prepared_objects_root = publish_res$root,
       row_summary = row_summary_path,
       issues = issues_path
     ),
@@ -3040,20 +3218,24 @@ run_panel_b_local <- function(config_path,
                               export_global = TRUE,
                               show_progress_plots = interactive(),
                               detailed_log = TRUE,
-                              write_prepared = TRUE) {
+                              write_prepared = TRUE,
+                              write_study_objects = TRUE,
+                              prepared_objects_root = NULL) {
   # Interactive helper:
   # - returns result list
   # - optionally exports tables/objects to .GlobalEnv for inspection
   args <- c("--config", config_path)
   if (!is.null(project_root)) args <- c(args, "--project-root", project_root)
   if (!is.null(run_label)) args <- c(args, "--run-label", run_label)
+  if (!is.null(prepared_objects_root)) args <- c(args, "--prepared-objects-root", prepared_objects_root)
   args <- c(
     args,
     "--retain-seurat", if (isTRUE(retain_seurat)) "true" else "false",
     "--export-global", if (isTRUE(export_global)) "true" else "false",
     "--show-progress", if (isTRUE(show_progress_plots)) "true" else "false",
     "--detailed-log", if (isTRUE(detailed_log)) "true" else "false",
-    "--write-prepared", if (isTRUE(write_prepared)) "true" else "false"
+    "--write-prepared", if (isTRUE(write_prepared)) "true" else "false",
+    "--write-study-objects", if (isTRUE(write_study_objects)) "true" else "false"
   )
   main(args)
 }

@@ -2,6 +2,9 @@ list(
   # Optional if PROJECT_ROOT env or --project-root is provided
   project_root = "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder",
   run_label = "panel_b_cross_study_v1",
+  # Canonical per-study Seurat object output location for downstream steps.
+  # This path is stable across runs and is resolved under project_root.
+  prepared_objects_root = "results/panel_b_prepared_objects",
   studies = data.frame(
     study_id = c(
       "walsh",
