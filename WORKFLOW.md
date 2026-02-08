@@ -156,6 +156,8 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
     with manifest `results/panel_b_prepared_objects/panel_b_prepared_object_paths.tsv`.
   - Stage 07 placeholder consumes that manifest and writes run-scoped planning artifacts under:
     `results/<run_label>/human_ge_comparison_tbd/`.
+  - To download Panel B outputs to a local Mac path, run `rsync` from the local terminal (not on Great Lakes login node), for example:
+    `rsync -avh --progress "elcrespo@gl-login1.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/<run_label>/plots/*.png" "/Users/ecrespo/Desktop/output_files_from_pipeline/<run_label>/"`
 - Slurm does **not** expand shell variables in `#SBATCH --output/--error`; templates use absolute log paths to keep runtime artifacts out of the repo.
 - Methods-locked parameters retained: QC 1000–5000 genes, <15% MT (^MT-); LogNormalize (scale.factor=1e4); HVG=5000 (vst); regress S.Score & G2M.Score; dims=1:20 for neighbors/UMAP; clustering resolution default 2.0 (sweeps explore alternatives); stress removal clusters mean score >0.5.
 - Checkpoints allow reruns without redoing QC/normalization/scaling; sweeps start from post-stress PCA checkpoint.

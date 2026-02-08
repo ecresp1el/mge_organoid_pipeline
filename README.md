@@ -133,5 +133,15 @@ Run Panel B on Slurm
   - `export SEURAT5_MODULE=<your-seurat-v5-module>`
   - `sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/06_cross_study_panelB_markers_seurat5.sbatch`
 
+Copy Panel B outputs to local machine (run from local terminal, not Great Lakes)
+- Create local destination:
+  - `mkdir -p "/Users/ecrespo/Desktop/output_files_from_pipeline/panel_b_cross_study_hq_20260208_182430"`
+- Copy PNG images only from the latest high-quality run:
+  - `rsync -avh --progress "elcrespo@gl-login1.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/panel_b_cross_study_hq_20260208_182430/plots/*.png" "/Users/ecrespo/Desktop/output_files_from_pipeline/panel_b_cross_study_hq_20260208_182430/"`
+- Copy the full `plots/` folder (PNG/PDF/SVG/TSV):
+  - `rsync -avh --progress "elcrespo@gl-login1.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/panel_b_cross_study_hq_20260208_182430/plots/" "/Users/ecrespo/Desktop/output_files_from_pipeline/panel_b_cross_study_hq_20260208_182430/"`
+- Tip:
+  - replace `panel_b_cross_study_hq_20260208_182430` with any other run label you want to pull.
+
 Docs
 - Workflow + directory conventions: `WORKFLOW.md`
