@@ -20,6 +20,10 @@
 # Outputs:
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.pdf
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.svg
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_study_status.tsv
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_issues.tsv
 # - stdout audit of missing studies/genes/components
 
 suppressPackageStartupMessages({
@@ -31,6 +35,7 @@ suppressPackageStartupMessages({
 ON_TARGET_GENES <- c("DCX", "GAD2", "DLX5", "LHX6", "MAF", "SST", "LHX8", "SP8")
 OFF_TARGET_GENES <- c("PAX6", "NEUROD2", "ISL1", "ACHF")
 GENE_ORDER <- c(ON_TARGET_GENES, OFF_TARGET_GENES)
+DETAILED_LOG <- TRUE
 
 log_msg <- function(...) {
   msg <- paste0(..., collapse = " ")
@@ -38,11 +43,59 @@ log_msg <- function(...) {
   flush.console()
 }
 
+set_detailed_log <- function(flag) {
+  DETAILED_LOG <<- isTRUE(flag)
+}
+
+log_detail <- function(...) {
+  if (isTRUE(DETAILED_LOG)) {
+    log_msg(...)
+  }
+}
+
+fmt_count <- function(x) {
+  if (is.null(x) || length(x) == 0 || is.na(x)) return("NA")
+  format(round(as.numeric(x), digits = 0), trim = TRUE, scientific = FALSE, big.mark = ",")
+}
+
+fmt_num <- function(x, digits = 5) {
+  if (is.null(x) || length(x) == 0 || is.na(x) || !is.finite(x)) return("NA")
+  format(round(as.numeric(x), digits = digits), trim = TRUE, scientific = FALSE)
+}
+
+collapse_csv <- function(x) {
+  if (is.null(x) || length(x) == 0) return("")
+  paste(as.character(x), collapse = ",")
+}
+
+fmt_bytes <- function(bytes) {
+  if (is.null(bytes) || length(bytes) == 0 || is.na(bytes) || !is.finite(bytes)) return("NA")
+  b <- as.numeric(bytes)
+  if (b < 1024) return(paste0(fmt_num(b, digits = 0), " B"))
+  if (b < 1024^2) return(paste0(fmt_num(b / 1024, digits = 2), " KB"))
+  if (b < 1024^3) return(paste0(fmt_num(b / 1024^2, digits = 2), " MB"))
+  paste0(fmt_num(b / 1024^3, digits = 2), " GB")
+}
+
+safe_dim <- function(x) {
+  if (is.null(x)) return(c(NA_integer_, NA_integer_))
+  c(
+    tryCatch(as.integer(nrow(x)), error = function(e) NA_integer_),
+    tryCatch(as.integer(ncol(x)), error = function(e) NA_integer_)
+  )
+}
+
+safe_range <- function(x) {
+  out <- tryCatch(range(x, na.rm = TRUE, finite = TRUE), error = function(e) c(NA_real_, NA_real_))
+  if (length(out) != 2) out <- c(NA_real_, NA_real_)
+  out
+}
+
 print_usage <- function() {
   cat(
     paste(
       "Usage:",
-      "  Rscript scripts/06_cross_study_panelB_markers.R --config <config.R> [--project-root <path>] [--run-label <label>] [--retain-seurat <true|false>] [--export-global <true|false>]",
+      "  Rscript scripts/06_cross_study_panelB_markers.R --config <config.R> [--project-root <path>] [--run-label <label>] [--retain-seurat <true|false>] [--export-global <true|false>] [--detailed-log <true|false>]",
       "",
       "Config file format:",
       "  A single R object (list) readable by dget(), with fields:",
@@ -55,9 +108,14 @@ print_usage <- function() {
       "  --retain-seurat true|false    keep full Seurat objects in returned study list (interactive debugging)",
       "  --export-global true|false    export run objects to .GlobalEnv (panel_b_result, panel_b_studies, panel_b_rows, panel_b_issues)",
       "  --show-progress true|false    print each gene-row plot during assembly (interactive use)",
+      "  --detailed-log true|false     print per-study diagnostics (object structure, assay/reduction dims, cell matching)",
       "",
       "Outputs:",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.{pdf,svg}",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_study_status.tsv",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_issues.tsv",
       sep = "\n"
     )
   )
@@ -265,19 +323,54 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     reduction = study_row$reduction,
     assay = study_row$assay,
     preferred_slot = study_row$expression_slot,
+    assay_slot_requested = study_row$expression_slot,
     expression_slot = NA_character_,
     status = "ok",
     reason = NA_character_,
     detail = NA_character_,
     seurat_obj = NULL,
     expr_sub = NULL,
-    coords = NULL
+    coords = NULL,
+    object_bytes = NA_real_,
+    object_class = NA_character_,
+    default_assay = NA_character_,
+    assays_available = NA_character_,
+    reductions_available = NA_character_,
+    n_cells_object = NA_integer_,
+    n_features_assay = NA_integer_,
+    n_cells_assay = NA_integer_,
+    n_cells_umap = NA_integer_,
+    n_dims_umap = NA_integer_,
+    n_cells_common = NA_integer_,
+    n_cells_umap_not_in_assay = NA_integer_,
+    n_cells_assay_not_in_umap = NA_integer_,
+    n_marker_genes_requested = length(GENE_ORDER),
+    n_marker_genes_present = NA_integer_,
+    marker_genes_present = NA_character_,
+    marker_genes_missing = NA_character_,
+    assay_slot_dims = NA_character_,
+    umap_dim1_min = NA_real_,
+    umap_dim1_max = NA_real_,
+    umap_dim2_min = NA_real_,
+    umap_dim2_max = NA_real_
   )
+
+  log_detail("---- Study ", info$study_label, " (", info$study_id, ") ----")
+  log_detail("Configured object_path: ", study_row$object_path)
+  log_detail("Resolved object path: ", info$object_path)
 
   if (!file.exists(info$object_path)) {
     info$status <- "missing_object"
     info$reason <- "Missing object"
+    info$detail <- "Object file does not exist."
+    log_detail("Status: missing_object | reason: Missing object")
     return(info)
+  }
+
+  fi <- tryCatch(file.info(info$object_path), error = function(e) NULL)
+  if (!is.null(fi) && nrow(fi) == 1 && !is.na(fi$size[[1]])) {
+    info$object_bytes <- as.numeric(fi$size[[1]])
+    log_detail("Object size on disk: ", fmt_bytes(info$object_bytes), " (", fmt_count(info$object_bytes), " bytes)")
   }
 
   obj <- tryCatch(read_rds_any(info$object_path), error = function(e) e)
@@ -285,50 +378,117 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     info$status <- "unreadable_object"
     info$reason <- "Unreadable object"
     info$detail <- conditionMessage(obj)
+    log_detail("Status: unreadable_object | ", info$detail)
     return(info)
   }
+
+  info$object_class <- collapse_csv(class(obj))
+  log_detail("Loaded object class: ", info$object_class)
 
   if (!inherits(obj, "Seurat")) {
     info$status <- "invalid_object"
     info$reason <- "Invalid object"
-    info$detail <- paste("Class:", paste(class(obj), collapse = ","))
+    info$detail <- paste("Class:", info$object_class)
+    log_detail("Status: invalid_object | ", info$detail)
     return(info)
   }
   if (retain_seurat) {
     info$seurat_obj <- obj
   }
 
+  info$default_assay <- tryCatch(as.character(DefaultAssay(obj)), error = function(e) "")
+  info$assays_available <- collapse_csv(names(obj@assays))
+  info$reductions_available <- collapse_csv(names(obj@reductions))
+  info$n_cells_object <- tryCatch(as.integer(ncol(obj)), error = function(e) NA_integer_)
+  log_detail("Default assay: ", ifelse(nzchar(info$default_assay), info$default_assay, "<none>"))
+  log_detail("Available assays: ", ifelse(nzchar(info$assays_available), info$assays_available, "<none>"))
+  log_detail("Available reductions: ", ifelse(nzchar(info$reductions_available), info$reductions_available, "<none>"))
+  log_detail("Object cells (ncol): ", fmt_count(info$n_cells_object))
+  log_detail("Configured assay/reduction/slot: ", info$assay, " / ", info$reduction, " / ", info$preferred_slot)
+
   if (!(info$assay %in% names(obj@assays))) {
     info$status <- "missing_assay"
     info$reason <- "Missing assay"
-    info$detail <- paste0("assay=", info$assay)
+    info$detail <- paste0(
+      "Configured assay=", info$assay,
+      "; available assays=", ifelse(nzchar(info$assays_available), info$assays_available, "<none>")
+    )
+    log_detail("Status: missing_assay | ", info$detail)
     return(info)
   }
+
+  assay_obj <- tryCatch(obj[[info$assay]], error = function(e) NULL)
+  assay_dims <- safe_dim(assay_obj)
+  info$n_features_assay <- assay_dims[[1]]
+  if (!is.na(assay_dims[[2]])) {
+    info$n_cells_assay <- assay_dims[[2]]
+  }
+  log_detail(
+    "Assay object dims (features x cells): ",
+    fmt_count(info$n_features_assay), " x ", fmt_count(assay_dims[[2]])
+  )
 
   if (!(info$reduction %in% names(obj@reductions))) {
     info$status <- "missing_umap"
     info$reason <- "Missing UMAP"
-    info$detail <- paste0("reduction=", info$reduction)
+    info$detail <- paste0(
+      "Configured reduction=", info$reduction,
+      "; available reductions=", ifelse(nzchar(info$reductions_available), info$reductions_available, "<none>")
+    )
+    log_detail("Status: missing_umap | ", info$detail)
     return(info)
   }
 
-  coords <- tryCatch(Embeddings(obj, reduction = info$reduction), error = function(e) e)
-  if (inherits(coords, "error") || is.null(dim(coords)) || ncol(coords) < 2 || nrow(coords) == 0) {
+  coords_raw <- tryCatch(Embeddings(obj, reduction = info$reduction), error = function(e) e)
+  if (inherits(coords_raw, "error")) {
     info$status <- "missing_umap"
     info$reason <- "Missing UMAP"
-    info$detail <- paste0("reduction=", info$reduction)
+    info$detail <- paste0("Failed to read reduction=", info$reduction, "; ", conditionMessage(coords_raw))
+    log_detail("Status: missing_umap | ", info$detail)
     return(info)
   }
+
+  coords_dims <- safe_dim(coords_raw)
+  info$n_cells_umap <- coords_dims[[1]]
+  info$n_dims_umap <- coords_dims[[2]]
+  if (is.na(info$n_cells_umap) || is.na(info$n_dims_umap) || info$n_cells_umap == 0 || info$n_dims_umap < 2) {
+    info$status <- "missing_umap"
+    info$reason <- "Missing UMAP"
+    info$detail <- paste0(
+      "Reduction has invalid dims (cells x dims)=",
+      fmt_count(info$n_cells_umap), " x ", fmt_count(info$n_dims_umap)
+    )
+    log_detail("Status: missing_umap | ", info$detail)
+    return(info)
+  }
+
+  d1 <- safe_range(coords_raw[, 1])
+  d2 <- safe_range(coords_raw[, 2])
+  info$umap_dim1_min <- d1[[1]]
+  info$umap_dim1_max <- d1[[2]]
+  info$umap_dim2_min <- d2[[1]]
+  info$umap_dim2_max <- d2[[2]]
+  log_detail(
+    "Reduction dims (cells x dims): ",
+    fmt_count(info$n_cells_umap), " x ", fmt_count(info$n_dims_umap)
+  )
+  log_detail(
+    "Reduction ranges: UMAP_1=[", fmt_num(info$umap_dim1_min), ", ", fmt_num(info$umap_dim1_max),
+    "], UMAP_2=[", fmt_num(info$umap_dim2_min), ", ", fmt_num(info$umap_dim2_max), "]"
+  )
 
   slot_name <- choose_expression_slot(obj, info$assay, info$preferred_slot)
   if (is.na(slot_name)) {
     info$status <- "missing_assay_data"
     info$reason <- "Missing assay data"
-    info$detail <- paste0("assay=", info$assay)
+    info$detail <- paste0("No non-empty slot among: ", collapse_csv(unique(c(info$preferred_slot, "data", "counts"))))
+    log_detail("Status: missing_assay_data | ", info$detail)
     return(info)
   }
+  info$expression_slot <- slot_name
+  log_detail("Expression slot selected: ", slot_name, " (requested ", info$preferred_slot, ")")
 
-  coords <- as.data.frame(coords[, 1:2, drop = FALSE], stringsAsFactors = FALSE)
+  coords <- as.data.frame(coords_raw[, 1:2, drop = FALSE], stringsAsFactors = FALSE)
   colnames(coords) <- c("UMAP_1", "UMAP_2")
   coords$cell_id <- rownames(coords)
 
@@ -339,23 +499,81 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   if (inherits(mat, "error") || is.null(mat) || nrow(mat) == 0 || ncol(mat) == 0) {
     info$status <- "missing_assay_data"
     info$reason <- "Missing assay data"
-    info$detail <- paste0("assay=", info$assay, "; slot=", slot_name)
+    info$detail <- if (inherits(mat, "error")) {
+      paste0("assay=", info$assay, "; slot=", slot_name, "; ", conditionMessage(mat))
+    } else {
+      paste0("assay=", info$assay, "; slot=", slot_name, " has empty matrix")
+    }
+    log_detail("Status: missing_assay_data | ", info$detail)
     return(info)
   }
 
+  mat_dims <- safe_dim(mat)
+  info$n_features_assay <- mat_dims[[1]]
+  info$n_cells_assay <- mat_dims[[2]]
+  info$assay_slot_dims <- paste0(fmt_count(mat_dims[[1]]), "x", fmt_count(mat_dims[[2]]))
+  log_detail(
+    "Assay slot dims (features x cells): ",
+    fmt_count(mat_dims[[1]]), " x ", fmt_count(mat_dims[[2]])
+  )
+
   cells <- coords$cell_id
-  if (!all(cells %in% colnames(mat))) {
+  umap_cells <- unique(cells)
+  assay_cells <- unique(colnames(mat))
+  common_cells <- intersect(umap_cells, assay_cells)
+  missing_in_assay <- setdiff(umap_cells, assay_cells)
+  extra_in_assay <- setdiff(assay_cells, umap_cells)
+  info$n_cells_common <- length(common_cells)
+  info$n_cells_umap_not_in_assay <- length(missing_in_assay)
+  info$n_cells_assay_not_in_umap <- length(extra_in_assay)
+  log_detail(
+    "Cell overlap: common=", fmt_count(info$n_cells_common),
+    "; UMAP-only=", fmt_count(info$n_cells_umap_not_in_assay),
+    "; assay-only=", fmt_count(info$n_cells_assay_not_in_umap)
+  )
+
+  if (length(missing_in_assay) > 0) {
     info$status <- "missing_assay_data"
     info$reason <- "Cell mismatch"
-    info$detail <- "UMAP cells not all present in assay matrix."
+    info$detail <- paste0(
+      "UMAP cells not in assay matrix: ", fmt_count(length(missing_in_assay)),
+      if (length(missing_in_assay) > 0) {
+        paste0(" (examples: ", paste(utils::head(missing_in_assay, 5), collapse = ", "), ")")
+      } else {
+        ""
+      }
+    )
+    log_detail("Status: missing_assay_data | ", info$detail)
     return(info)
   }
 
   gene_hits <- GENE_ORDER[GENE_ORDER %in% rownames(mat)]
+  gene_missing <- setdiff(GENE_ORDER, gene_hits)
+  info$n_marker_genes_present <- length(gene_hits)
+  info$marker_genes_present <- collapse_csv(gene_hits)
+  info$marker_genes_missing <- collapse_csv(gene_missing)
+  log_detail(
+    "Marker genes: requested=", fmt_count(info$n_marker_genes_requested),
+    "; present=", fmt_count(info$n_marker_genes_present),
+    "; missing=", fmt_count(length(gene_missing))
+  )
+  if (length(gene_missing) > 0) {
+    log_detail("Missing marker genes: ", collapse_csv(gene_missing))
+  }
+
   expr_sub <- if (length(gene_hits) > 0) {
     mat[gene_hits, cells, drop = FALSE]
   } else {
     NULL
+  }
+  if (!is.null(expr_sub)) {
+    expr_dims <- safe_dim(expr_sub)
+    log_detail(
+      "Extracted marker matrix dims (features x cells): ",
+      fmt_count(expr_dims[[1]]), " x ", fmt_count(expr_dims[[2]])
+    )
+  } else {
+    log_detail("Extracted marker matrix dims: 0 x 0")
   }
 
   if (retain_seurat) {
@@ -365,9 +583,9 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   }
   invisible(gc(verbose = FALSE))
 
-  info$expression_slot <- slot_name
   info$expr_sub <- expr_sub
   info$coords <- coords
+  log_detail("Status: ok")
   info
 }
 
@@ -388,14 +606,65 @@ build_study_status_table <- function(studies_info) {
       status = study_info$status,
       reason = ifelse(is.na(study_info$reason), "", study_info$reason),
       detail = ifelse(is.na(study_info$detail), "", study_info$detail),
+      object_path = study_info$object_path,
+      object_bytes = ifelse(is.na(study_info$object_bytes), "", as.character(as.numeric(study_info$object_bytes))),
+      object_class = ifelse(is.na(study_info$object_class), "", study_info$object_class),
+      default_assay = ifelse(is.na(study_info$default_assay), "", study_info$default_assay),
+      assays_available = ifelse(is.na(study_info$assays_available), "", study_info$assays_available),
+      reductions_available = ifelse(is.na(study_info$reductions_available), "", study_info$reductions_available),
       reduction = study_info$reduction,
       assay = study_info$assay,
+      assay_slot_requested = ifelse(is.na(study_info$assay_slot_requested), "", study_info$assay_slot_requested),
       expression_slot = ifelse(is.na(study_info$expression_slot), "", study_info$expression_slot),
-      n_cells = if (!is.null(study_info$coords)) nrow(study_info$coords) else NA_integer_,
-      n_marker_genes_available = if (!is.null(study_info$expr_sub)) nrow(study_info$expr_sub) else NA_integer_,
+      assay_slot_dims = ifelse(is.na(study_info$assay_slot_dims), "", study_info$assay_slot_dims),
+      n_cells_object = study_info$n_cells_object,
+      n_features_assay = study_info$n_features_assay,
+      n_cells_assay = study_info$n_cells_assay,
+      n_cells_umap = study_info$n_cells_umap,
+      n_dims_umap = study_info$n_dims_umap,
+      n_cells_common = study_info$n_cells_common,
+      n_cells_umap_not_in_assay = study_info$n_cells_umap_not_in_assay,
+      n_cells_assay_not_in_umap = study_info$n_cells_assay_not_in_umap,
+      umap_dim1_min = study_info$umap_dim1_min,
+      umap_dim1_max = study_info$umap_dim1_max,
+      umap_dim2_min = study_info$umap_dim2_min,
+      umap_dim2_max = study_info$umap_dim2_max,
+      n_marker_genes_requested = study_info$n_marker_genes_requested,
+      n_marker_genes_present = study_info$n_marker_genes_present,
+      marker_genes_present = ifelse(is.na(study_info$marker_genes_present), "", study_info$marker_genes_present),
+      marker_genes_missing = ifelse(is.na(study_info$marker_genes_missing), "", study_info$marker_genes_missing),
       stringsAsFactors = FALSE
     )
   })
+  do.call(rbind, chunks)
+}
+
+build_marker_presence_table <- function(studies_info) {
+  chunks <- list()
+  k <- 0
+  for (study_info in studies_info) {
+    study_ok <- identical(study_info$status, "ok")
+    genes_present <- if (!is.null(study_info$expr_sub)) rownames(study_info$expr_sub) else character(0)
+    for (gene in GENE_ORDER) {
+      k <- k + 1
+      present <- study_ok && (gene %in% genes_present)
+      reason <- if (!study_ok) {
+        ifelse(is.na(study_info$reason), "Study unavailable", study_info$reason)
+      } else if (!present) {
+        "Gene not found"
+      } else {
+        ""
+      }
+      chunks[[k]] <- data.frame(
+        study_id = study_info$study_id,
+        study_label = study_info$study_label,
+        gene = gene,
+        present = present,
+        reason = reason,
+        stringsAsFactors = FALSE
+      )
+    }
+  }
   do.call(rbind, chunks)
 }
 
@@ -617,6 +886,63 @@ print_audit <- function(issue_df) {
   }
 }
 
+print_study_diagnostics <- function(study_status) {
+  cat("\n=== Study diagnostics ===\n")
+  for (i in seq_len(nrow(study_status))) {
+    row <- study_status[i, , drop = FALSE]
+    cat(
+      paste0(
+        "[", row$study_label[[1]], "] ",
+        "status=", row$status[[1]],
+        "; reason=", ifelse(nzchar(row$reason[[1]]), row$reason[[1]], "<none>"),
+        "; file=", row$object_path[[1]], "\n"
+      )
+    )
+    cat(
+      paste0(
+        "  class=", ifelse(nzchar(row$object_class[[1]]), row$object_class[[1]], "<NA>"),
+        "; bytes=", ifelse(nzchar(row$object_bytes[[1]]), row$object_bytes[[1]], "NA"),
+        "; default_assay=", ifelse(nzchar(row$default_assay[[1]]), row$default_assay[[1]], "<NA>"), "\n"
+      )
+    )
+    cat(
+      paste0(
+        "  assays=", ifelse(nzchar(row$assays_available[[1]]), row$assays_available[[1]], "<none>"),
+        "; reductions=", ifelse(nzchar(row$reductions_available[[1]]), row$reductions_available[[1]], "<none>"), "\n"
+      )
+    )
+    cat(
+      paste0(
+        "  requested assay/reduction/slot=", row$assay[[1]], "/", row$reduction[[1]], "/", row$assay_slot_requested[[1]],
+        "; selected slot=", ifelse(nzchar(row$expression_slot[[1]]), row$expression_slot[[1]], "<NA>"), "\n"
+      )
+    )
+    cat(
+      paste0(
+        "  cells: object=", fmt_count(row$n_cells_object[[1]]),
+        ", assay=", fmt_count(row$n_cells_assay[[1]]),
+        ", umap=", fmt_count(row$n_cells_umap[[1]]),
+        ", common=", fmt_count(row$n_cells_common[[1]]),
+        ", umap_only=", fmt_count(row$n_cells_umap_not_in_assay[[1]]),
+        ", assay_only=", fmt_count(row$n_cells_assay_not_in_umap[[1]]), "\n"
+      )
+    )
+    cat(
+      paste0(
+        "  features: assay=", fmt_count(row$n_features_assay[[1]]),
+        "; markers present=", fmt_count(row$n_marker_genes_present[[1]]),
+        "/", fmt_count(row$n_marker_genes_requested[[1]]), "\n"
+      )
+    )
+    if (nzchar(row$marker_genes_missing[[1]])) {
+      cat(paste0("  missing markers=", row$marker_genes_missing[[1]], "\n"))
+    }
+    if (nzchar(row$detail[[1]])) {
+      cat(paste0("  detail=", row$detail[[1]], "\n"))
+    }
+  }
+}
+
 main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   # Entry point:
   # - parse/validate args + config
@@ -654,19 +980,38 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   retain_seurat <- parse_bool_flag(args[["retain-seurat"]], default = FALSE)
   export_global <- parse_bool_flag(args[["export-global"]], default = FALSE)
   show_progress <- parse_bool_flag(args[["show-progress"]], default = FALSE)
+  detailed_log <- parse_bool_flag(args[["detailed-log"]], default = TRUE)
+  set_detailed_log(detailed_log)
+
+  log_msg("Run label: ", run_label)
+  log_msg("Project root: ", project_root)
+  log_msg("Detailed logging: ", ifelse(detailed_log, "enabled", "disabled"))
+  log_msg("No analysis recomputation is performed in this script (load existing objects only).")
+  log_msg("Markers requested (", length(GENE_ORDER), "): ", collapse_csv(GENE_ORDER))
 
   log_msg("Preparing studies from config: ", args$config)
-  studies_info <- lapply(seq_len(nrow(cfg$studies)), function(i) {
-    prepare_study(cfg$studies[i, , drop = FALSE], project_root, retain_seurat = retain_seurat)
-  })
+  studies_info <- vector("list", nrow(cfg$studies))
+  for (i in seq_len(nrow(cfg$studies))) {
+    row <- cfg$studies[i, , drop = FALSE]
+    log_msg("Study ", i, "/", nrow(cfg$studies), ": ", row$study_label[[1]], " (", row$study_id[[1]], ")")
+    studies_info[[i]] <- prepare_study(row, project_root, retain_seurat = retain_seurat)
+    log_msg(
+      "Study ", row$study_label[[1]], " complete: status=", studies_info[[i]]$status,
+      if (!is.na(studies_info[[i]]$reason)) paste0(" (", studies_info[[i]]$reason, ")") else ""
+    )
+  }
   ordered_labels <- vapply(studies_info, function(x) x$study_label, character(1))
   study_status <- build_study_status_table(studies_info)
+  marker_presence <- build_marker_presence_table(studies_info)
 
   out_dir <- normalize_abs(file.path(project_root, "results", run_label, "plots"), must_work = FALSE)
   if (!is_subpath(out_dir, project_root)) {
     stop("Output path must remain under PROJECT_ROOT.", call. = FALSE)
   }
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  study_status_path <- file.path(out_dir, "panel_b_study_status.tsv")
+  marker_presence_path <- file.path(out_dir, "panel_b_marker_presence.tsv")
 
   log_msg("Building Panel B rows for ", length(GENE_ORDER), " genes across ", length(studies_info), " studies.")
   row_plots <- vector("list", length(GENE_ORDER))
@@ -683,6 +1028,13 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     }
     if (nrow(row_res$issues) > 0) issue_chunks[[length(issue_chunks) + 1]] <- row_res$issues
     row_summary_chunks[[length(row_summary_chunks) + 1]] <- row_res$summary
+    log_detail(
+      "Row ", i, "/", length(GENE_ORDER), " ", gene,
+      " | points=", fmt_count(row_res$summary$n_points[[1]]),
+      " | placeholders=", fmt_count(row_res$summary$n_placeholder_panels[[1]]),
+      " | studies_with_expression=", fmt_count(row_res$summary$n_studies_with_expression[[1]]),
+      " | scale=[", fmt_num(row_res$summary$scale_min[[1]]), ", ", fmt_num(row_res$summary$scale_max[[1]]), "]"
+    )
   }
   row_summary <- do.call(rbind, row_summary_chunks)
   issues <- if (length(issue_chunks) > 0) do.call(rbind, issue_chunks) else data.frame(
@@ -693,6 +1045,17 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     scope = character(),
     stringsAsFactors = FALSE
   )
+  row_summary_path <- file.path(out_dir, "panel_b_row_summary.tsv")
+  issues_path <- file.path(out_dir, "panel_b_issues.tsv")
+
+  utils::write.table(study_status, file = study_status_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  utils::write.table(marker_presence, file = marker_presence_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  utils::write.table(row_summary, file = row_summary_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  utils::write.table(issues, file = issues_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  log_msg("Wrote study diagnostics table: ", study_status_path)
+  log_msg("Wrote marker presence table: ", marker_presence_path)
+  log_msg("Wrote row summary table: ", row_summary_path)
+  log_msg("Wrote issue table: ", issues_path)
 
   fig <- wrap_plots(row_plots, ncol = 1) +
     plot_layout(heights = rep(1, length(row_plots))) +
@@ -714,6 +1077,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   ggsave(filename = svg_path, plot = fig, width = fig_width, height = fig_height, units = "in", device = grDevices::svg)
 
   log_msg("Done.")
+  print_study_diagnostics(study_status)
   print_audit(issues)
 
   result <- list(
@@ -721,9 +1085,17 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     run_label = run_label,
     genes = GENE_ORDER,
     study_status = study_status,
+    marker_presence = marker_presence,
     row_summary = row_summary,
     issues = issues,
-    output_paths = list(pdf = pdf_path, svg = svg_path),
+    output_paths = list(
+      pdf = pdf_path,
+      svg = svg_path,
+      study_status = study_status_path,
+      marker_presence = marker_presence_path,
+      row_summary = row_summary_path,
+      issues = issues_path
+    ),
     row_plots = row_plots,
     final_plot = fig,
     studies_info = studies_info
@@ -732,6 +1104,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   if (export_global) {
     assign("panel_b_result", result, envir = .GlobalEnv)
     assign("panel_b_studies", study_status, envir = .GlobalEnv)
+    assign("panel_b_marker_presence", marker_presence, envir = .GlobalEnv)
     assign("panel_b_rows", row_summary, envir = .GlobalEnv)
     assign("panel_b_issues", issues, envir = .GlobalEnv)
     assign("panel_b_row_plots", row_plots, envir = .GlobalEnv)
@@ -746,7 +1119,8 @@ run_panel_b_local <- function(config_path,
                               run_label = NULL,
                               retain_seurat = FALSE,
                               export_global = TRUE,
-                              show_progress_plots = interactive()) {
+                              show_progress_plots = interactive(),
+                              detailed_log = TRUE) {
   # Interactive helper:
   # - returns result list
   # - optionally exports tables/objects to .GlobalEnv for inspection
@@ -757,7 +1131,8 @@ run_panel_b_local <- function(config_path,
     args,
     "--retain-seurat", if (isTRUE(retain_seurat)) "true" else "false",
     "--export-global", if (isTRUE(export_global)) "true" else "false",
-    "--show-progress", if (isTRUE(show_progress_plots)) "true" else "false"
+    "--show-progress", if (isTRUE(show_progress_plots)) "true" else "false",
+    "--detailed-log", if (isTRUE(detailed_log)) "true" else "false"
   )
   main(args)
 }

@@ -21,10 +21,14 @@ Run Panel B interactively (no Slurm required)
 - Run:
   - `module load Bioinformatics`
   - `module load r-seurat/4.1.1-R-4.2.0-5z5hgo7`
-  - `Rscript scripts/06_cross_study_panelB_markers.R --config config/panel_b_cross_study_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label panel_b_cross_study_v1`
+  - `Rscript scripts/06_cross_study_panelB_markers.R --config config/panel_b_cross_study_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label panel_b_cross_study_v1 --detailed-log true`
 - Outputs:
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.pdf`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.svg`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_study_status.tsv`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_issues.tsv`
 
 Docs
 - Workflow + directory conventions: `WORKFLOW.md`

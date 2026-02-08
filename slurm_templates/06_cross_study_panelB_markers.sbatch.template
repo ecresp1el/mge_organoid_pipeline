@@ -24,4 +24,5 @@ export PROJECT_ROOT
 Rscript "${REPO_ROOT}/scripts/06_cross_study_panelB_markers.R" \
   --config "${CONFIG_PATH}" \
   --project-root "${PROJECT_ROOT}" \
-  --run-label "${RUN_LABEL}"
+  --run-label "${RUN_LABEL}" \
+  --detailed-log true
