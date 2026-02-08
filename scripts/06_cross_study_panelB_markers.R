@@ -18,6 +18,7 @@
 # - Optional CLI overrides: --project-root and --run-label
 #
 # Outputs:
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.png
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.pdf
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.svg
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_study_status.tsv
@@ -39,7 +40,8 @@ suppressPackageStartupMessages({
 })
 
 ON_TARGET_GENES <- c("DCX", "GAD2", "DLX5", "LHX6", "MAF", "SST", "LHX8", "SP8")
-OFF_TARGET_GENES <- c("PAX6", "NEUROD2", "ISL1", "ACHF")
+# NOTE: ACHE is the intended marker symbol (not ACHF).
+OFF_TARGET_GENES <- c("PAX6", "NEUROD2", "ISL1", "ACHE")
 GENE_ORDER <- c(ON_TARGET_GENES, OFF_TARGET_GENES)
 DETAILED_LOG <- TRUE
 
@@ -79,6 +81,85 @@ collapse_csv <- function(x) {
   paste(as.character(x), collapse = ",")
 }
 
+plot_study_order <- function(studies_info) {
+  labels <- vapply(studies_info, function(x) x$study_label, character(1))
+  ids <- tolower(vapply(studies_info, function(x) x$study_id, character(1)))
+  labels_norm <- tolower(labels)
+  varela_idx <- which(grepl("varela", ids, fixed = TRUE) | grepl("varela", labels_norm, fixed = TRUE))
+  if (length(varela_idx) == 0) return(labels)
+  varela_idx <- unique(varela_idx)
+  c(labels[varela_idx], labels[setdiff(seq_along(labels), varela_idx)])
+}
+
+validate_panel_b_layout_inputs <- function(studies_info, ordered_labels) {
+  if (length(studies_info) == 0) {
+    stop("No studies configured; cannot build Panel B.", call. = FALSE)
+  }
+  if (length(ordered_labels) != length(studies_info)) {
+    stop("Internal error: ordered_labels length mismatch.", call. = FALSE)
+  }
+  if (any(!nzchar(ordered_labels))) {
+    stop("One or more studies has an empty study_label.", call. = FALSE)
+  }
+  if (anyDuplicated(ordered_labels) > 0) {
+    dup <- unique(ordered_labels[duplicated(ordered_labels)])
+    stop("Duplicate study_label values are not allowed for faceting: ", collapse_csv(dup), call. = FALSE)
+  }
+  if (anyDuplicated(GENE_ORDER) > 0) {
+    dup <- unique(GENE_ORDER[duplicated(GENE_ORDER)])
+    stop("GENE_ORDER contains duplicates: ", collapse_csv(dup), call. = FALSE)
+  }
+  overlap <- intersect(ON_TARGET_GENES, OFF_TARGET_GENES)
+  if (length(overlap) > 0) {
+    stop("Marker grouping conflict. Genes in both ON/OFF groups: ", collapse_csv(overlap), call. = FALSE)
+  }
+
+  on_genes <- GENE_ORDER[GENE_ORDER %in% ON_TARGET_GENES]
+  off_genes <- GENE_ORDER[GENE_ORDER %in% OFF_TARGET_GENES]
+  ungrouped <- setdiff(GENE_ORDER, c(ON_TARGET_GENES, OFF_TARGET_GENES))
+  if (length(ungrouped) > 0) {
+    stop(
+      "GENE_ORDER includes genes that are not assigned to ON_TARGET_GENES or OFF_TARGET_GENES: ",
+      collapse_csv(ungrouped),
+      call. = FALSE
+    )
+  }
+  if (length(on_genes) == 0) {
+    stop("No ON-target genes available in GENE_ORDER; cannot build top block.", call. = FALSE)
+  }
+  if (length(off_genes) == 0) {
+    stop("No OFF-target genes available in GENE_ORDER; cannot build bottom block.", call. = FALSE)
+  }
+
+  has_varela <- grepl("varela", tolower(ordered_labels), fixed = TRUE)
+  if (any(has_varela) && !isTRUE(has_varela[[1]])) {
+    stop(
+      "Varela must be the left-most study column. Computed order: ",
+      collapse_csv(ordered_labels),
+      call. = FALSE
+    )
+  }
+
+  list(
+    on_genes = on_genes,
+    off_genes = off_genes
+  )
+}
+
+validate_row_plot_collection <- function(row_plots, genes_expected) {
+  if (length(row_plots) != length(genes_expected)) {
+    stop("Row plot count mismatch: expected ", length(genes_expected), " got ", length(row_plots), call. = FALSE)
+  }
+  missing_named <- setdiff(genes_expected, names(row_plots))
+  if (length(missing_named) > 0) {
+    stop("Missing named row plots for genes: ", collapse_csv(missing_named), call. = FALSE)
+  }
+  null_genes <- names(row_plots)[vapply(row_plots, is.null, logical(1))]
+  if (length(null_genes) > 0) {
+    stop("Row plot construction failed for genes: ", collapse_csv(null_genes), call. = FALSE)
+  }
+}
+
 fmt_bytes <- function(bytes) {
   if (is.null(bytes) || length(bytes) == 0 || is.na(bytes) || !is.finite(bytes)) return("NA")
   b <- as.numeric(bytes)
@@ -116,6 +197,7 @@ safe_nrow <- function(x) {
 }
 
 detect_feature_id_type <- function(features) {
+  # Classify feature namespace to explain marker lookup behavior across studies.
   if (is.null(features) || length(features) == 0) return("unavailable")
   x <- as.character(features)
   x <- x[!is.na(x) & nzchar(x)]
@@ -132,10 +214,260 @@ detect_feature_id_type <- function(features) {
 }
 
 infer_missing_gene_reason <- function(study_info) {
+  # If study features are Ensembl-like IDs, symbol markers will not match directly.
   if (!is.null(study_info$feature_id_type) && identical(study_info$feature_id_type, "ensembl_id")) {
     return("Gene not found (feature IDs are Ensembl-like)")
   }
   "Gene not found"
+}
+
+normalize_symbol <- function(x) {
+  out <- toupper(trimws(as.character(x)))
+  out[is.na(out)] <- ""
+  out
+}
+
+build_symbol_to_feature_map <- function(symbols, feature_ids) {
+  sym <- normalize_symbol(symbols)
+  fid <- trimws(as.character(feature_ids))
+  fid[is.na(fid)] <- ""
+  keep <- nzchar(sym) & nzchar(fid)
+  sym <- sym[keep]
+  fid <- fid[keep]
+  if (length(sym) == 0) return(character(0))
+  first <- !duplicated(sym)
+  out <- fid[first]
+  names(out) <- sym[first]
+  out
+}
+
+merge_symbol_maps <- function(primary_map, fallback_map) {
+  if (length(primary_map) == 0) return(fallback_map)
+  if (length(fallback_map) == 0) return(primary_map)
+  add_keys <- setdiff(names(fallback_map), names(primary_map))
+  if (length(add_keys) > 0) {
+    primary_map[add_keys] <- fallback_map[add_keys]
+  }
+  primary_map
+}
+
+read_feature_symbol_map <- function(path) {
+  if (!file.exists(path)) {
+    return(list(map = character(0), detail = "mapping file does not exist"))
+  }
+
+  first_line <- tryCatch(
+    {
+      con <- if (grepl("\\.gz$", path, ignore.case = TRUE)) gzfile(path, open = "rt") else file(path, open = "rt")
+      on.exit(close(con), add = TRUE)
+      lines <- readLines(con, n = 5, warn = FALSE)
+      lines <- lines[nzchar(trimws(lines))]
+      if (length(lines) > 0) lines[[1]] else ""
+    },
+    error = function(e) ""
+  )
+  if (!nzchar(first_line)) {
+    return(list(map = character(0), detail = "mapping file is empty"))
+  }
+
+  sep <- if (grepl("\t", first_line, fixed = TRUE)) "\t" else ","
+  tab <- tryCatch(
+    utils::read.table(
+      path,
+      header = TRUE,
+      sep = sep,
+      stringsAsFactors = FALSE,
+      check.names = FALSE,
+      quote = "",
+      comment.char = "",
+      fill = TRUE
+    ),
+    error = function(e) NULL
+  )
+  if (is.null(tab) || ncol(tab) < 2) {
+    tab <- tryCatch(
+      utils::read.table(
+        path,
+        header = FALSE,
+        sep = sep,
+        stringsAsFactors = FALSE,
+        check.names = FALSE,
+        quote = "",
+        comment.char = "",
+        fill = TRUE
+      ),
+      error = function(e) NULL
+    )
+  }
+  if (is.null(tab) || ncol(tab) < 2) {
+    return(list(map = character(0), detail = "unable to parse mapping file with >=2 columns"))
+  }
+
+  cn <- tolower(colnames(tab))
+  symbol_candidates <- which(grepl("symbol|gene.?name|hgnc|feature.?name", cn))
+  id_candidates <- which(grepl("ensembl|gene.?id|feature.?id", cn))
+  symbol_idx <- if (length(symbol_candidates) > 0) symbol_candidates[[1]] else NA_integer_
+  id_idx <- if (length(id_candidates) > 0) id_candidates[[1]] else NA_integer_
+
+  if (is.na(symbol_idx) || is.na(id_idx)) {
+    col1 <- as.character(tab[[1]])
+    col2 <- as.character(tab[[2]])
+    ens1 <- mean(grepl("^ENSG[0-9]+", col1))
+    ens2 <- mean(grepl("^ENSG[0-9]+", col2))
+    if (is.na(id_idx)) id_idx <- if (ens1 >= ens2) 1L else 2L
+    if (is.na(symbol_idx)) symbol_idx <- if (id_idx == 1L) 2L else 1L
+  }
+
+  map <- build_symbol_to_feature_map(
+    symbols = tab[[symbol_idx]],
+    feature_ids = tab[[id_idx]]
+  )
+  list(
+    map = map,
+    detail = paste0(
+      "parsed mapping file with ",
+      nrow(tab),
+      " rows; symbol_col=",
+      symbol_idx,
+      "; id_col=",
+      id_idx
+    )
+  )
+}
+
+build_symbol_map_from_assay_meta <- function(obj, assay) {
+  assay_obj <- tryCatch(obj[[assay]], error = function(e) NULL)
+  if (is.null(assay_obj)) {
+    return(list(map = character(0), detail = "assay object unavailable"))
+  }
+
+  meta <- tryCatch(slot(assay_obj, "meta.features"), error = function(e) NULL)
+  meta_slot <- "meta.features"
+  if (is.null(meta) || !is.data.frame(meta) || nrow(meta) == 0 || ncol(meta) == 0) {
+    meta <- tryCatch(slot(assay_obj, "meta.data"), error = function(e) NULL)
+    meta_slot <- "meta.data"
+  }
+  if (is.null(meta) || !is.data.frame(meta) || nrow(meta) == 0 || ncol(meta) == 0) {
+    return(list(map = character(0), detail = "no usable assay meta table"))
+  }
+
+  cn <- tolower(colnames(meta))
+  symbol_candidates <- which(grepl("symbol|gene.?name|hgnc|feature.?name", cn))
+  id_candidates <- which(grepl("ensembl|gene.?id|feature.?id", cn))
+  symbol_idx <- if (length(symbol_candidates) > 0) symbol_candidates[[1]] else NA_integer_
+  id_idx <- if (length(id_candidates) > 0) id_candidates[[1]] else NA_integer_
+  if (is.na(symbol_idx)) {
+    return(list(map = character(0), detail = paste0(meta_slot, " has no symbol-like column")))
+  }
+  if (is.na(id_idx)) id_idx <- NA_integer_
+
+  ids <- if (!is.na(id_idx)) {
+    as.character(meta[[id_idx]])
+  } else {
+    rownames(meta)
+  }
+  map <- build_symbol_to_feature_map(symbols = meta[[symbol_idx]], feature_ids = ids)
+  list(
+    map = map,
+    detail = paste0(
+      "from assay ",
+      meta_slot,
+      " (symbol_col=",
+      symbol_idx,
+      ifelse(!is.na(id_idx), paste0("; id_col=", id_idx), "; id_col=<rownames>"),
+      ")"
+    )
+  )
+}
+
+resolve_marker_query <- function(requested_genes, available_features, symbol_map = character(0)) {
+  requested <- as.character(requested_genes)
+  available <- unique(as.character(available_features))
+  map_tbl <- data.frame(
+    gene_symbol = character(),
+    feature_id = character(),
+    mapping_source = character(),
+    stringsAsFactors = FALSE
+  )
+  if (length(requested) == 0 || length(available) == 0) {
+    return(list(
+      requested_genes = requested,
+      mapping = map_tbl,
+      gene_hits = character(0),
+      gene_missing = requested,
+      n_mapped = 0L,
+      mapped_pairs = ""
+    ))
+  }
+
+  for (gene in requested) {
+    if (gene %in% available) {
+      map_tbl <- rbind(
+        map_tbl,
+        data.frame(
+          gene_symbol = gene,
+          feature_id = gene,
+          mapping_source = "direct",
+          stringsAsFactors = FALSE
+        )
+      )
+      next
+    }
+    key <- normalize_symbol(gene)
+    if (length(symbol_map) == 0 || !nzchar(key) || !(key %in% names(symbol_map))) next
+    candidate <- symbol_map[[key]]
+    if (!is.null(candidate) && length(candidate) > 0 && !is.na(candidate[[1]]) && candidate[[1]] %in% available) {
+      map_tbl <- rbind(
+        map_tbl,
+        data.frame(
+          gene_symbol = gene,
+          feature_id = as.character(candidate[[1]]),
+          mapping_source = "mapped_symbol_to_feature",
+          stringsAsFactors = FALSE
+        )
+      )
+    }
+  }
+
+  if (nrow(map_tbl) > 0) {
+    map_tbl <- map_tbl[!duplicated(map_tbl$gene_symbol), , drop = FALSE]
+    map_tbl <- map_tbl[order(match(map_tbl$gene_symbol, requested)), , drop = FALSE]
+  }
+  gene_hits <- if (nrow(map_tbl) > 0) map_tbl$gene_symbol else character(0)
+  gene_missing <- setdiff(requested, gene_hits)
+  mapped <- map_tbl[map_tbl$mapping_source == "mapped_symbol_to_feature", , drop = FALSE]
+  mapped_pairs <- if (nrow(mapped) > 0) {
+    paste(paste0(mapped$gene_symbol, "->", mapped$feature_id), collapse = ",")
+  } else {
+    ""
+  }
+
+  list(
+    requested_genes = requested,
+    mapping = map_tbl,
+    gene_hits = gene_hits,
+    gene_missing = gene_missing,
+    n_mapped = nrow(mapped),
+    mapped_pairs = mapped_pairs
+  )
+}
+
+subset_matrix_by_marker_query <- function(mat, cells, marker_query) {
+  if (is.null(mat) || is.null(marker_query) || is.null(marker_query$mapping) || nrow(marker_query$mapping) == 0) {
+    return(NULL)
+  }
+  map_tbl <- marker_query$mapping
+  map_tbl <- map_tbl[map_tbl$feature_id %in% rownames(mat), , drop = FALSE]
+  if (nrow(map_tbl) == 0) return(NULL)
+
+  keep_cells <- intersect(cells, colnames(mat))
+  if (length(keep_cells) == 0) return(NULL)
+  out <- mat[map_tbl$feature_id, keep_cells, drop = FALSE]
+  rownames(out) <- map_tbl$gene_symbol
+  if (anyDuplicated(rownames(out)) > 0) {
+    out <- out[!duplicated(rownames(out)), , drop = FALSE]
+  }
+  out
 }
 
 is_assay_runtime_incompatible <- function(detail, assay_class = "") {
@@ -224,15 +556,18 @@ read_assay_layer <- function(obj, assay, layer_name, layer_data_fn = get_layer_d
   simpleError(paste0("Layer ", layer_name, " unavailable."))
 }
 
-fetch_marker_matrix_layerdata <- function(obj, assay, preferred_slot, cells, genes) {
+fetch_marker_matrix_layerdata <- function(obj, assay, preferred_slot, cells, marker_query) {
   layer_data_fn <- get_layer_data_fn()
+  requested_genes <- marker_query$requested_genes
+  query_map <- marker_query$mapping
+  query_features <- unique(as.character(query_map$feature_id))
   if (is.null(layer_data_fn)) {
     return(list(
       status = "error",
       expression_slot = NA_character_,
       expr_sub = NULL,
       genes_present = character(0),
-      genes_missing = genes,
+      genes_missing = requested_genes,
       n_features_assay = NA_integer_,
       n_cells_assay = NA_integer_,
       n_cells_common = NA_integer_,
@@ -254,22 +589,25 @@ fetch_marker_matrix_layerdata <- function(obj, assay, preferred_slot, cells, gen
   tryCatch(DefaultAssay(obj) <- assay, error = function(e) NULL)
 
   features <- get_assay_features(obj, assay)
-  features_known <- length(features) > 0
-  genes_present <- if (features_known) genes[genes %in% features] else character(0)
-  genes_missing <- setdiff(genes, genes_present)
   layer_candidates <- unique(c(preferred_slot, "data", "counts"))
   layers_available <- get_assay_layers(obj, assay)
-  if (length(layers_available) > 0) {
-    layer_candidates <- unique(c(layer_candidates[layer_candidates %in% layers_available], layers_available))
-  }
+  layers_by_candidate <- lapply(layer_candidates, function(slot_base) {
+    if (length(layers_available) == 0) return(slot_base)
+    exact <- layers_available[layers_available == slot_base]
+    prefixed <- layers_available[startsWith(layers_available, paste0(slot_base, "."))]
+    out <- unique(c(exact, prefixed))
+    if (length(out) == 0) out <- slot_base
+    out
+  })
+  names(layers_by_candidate) <- layer_candidates
 
-  if (features_known && length(genes_present) == 0) {
+  if (length(query_features) == 0) {
     return(list(
       status = "ok",
       expression_slot = preferred_slot,
       expr_sub = NULL,
-      genes_present = genes_present,
-      genes_missing = genes_missing,
+      genes_present = character(0),
+      genes_missing = requested_genes,
       n_features_assay = ifelse(length(features) > 0, length(features), NA_integer_),
       n_cells_assay = length(cells),
       n_cells_common = length(cells),
@@ -280,39 +618,84 @@ fetch_marker_matrix_layerdata <- function(obj, assay, preferred_slot, cells, gen
   }
 
   last_error <- NULL
-  for (layer_name in layer_candidates) {
-    mat <- read_assay_layer(obj, assay = assay, layer_name = layer_name, layer_data_fn = layer_data_fn)
-    if (inherits(mat, "error") || is.null(mat)) {
-      if (inherits(mat, "error")) last_error <- mat
-      next
+  for (slot_base in layer_candidates) {
+    slot_layers <- layers_by_candidate[[slot_base]]
+    slot_chunks <- list()
+    layer_cells_all <- character(0)
+    layer_n_features <- NA_integer_
+
+    for (layer_name in slot_layers) {
+      mat <- read_assay_layer(obj, assay = assay, layer_name = layer_name, layer_data_fn = layer_data_fn)
+      if (inherits(mat, "error") || is.null(mat)) {
+        if (inherits(mat, "error")) last_error <- mat
+        next
+      }
+
+      mat_nrow <- safe_nrow(mat)
+      mat_ncol <- safe_ncol(mat)
+      if (is.na(mat_nrow) || is.na(mat_ncol) || mat_nrow == 0 || mat_ncol == 0) next
+      if (is.na(layer_n_features)) layer_n_features <- mat_nrow
+
+      mat_cells <- colnames(mat)
+      mat_features <- rownames(mat)
+      if (is.null(mat_cells) || is.null(mat_features)) next
+      layer_cells_all <- c(layer_cells_all, as.character(mat_cells))
+
+      common_cells <- intersect(cells, mat_cells)
+      if (length(common_cells) == 0) next
+      hit_features <- intersect(query_features, mat_features)
+      if (length(hit_features) == 0) next
+
+      slot_chunks[[length(slot_chunks) + 1]] <- list(
+        layer_name = layer_name,
+        sub = as.matrix(mat[hit_features, common_cells, drop = FALSE]),
+        cells = common_cells
+      )
     }
 
-    mat_nrow <- safe_nrow(mat)
-    mat_ncol <- safe_ncol(mat)
-    if (is.na(mat_nrow) || is.na(mat_ncol) || mat_nrow == 0 || mat_ncol == 0) next
+    if (length(slot_chunks) == 0) next
 
-    mat_cells <- colnames(mat)
-    mat_features <- rownames(mat)
-    if (is.null(mat_cells) || is.null(mat_features)) next
+    merged_genes <- intersect(query_features, unique(unlist(lapply(slot_chunks, function(x) rownames(x$sub)))))
+    merged_cells <- intersect(cells, unique(unlist(lapply(slot_chunks, function(x) colnames(x$sub)))))
+    if (length(merged_genes) == 0 || length(merged_cells) == 0) next
 
-    common_cells <- intersect(cells, mat_cells)
-    if (length(common_cells) == 0) next
-    hit_features <- intersect(genes, mat_features)
-    if (length(hit_features) == 0) next
+    merged <- matrix(0, nrow = length(merged_genes), ncol = length(merged_cells))
+    rownames(merged) <- merged_genes
+    colnames(merged) <- merged_cells
+    for (chunk in slot_chunks) {
+      rr <- intersect(rownames(chunk$sub), merged_genes)
+      cc <- intersect(colnames(chunk$sub), merged_cells)
+      if (length(rr) == 0 || length(cc) == 0) next
+      merged[rr, cc] <- chunk$sub[rr, cc, drop = FALSE]
+    }
+    feature_to_symbol <- query_map$gene_symbol
+    names(feature_to_symbol) <- query_map$feature_id
+    sym <- as.character(feature_to_symbol[rownames(merged)])
+    missing_sym <- is.na(sym) | !nzchar(sym)
+    sym[missing_sym] <- rownames(merged)[missing_sym]
+    rownames(merged) <- sym
+    if (anyDuplicated(rownames(merged)) > 0) {
+      merged <- merged[!duplicated(rownames(merged)), , drop = FALSE]
+    }
+    genes_present <- rownames(merged)
 
-    sub <- mat[hit_features, common_cells, drop = FALSE]
     return(list(
       status = "ok",
-      expression_slot = layer_name,
-      expr_sub = sub,
-      genes_present = rownames(sub),
-      genes_missing = setdiff(genes, rownames(sub)),
-      n_features_assay = mat_nrow,
-      n_cells_assay = mat_ncol,
-      n_cells_common = length(common_cells),
-      n_cells_umap_not_in_assay = length(setdiff(cells, mat_cells)),
-      n_cells_assay_not_in_umap = length(setdiff(mat_cells, cells)),
-      detail = ""
+      expression_slot = slot_base,
+      expr_sub = merged,
+      genes_present = genes_present,
+      genes_missing = setdiff(requested_genes, genes_present),
+      n_features_assay = ifelse(is.na(layer_n_features), ifelse(length(features) > 0, length(features), NA_integer_), layer_n_features),
+      n_cells_assay = length(unique(layer_cells_all)),
+      n_cells_common = length(merged_cells),
+      n_cells_umap_not_in_assay = length(setdiff(cells, unique(layer_cells_all))),
+      n_cells_assay_not_in_umap = length(setdiff(unique(layer_cells_all), cells)),
+      detail = paste0(
+        "LayerData merged ",
+        length(slot_chunks),
+        " layer(s): ",
+        paste(vapply(slot_chunks, function(x) x$layer_name, character(1)), collapse = ",")
+      )
     ))
   }
 
@@ -326,7 +709,7 @@ fetch_marker_matrix_layerdata <- function(obj, assay, preferred_slot, cells, gen
     expression_slot = NA_character_,
     expr_sub = NULL,
     genes_present = character(0),
-    genes_missing = genes,
+    genes_missing = requested_genes,
     n_features_assay = ifelse(length(features) > 0, length(features), NA_integer_),
     n_cells_assay = NA_integer_,
     n_cells_common = NA_integer_,
@@ -340,9 +723,12 @@ fetch_marker_matrix_layerdata <- function(obj, assay, preferred_slot, cells, gen
   )
 }
 
-fetch_marker_matrix <- function(obj, assay, preferred_slot, cells, genes) {
+fetch_marker_matrix <- function(obj, assay, preferred_slot, cells, marker_query) {
   # Fallback extractor for assay classes where GetAssayData/slots are unavailable.
   old_assay <- tryCatch(as.character(DefaultAssay(obj)), error = function(e) "")
+  requested_genes <- marker_query$requested_genes
+  query_map <- marker_query$mapping
+  query_features <- unique(as.character(query_map$feature_id))
   on.exit(
     {
       if (nzchar(old_assay)) {
@@ -354,19 +740,16 @@ fetch_marker_matrix <- function(obj, assay, preferred_slot, cells, genes) {
   tryCatch(DefaultAssay(obj) <- assay, error = function(e) NULL)
 
   features <- get_assay_features(obj, assay)
-  features_known <- length(features) > 0
-  genes_present <- if (features_known) genes[genes %in% features] else character(0)
-  genes_missing <- setdiff(genes, genes_present)
-  vars_to_fetch <- if (features_known) genes_present else genes
+  vars_to_fetch <- query_features
   slot_candidates <- unique(c(preferred_slot, "data", "counts"))
 
-  if (features_known && length(genes_present) == 0) {
+  if (length(vars_to_fetch) == 0) {
     return(list(
       status = "ok",
       expression_slot = preferred_slot,
       expr_sub = NULL,
-      genes_present = genes_present,
-      genes_missing = genes_missing,
+      genes_present = character(0),
+      genes_missing = requested_genes,
       n_features_assay = ifelse(length(features) > 0, length(features), NA_integer_),
       n_cells_assay = length(cells),
       n_cells_common = length(cells),
@@ -390,19 +773,29 @@ fetch_marker_matrix <- function(obj, assay, preferred_slot, cells, genes) {
     common_cells <- intersect(cells, rownames(fetched))
     if (length(common_cells) == 0) next
     fetched <- fetched[common_cells, , drop = FALSE]
-    cols <- intersect(colnames(fetched), genes)
+    cols <- intersect(colnames(fetched), query_features)
     if (length(cols) == 0) next
 
     mat <- t(as.matrix(fetched[, cols, drop = FALSE]))
     rownames(mat) <- cols
     colnames(mat) <- rownames(fetched)
+    feature_to_symbol <- query_map$gene_symbol
+    names(feature_to_symbol) <- query_map$feature_id
+    sym <- as.character(feature_to_symbol[rownames(mat)])
+    missing_sym <- is.na(sym) | !nzchar(sym)
+    sym[missing_sym] <- rownames(mat)[missing_sym]
+    rownames(mat) <- sym
+    if (anyDuplicated(rownames(mat)) > 0) {
+      mat <- mat[!duplicated(rownames(mat)), , drop = FALSE]
+    }
+    genes_present <- rownames(mat)
 
     return(list(
       status = "ok",
       expression_slot = slot_name,
       expr_sub = mat,
-      genes_present = rownames(mat),
-      genes_missing = setdiff(genes, rownames(mat)),
+      genes_present = genes_present,
+      genes_missing = setdiff(requested_genes, genes_present),
       n_features_assay = ifelse(length(features) > 0, length(features), NA_integer_),
       n_cells_assay = nrow(fetched),
       n_cells_common = length(common_cells),
@@ -417,7 +810,7 @@ fetch_marker_matrix <- function(obj, assay, preferred_slot, cells, genes) {
     expression_slot = NA_character_,
     expr_sub = NULL,
     genes_present = character(0),
-    genes_missing = genes,
+    genes_missing = requested_genes,
     n_features_assay = ifelse(length(features) > 0, length(features), NA_integer_),
     n_cells_assay = NA_integer_,
     n_cells_common = NA_integer_,
@@ -728,7 +1121,7 @@ print_usage <- function() {
       "    project_root (optional if --project-root or PROJECT_ROOT is set)",
       "    run_label",
       "    studies (data.frame with columns: study_id, study_label, object_path, reduction, assay,",
-      "             and optional expression_slot)",
+      "             and optional expression_slot, feature_map_path)",
       "",
       "Optional flags:",
       "  --retain-seurat true|false    keep full Seurat objects in returned study list (interactive debugging)",
@@ -737,6 +1130,7 @@ print_usage <- function() {
       "  --detailed-log true|false     print per-study diagnostics (object structure, assay/reduction/layer dims, cell matching)",
       "",
       "Outputs:",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.png",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.{pdf,svg}",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_study_status.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv",
@@ -867,6 +1261,12 @@ read_config <- function(config_path) {
   } else {
     studies$expression_slot <- "data"
   }
+  if ("feature_map_path" %in% colnames(studies)) {
+    studies$feature_map_path <- as.character(studies$feature_map_path)
+    studies$feature_map_path[is.na(studies$feature_map_path)] <- ""
+  } else {
+    studies$feature_map_path <- ""
+  }
 
   if (anyDuplicated(studies$study_id) > 0) {
     stop("studies$study_id must be unique.", call. = FALSE)
@@ -955,6 +1355,12 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     reduction = study_row$reduction,
     assay = study_row$assay,
     preferred_slot = study_row$expression_slot,
+    feature_map_path = if (!is.null(study_row$feature_map_path)) study_row$feature_map_path else "",
+    feature_map_resolved = "",
+    feature_map_source = "",
+    n_feature_map_pairs = 0L,
+    n_marker_genes_mapped = 0L,
+    marker_gene_feature_map = "",
     assay_slot_requested = study_row$expression_slot,
     expression_slot = NA_character_,
     status = "ok",
@@ -1019,6 +1425,9 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   log_detail("---- Study ", info$study_label, " (", info$study_id, ") ----")
   log_detail("Configured object_path: ", study_row$object_path)
   log_detail("Resolved object path: ", info$object_path)
+  if (!is.na(info$feature_map_path) && nzchar(info$feature_map_path)) {
+    log_detail("Configured feature_map_path: ", info$feature_map_path)
+  }
 
   if (!file.exists(info$object_path)) {
     info$status <- "missing_object"
@@ -1208,6 +1617,75 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     log_detail("Runtime note: ", note)
   }
 
+  # Build optional symbol->feature remap once per study so marker lookup stays
+  # dynamic when GENE_ORDER changes and feature namespaces differ across studies.
+  symbol_map <- character(0)
+  map_sources <- character(0)
+  info$n_feature_map_pairs <- 0L
+  info$n_marker_genes_mapped <- 0L
+  info$marker_gene_feature_map <- ""
+  info$feature_map_source <- ""
+
+  if (!is.na(info$feature_map_path) && nzchar(info$feature_map_path)) {
+    resolved_map <- resolve_under_project_root(info$feature_map_path, project_root)
+    info$feature_map_resolved <- resolved_map
+    if (file.exists(resolved_map)) {
+      map_file_res <- read_feature_symbol_map(resolved_map)
+      if (length(map_file_res$map) > 0) {
+        symbol_map <- merge_symbol_maps(symbol_map, map_file_res$map)
+        map_sources <- c(map_sources, "config_feature_map_file")
+      }
+      log_detail("Feature map file: ", resolved_map, " | ", map_file_res$detail)
+    } else {
+      log_detail("Feature map file missing: ", resolved_map)
+    }
+  }
+
+  map_meta_res <- build_symbol_map_from_assay_meta(obj, info$assay)
+  if (length(map_meta_res$map) > 0) {
+    symbol_map <- merge_symbol_maps(symbol_map, map_meta_res$map)
+    map_sources <- c(map_sources, "assay_meta")
+    log_detail("Feature map meta: ", map_meta_res$detail)
+  } else {
+    log_detail("Feature map meta unavailable: ", map_meta_res$detail)
+  }
+
+  if (length(symbol_map) > 0) {
+    info$n_feature_map_pairs <- as.integer(length(symbol_map))
+    info$feature_map_source <- paste(unique(map_sources), collapse = "+")
+    log_detail(
+      "Feature symbol map ready: source=",
+      info$feature_map_source,
+      "; pairs=",
+      fmt_count(info$n_feature_map_pairs)
+    )
+  }
+
+  marker_query_assay <- resolve_marker_query(
+    requested_genes = GENE_ORDER,
+    available_features = assay_features,
+    symbol_map = symbol_map
+  )
+  info$n_marker_genes_mapped <- as.integer(marker_query_assay$n_mapped)
+  info$marker_gene_feature_map <- marker_query_assay$mapped_pairs
+  if (!is.na(info$n_marker_genes_mapped) && info$n_marker_genes_mapped > 0) {
+    log_detail(
+      "Marker symbol remap applied (",
+      fmt_count(info$n_marker_genes_mapped),
+      "): ",
+      info$marker_gene_feature_map
+    )
+    note <- paste0(
+      "Symbol markers remapped to feature IDs: ",
+      info$marker_gene_feature_map
+    )
+    info$runtime_note <- if (is.na(info$runtime_note) || !nzchar(info$runtime_note)) {
+      note
+    } else {
+      paste(info$runtime_note, note, sep = " | ")
+    }
+  }
+
   if (!(info$reduction %in% names(obj@reductions))) {
     info$status <- "missing_umap"
     info$reason <- "Missing UMAP"
@@ -1341,13 +1819,14 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
       return(info)
     }
 
-    gene_hits <- GENE_ORDER[GENE_ORDER %in% rownames(mat)]
-    gene_missing <- setdiff(GENE_ORDER, gene_hits)
-    expr_sub <- if (length(gene_hits) > 0) {
-      mat[gene_hits, cells, drop = FALSE]
-    } else {
-      NULL
-    }
+    marker_query_mat <- resolve_marker_query(
+      requested_genes = GENE_ORDER,
+      available_features = rownames(mat),
+      symbol_map = symbol_map
+    )
+    gene_hits <- marker_query_mat$gene_hits
+    gene_missing <- marker_query_mat$gene_missing
+    expr_sub <- subset_matrix_by_marker_query(mat, cells = cells, marker_query = marker_query_mat)
   } else {
     # GetAssayData can fail for Assay5; try LayerData first, then FetchData.
     layer_res <- fetch_marker_matrix_layerdata(
@@ -1355,7 +1834,7 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
       assay = info$assay,
       preferred_slot = info$preferred_slot,
       cells = cells,
-      genes = GENE_ORDER
+      marker_query = marker_query_assay
     )
     layerdata_error <- NA_character_
 
@@ -1398,6 +1877,9 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
         info$expression_slot,
         " (requested ", info$preferred_slot, ")"
       )
+      if (!is.null(layer_res$detail) && nzchar(layer_res$detail)) {
+        log_detail("LayerData detail: ", layer_res$detail)
+      }
       log_detail(
         "Cell overlap: common=", fmt_count(info$n_cells_common),
         "; UMAP-only=", fmt_count(info$n_cells_umap_not_in_assay),
@@ -1425,7 +1907,7 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
         assay = info$assay,
         preferred_slot = info$preferred_slot,
         cells = cells,
-        genes = GENE_ORDER
+        marker_query = marker_query_assay
       )
       if (!identical(fallback_res$status, "ok")) {
         info$data_access_mode <- "assay_data_unavailable"
@@ -1584,6 +2066,10 @@ build_study_status_table <- function(studies_info) {
       assay_class = ifelse(is.na(study_info$assay_class), "", study_info$assay_class),
       assay_slot_names = ifelse(is.na(study_info$assay_slot_names), "", study_info$assay_slot_names),
       assay_layers_available = ifelse(is.na(study_info$assay_layers_available), "", study_info$assay_layers_available),
+      feature_map_path = ifelse(is.na(study_info$feature_map_path), "", study_info$feature_map_path),
+      feature_map_resolved = ifelse(is.na(study_info$feature_map_resolved), "", study_info$feature_map_resolved),
+      feature_map_source = ifelse(is.na(study_info$feature_map_source), "", study_info$feature_map_source),
+      n_feature_map_pairs = study_info$n_feature_map_pairs,
       reductions_available = ifelse(is.na(study_info$reductions_available), "", study_info$reductions_available),
       reduction = study_info$reduction,
       assay = study_info$assay,
@@ -1620,8 +2106,10 @@ build_study_status_table <- function(studies_info) {
       umap_dim2_max = study_info$umap_dim2_max,
       n_marker_genes_requested = study_info$n_marker_genes_requested,
       n_marker_genes_present = study_info$n_marker_genes_present,
+      n_marker_genes_mapped = study_info$n_marker_genes_mapped,
       marker_genes_present = ifelse(is.na(study_info$marker_genes_present), "", study_info$marker_genes_present),
       marker_genes_missing = ifelse(is.na(study_info$marker_genes_missing), "", study_info$marker_genes_missing),
+      marker_gene_feature_map = ifelse(is.na(study_info$marker_gene_feature_map), "", study_info$marker_gene_feature_map),
       feature_id_type = ifelse(is.na(study_info$feature_id_type), "", study_info$feature_id_type),
       feature_id_examples = ifelse(is.na(study_info$feature_id_examples), "", study_info$feature_id_examples),
       runtime_note = ifelse(is.na(study_info$runtime_note), "", study_info$runtime_note),
@@ -1800,9 +2288,13 @@ build_feature_space_table <- function(studies_info) {
       assay_class = ifelse(is.na(study_info$assay_class), "", study_info$assay_class),
       assay_slot_names = ifelse(is.na(study_info$assay_slot_names), "", study_info$assay_slot_names),
       assay_layers_available = ifelse(is.na(study_info$assay_layers_available), "", study_info$assay_layers_available),
+      feature_map_source = ifelse(is.na(study_info$feature_map_source), "", study_info$feature_map_source),
+      n_feature_map_pairs = study_info$n_feature_map_pairs,
       n_features_detected = study_info$n_features_detected,
       feature_id_type = ifelse(is.na(study_info$feature_id_type), "", study_info$feature_id_type),
       feature_id_examples = ifelse(is.na(study_info$feature_id_examples), "", study_info$feature_id_examples),
+      n_marker_genes_mapped = study_info$n_marker_genes_mapped,
+      marker_gene_feature_map = ifelse(is.na(study_info$marker_gene_feature_map), "", study_info$marker_gene_feature_map),
       data_access_mode = ifelse(is.na(study_info$data_access_mode), "", study_info$data_access_mode),
       runtime_note = ifelse(is.na(study_info$runtime_note), "", study_info$runtime_note),
       stringsAsFactors = FALSE
@@ -2072,6 +2564,16 @@ print_study_diagnostics <- function(study_status) {
     )
     cat(
       paste0(
+        "  feature map: source=", ifelse(nzchar(row$feature_map_source[[1]]), row$feature_map_source[[1]], "<none>"),
+        ", pairs=", fmt_count(row$n_feature_map_pairs[[1]]),
+        ", markers_remapped=", fmt_count(row$n_marker_genes_mapped[[1]]), "\n"
+      )
+    )
+    if (nzchar(row$marker_gene_feature_map[[1]])) {
+      cat(paste0("  marker->feature map=", row$marker_gene_feature_map[[1]], "\n"))
+    }
+    cat(
+      paste0(
         "  cells: object=", fmt_count(row$n_cells_object[[1]]),
         ", assay=", fmt_count(row$n_cells_assay[[1]]),
         ", umap=", fmt_count(row$n_cells_umap[[1]]),
@@ -2118,8 +2620,9 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   # Entry point:
   # - parse/validate args + config
   # - prepare per-study extracts
+  # - validate plot layout and study order
   # - build all gene rows
-  # - write PDF + SVG under PROJECT_ROOT/results/<run_label>/plots
+  # - write PNG + PDF + SVG under PROJECT_ROOT/results/<run_label>/plots
   args <- parse_args(cli_args)
   if (isTRUE(args$help)) {
     print_usage()
@@ -2178,7 +2681,12 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       if (!is.na(studies_info[[i]]$reason)) paste0(" (", studies_info[[i]]$reason, ")") else ""
     )
   }
-  ordered_labels <- vapply(studies_info, function(x) x$study_label, character(1))
+  ordered_labels <- plot_study_order(studies_info)
+  layout_spec <- validate_panel_b_layout_inputs(studies_info, ordered_labels)
+  log_msg("Plot study column order (left->right): ", collapse_csv(ordered_labels))
+  log_msg("ON-target genes (top block): ", collapse_csv(layout_spec$on_genes))
+  log_msg("OFF-target genes (bottom block): ", collapse_csv(layout_spec$off_genes))
+
   study_status <- build_study_status_table(studies_info)
   marker_presence <- build_marker_presence_table(studies_info)
   assay_slot_summary <- build_assay_slot_summary_table(studies_info)
@@ -2226,6 +2734,8 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       " | scale=[", fmt_num(row_res$summary$scale_min[[1]]), ", ", fmt_num(row_res$summary$scale_max[[1]]), "]"
     )
   }
+  validate_row_plot_collection(row_plots, GENE_ORDER)
+
   row_summary <- do.call(rbind, row_summary_chunks)
   issues <- if (length(issue_chunks) > 0) do.call(rbind, issue_chunks) else data.frame(
     study_id = character(),
@@ -2259,20 +2769,60 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   log_msg("Wrote row summary table: ", row_summary_path)
   log_msg("Wrote issue table: ", issues_path)
 
-  fig <- wrap_plots(row_plots, ncol = 1) +
-    plot_layout(heights = rep(1, length(row_plots))) +
+  on_row_plots <- row_plots[layout_spec$on_genes]
+  off_row_plots <- row_plots[layout_spec$off_genes]
+  if (length(on_row_plots) == 0 || length(off_row_plots) == 0) {
+    stop("Internal error: ON/OFF row blocks are empty after row assembly.", call. = FALSE)
+  }
+
+  on_block <- wrap_plots(on_row_plots, ncol = 1) +
+    plot_layout(heights = rep(1, length(on_row_plots))) +
+    plot_annotation(
+      title = "ON-target",
+      theme = theme(
+        plot.title = element_text(size = 10, face = "bold", hjust = 0)
+      )
+    )
+
+  off_block <- wrap_plots(off_row_plots, ncol = 1) +
+    plot_layout(heights = rep(1, length(off_row_plots))) +
+    plot_annotation(
+      title = "OFF-target",
+      theme = theme(
+        plot.title = element_text(size = 10, face = "bold", hjust = 0)
+      )
+    )
+
+  fig <- wrap_plots(
+    list(on_block, off_block),
+    ncol = 1,
+    heights = c(length(on_row_plots), length(off_row_plots))
+  ) +
     plot_annotation(
       title = "Panel B: Cross-study marker expression on existing UMAPs",
+      subtitle = paste0("Columns (left->right): ", paste(ordered_labels, collapse = " | ")),
       theme = theme(
-        plot.title = element_text(size = 12, face = "bold", hjust = 0)
+        plot.title = element_text(size = 12, face = "bold", hjust = 0),
+        plot.subtitle = element_text(size = 9, hjust = 0)
       )
     )
 
   fig_width <- max(10, length(studies_info) * 2.15 + 1.8)
-  fig_height <- max(12, length(GENE_ORDER) * 1.65 + 1.4)
+  fig_height <- max(12, length(GENE_ORDER) * 1.65 + 2.2)
+  png_path <- file.path(out_dir, "panel_b_cross_study_markers.png")
   pdf_path <- file.path(out_dir, "panel_b_cross_study_markers.pdf")
   svg_path <- file.path(out_dir, "panel_b_cross_study_markers.svg")
 
+  log_msg("Writing PNG: ", png_path)
+  ggsave(
+    filename = png_path,
+    plot = fig,
+    width = fig_width,
+    height = fig_height,
+    units = "in",
+    dpi = 300,
+    bg = "white"
+  )
   log_msg("Writing PDF: ", pdf_path)
   ggsave(filename = pdf_path, plot = fig, width = fig_width, height = fig_height, units = "in")
   log_msg("Writing SVG: ", svg_path)
@@ -2297,6 +2847,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     row_summary = row_summary,
     issues = issues,
     output_paths = list(
+      png = png_path,
       pdf = pdf_path,
       svg = svg_path,
       study_status = study_status_path,

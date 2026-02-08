@@ -142,6 +142,10 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
   - Walsh pipeline: `module load Bioinformatics` + `module load r-seurat/4.1.1-R-4.1.1-qyci4bo`
   - Plotting / Xiang / Bershteyn_2023: `module load Bioinformatics` + `module load r-seurat/4.1.1-R-4.2.0-5z5hgo7`
   - Panel B with Assay5 studies (e.g., Varela): submit with the Seurat v5 template and set `SEURAT5_MODULE` to an available v5 module.
+  - Panel B marker list includes `ACHE` (not `ACHF`).
+  - Xiang Panel B note: Xiang features are Ensembl-like IDs; symbol markers require symbol-to-Ensembl mapping for direct lookup.
+  - Panel B symbol remap is dynamic: set optional `feature_map_path` per study in `config/panel_b_cross_study_config.example.R` and the script remaps current `GENE_ORDER` markers automatically.
+  - Panel B final figure is emitted as PNG/PDF/SVG with fixed layout logic: Varela left-most column when present, ON-target block on top, OFF-target block on bottom.
 - Slurm does **not** expand shell variables in `#SBATCH --output/--error`; templates use absolute log paths to keep runtime artifacts out of the repo.
 - Methods-locked parameters retained: QC 1000–5000 genes, <15% MT (^MT-); LogNormalize (scale.factor=1e4); HVG=5000 (vst); regress S.Score & G2M.Score; dims=1:20 for neighbors/UMAP; clustering resolution default 2.0 (sweeps explore alternatives); stress removal clusters mean score >0.5.
 - Checkpoints allow reruns without redoing QC/normalization/scaling; sweeps start from post-stress PCA checkpoint.

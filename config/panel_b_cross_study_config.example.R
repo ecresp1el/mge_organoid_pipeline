@@ -31,6 +31,15 @@ list(
     assay = c("RNA", "RNA", "RNA", "RNA", "RNA"),
     # Optional. Script defaults to "data" then falls back to "counts" if needed.
     expression_slot = c("data", "data", "data", "data", "data"),
+    # Optional. Symbol->feature mapping table path (relative to project_root).
+    # Useful when assay features are Ensembl IDs (Xiang) but markers are symbols.
+    feature_map_path = c(
+      "",
+      "",
+      "data/raw/xiang_2018_geo_files/suppl/GSE98201_genes.tsv.gz",
+      "",
+      ""
+    ),
     stringsAsFactors = FALSE
   )
 )
