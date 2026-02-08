@@ -32,6 +32,11 @@ Run Panel B interactively (no Slurm required)
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.svg`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_study_status.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_assay_slot_summary.tsv`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_reduction_summary.tsv`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_summary.tsv`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_columns.tsv`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_issues.tsv`
 

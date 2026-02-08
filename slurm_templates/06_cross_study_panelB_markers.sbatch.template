@@ -16,13 +16,34 @@ REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 CONFIG_PATH="${REPO_ROOT}/config/panel_b_cross_study_config.example.R"
 RUN_LABEL="panel_b_cross_study_v1"
+DETAILED_LOG="true"
+SHOW_PROGRESS="false"
+RETAIN_SEURAT="false"
 
 set -euo pipefail
+set -x
 mkdir -p "${PROJECT_ROOT}/logs"
+
+echo "=== Panel B job context ==="
+date
+hostname
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "SLURM_JOB_NAME=${SLURM_JOB_NAME:-}"
+echo "SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-}"
+echo "SLURM_MEM_PER_NODE=${SLURM_MEM_PER_NODE:-}"
+echo "PROJECT_ROOT=${PROJECT_ROOT}"
+echo "CONFIG_PATH=${CONFIG_PATH}"
+echo "RUN_LABEL=${RUN_LABEL}"
+echo "DETAILED_LOG=${DETAILED_LOG}"
+echo "SHOW_PROGRESS=${SHOW_PROGRESS}"
+echo "RETAIN_SEURAT=${RETAIN_SEURAT}"
+module list 2>&1
 
 export PROJECT_ROOT
 Rscript "${REPO_ROOT}/scripts/06_cross_study_panelB_markers.R" \
   --config "${CONFIG_PATH}" \
   --project-root "${PROJECT_ROOT}" \
   --run-label "${RUN_LABEL}" \
-  --detailed-log true
+  --detailed-log "${DETAILED_LOG}" \
+  --show-progress "${SHOW_PROGRESS}" \
+  --retain-seurat "${RETAIN_SEURAT}"

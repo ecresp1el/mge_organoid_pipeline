@@ -24,6 +24,11 @@
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_issues.tsv
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_assay_slot_summary.tsv
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_reduction_summary.tsv
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_summary.tsv
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_columns.tsv
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv
 # - stdout audit of missing studies/genes/components
 
 suppressPackageStartupMessages({
@@ -63,6 +68,11 @@ fmt_num <- function(x, digits = 5) {
   format(round(as.numeric(x), digits = digits), trim = TRUE, scientific = FALSE)
 }
 
+fmt_bool <- function(x) {
+  if (is.null(x) || length(x) == 0 || is.na(x)) return("NA")
+  if (isTRUE(x)) "TRUE" else "FALSE"
+}
+
 collapse_csv <- function(x) {
   if (is.null(x) || length(x) == 0) return("")
   paste(as.character(x), collapse = ",")
@@ -91,6 +101,255 @@ safe_range <- function(x) {
   out
 }
 
+summarize_assay_slots <- function(obj, study_id, study_label) {
+  assays <- names(obj@assays)
+  slots <- c("counts", "data", "scale.data")
+  chunks <- list()
+  k <- 0
+  for (assay_name in assays) {
+    for (slot_name in slots) {
+      k <- k + 1
+      mat <- tryCatch(
+        suppressWarnings(GetAssayData(obj, assay = assay_name, slot = slot_name)),
+        error = function(e) e
+      )
+      if (inherits(mat, "error") || is.null(mat)) {
+        chunks[[k]] <- data.frame(
+          study_id = study_id,
+          study_label = study_label,
+          assay = assay_name,
+          slot = slot_name,
+          status = "missing_or_error",
+          matrix_class = "",
+          n_features = NA_integer_,
+          n_cells = NA_integer_,
+          detail = if (inherits(mat, "error")) conditionMessage(mat) else "slot missing",
+          stringsAsFactors = FALSE
+        )
+      } else {
+        d <- safe_dim(mat)
+        chunks[[k]] <- data.frame(
+          study_id = study_id,
+          study_label = study_label,
+          assay = assay_name,
+          slot = slot_name,
+          status = ifelse(!is.na(d[[1]]) && !is.na(d[[2]]) && d[[1]] > 0 && d[[2]] > 0, "ok", "empty"),
+          matrix_class = collapse_csv(class(mat)),
+          n_features = d[[1]],
+          n_cells = d[[2]],
+          detail = "",
+          stringsAsFactors = FALSE
+        )
+      }
+    }
+  }
+  if (length(chunks) == 0) {
+    return(data.frame(
+      study_id = character(),
+      study_label = character(),
+      assay = character(),
+      slot = character(),
+      status = character(),
+      matrix_class = character(),
+      n_features = integer(),
+      n_cells = integer(),
+      detail = character(),
+      stringsAsFactors = FALSE
+    ))
+  }
+  do.call(rbind, chunks)
+}
+
+summarize_reductions <- function(obj, study_id, study_label) {
+  reductions <- names(obj@reductions)
+  chunks <- list()
+  k <- 0
+  for (reduction_name in reductions) {
+    k <- k + 1
+    emb <- tryCatch(Embeddings(obj, reduction = reduction_name), error = function(e) e)
+    if (inherits(emb, "error") || is.null(emb)) {
+      chunks[[k]] <- data.frame(
+        study_id = study_id,
+        study_label = study_label,
+        reduction = reduction_name,
+        status = "missing_or_error",
+        n_cells = NA_integer_,
+        n_dims = NA_integer_,
+        dim1_min = NA_real_,
+        dim1_max = NA_real_,
+        dim2_min = NA_real_,
+        dim2_max = NA_real_,
+        detail = if (inherits(emb, "error")) conditionMessage(emb) else "reduction missing",
+        stringsAsFactors = FALSE
+      )
+    } else {
+      d <- safe_dim(emb)
+      r1 <- if (!is.na(d[[2]]) && d[[2]] >= 1) safe_range(emb[, 1]) else c(NA_real_, NA_real_)
+      r2 <- if (!is.na(d[[2]]) && d[[2]] >= 2) safe_range(emb[, 2]) else c(NA_real_, NA_real_)
+      chunks[[k]] <- data.frame(
+        study_id = study_id,
+        study_label = study_label,
+        reduction = reduction_name,
+        status = "ok",
+        n_cells = d[[1]],
+        n_dims = d[[2]],
+        dim1_min = r1[[1]],
+        dim1_max = r1[[2]],
+        dim2_min = r2[[1]],
+        dim2_max = r2[[2]],
+        detail = "",
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+  if (length(chunks) == 0) {
+    return(data.frame(
+      study_id = character(),
+      study_label = character(),
+      reduction = character(),
+      status = character(),
+      n_cells = integer(),
+      n_dims = integer(),
+      dim1_min = numeric(),
+      dim1_max = numeric(),
+      dim2_min = numeric(),
+      dim2_max = numeric(),
+      detail = character(),
+      stringsAsFactors = FALSE
+    ))
+  }
+  do.call(rbind, chunks)
+}
+
+summarize_metadata <- function(obj, study_id, study_label) {
+  md <- tryCatch(obj@meta.data, error = function(e) NULL)
+  if (is.null(md)) {
+    return(list(
+      summary = data.frame(
+        study_id = study_id,
+        study_label = study_label,
+        status = "error",
+        n_meta_rows = NA_integer_,
+        n_meta_cols = NA_integer_,
+        meta_rows_match_object_cells = NA,
+        has_seurat_clusters = NA,
+        n_seurat_clusters = NA_integer_,
+        has_sample_id = NA,
+        n_sample_id = NA_integer_,
+        has_orig_ident = NA,
+        n_orig_ident = NA_integer_,
+        has_domain = NA,
+        n_domain = NA_integer_,
+        metadata_columns_preview = "",
+        stringsAsFactors = FALSE
+      ),
+      columns = data.frame(
+        study_id = character(),
+        study_label = character(),
+        column_name = character(),
+        column_class = character(),
+        n_non_na = integer(),
+        n_unique_non_na = integer(),
+        example_values = character(),
+        stringsAsFactors = FALSE
+      )
+    ))
+  }
+
+  cols <- colnames(md)
+  has_sc <- "seurat_clusters" %in% cols
+  has_sample <- "sample_id" %in% cols
+  has_orig <- "orig.ident" %in% cols
+  has_domain <- "domain" %in% cols
+
+  safe_unique <- function(x) {
+    tryCatch(length(unique(as.character(x[!is.na(x)]))), error = function(e) NA_integer_)
+  }
+  preview_values <- function(x, n = 3) {
+    vals <- tryCatch(unique(as.character(x[!is.na(x)])), error = function(e) character(0))
+    vals <- vals[nzchar(vals)]
+    collapse_csv(utils::head(vals, n))
+  }
+
+  summary_row <- data.frame(
+    study_id = study_id,
+    study_label = study_label,
+    status = "ok",
+    n_meta_rows = tryCatch(as.integer(nrow(md)), error = function(e) NA_integer_),
+    n_meta_cols = tryCatch(as.integer(ncol(md)), error = function(e) NA_integer_),
+    meta_rows_match_object_cells = tryCatch(identical(rownames(md), colnames(obj)), error = function(e) NA),
+    has_seurat_clusters = has_sc,
+    n_seurat_clusters = if (has_sc) safe_unique(md$seurat_clusters) else NA_integer_,
+    has_sample_id = has_sample,
+    n_sample_id = if (has_sample) safe_unique(md$sample_id) else NA_integer_,
+    has_orig_ident = has_orig,
+    n_orig_ident = if (has_orig) safe_unique(md$orig.ident) else NA_integer_,
+    has_domain = has_domain,
+    n_domain = if (has_domain) safe_unique(md$domain) else NA_integer_,
+    metadata_columns_preview = collapse_csv(utils::head(cols, 20)),
+    stringsAsFactors = FALSE
+  )
+
+  column_rows <- list()
+  for (i in seq_along(cols)) {
+    col_name <- cols[[i]]
+    v <- md[[col_name]]
+    column_rows[[i]] <- data.frame(
+      study_id = study_id,
+      study_label = study_label,
+      column_name = col_name,
+      column_class = collapse_csv(class(v)),
+      n_non_na = tryCatch(sum(!is.na(v)), error = function(e) NA_integer_),
+      n_unique_non_na = safe_unique(v),
+      example_values = preview_values(v),
+      stringsAsFactors = FALSE
+    )
+  }
+  columns_df <- if (length(column_rows) > 0) do.call(rbind, column_rows) else data.frame(
+    study_id = character(),
+    study_label = character(),
+    column_name = character(),
+    column_class = character(),
+    n_non_na = integer(),
+    n_unique_non_na = integer(),
+    example_values = character(),
+    stringsAsFactors = FALSE
+  )
+
+  list(summary = summary_row, columns = columns_df)
+}
+
+summarize_idents <- function(obj, study_id, study_label) {
+  ids <- tryCatch(Idents(obj), error = function(e) NULL)
+  if (is.null(ids)) {
+    return(data.frame(
+      study_id = character(),
+      study_label = character(),
+      ident_value = character(),
+      n_cells = integer(),
+      stringsAsFactors = FALSE
+    ))
+  }
+  tb <- sort(table(as.character(ids)), decreasing = TRUE)
+  data.frame(
+    study_id = study_id,
+    study_label = study_label,
+    ident_value = names(tb),
+    n_cells = as.integer(tb),
+    stringsAsFactors = FALSE
+  )
+}
+
+combine_table_field <- function(studies_info, field_name, empty_table) {
+  chunks <- lapply(studies_info, function(study_info) study_info[[field_name]])
+  chunks <- chunks[!vapply(chunks, is.null, logical(1))]
+  chunks <- chunks[vapply(chunks, function(x) is.data.frame(x) && nrow(x) > 0, logical(1))]
+  if (length(chunks) == 0) return(empty_table)
+  out <- do.call(rbind, chunks)
+  rownames(out) <- NULL
+  out
+}
+
 print_usage <- function() {
   cat(
     paste(
@@ -116,6 +375,11 @@ print_usage <- function() {
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_issues.tsv",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_assay_slot_summary.tsv",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_reduction_summary.tsv",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_summary.tsv",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_columns.tsv",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv",
       sep = "\n"
     )
   )
@@ -352,8 +616,29 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     umap_dim1_min = NA_real_,
     umap_dim1_max = NA_real_,
     umap_dim2_min = NA_real_,
-    umap_dim2_max = NA_real_
+    umap_dim2_max = NA_real_,
+    n_meta_rows = NA_integer_,
+    n_meta_cols = NA_integer_,
+    meta_rows_match_object_cells = NA,
+    has_seurat_clusters = NA,
+    n_seurat_clusters = NA_integer_,
+    has_sample_id = NA,
+    n_sample_id = NA_integer_,
+    has_orig_ident = NA,
+    n_orig_ident = NA_integer_,
+    has_domain = NA,
+    n_domain = NA_integer_,
+    metadata_columns_preview = NA_character_,
+    n_ident_levels = NA_integer_,
+    n_ident_cells = NA_integer_,
+    assay_slot_summary = NULL,
+    reduction_summary = NULL,
+    metadata_summary = NULL,
+    metadata_columns = NULL,
+    ident_counts = NULL,
+    load_seconds = NA_real_
   )
+  start_ts <- Sys.time()
 
   log_detail("---- Study ", info$study_label, " (", info$study_id, ") ----")
   log_detail("Configured object_path: ", study_row$object_path)
@@ -396,6 +681,33 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     info$seurat_obj <- obj
   }
 
+  info$assay_slot_summary <- summarize_assay_slots(obj, info$study_id, info$study_label)
+  info$reduction_summary <- summarize_reductions(obj, info$study_id, info$study_label)
+  md_res <- summarize_metadata(obj, info$study_id, info$study_label)
+  info$metadata_summary <- md_res$summary
+  info$metadata_columns <- md_res$columns
+  info$ident_counts <- summarize_idents(obj, info$study_id, info$study_label)
+
+  if (nrow(info$metadata_summary) > 0) {
+    ms <- info$metadata_summary[1, , drop = FALSE]
+    info$n_meta_rows <- ms$n_meta_rows[[1]]
+    info$n_meta_cols <- ms$n_meta_cols[[1]]
+    info$meta_rows_match_object_cells <- ms$meta_rows_match_object_cells[[1]]
+    info$has_seurat_clusters <- ms$has_seurat_clusters[[1]]
+    info$n_seurat_clusters <- ms$n_seurat_clusters[[1]]
+    info$has_sample_id <- ms$has_sample_id[[1]]
+    info$n_sample_id <- ms$n_sample_id[[1]]
+    info$has_orig_ident <- ms$has_orig_ident[[1]]
+    info$n_orig_ident <- ms$n_orig_ident[[1]]
+    info$has_domain <- ms$has_domain[[1]]
+    info$n_domain <- ms$n_domain[[1]]
+    info$metadata_columns_preview <- ms$metadata_columns_preview[[1]]
+  }
+  if (!is.null(info$ident_counts) && nrow(info$ident_counts) > 0) {
+    info$n_ident_levels <- nrow(info$ident_counts)
+    info$n_ident_cells <- sum(info$ident_counts$n_cells, na.rm = TRUE)
+  }
+
   info$default_assay <- tryCatch(as.character(DefaultAssay(obj)), error = function(e) "")
   info$assays_available <- collapse_csv(names(obj@assays))
   info$reductions_available <- collapse_csv(names(obj@reductions))
@@ -405,6 +717,51 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   log_detail("Available reductions: ", ifelse(nzchar(info$reductions_available), info$reductions_available, "<none>"))
   log_detail("Object cells (ncol): ", fmt_count(info$n_cells_object))
   log_detail("Configured assay/reduction/slot: ", info$assay, " / ", info$reduction, " / ", info$preferred_slot)
+  log_detail(
+    "Metadata rows x cols: ", fmt_count(info$n_meta_rows), " x ", fmt_count(info$n_meta_cols),
+    "; rows_match_object_cells=", fmt_bool(info$meta_rows_match_object_cells)
+  )
+  log_detail(
+    "Metadata key columns: seurat_clusters=", fmt_bool(info$has_seurat_clusters), " (n=", fmt_count(info$n_seurat_clusters),
+    "), sample_id=", fmt_bool(info$has_sample_id), " (n=", fmt_count(info$n_sample_id),
+    "), orig.ident=", fmt_bool(info$has_orig_ident), " (n=", fmt_count(info$n_orig_ident),
+    "), domain=", fmt_bool(info$has_domain), " (n=", fmt_count(info$n_domain), ")"
+  )
+  log_detail("Metadata column preview: ", ifelse(nzchar(info$metadata_columns_preview), info$metadata_columns_preview, "<none>"))
+  log_detail("Idents: levels=", fmt_count(info$n_ident_levels), "; cells=", fmt_count(info$n_ident_cells))
+
+  if (!is.null(info$assay_slot_summary) && nrow(info$assay_slot_summary) > 0) {
+    log_detail("Assay-slot inventory:")
+    for (k in seq_len(nrow(info$assay_slot_summary))) {
+      rr <- info$assay_slot_summary[k, , drop = FALSE]
+      log_detail(
+        "  - ", rr$assay[[1]], "::", rr$slot[[1]], " -> ",
+        fmt_count(rr$n_features[[1]]), " x ", fmt_count(rr$n_cells[[1]]),
+        " [", rr$status[[1]], "] ", rr$matrix_class[[1]]
+      )
+    }
+  }
+  if (!is.null(info$reduction_summary) && nrow(info$reduction_summary) > 0) {
+    log_detail("Reduction inventory:")
+    for (k in seq_len(nrow(info$reduction_summary))) {
+      rr <- info$reduction_summary[k, , drop = FALSE]
+      log_detail(
+        "  - ", rr$reduction[[1]], " -> ",
+        fmt_count(rr$n_cells[[1]]), " x ", fmt_count(rr$n_dims[[1]]),
+        " [", rr$status[[1]], "]",
+        "; dim1=[", fmt_num(rr$dim1_min[[1]]), ",", fmt_num(rr$dim1_max[[1]]), "]",
+        "; dim2=[", fmt_num(rr$dim2_min[[1]]), ",", fmt_num(rr$dim2_max[[1]]), "]"
+      )
+    }
+  }
+  if (!is.null(info$ident_counts) && nrow(info$ident_counts) > 0) {
+    top_ids <- utils::head(info$ident_counts, 10)
+    log_detail("Top identity levels:")
+    for (k in seq_len(nrow(top_ids))) {
+      rr <- top_ids[k, , drop = FALSE]
+      log_detail("  - ", rr$ident_value[[1]], ": ", fmt_count(rr$n_cells[[1]]), " cells")
+    }
+  }
 
   if (!(info$assay %in% names(obj@assays))) {
     info$status <- "missing_assay"
@@ -585,6 +942,8 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
 
   info$expr_sub <- expr_sub
   info$coords <- coords
+  info$load_seconds <- as.numeric(difftime(Sys.time(), start_ts, units = "secs"))
+  log_detail("Load/inspect time (sec): ", fmt_num(info$load_seconds, digits = 2))
   log_detail("Status: ok")
   info
 }
@@ -625,6 +984,20 @@ build_study_status_table <- function(studies_info) {
       n_cells_common = study_info$n_cells_common,
       n_cells_umap_not_in_assay = study_info$n_cells_umap_not_in_assay,
       n_cells_assay_not_in_umap = study_info$n_cells_assay_not_in_umap,
+      n_meta_rows = study_info$n_meta_rows,
+      n_meta_cols = study_info$n_meta_cols,
+      meta_rows_match_object_cells = study_info$meta_rows_match_object_cells,
+      has_seurat_clusters = study_info$has_seurat_clusters,
+      n_seurat_clusters = study_info$n_seurat_clusters,
+      has_sample_id = study_info$has_sample_id,
+      n_sample_id = study_info$n_sample_id,
+      has_orig_ident = study_info$has_orig_ident,
+      n_orig_ident = study_info$n_orig_ident,
+      has_domain = study_info$has_domain,
+      n_domain = study_info$n_domain,
+      metadata_columns_preview = ifelse(is.na(study_info$metadata_columns_preview), "", study_info$metadata_columns_preview),
+      n_ident_levels = study_info$n_ident_levels,
+      n_ident_cells = study_info$n_ident_cells,
       umap_dim1_min = study_info$umap_dim1_min,
       umap_dim1_max = study_info$umap_dim1_max,
       umap_dim2_min = study_info$umap_dim2_min,
@@ -633,6 +1006,7 @@ build_study_status_table <- function(studies_info) {
       n_marker_genes_present = study_info$n_marker_genes_present,
       marker_genes_present = ifelse(is.na(study_info$marker_genes_present), "", study_info$marker_genes_present),
       marker_genes_missing = ifelse(is.na(study_info$marker_genes_missing), "", study_info$marker_genes_missing),
+      load_seconds = study_info$load_seconds,
       stringsAsFactors = FALSE
     )
   })
@@ -666,6 +1040,132 @@ build_marker_presence_table <- function(studies_info) {
     }
   }
   do.call(rbind, chunks)
+}
+
+build_assay_slot_summary_table <- function(studies_info) {
+  empty <- data.frame(
+    study_id = character(),
+    study_label = character(),
+    assay = character(),
+    slot = character(),
+    status = character(),
+    matrix_class = character(),
+    n_features = integer(),
+    n_cells = integer(),
+    detail = character(),
+    stringsAsFactors = FALSE
+  )
+  out <- combine_table_field(studies_info, "assay_slot_summary", empty)
+  if (nrow(out) == 0) {
+    fallback <- lapply(studies_info, function(study_info) {
+      data.frame(
+        study_id = study_info$study_id,
+        study_label = study_info$study_label,
+        assay = study_info$assay,
+        slot = study_info$preferred_slot,
+        status = study_info$status,
+        matrix_class = "",
+        n_features = NA_integer_,
+        n_cells = NA_integer_,
+        detail = ifelse(is.na(study_info$reason), "", study_info$reason),
+        stringsAsFactors = FALSE
+      )
+    })
+    out <- do.call(rbind, fallback)
+  }
+  out
+}
+
+build_reduction_summary_table <- function(studies_info) {
+  empty <- data.frame(
+    study_id = character(),
+    study_label = character(),
+    reduction = character(),
+    status = character(),
+    n_cells = integer(),
+    n_dims = integer(),
+    dim1_min = numeric(),
+    dim1_max = numeric(),
+    dim2_min = numeric(),
+    dim2_max = numeric(),
+    detail = character(),
+    stringsAsFactors = FALSE
+  )
+  out <- combine_table_field(studies_info, "reduction_summary", empty)
+  if (nrow(out) == 0) {
+    fallback <- lapply(studies_info, function(study_info) {
+      data.frame(
+        study_id = study_info$study_id,
+        study_label = study_info$study_label,
+        reduction = study_info$reduction,
+        status = study_info$status,
+        n_cells = NA_integer_,
+        n_dims = NA_integer_,
+        dim1_min = NA_real_,
+        dim1_max = NA_real_,
+        dim2_min = NA_real_,
+        dim2_max = NA_real_,
+        detail = ifelse(is.na(study_info$reason), "", study_info$reason),
+        stringsAsFactors = FALSE
+      )
+    })
+    out <- do.call(rbind, fallback)
+  }
+  out
+}
+
+build_metadata_summary_table <- function(studies_info) {
+  rows <- lapply(studies_info, function(study_info) {
+    if (!is.null(study_info$metadata_summary) && nrow(study_info$metadata_summary) > 0) {
+      row <- study_info$metadata_summary[1, , drop = FALSE]
+      row$status <- study_info$status
+      return(row)
+    }
+    data.frame(
+      study_id = study_info$study_id,
+      study_label = study_info$study_label,
+      status = study_info$status,
+      n_meta_rows = NA_integer_,
+      n_meta_cols = NA_integer_,
+      meta_rows_match_object_cells = NA,
+      has_seurat_clusters = NA,
+      n_seurat_clusters = NA_integer_,
+      has_sample_id = NA,
+      n_sample_id = NA_integer_,
+      has_orig_ident = NA,
+      n_orig_ident = NA_integer_,
+      has_domain = NA,
+      n_domain = NA_integer_,
+      metadata_columns_preview = "",
+      stringsAsFactors = FALSE
+    )
+  })
+  do.call(rbind, rows)
+}
+
+build_metadata_columns_table <- function(studies_info) {
+  empty <- data.frame(
+    study_id = character(),
+    study_label = character(),
+    column_name = character(),
+    column_class = character(),
+    n_non_na = integer(),
+    n_unique_non_na = integer(),
+    example_values = character(),
+    stringsAsFactors = FALSE
+  )
+  combine_table_field(studies_info, "metadata_columns", empty)
+}
+
+build_ident_counts_table <- function(studies_info) {
+  empty <- data.frame(
+    study_id = character(),
+    study_label = character(),
+    ident_value = character(),
+    n_cells = integer(),
+    stringsAsFactors = FALSE
+  )
+  combine_table_field(studies_info, "ident_counts", empty)
 }
 
 build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
@@ -902,7 +1402,8 @@ print_study_diagnostics <- function(study_status) {
       paste0(
         "  class=", ifelse(nzchar(row$object_class[[1]]), row$object_class[[1]], "<NA>"),
         "; bytes=", ifelse(nzchar(row$object_bytes[[1]]), row$object_bytes[[1]], "NA"),
-        "; default_assay=", ifelse(nzchar(row$default_assay[[1]]), row$default_assay[[1]], "<NA>"), "\n"
+        "; default_assay=", ifelse(nzchar(row$default_assay[[1]]), row$default_assay[[1]], "<NA>"),
+        "; load_seconds=", fmt_num(row$load_seconds[[1]], digits = 2), "\n"
       )
     )
     cat(
@@ -922,6 +1423,7 @@ print_study_diagnostics <- function(study_status) {
         "  cells: object=", fmt_count(row$n_cells_object[[1]]),
         ", assay=", fmt_count(row$n_cells_assay[[1]]),
         ", umap=", fmt_count(row$n_cells_umap[[1]]),
+        ", metadata_rows=", fmt_count(row$n_meta_rows[[1]]),
         ", common=", fmt_count(row$n_cells_common[[1]]),
         ", umap_only=", fmt_count(row$n_cells_umap_not_in_assay[[1]]),
         ", assay_only=", fmt_count(row$n_cells_assay_not_in_umap[[1]]), "\n"
@@ -929,9 +1431,23 @@ print_study_diagnostics <- function(study_status) {
     )
     cat(
       paste0(
+        "  metadata: cols=", fmt_count(row$n_meta_cols[[1]]),
+        ", rows_match_obj=", fmt_bool(row$meta_rows_match_object_cells[[1]]),
+        ", seurat_clusters=", fmt_bool(row$has_seurat_clusters[[1]]), " (n=", fmt_count(row$n_seurat_clusters[[1]]), ")",
+        ", sample_id=", fmt_bool(row$has_sample_id[[1]]), " (n=", fmt_count(row$n_sample_id[[1]]), ")",
+        ", orig.ident=", fmt_bool(row$has_orig_ident[[1]]), " (n=", fmt_count(row$n_orig_ident[[1]]), ")",
+        ", domain=", fmt_bool(row$has_domain[[1]]), " (n=", fmt_count(row$n_domain[[1]]), ")\n"
+      )
+    )
+    if (nzchar(row$metadata_columns_preview[[1]])) {
+      cat(paste0("  metadata columns preview=", row$metadata_columns_preview[[1]], "\n"))
+    }
+    cat(
+      paste0(
         "  features: assay=", fmt_count(row$n_features_assay[[1]]),
         "; markers present=", fmt_count(row$n_marker_genes_present[[1]]),
-        "/", fmt_count(row$n_marker_genes_requested[[1]]), "\n"
+        "/", fmt_count(row$n_marker_genes_requested[[1]]),
+        "; ident_levels=", fmt_count(row$n_ident_levels[[1]]), "\n"
       )
     )
     if (nzchar(row$marker_genes_missing[[1]])) {
@@ -982,12 +1498,19 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   show_progress <- parse_bool_flag(args[["show-progress"]], default = FALSE)
   detailed_log <- parse_bool_flag(args[["detailed-log"]], default = TRUE)
   set_detailed_log(detailed_log)
+  options(warn = 1)
 
   log_msg("Run label: ", run_label)
   log_msg("Project root: ", project_root)
   log_msg("Detailed logging: ", ifelse(detailed_log, "enabled", "disabled"))
+  log_msg("R version: ", R.version.string)
+  log_msg("Seurat version: ", as.character(utils::packageVersion("Seurat")))
+  log_msg("ggplot2 version: ", as.character(utils::packageVersion("ggplot2")))
+  log_msg("patchwork version: ", as.character(utils::packageVersion("patchwork")))
+  log_msg("Warnings: immediate (options(warn=1))")
   log_msg("No analysis recomputation is performed in this script (load existing objects only).")
   log_msg("Markers requested (", length(GENE_ORDER), "): ", collapse_csv(GENE_ORDER))
+  log_msg("Studies in config (ordered): ", collapse_csv(cfg$studies$study_id))
 
   log_msg("Preparing studies from config: ", args$config)
   studies_info <- vector("list", nrow(cfg$studies))
@@ -1003,6 +1526,11 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   ordered_labels <- vapply(studies_info, function(x) x$study_label, character(1))
   study_status <- build_study_status_table(studies_info)
   marker_presence <- build_marker_presence_table(studies_info)
+  assay_slot_summary <- build_assay_slot_summary_table(studies_info)
+  reduction_summary <- build_reduction_summary_table(studies_info)
+  metadata_summary <- build_metadata_summary_table(studies_info)
+  metadata_columns <- build_metadata_columns_table(studies_info)
+  ident_counts <- build_ident_counts_table(studies_info)
 
   out_dir <- normalize_abs(file.path(project_root, "results", run_label, "plots"), must_work = FALSE)
   if (!is_subpath(out_dir, project_root)) {
@@ -1012,6 +1540,11 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
 
   study_status_path <- file.path(out_dir, "panel_b_study_status.tsv")
   marker_presence_path <- file.path(out_dir, "panel_b_marker_presence.tsv")
+  assay_slot_summary_path <- file.path(out_dir, "panel_b_assay_slot_summary.tsv")
+  reduction_summary_path <- file.path(out_dir, "panel_b_reduction_summary.tsv")
+  metadata_summary_path <- file.path(out_dir, "panel_b_metadata_summary.tsv")
+  metadata_columns_path <- file.path(out_dir, "panel_b_metadata_columns.tsv")
+  ident_counts_path <- file.path(out_dir, "panel_b_ident_counts.tsv")
 
   log_msg("Building Panel B rows for ", length(GENE_ORDER), " genes across ", length(studies_info), " studies.")
   row_plots <- vector("list", length(GENE_ORDER))
@@ -1050,10 +1583,20 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
 
   utils::write.table(study_status, file = study_status_path, sep = "\t", quote = FALSE, row.names = FALSE)
   utils::write.table(marker_presence, file = marker_presence_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  utils::write.table(assay_slot_summary, file = assay_slot_summary_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  utils::write.table(reduction_summary, file = reduction_summary_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  utils::write.table(metadata_summary, file = metadata_summary_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  utils::write.table(metadata_columns, file = metadata_columns_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  utils::write.table(ident_counts, file = ident_counts_path, sep = "\t", quote = FALSE, row.names = FALSE)
   utils::write.table(row_summary, file = row_summary_path, sep = "\t", quote = FALSE, row.names = FALSE)
   utils::write.table(issues, file = issues_path, sep = "\t", quote = FALSE, row.names = FALSE)
   log_msg("Wrote study diagnostics table: ", study_status_path)
   log_msg("Wrote marker presence table: ", marker_presence_path)
+  log_msg("Wrote assay-slot summary table: ", assay_slot_summary_path)
+  log_msg("Wrote reduction summary table: ", reduction_summary_path)
+  log_msg("Wrote metadata summary table: ", metadata_summary_path)
+  log_msg("Wrote metadata columns table: ", metadata_columns_path)
+  log_msg("Wrote identity counts table: ", ident_counts_path)
   log_msg("Wrote row summary table: ", row_summary_path)
   log_msg("Wrote issue table: ", issues_path)
 
@@ -1086,6 +1629,11 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     genes = GENE_ORDER,
     study_status = study_status,
     marker_presence = marker_presence,
+    assay_slot_summary = assay_slot_summary,
+    reduction_summary = reduction_summary,
+    metadata_summary = metadata_summary,
+    metadata_columns = metadata_columns,
+    ident_counts = ident_counts,
     row_summary = row_summary,
     issues = issues,
     output_paths = list(
@@ -1093,6 +1641,11 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       svg = svg_path,
       study_status = study_status_path,
       marker_presence = marker_presence_path,
+      assay_slot_summary = assay_slot_summary_path,
+      reduction_summary = reduction_summary_path,
+      metadata_summary = metadata_summary_path,
+      metadata_columns = metadata_columns_path,
+      ident_counts = ident_counts_path,
       row_summary = row_summary_path,
       issues = issues_path
     ),
@@ -1105,6 +1658,11 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     assign("panel_b_result", result, envir = .GlobalEnv)
     assign("panel_b_studies", study_status, envir = .GlobalEnv)
     assign("panel_b_marker_presence", marker_presence, envir = .GlobalEnv)
+    assign("panel_b_assay_slot_summary", assay_slot_summary, envir = .GlobalEnv)
+    assign("panel_b_reduction_summary", reduction_summary, envir = .GlobalEnv)
+    assign("panel_b_metadata_summary", metadata_summary, envir = .GlobalEnv)
+    assign("panel_b_metadata_columns", metadata_columns, envir = .GlobalEnv)
+    assign("panel_b_ident_counts", ident_counts, envir = .GlobalEnv)
     assign("panel_b_rows", row_summary, envir = .GlobalEnv)
     assign("panel_b_issues", issues, envir = .GlobalEnv)
     assign("panel_b_row_plots", row_plots, envir = .GlobalEnv)

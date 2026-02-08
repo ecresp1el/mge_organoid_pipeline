@@ -24,6 +24,11 @@ res <- run_panel_b_local(
 
 # 5) Inspect outputs in RStudio.
 View(panel_b_studies)
+View(panel_b_metadata_summary)
+View(panel_b_metadata_columns)
+View(panel_b_assay_slot_summary)
+View(panel_b_reduction_summary)
+View(panel_b_ident_counts)
 View(panel_b_rows)
 View(panel_b_issues)
 
