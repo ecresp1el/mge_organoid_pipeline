@@ -17,9 +17,9 @@ res <- run_panel_b_local(
   config_path = config_path,
   project_root = project_root,
   run_label = run_label,
-  retain_seurat = FALSE,
+  retain_seurat = TRUE,
   export_global = TRUE,
-  show_progress_plots = TRUE
+  show_progress_plots = FALSE
 )
 
 # 5) Inspect outputs in RStudio.
@@ -34,3 +34,21 @@ res$output_paths$pdf
 res$output_paths$svg
 file.exists(res$output_paths$pdf)
 file.exists(res$output_paths$svg)
+
+
+
+
+####### trouble shooting ######
+# Grab the object 
+cfg <-dget("config/panel_b_cross_study_config.example.R")
+cfg$studies
+
+# pick the row for walsh
+p <- file.path(cfg$project_root, cfg$studies$object_path[cfg$studies$study_id=="walsh"])
+obj <- read_rds_any(p)
+
+names(obj@assays)
+DefaultAssay(obj)
+names(obj@reductions)
+
+#
