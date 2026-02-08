@@ -2,11 +2,16 @@
 
 Status snapshot (Feb 2026)
 - Walsh (GSE250482): processed; Seurat objects and plots in `results/walsh_day75/`.
-- Bershteyn 2025 (GSE283775): provided Seurat object downloaded to `data/raw/bershteyn_2025_geo_files/suppl/`; UMAP plotted to `results/bershteyn/plots/`.
+- Bershteyn 2025 (GSE283775): canonical Seurat object + plots now in `results/bershteyn_2025/` (`bershteyn_2025_seurat.rds`, `plots/umap_by_cluster.{png,pdf}`); raw GEO object remains in `data/raw/bershteyn_2025_geo_files/suppl/`.
 - Xiang 2018 (GSE98201 scRNA 10x): Seurat + UMAP generated — see `results/xiang_2018/` (`plots/umap_by_cluster.{png,pdf}`).
 - Bershteyn 2023 (GSE208672): provided Seurat object plotted + copied — see `results/bershteyn_2023/` (`plots/umap_by_cluster.{png,pdf}`).
 - Samarasinghe 2021 (GSE165577): counts downloaded (`data/raw/samarasinghe_2021_geo_files/suppl/`); Seurat script/template ready; results not generated yet; LIGER run pending.
 - Siebert 2026 (NeMO `nemo:dat-htzat9t`): no files published yet (metadata only).
+
+Path migration note (2026-02-08)
+- Bershteyn 2025 canonical result path moved from legacy `results/bershteyn/` logic to `results/bershteyn_2025/`.
+- Panel/config scripts now target `results/bershteyn_2025/bershteyn_2025_seurat.rds`.
+- Legacy `results/bershteyn/plots/` files were left in place for backward compatibility because external files/jobs may still reference that older path.
 
 Key scripts
 - Downloads: `scripts/01c_download_extra_geo.sh` (Xiang_2018, Samarasinghe_2021, Bershteyn_2023)

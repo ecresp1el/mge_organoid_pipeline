@@ -21,7 +21,7 @@ list(
     # No path guessing and no globbing are used.
     object_path = c(
       "results/walsh_day75/walsh_day75_final_annotated.rds",
-      "data/raw/bershteyn_2025_geo_files/suppl/GSE283775_Seurat_scRNA_seq.rds.gz",
+      "results/bershteyn_2025/bershteyn_2025_seurat.rds",
       "results/xiang_2018/xiang_2018_seurat.rds",
       "results/samarasinghe_2021/samarasinghe_2021_seurat.rds",
       "results/varela_this_paper/varela_this_paper_seurat.rds"

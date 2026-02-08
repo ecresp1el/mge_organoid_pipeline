@@ -47,20 +47,21 @@ PROJECT_ROOT/
   - Status: **TBD** until NeMO publishes manifests/files.
 - Processed / results:
   - Walsh: `PROJECT_ROOT/results/walsh_day75/`
-  - Bershteyn_2025: `PROJECT_ROOT/results/bershteyn/` (plots only; provided Seurat object remains under `data/raw/...`)
+  - Bershteyn_2025: `PROJECT_ROOT/results/bershteyn_2025/` (canonical Seurat copy + UMAP plots)
   - Xiang_2018: `PROJECT_ROOT/results/xiang_2018/` (Seurat + UMAP generated from GSE98201 10x)
   - Bershteyn_2023: `PROJECT_ROOT/results/bershteyn_2023/` (provided Seurat object copied + UMAP plotted)
   - Samarasinghe_2021: **not generated yet** (expected: `PROJECT_ROOT/results/samarasinghe_2021/`)
   - Samarasinghe_2021 LIGER (paper-matched): **not generated yet** (expected: `PROJECT_ROOT/results/samarasinghe_2021_liger/`)
-  - Varela (this paper): `PROJECT_ROOT/results/varela_this_paper/varela_this_paper_seurat.rds` (hard-linked to `/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds`)
+  - Varela (this paper): `PROJECT_ROOT/results/varela_this_paper/varela_this_paper_seurat.rds` (true copy of `/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds`)
 - Logs: `PROJECT_ROOT/logs/`
 - Job scripts: `PROJECT_ROOT/jobs/`
 
 ## Main Seurat Objects / Plots
 - Walsh final (post-stress, annotated): `results/walsh_day75/walsh_day75_final_annotated.rds`
 - Walsh final (post-stress, unannotated): `results/walsh_day75/walsh_day75_final.rds`
-- Bershteyn 2025 (GSE283775) provided Seurat object: `data/raw/bershteyn_2025_geo_files/suppl/GSE283775_Seurat_scRNA_seq.rds.gz`
-  - UMAP: `results/bershteyn/plots/umap_by_cluster.{png,pdf}`
+- Bershteyn 2025 (GSE283775) canonical Seurat: `results/bershteyn_2025/bershteyn_2025_seurat.rds`
+  - Raw source (downloaded): `data/raw/bershteyn_2025_geo_files/suppl/GSE283775_Seurat_scRNA_seq.rds.gz`
+  - UMAP: `results/bershteyn_2025/plots/umap_by_cluster.{png,pdf}`
 - Bershteyn 2023 (GSE208672) Seurat: `results/bershteyn_2023/bershteyn_2023_seurat.rds`; UMAP `results/bershteyn_2023/plots/umap_by_cluster.{png,pdf}`
 - Xiang 2018 Seurat (GSE98201 10x): `results/xiang_2018/xiang_2018_seurat.rds`; UMAP `results/xiang_2018/plots/umap_by_cluster.{png,pdf}`
 - Samarasinghe 2021 (GSE165577) expected outputs (not generated yet):
@@ -75,17 +76,16 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 | Study | Raw inputs available | Seurat object available | UMAP PNG available | Notes |
 | --- | --- | --- | --- | --- |
 | Walsh (GSE250482) | Yes (GEO RAW tar) | Yes (`results/walsh_day75/walsh_day75_final*.rds`) | Yes (`results/walsh_day75/plots/umap_by_cluster.png`) | Run label is `walsh_day75` (not `walsh_2025`). |
-| Bershteyn 2025 (GSE283775) | Yes (provided Seurat `.rds.gz`) | Yes (in `data/raw/.../suppl/`) | Yes (`results/bershteyn/plots/umap_by_cluster.png`) | Results folder currently contains plots only (no copied/saved `.rds`). |
+| Bershteyn 2025 (GSE283775) | Yes (provided Seurat `.rds.gz`) | Yes (`results/bershteyn_2025/bershteyn_2025_seurat.rds`) | Yes (`results/bershteyn_2025/plots/umap_by_cluster.png`) | Canonical location is now `results/bershteyn_2025`; legacy `results/bershteyn/plots` retained for compatibility. |
 | Xiang 2018 (GSE98201) | Yes (10x matrix/genes/barcodes) | Yes (`results/xiang_2018/xiang_2018_seurat.rds`) | Yes (`results/xiang_2018/plots/umap_by_cluster.png`) | Built from GSE98201 trio under `.../suppl/`. |
 | Bershteyn 2023 (GSE208672) | Yes (provided Seurat `.rds.gz`) | Yes (`results/bershteyn_2023/bershteyn_2023_seurat.rds`) | Yes (`results/bershteyn_2023/plots/umap_by_cluster.png`) | Raw `suppl/` contains extra variants (`.rds`, `.gz2`) from download/read debugging. |
 | Samarasinghe 2021 (GSE165577) | Yes (filtered/normalized counts CSVs) | Not yet (script ready) | Not yet | Needs Seurat run (`scripts/05_samarasinghe_2021_seurat.R`). LIGER step pending. |
-| Varela (this paper, Day30) | Yes (`/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds`) | Yes (`results/varela_this_paper/varela_this_paper_seurat.rds`) | Included in Panel B assembly | Canonical Panel B path is under `PROJECT_ROOT/results/...` and points to the Day30 object via hard link. |
+| Varela (this paper, Day30) | Yes (`/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds`) | Yes (`results/varela_this_paper/varela_this_paper_seurat.rds`) | Included in Panel B assembly | Canonical Panel B path is under `PROJECT_ROOT/results/...` and now uses a true copied file. |
 | Siebert 2026 (NeMO `nemo:dat-htzat9t`) | Not published (metadata only) | No | No | Waiting on NeMO manifests/files; placeholder only. |
 
 ## Known Deviations / Cleanup Items
 - If you ever see `PROJECT_ROOT/data/raw/{matrix,miniml,soft,suppl}/` at the top level (they should not exist), they are empty leftovers from an earlier download script bug; safe to delete.
-- Bershteyn 2025 results live in `results/bershteyn/` (legacy name; not suffixed with `_2025` like other studies). Option: rename to `results/bershteyn_2025/` later and update `scripts/03_plot_umaps.R`.
-- Bershteyn 2025 Seurat object is not copied into `results/` yet (it is provided under `data/raw/.../suppl/`).
+- Bershteyn 2025 canonical output path is `results/bershteyn_2025/`; legacy `results/bershteyn/plots/` is intentionally left in place for backward compatibility with older references.
 - Bershteyn 2023 raw `suppl/` contains multiple variants (`.rds`, `.rds.gz`, `.rds.gz2`) from download/read debugging; the canonical copy is `results/bershteyn_2023/bershteyn_2023_seurat.rds`.
 
 ## Checkpoints (Walsh)

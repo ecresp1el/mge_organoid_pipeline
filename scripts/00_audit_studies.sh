@@ -62,8 +62,9 @@ echo "| Walsh (GSE250482) | $(yn_file "$walsh_raw") | $(yn_file "$walsh_seu") | 
 
 # Bershteyn 2025 (GSE283775) provided Seurat object
 bers25_raw="${raw_dir}/bershteyn_2025_geo_files/suppl/GSE283775_Seurat_scRNA_seq.rds.gz"
-bers25_umap="${results_dir}/bershteyn/plots/umap_by_cluster.png"
-echo "| Bershteyn 2025 (GSE283775) | $(yn_file "$bers25_raw") | $(yn_file "$bers25_raw") (raw) | $(yn_file "$bers25_umap") | results dir is legacy name: results/bershteyn |"
+bers25_seu="${results_dir}/bershteyn_2025/bershteyn_2025_seurat.rds"
+bers25_umap="${results_dir}/bershteyn_2025/plots/umap_by_cluster.png"
+echo "| Bershteyn 2025 (GSE283775) | $(yn_file "$bers25_raw") | $(yn_file "$bers25_seu") | $(yn_file "$bers25_umap") | canonical path is results/bershteyn_2025 (legacy results/bershteyn kept for compatibility) |"
 
 # Xiang 2018 (GSE98201 10x trio)
 xiang_raw="${raw_dir}/xiang_2018_geo_files/suppl/GSE98201_matrix.mtx.gz"

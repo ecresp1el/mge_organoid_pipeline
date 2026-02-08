@@ -58,16 +58,18 @@ main <- function() {
   project_root <- Sys.getenv("PROJECT_ROOT", "")
   if (project_root == "") stop("PROJECT_ROOT env must be set")
 
-  datasets <- c("walsh", "bershteyn")
+  datasets <- c("walsh", "bershteyn_2025")
   for (ds in datasets) {
     if (ds == "walsh") {
       in_path <- file.path(project_root, "results", "walsh_day75", "walsh_day75_final.rds")
       out_dir <- file.path(project_root, "results", "walsh_day75", "plots")
       label <- "Walsh day75"
     } else {
-      in_path <- file.path(project_root, "data", "raw", "bershteyn_2025_geo_files", "suppl", "GSE283775_Seurat_scRNA_seq.rds.gz")
-      out_dir <- file.path(project_root, "results", "bershteyn", "plots")
-      label <- "Bershteyn"
+      canonical_path <- file.path(project_root, "results", "bershteyn_2025", "bershteyn_2025_seurat.rds")
+      raw_path <- file.path(project_root, "data", "raw", "bershteyn_2025_geo_files", "suppl", "GSE283775_Seurat_scRNA_seq.rds.gz")
+      in_path <- if (file.exists(canonical_path)) canonical_path else raw_path
+      out_dir <- file.path(project_root, "results", "bershteyn_2025", "plots")
+      label <- "Bershteyn 2025"
     }
     if (!file.exists(in_path)) {
       log_msg("Skipping", ds, "- missing file:", in_path)
