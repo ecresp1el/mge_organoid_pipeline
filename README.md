@@ -37,6 +37,7 @@ Run Panel B interactively (no Slurm required)
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_summary.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_columns.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_feature_space.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_issues.tsv`
 

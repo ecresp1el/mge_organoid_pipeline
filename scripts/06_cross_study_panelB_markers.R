@@ -29,6 +29,7 @@
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_summary.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_columns.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_feature_space.tsv
 # - stdout audit of missing studies/genes/components
 
 suppressPackageStartupMessages({
@@ -89,16 +90,156 @@ fmt_bytes <- function(bytes) {
 
 safe_dim <- function(x) {
   if (is.null(x)) return(c(NA_integer_, NA_integer_))
-  c(
-    tryCatch(as.integer(nrow(x)), error = function(e) NA_integer_),
-    tryCatch(as.integer(ncol(x)), error = function(e) NA_integer_)
-  )
+  nr <- tryCatch(nrow(x), error = function(e) NA)
+  nc <- tryCatch(ncol(x), error = function(e) NA)
+  if (length(nr) == 0 || is.na(nr[[1]]) || !is.finite(as.numeric(nr[[1]]))) nr <- NA_integer_ else nr <- as.integer(nr[[1]])
+  if (length(nc) == 0 || is.na(nc[[1]]) || !is.finite(as.numeric(nc[[1]]))) nc <- NA_integer_ else nc <- as.integer(nc[[1]])
+  c(nr, nc)
 }
 
 safe_range <- function(x) {
   out <- tryCatch(range(x, na.rm = TRUE, finite = TRUE), error = function(e) c(NA_real_, NA_real_))
   if (length(out) != 2) out <- c(NA_real_, NA_real_)
   out
+}
+
+safe_ncol <- function(x) {
+  nc <- tryCatch(ncol(x), error = function(e) NA)
+  if (length(nc) == 0 || is.na(nc[[1]]) || !is.finite(as.numeric(nc[[1]]))) return(NA_integer_)
+  as.integer(nc[[1]])
+}
+
+safe_nrow <- function(x) {
+  nr <- tryCatch(nrow(x), error = function(e) NA)
+  if (length(nr) == 0 || is.na(nr[[1]]) || !is.finite(as.numeric(nr[[1]]))) return(NA_integer_)
+  as.integer(nr[[1]])
+}
+
+detect_feature_id_type <- function(features) {
+  if (is.null(features) || length(features) == 0) return("unavailable")
+  x <- as.character(features)
+  x <- x[!is.na(x) & nzchar(x)]
+  if (length(x) == 0) return("unavailable")
+  probe <- utils::head(x, 5000)
+  n <- length(probe)
+  is_ensembl <- grepl("^ENSG[0-9]+(\\.[0-9]+)?$", probe)
+  is_symbol <- grepl("^[A-Za-z][A-Za-z0-9_.-]*$", probe) & !is_ensembl
+  frac_ensembl <- sum(is_ensembl) / n
+  frac_symbol <- sum(is_symbol) / n
+  if (frac_ensembl >= 0.8) return("ensembl_id")
+  if (frac_symbol >= 0.8) return("symbol_like")
+  "mixed_or_other"
+}
+
+infer_missing_gene_reason <- function(study_info) {
+  if (!is.null(study_info$feature_id_type) && identical(study_info$feature_id_type, "ensembl_id")) {
+    return("Gene not found (feature IDs are Ensembl-like)")
+  }
+  "Gene not found"
+}
+
+is_assay_runtime_incompatible <- function(detail, assay_class = "") {
+  txt <- tolower(paste(detail, assay_class, collapse = " "))
+  grepl("not an assay", txt, fixed = TRUE) ||
+    grepl("assay5", txt, fixed = TRUE) ||
+    grepl("layer", txt, fixed = TRUE)
+}
+
+get_assay_features <- function(obj, assay) {
+  f1 <- tryCatch(rownames(obj), error = function(e) character(0))
+  if (length(f1) > 0) return(unique(as.character(f1)))
+  f2 <- tryCatch(Seurat::Features(obj, assay = assay), error = function(e) character(0))
+  if (length(f2) > 0) return(unique(as.character(f2)))
+  f3 <- tryCatch(rownames(obj[[assay]]), error = function(e) character(0))
+  if (length(f3) > 0) return(unique(as.character(f3)))
+  character(0)
+}
+
+fetch_marker_matrix <- function(obj, assay, preferred_slot, cells, genes) {
+  # Fallback extractor for assay classes where GetAssayData/slots are unavailable.
+  old_assay <- tryCatch(as.character(DefaultAssay(obj)), error = function(e) "")
+  on.exit(
+    {
+      if (nzchar(old_assay)) {
+        tryCatch(DefaultAssay(obj) <- old_assay, error = function(e) NULL)
+      }
+    },
+    add = TRUE
+  )
+  tryCatch(DefaultAssay(obj) <- assay, error = function(e) NULL)
+
+  features <- get_assay_features(obj, assay)
+  features_known <- length(features) > 0
+  genes_present <- if (features_known) genes[genes %in% features] else character(0)
+  genes_missing <- setdiff(genes, genes_present)
+  vars_to_fetch <- if (features_known) genes_present else genes
+  slot_candidates <- unique(c(preferred_slot, "data", "counts"))
+
+  if (features_known && length(genes_present) == 0) {
+    return(list(
+      status = "ok",
+      expression_slot = preferred_slot,
+      expr_sub = NULL,
+      genes_present = genes_present,
+      genes_missing = genes_missing,
+      n_features_assay = ifelse(length(features) > 0, length(features), NA_integer_),
+      n_cells_assay = length(cells),
+      n_cells_common = length(cells),
+      n_cells_umap_not_in_assay = 0L,
+      n_cells_assay_not_in_umap = 0L,
+      detail = "No requested marker genes were found in assay features."
+    ))
+  }
+
+  last_error <- NULL
+  for (slot_name in slot_candidates) {
+    fetched <- tryCatch(
+      Seurat::FetchData(obj, vars = vars_to_fetch, cells = cells, slot = slot_name),
+      error = function(e) {
+        last_error <<- e
+        NULL
+      }
+    )
+    if (is.null(fetched) || nrow(fetched) == 0 || ncol(fetched) == 0) next
+
+    common_cells <- intersect(cells, rownames(fetched))
+    if (length(common_cells) == 0) next
+    fetched <- fetched[common_cells, , drop = FALSE]
+    cols <- intersect(colnames(fetched), genes)
+    if (length(cols) == 0) next
+
+    mat <- t(as.matrix(fetched[, cols, drop = FALSE]))
+    rownames(mat) <- cols
+    colnames(mat) <- rownames(fetched)
+
+    return(list(
+      status = "ok",
+      expression_slot = slot_name,
+      expr_sub = mat,
+      genes_present = rownames(mat),
+      genes_missing = setdiff(genes, rownames(mat)),
+      n_features_assay = ifelse(length(features) > 0, length(features), NA_integer_),
+      n_cells_assay = nrow(fetched),
+      n_cells_common = length(common_cells),
+      n_cells_umap_not_in_assay = length(setdiff(cells, rownames(fetched))),
+      n_cells_assay_not_in_umap = length(setdiff(rownames(fetched), cells)),
+      detail = ""
+    ))
+  }
+
+  list(
+    status = "error",
+    expression_slot = NA_character_,
+    expr_sub = NULL,
+    genes_present = character(0),
+    genes_missing = genes,
+    n_features_assay = ifelse(length(features) > 0, length(features), NA_integer_),
+    n_cells_assay = NA_integer_,
+    n_cells_common = NA_integer_,
+    n_cells_umap_not_in_assay = NA_integer_,
+    n_cells_assay_not_in_umap = NA_integer_,
+    detail = if (!is.null(last_error)) conditionMessage(last_error) else "FetchData fallback returned no usable data."
+  )
 }
 
 summarize_assay_slots <- function(obj, study_id, study_label) {
@@ -380,6 +521,7 @@ print_usage <- function() {
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_summary.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_columns.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_feature_space.tsv",
       sep = "\n"
     )
   )
@@ -599,9 +741,16 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     object_class = NA_character_,
     default_assay = NA_character_,
     assays_available = NA_character_,
+    assay_class = NA_character_,
+    assay_slot_names = NA_character_,
     reductions_available = NA_character_,
     n_cells_object = NA_integer_,
     n_features_assay = NA_integer_,
+    n_features_detected = NA_integer_,
+    feature_id_type = NA_character_,
+    feature_id_examples = NA_character_,
+    data_access_mode = NA_character_,
+    runtime_note = NA_character_,
     n_cells_assay = NA_integer_,
     n_cells_umap = NA_integer_,
     n_dims_umap = NA_integer_,
@@ -711,7 +860,10 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   info$default_assay <- tryCatch(as.character(DefaultAssay(obj)), error = function(e) "")
   info$assays_available <- collapse_csv(names(obj@assays))
   info$reductions_available <- collapse_csv(names(obj@reductions))
-  info$n_cells_object <- tryCatch(as.integer(ncol(obj)), error = function(e) NA_integer_)
+  info$n_cells_object <- safe_ncol(obj)
+  if (is.na(info$n_cells_object) && !is.na(info$n_meta_rows) && info$n_meta_rows > 0) {
+    info$n_cells_object <- as.integer(info$n_meta_rows)
+  }
   log_detail("Default assay: ", ifelse(nzchar(info$default_assay), info$default_assay, "<none>"))
   log_detail("Available assays: ", ifelse(nzchar(info$assays_available), info$assays_available, "<none>"))
   log_detail("Available reductions: ", ifelse(nzchar(info$reductions_available), info$reductions_available, "<none>"))
@@ -776,7 +928,26 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
 
   assay_obj <- tryCatch(obj[[info$assay]], error = function(e) NULL)
   assay_dims <- safe_dim(assay_obj)
+  info$assay_class <- if (!is.null(assay_obj)) collapse_csv(class(assay_obj)) else ""
+  info$assay_slot_names <- if (!is.null(assay_obj)) {
+    collapse_csv(tryCatch(slotNames(assay_obj), error = function(e) character(0)))
+  } else {
+    ""
+  }
+  assay_features <- get_assay_features(obj, info$assay)
+  if (length(assay_features) > 0) {
+    info$n_features_detected <- as.integer(length(unique(assay_features)))
+    info$feature_id_type <- detect_feature_id_type(assay_features)
+    info$feature_id_examples <- collapse_csv(utils::head(assay_features, 8))
+  } else {
+    info$n_features_detected <- NA_integer_
+    info$feature_id_type <- "unavailable"
+    info$feature_id_examples <- ""
+  }
   info$n_features_assay <- assay_dims[[1]]
+  if (is.na(info$n_features_assay) && !is.na(info$n_features_detected)) {
+    info$n_features_assay <- info$n_features_detected
+  }
   if (!is.na(assay_dims[[2]])) {
     info$n_cells_assay <- assay_dims[[2]]
   }
@@ -784,6 +955,29 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     "Assay object dims (features x cells): ",
     fmt_count(info$n_features_assay), " x ", fmt_count(assay_dims[[2]])
   )
+  log_detail(
+    "Assay class/slots: ",
+    ifelse(nzchar(info$assay_class), info$assay_class, "<unknown>"),
+    " | slots=", ifelse(nzchar(info$assay_slot_names), info$assay_slot_names, "<none>")
+  )
+  log_detail(
+    "Feature namespace: type=", ifelse(nzchar(info$feature_id_type), info$feature_id_type, "<unknown>"),
+    "; detected_features=", fmt_count(info$n_features_detected),
+    ifelse(nzchar(info$feature_id_examples), paste0("; examples=", info$feature_id_examples), "")
+  )
+  if (identical(info$feature_id_type, "ensembl_id")) {
+    info$runtime_note <- "Feature IDs are Ensembl-like; gene symbols require mapping for marker lookup."
+    log_detail("Runtime note: ", info$runtime_note)
+  }
+  if (!is.na(info$assay_class) && grepl("Assay5", info$assay_class, fixed = TRUE)) {
+    note <- "Assay5 detected; full expression access may require Seurat v5 runtime."
+    info$runtime_note <- if (is.na(info$runtime_note) || !nzchar(info$runtime_note)) {
+      note
+    } else {
+      paste(info$runtime_note, note, sep = " | ")
+    }
+    log_detail("Runtime note: ", note)
+  }
 
   if (!(info$reduction %in% names(obj@reductions))) {
     info$status <- "missing_umap"
@@ -834,81 +1028,200 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
     "], UMAP_2=[", fmt_num(info$umap_dim2_min), ", ", fmt_num(info$umap_dim2_max), "]"
   )
 
-  slot_name <- choose_expression_slot(obj, info$assay, info$preferred_slot)
-  if (is.na(slot_name)) {
-    info$status <- "missing_assay_data"
-    info$reason <- "Missing assay data"
-    info$detail <- paste0("No non-empty slot among: ", collapse_csv(unique(c(info$preferred_slot, "data", "counts"))))
-    log_detail("Status: missing_assay_data | ", info$detail)
-    return(info)
-  }
-  info$expression_slot <- slot_name
-  log_detail("Expression slot selected: ", slot_name, " (requested ", info$preferred_slot, ")")
-
   coords <- as.data.frame(coords_raw[, 1:2, drop = FALSE], stringsAsFactors = FALSE)
   colnames(coords) <- c("UMAP_1", "UMAP_2")
   coords$cell_id <- rownames(coords)
-
-  mat <- tryCatch(
-    suppressWarnings(GetAssayData(obj, assay = info$assay, slot = slot_name)),
-    error = function(e) e
-  )
-  if (inherits(mat, "error") || is.null(mat) || nrow(mat) == 0 || ncol(mat) == 0) {
-    info$status <- "missing_assay_data"
-    info$reason <- "Missing assay data"
-    info$detail <- if (inherits(mat, "error")) {
-      paste0("assay=", info$assay, "; slot=", slot_name, "; ", conditionMessage(mat))
-    } else {
-      paste0("assay=", info$assay, "; slot=", slot_name, " has empty matrix")
-    }
-    log_detail("Status: missing_assay_data | ", info$detail)
-    return(info)
-  }
-
-  mat_dims <- safe_dim(mat)
-  info$n_features_assay <- mat_dims[[1]]
-  info$n_cells_assay <- mat_dims[[2]]
-  info$assay_slot_dims <- paste0(fmt_count(mat_dims[[1]]), "x", fmt_count(mat_dims[[2]]))
-  log_detail(
-    "Assay slot dims (features x cells): ",
-    fmt_count(mat_dims[[1]]), " x ", fmt_count(mat_dims[[2]])
-  )
-
   cells <- coords$cell_id
-  umap_cells <- unique(cells)
-  assay_cells <- unique(colnames(mat))
-  common_cells <- intersect(umap_cells, assay_cells)
-  missing_in_assay <- setdiff(umap_cells, assay_cells)
-  extra_in_assay <- setdiff(assay_cells, umap_cells)
-  info$n_cells_common <- length(common_cells)
-  info$n_cells_umap_not_in_assay <- length(missing_in_assay)
-  info$n_cells_assay_not_in_umap <- length(extra_in_assay)
-  log_detail(
-    "Cell overlap: common=", fmt_count(info$n_cells_common),
-    "; UMAP-only=", fmt_count(info$n_cells_umap_not_in_assay),
-    "; assay-only=", fmt_count(info$n_cells_assay_not_in_umap)
-  )
 
-  if (length(missing_in_assay) > 0) {
-    info$status <- "missing_assay_data"
-    info$reason <- "Cell mismatch"
-    info$detail <- paste0(
-      "UMAP cells not in assay matrix: ", fmt_count(length(missing_in_assay)),
-      if (length(missing_in_assay) > 0) {
-        paste0(" (examples: ", paste(utils::head(missing_in_assay, 5), collapse = ", "), ")")
-      } else {
-        ""
-      }
+  mat <- NULL
+  expr_sub <- NULL
+  gene_hits <- character(0)
+  gene_missing <- GENE_ORDER
+  info$data_access_mode <- "unresolved"
+  slot_name <- choose_expression_slot(obj, info$assay, info$preferred_slot)
+  direct_assay_error <- NA_character_
+
+  if (!is.na(slot_name)) {
+    info$expression_slot <- slot_name
+    log_detail("Expression slot selected: ", slot_name, " (requested ", info$preferred_slot, ")")
+    mat_try <- tryCatch(
+      suppressWarnings(GetAssayData(obj, assay = info$assay, slot = slot_name)),
+      error = function(e) e
     )
-    log_detail("Status: missing_assay_data | ", info$detail)
-    return(info)
+    mat_try_nrow <- if (!inherits(mat_try, "error") && !is.null(mat_try)) safe_nrow(mat_try) else NA_integer_
+    mat_try_ncol <- if (!inherits(mat_try, "error") && !is.null(mat_try)) safe_ncol(mat_try) else NA_integer_
+    mat_try_invalid <- inherits(mat_try, "error") ||
+      is.null(mat_try) ||
+      is.na(mat_try_nrow) || is.na(mat_try_ncol) ||
+      mat_try_nrow == 0 || mat_try_ncol == 0
+    if (mat_try_invalid) {
+      direct_assay_error <- if (inherits(mat_try, "error")) {
+        paste0("assay=", info$assay, "; slot=", slot_name, "; ", conditionMessage(mat_try))
+      } else {
+        paste0("assay=", info$assay, "; slot=", slot_name, " has empty matrix")
+      }
+      log_detail("GetAssayData unavailable/empty; switching to FetchData fallback: ", direct_assay_error)
+    } else {
+      mat <- mat_try
+      info$data_access_mode <- "direct_getassaydata"
+    }
+  } else {
+    direct_assay_error <- paste0(
+      "No non-empty slot among GetAssayData candidates: ",
+      collapse_csv(unique(c(info$preferred_slot, "data", "counts")))
+    )
+    log_detail(direct_assay_error, "; switching to FetchData fallback.")
   }
 
-  gene_hits <- GENE_ORDER[GENE_ORDER %in% rownames(mat)]
-  gene_missing <- setdiff(GENE_ORDER, gene_hits)
+  if (!is.null(mat)) {
+    mat_dims <- safe_dim(mat)
+    info$n_features_assay <- mat_dims[[1]]
+    info$n_cells_assay <- mat_dims[[2]]
+    info$assay_slot_dims <- paste0(fmt_count(mat_dims[[1]]), "x", fmt_count(mat_dims[[2]]))
+    log_detail(
+      "Assay slot dims (features x cells): ",
+      fmt_count(mat_dims[[1]]), " x ", fmt_count(mat_dims[[2]])
+    )
+
+    umap_cells <- unique(cells)
+    assay_cells <- unique(colnames(mat))
+    common_cells <- intersect(umap_cells, assay_cells)
+    missing_in_assay <- setdiff(umap_cells, assay_cells)
+    extra_in_assay <- setdiff(assay_cells, umap_cells)
+    info$n_cells_common <- length(common_cells)
+    info$n_cells_umap_not_in_assay <- length(missing_in_assay)
+    info$n_cells_assay_not_in_umap <- length(extra_in_assay)
+    log_detail(
+      "Cell overlap: common=", fmt_count(info$n_cells_common),
+      "; UMAP-only=", fmt_count(info$n_cells_umap_not_in_assay),
+      "; assay-only=", fmt_count(info$n_cells_assay_not_in_umap)
+    )
+
+    if (length(missing_in_assay) > 0) {
+      info$status <- "missing_assay_data"
+      info$reason <- "Cell mismatch"
+      info$detail <- paste0(
+        "UMAP cells not in assay matrix: ", fmt_count(length(missing_in_assay)),
+        if (length(missing_in_assay) > 0) {
+          paste0(" (examples: ", paste(utils::head(missing_in_assay, 5), collapse = ", "), ")")
+        } else {
+          ""
+        }
+      )
+      log_detail("Status: missing_assay_data | ", info$detail)
+      return(info)
+    }
+
+    gene_hits <- GENE_ORDER[GENE_ORDER %in% rownames(mat)]
+    gene_missing <- setdiff(GENE_ORDER, gene_hits)
+    expr_sub <- if (length(gene_hits) > 0) {
+      mat[gene_hits, cells, drop = FALSE]
+    } else {
+      NULL
+    }
+  } else {
+    fallback_res <- fetch_marker_matrix(
+      obj = obj,
+      assay = info$assay,
+      preferred_slot = info$preferred_slot,
+      cells = cells,
+      genes = GENE_ORDER
+    )
+    if (!identical(fallback_res$status, "ok")) {
+      info$data_access_mode <- "assay_data_unavailable"
+      detail_parts <- character(0)
+      if (!is.na(direct_assay_error) && nzchar(direct_assay_error)) {
+        detail_parts <- c(detail_parts, direct_assay_error)
+      }
+      if (!is.null(fallback_res$detail) && nzchar(fallback_res$detail)) {
+        detail_parts <- c(detail_parts, paste0("FetchData fallback: ", fallback_res$detail))
+      }
+      if (length(detail_parts) == 0) {
+        detail_parts <- "Unable to retrieve marker expression by GetAssayData or FetchData."
+      }
+      info$detail <- paste(detail_parts, collapse = " | ")
+      if (is_assay_runtime_incompatible(info$detail, info$assay_class)) {
+        info$status <- "assay_runtime_incompatible"
+        info$reason <- "Assay runtime incompatible"
+        info$data_access_mode <- "assay_runtime_incompatible"
+        note <- paste0(
+          "Assay=", info$assay,
+          "; class=", ifelse(nzchar(info$assay_class), info$assay_class, "<unknown>"),
+          "; runtime cannot read this assay type."
+        )
+        info$runtime_note <- if (is.na(info$runtime_note) || !nzchar(info$runtime_note)) note else paste(info$runtime_note, note, sep = " | ")
+        log_detail("Status: assay_runtime_incompatible | ", info$detail)
+      } else {
+        info$status <- "missing_assay_data"
+        info$reason <- "Missing assay data"
+        log_detail("Status: missing_assay_data | ", info$detail)
+      }
+      return(info)
+    }
+
+    info$data_access_mode <- "fetchdata_fallback"
+    info$expression_slot <- fallback_res$expression_slot
+    if (!is.na(fallback_res$n_features_assay)) {
+      info$n_features_assay <- as.integer(fallback_res$n_features_assay)
+    }
+    if (!is.na(fallback_res$n_cells_assay)) {
+      info$n_cells_assay <- as.integer(fallback_res$n_cells_assay)
+    }
+    info$n_cells_common <- as.integer(fallback_res$n_cells_common)
+    info$n_cells_umap_not_in_assay <- as.integer(fallback_res$n_cells_umap_not_in_assay)
+    info$n_cells_assay_not_in_umap <- as.integer(fallback_res$n_cells_assay_not_in_umap)
+    expr_sub <- fallback_res$expr_sub
+    gene_hits <- fallback_res$genes_present
+    gene_missing <- setdiff(GENE_ORDER, gene_hits)
+
+    if (!is.null(expr_sub)) {
+      common_cells <- intersect(cells, colnames(expr_sub))
+      if (length(common_cells) > 0) {
+        expr_sub <- expr_sub[, common_cells, drop = FALSE]
+        coords <- coords[match(common_cells, coords$cell_id), , drop = FALSE]
+        rownames(coords) <- coords$cell_id
+      } else {
+        expr_sub <- NULL
+      }
+    }
+
+    if (!is.null(expr_sub)) {
+      expr_dims <- safe_dim(expr_sub)
+      info$assay_slot_dims <- paste0(fmt_count(expr_dims[[1]]), "x", fmt_count(expr_dims[[2]]))
+    } else {
+      info$assay_slot_dims <- "0x0"
+    }
+
+    log_detail(
+      "Expression data resolved via FetchData fallback using slot ",
+      info$expression_slot,
+      " (requested ", info$preferred_slot, ")"
+    )
+    log_detail(
+      "Cell overlap: common=", fmt_count(info$n_cells_common),
+      "; UMAP-only=", fmt_count(info$n_cells_umap_not_in_assay),
+      "; assay-only=", fmt_count(info$n_cells_assay_not_in_umap)
+    )
+
+    if (is.finite(info$n_cells_umap_not_in_assay) && info$n_cells_umap_not_in_assay > 0) {
+      info$status <- "missing_assay_data"
+      info$reason <- "Cell mismatch"
+      info$detail <- paste0(
+        "UMAP cells not in assay matrix: ",
+        fmt_count(info$n_cells_umap_not_in_assay)
+      )
+      log_detail("Status: missing_assay_data | ", info$detail)
+      return(info)
+    }
+  }
+
   info$n_marker_genes_present <- length(gene_hits)
   info$marker_genes_present <- collapse_csv(gene_hits)
   info$marker_genes_missing <- collapse_csv(gene_missing)
+  if (info$n_marker_genes_present == 0 && identical(info$feature_id_type, "ensembl_id")) {
+    note <- "None of the symbol-based markers were found because assay features are Ensembl-like."
+    info$runtime_note <- if (is.na(info$runtime_note) || !nzchar(info$runtime_note)) note else paste(info$runtime_note, note, sep = " | ")
+  }
   log_detail(
     "Marker genes: requested=", fmt_count(info$n_marker_genes_requested),
     "; present=", fmt_count(info$n_marker_genes_present),
@@ -916,12 +1229,6 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   )
   if (length(gene_missing) > 0) {
     log_detail("Missing marker genes: ", collapse_csv(gene_missing))
-  }
-
-  expr_sub <- if (length(gene_hits) > 0) {
-    mat[gene_hits, cells, drop = FALSE]
-  } else {
-    NULL
   }
   if (!is.null(expr_sub)) {
     expr_dims <- safe_dim(expr_sub)
@@ -970,14 +1277,18 @@ build_study_status_table <- function(studies_info) {
       object_class = ifelse(is.na(study_info$object_class), "", study_info$object_class),
       default_assay = ifelse(is.na(study_info$default_assay), "", study_info$default_assay),
       assays_available = ifelse(is.na(study_info$assays_available), "", study_info$assays_available),
+      assay_class = ifelse(is.na(study_info$assay_class), "", study_info$assay_class),
+      assay_slot_names = ifelse(is.na(study_info$assay_slot_names), "", study_info$assay_slot_names),
       reductions_available = ifelse(is.na(study_info$reductions_available), "", study_info$reductions_available),
       reduction = study_info$reduction,
       assay = study_info$assay,
       assay_slot_requested = ifelse(is.na(study_info$assay_slot_requested), "", study_info$assay_slot_requested),
       expression_slot = ifelse(is.na(study_info$expression_slot), "", study_info$expression_slot),
+      data_access_mode = ifelse(is.na(study_info$data_access_mode), "", study_info$data_access_mode),
       assay_slot_dims = ifelse(is.na(study_info$assay_slot_dims), "", study_info$assay_slot_dims),
       n_cells_object = study_info$n_cells_object,
       n_features_assay = study_info$n_features_assay,
+      n_features_detected = study_info$n_features_detected,
       n_cells_assay = study_info$n_cells_assay,
       n_cells_umap = study_info$n_cells_umap,
       n_dims_umap = study_info$n_dims_umap,
@@ -1006,6 +1317,9 @@ build_study_status_table <- function(studies_info) {
       n_marker_genes_present = study_info$n_marker_genes_present,
       marker_genes_present = ifelse(is.na(study_info$marker_genes_present), "", study_info$marker_genes_present),
       marker_genes_missing = ifelse(is.na(study_info$marker_genes_missing), "", study_info$marker_genes_missing),
+      feature_id_type = ifelse(is.na(study_info$feature_id_type), "", study_info$feature_id_type),
+      feature_id_examples = ifelse(is.na(study_info$feature_id_examples), "", study_info$feature_id_examples),
+      runtime_note = ifelse(is.na(study_info$runtime_note), "", study_info$runtime_note),
       load_seconds = study_info$load_seconds,
       stringsAsFactors = FALSE
     )
@@ -1019,13 +1333,14 @@ build_marker_presence_table <- function(studies_info) {
   for (study_info in studies_info) {
     study_ok <- identical(study_info$status, "ok")
     genes_present <- if (!is.null(study_info$expr_sub)) rownames(study_info$expr_sub) else character(0)
+    missing_gene_reason <- infer_missing_gene_reason(study_info)
     for (gene in GENE_ORDER) {
       k <- k + 1
       present <- study_ok && (gene %in% genes_present)
       reason <- if (!study_ok) {
         ifelse(is.na(study_info$reason), "Study unavailable", study_info$reason)
       } else if (!present) {
-        "Gene not found"
+        missing_gene_reason
       } else {
         ""
       }
@@ -1168,6 +1483,26 @@ build_ident_counts_table <- function(studies_info) {
   combine_table_field(studies_info, "ident_counts", empty)
 }
 
+build_feature_space_table <- function(studies_info) {
+  chunks <- lapply(studies_info, function(study_info) {
+    data.frame(
+      study_id = study_info$study_id,
+      study_label = study_info$study_label,
+      status = study_info$status,
+      assay = study_info$assay,
+      assay_class = ifelse(is.na(study_info$assay_class), "", study_info$assay_class),
+      assay_slot_names = ifelse(is.na(study_info$assay_slot_names), "", study_info$assay_slot_names),
+      n_features_detected = study_info$n_features_detected,
+      feature_id_type = ifelse(is.na(study_info$feature_id_type), "", study_info$feature_id_type),
+      feature_id_examples = ifelse(is.na(study_info$feature_id_examples), "", study_info$feature_id_examples),
+      data_access_mode = ifelse(is.na(study_info$data_access_mode), "", study_info$data_access_mode),
+      runtime_note = ifelse(is.na(study_info$runtime_note), "", study_info$runtime_note),
+      stringsAsFactors = FALSE
+    )
+  })
+  do.call(rbind, chunks)
+}
+
 build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
   # Build one full row (one gene across all studies):
   # - collect expression points where available
@@ -1204,7 +1539,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     )
 
     if (expr_res$status != "ok") {
-      reason <- if (expr_res$status == "missing_gene") "Gene not found" else expr_res$reason
+      reason <- if (expr_res$status == "missing_gene") infer_missing_gene_reason(study_info) else expr_res$reason
       placeholder_chunks[[length(placeholder_chunks) + 1]] <- data.frame(
         study_label = study_info$study_label,
         UMAP_1 = 0,
@@ -1217,7 +1552,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
         study_label = study_info$study_label,
         gene = gene,
         reason = reason,
-        scope = if (reason == "Gene not found") "gene" else "study",
+        scope = if (startsWith(reason, "Gene not found")) "gene" else "study",
         stringsAsFactors = FALSE
       )
       next
@@ -1374,7 +1709,7 @@ print_audit <- function(issue_df) {
     cat("Study-level placeholders: none\n")
   }
 
-  gene_level <- issue_df[issue_df$reason == "Gene not found", c("study_label", "gene"), drop = FALSE]
+  gene_level <- issue_df[grepl("^Gene not found", issue_df$reason), c("study_label", "gene"), drop = FALSE]
   if (nrow(gene_level) > 0) {
     cat("Gene-not-found placeholders:\n")
     split_genes <- split(gene_level$gene, gene_level$study_label)
@@ -1415,7 +1750,15 @@ print_study_diagnostics <- function(study_status) {
     cat(
       paste0(
         "  requested assay/reduction/slot=", row$assay[[1]], "/", row$reduction[[1]], "/", row$assay_slot_requested[[1]],
-        "; selected slot=", ifelse(nzchar(row$expression_slot[[1]]), row$expression_slot[[1]], "<NA>"), "\n"
+        "; selected slot=", ifelse(nzchar(row$expression_slot[[1]]), row$expression_slot[[1]], "<NA>"),
+        "; access_mode=", ifelse(nzchar(row$data_access_mode[[1]]), row$data_access_mode[[1]], "<NA>"), "\n"
+      )
+    )
+    cat(
+      paste0(
+        "  assay class=", ifelse(nzchar(row$assay_class[[1]]), row$assay_class[[1]], "<NA>"),
+        "; assay slots=", ifelse(nzchar(row$assay_slot_names[[1]]), row$assay_slot_names[[1]], "<NA>"),
+        "; feature_id_type=", ifelse(nzchar(row$feature_id_type[[1]]), row$feature_id_type[[1]], "<NA>"), "\n"
       )
     )
     cat(
@@ -1455,6 +1798,9 @@ print_study_diagnostics <- function(study_status) {
     }
     if (nzchar(row$detail[[1]])) {
       cat(paste0("  detail=", row$detail[[1]], "\n"))
+    }
+    if (nzchar(row$runtime_note[[1]])) {
+      cat(paste0("  runtime_note=", row$runtime_note[[1]], "\n"))
     }
   }
 }
@@ -1531,6 +1877,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   metadata_summary <- build_metadata_summary_table(studies_info)
   metadata_columns <- build_metadata_columns_table(studies_info)
   ident_counts <- build_ident_counts_table(studies_info)
+  feature_space <- build_feature_space_table(studies_info)
 
   out_dir <- normalize_abs(file.path(project_root, "results", run_label, "plots"), must_work = FALSE)
   if (!is_subpath(out_dir, project_root)) {
@@ -1545,6 +1892,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   metadata_summary_path <- file.path(out_dir, "panel_b_metadata_summary.tsv")
   metadata_columns_path <- file.path(out_dir, "panel_b_metadata_columns.tsv")
   ident_counts_path <- file.path(out_dir, "panel_b_ident_counts.tsv")
+  feature_space_path <- file.path(out_dir, "panel_b_feature_space.tsv")
 
   log_msg("Building Panel B rows for ", length(GENE_ORDER), " genes across ", length(studies_info), " studies.")
   row_plots <- vector("list", length(GENE_ORDER))
@@ -1588,6 +1936,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   utils::write.table(metadata_summary, file = metadata_summary_path, sep = "\t", quote = FALSE, row.names = FALSE)
   utils::write.table(metadata_columns, file = metadata_columns_path, sep = "\t", quote = FALSE, row.names = FALSE)
   utils::write.table(ident_counts, file = ident_counts_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  utils::write.table(feature_space, file = feature_space_path, sep = "\t", quote = FALSE, row.names = FALSE)
   utils::write.table(row_summary, file = row_summary_path, sep = "\t", quote = FALSE, row.names = FALSE)
   utils::write.table(issues, file = issues_path, sep = "\t", quote = FALSE, row.names = FALSE)
   log_msg("Wrote study diagnostics table: ", study_status_path)
@@ -1597,6 +1946,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   log_msg("Wrote metadata summary table: ", metadata_summary_path)
   log_msg("Wrote metadata columns table: ", metadata_columns_path)
   log_msg("Wrote identity counts table: ", ident_counts_path)
+  log_msg("Wrote feature-space table: ", feature_space_path)
   log_msg("Wrote row summary table: ", row_summary_path)
   log_msg("Wrote issue table: ", issues_path)
 
@@ -1634,6 +1984,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     metadata_summary = metadata_summary,
     metadata_columns = metadata_columns,
     ident_counts = ident_counts,
+    feature_space = feature_space,
     row_summary = row_summary,
     issues = issues,
     output_paths = list(
@@ -1646,6 +1997,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       metadata_summary = metadata_summary_path,
       metadata_columns = metadata_columns_path,
       ident_counts = ident_counts_path,
+      feature_space = feature_space_path,
       row_summary = row_summary_path,
       issues = issues_path
     ),
@@ -1663,6 +2015,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     assign("panel_b_metadata_summary", metadata_summary, envir = .GlobalEnv)
     assign("panel_b_metadata_columns", metadata_columns, envir = .GlobalEnv)
     assign("panel_b_ident_counts", ident_counts, envir = .GlobalEnv)
+    assign("panel_b_feature_space", feature_space, envir = .GlobalEnv)
     assign("panel_b_rows", row_summary, envir = .GlobalEnv)
     assign("panel_b_issues", issues, envir = .GlobalEnv)
     assign("panel_b_row_plots", row_plots, envir = .GlobalEnv)

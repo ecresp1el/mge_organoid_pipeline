@@ -29,6 +29,7 @@ View(panel_b_metadata_columns)
 View(panel_b_assay_slot_summary)
 View(panel_b_reduction_summary)
 View(panel_b_ident_counts)
+View(panel_b_feature_space)
 View(panel_b_rows)
 View(panel_b_issues)
 
