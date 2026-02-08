@@ -31,6 +31,7 @@
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_columns.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_feature_space.tsv
+# - PROJECT_ROOT/results/<run_label>/plots/panel_b_prepared_inputs.rds
 # - stdout audit of missing studies/genes/components
 
 suppressPackageStartupMessages({
@@ -1170,6 +1171,7 @@ print_usage <- function() {
       "  --export-global true|false    export run objects to .GlobalEnv (panel_b_result, panel_b_studies, panel_b_rows, panel_b_issues)",
       "  --show-progress true|false    print each gene-row plot during assembly (interactive use)",
       "  --detailed-log true|false     print per-study diagnostics (object structure, assay/reduction/layer dims, cell matching)",
+      "  --write-prepared true|false   write reusable panel_b_prepared_inputs.rds bundle (coords + marker matrix per study)",
       "",
       "Outputs:",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.png",
@@ -1184,6 +1186,7 @@ print_usage <- function() {
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_columns.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_feature_space.tsv",
+      "  PROJECT_ROOT/results/<run_label>/plots/panel_b_prepared_inputs.rds",
       sep = "\n"
     )
   )
@@ -2345,6 +2348,65 @@ build_feature_space_table <- function(studies_info) {
   do.call(rbind, chunks)
 }
 
+as_scalar_character <- function(x) {
+  if (is.null(x) || length(x) == 0 || is.na(x[[1]])) return("")
+  as.character(x[[1]])
+}
+
+build_prepared_input_bundle <- function(studies_info,
+                                        project_root,
+                                        run_label,
+                                        config_path,
+                                        plot_context) {
+  studies_prepared <- lapply(studies_info, function(study_info) {
+    list(
+      study_id = study_info$study_id,
+      study_label = study_info$study_label,
+      status = study_info$status,
+      reason = as_scalar_character(study_info$reason),
+      detail = as_scalar_character(study_info$detail),
+      object_path = study_info$object_path,
+      assay = study_info$assay,
+      reduction = study_info$reduction,
+      expression_slot = as_scalar_character(study_info$expression_slot),
+      data_access_mode = as_scalar_character(study_info$data_access_mode),
+      feature_id_type = as_scalar_character(study_info$feature_id_type),
+      feature_id_examples = as_scalar_character(study_info$feature_id_examples),
+      marker_gene_feature_map = as_scalar_character(study_info$marker_gene_feature_map),
+      runtime_note = as_scalar_character(study_info$runtime_note),
+      n_cells_object = study_info$n_cells_object,
+      n_cells_assay = study_info$n_cells_assay,
+      n_cells_umap = study_info$n_cells_umap,
+      n_cells_common = study_info$n_cells_common,
+      n_cells_umap_not_in_assay = study_info$n_cells_umap_not_in_assay,
+      n_cells_assay_not_in_umap = study_info$n_cells_assay_not_in_umap,
+      n_marker_genes_requested = study_info$n_marker_genes_requested,
+      n_marker_genes_present = study_info$n_marker_genes_present,
+      n_marker_genes_mapped = study_info$n_marker_genes_mapped,
+      marker_genes_present = as_scalar_character(study_info$marker_genes_present),
+      marker_genes_missing = as_scalar_character(study_info$marker_genes_missing),
+      coords = study_info$coords,
+      expr_sub = study_info$expr_sub
+    )
+  })
+  names(studies_prepared) <- vapply(studies_prepared, function(x) x$study_id, character(1))
+
+  list(
+    schema_version = "panel_b_prepared_inputs_v1",
+    generated_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+    script = "scripts/06_cross_study_panelB_markers.R",
+    project_root = project_root,
+    run_label = run_label,
+    config_path = config_path,
+    seurat_version = as.character(utils::packageVersion("Seurat")),
+    gene_order = GENE_ORDER,
+    on_target_genes = ON_TARGET_GENES,
+    off_target_genes = OFF_TARGET_GENES,
+    plot_context = plot_context,
+    studies = studies_prepared
+  )
+}
+
 build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
   # Build one full row (one gene across all studies):
   # - collect expression points where available
@@ -2676,7 +2738,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   # - prepare per-study extracts
   # - validate plot layout and study order
   # - build all gene rows
-  # - write PNG + PDF + SVG under PROJECT_ROOT/results/<run_label>/plots
+  # - write reusable tables/bundle plus PNG + PDF + SVG under PROJECT_ROOT/results/<run_label>/plots
   args <- parse_args(cli_args)
   if (isTRUE(args$help)) {
     print_usage()
@@ -2709,12 +2771,14 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   export_global <- parse_bool_flag(args[["export-global"]], default = FALSE)
   show_progress <- parse_bool_flag(args[["show-progress"]], default = FALSE)
   detailed_log <- parse_bool_flag(args[["detailed-log"]], default = TRUE)
+  write_prepared <- parse_bool_flag(args[["write-prepared"]], default = TRUE)
   set_detailed_log(detailed_log)
   options(warn = 1)
 
   log_msg("Run label: ", run_label)
   log_msg("Project root: ", project_root)
   log_msg("Detailed logging: ", ifelse(detailed_log, "enabled", "disabled"))
+  log_msg("Write prepared bundle: ", ifelse(write_prepared, "enabled", "disabled"))
   log_msg("R version: ", R.version.string)
   log_msg("Seurat version: ", as.character(utils::packageVersion("Seurat")))
   log_msg("ggplot2 version: ", as.character(utils::packageVersion("ggplot2")))
@@ -2768,6 +2832,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   metadata_columns_path <- file.path(out_dir, "panel_b_metadata_columns.tsv")
   ident_counts_path <- file.path(out_dir, "panel_b_ident_counts.tsv")
   feature_space_path <- file.path(out_dir, "panel_b_feature_space.tsv")
+  prepared_inputs_path <- file.path(out_dir, "panel_b_prepared_inputs.rds")
 
   log_msg("Building Panel B rows for ", length(GENE_ORDER), " genes across ", length(studies_info_plot), " studies.")
   row_plots <- vector("list", length(GENE_ORDER))
@@ -2816,6 +2881,21 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   utils::write.table(feature_space, file = feature_space_path, sep = "\t", quote = FALSE, row.names = FALSE)
   utils::write.table(row_summary, file = row_summary_path, sep = "\t", quote = FALSE, row.names = FALSE)
   utils::write.table(issues, file = issues_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  if (isTRUE(write_prepared)) {
+    prepared_bundle <- build_prepared_input_bundle(
+      studies_info = studies_info,
+      project_root = project_root,
+      run_label = run_label,
+      config_path = normalize_abs(args$config, must_work = FALSE),
+      plot_context = list(
+        study_order = ordered_labels,
+        study_order_plot_labels = ordered_plot_labels,
+        plotted_cells_summary = plot_context$cells_summary
+      )
+    )
+    saveRDS(prepared_bundle, file = prepared_inputs_path, compress = "xz")
+    log_msg("Wrote prepared input bundle: ", prepared_inputs_path)
+  }
   log_msg("Wrote study diagnostics table: ", study_status_path)
   log_msg("Wrote marker presence table: ", marker_presence_path)
   log_msg("Wrote assay-slot summary table: ", assay_slot_summary_path)
@@ -2896,6 +2976,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   result <- list(
     project_root = project_root,
     run_label = run_label,
+    write_prepared = write_prepared,
     genes = GENE_ORDER,
     study_status = study_status,
     marker_presence = marker_presence,
@@ -2919,6 +3000,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       metadata_columns = metadata_columns_path,
       ident_counts = ident_counts_path,
       feature_space = feature_space_path,
+      prepared_inputs = if (isTRUE(write_prepared)) prepared_inputs_path else "",
       row_summary = row_summary_path,
       issues = issues_path
     ),
@@ -2957,7 +3039,8 @@ run_panel_b_local <- function(config_path,
                               retain_seurat = FALSE,
                               export_global = TRUE,
                               show_progress_plots = interactive(),
-                              detailed_log = TRUE) {
+                              detailed_log = TRUE,
+                              write_prepared = TRUE) {
   # Interactive helper:
   # - returns result list
   # - optionally exports tables/objects to .GlobalEnv for inspection
@@ -2969,7 +3052,8 @@ run_panel_b_local <- function(config_path,
     "--retain-seurat", if (isTRUE(retain_seurat)) "true" else "false",
     "--export-global", if (isTRUE(export_global)) "true" else "false",
     "--show-progress", if (isTRUE(show_progress_plots)) "true" else "false",
-    "--detailed-log", if (isTRUE(detailed_log)) "true" else "false"
+    "--detailed-log", if (isTRUE(detailed_log)) "true" else "false",
+    "--write-prepared", if (isTRUE(write_prepared)) "true" else "false"
   )
   main(args)
 }

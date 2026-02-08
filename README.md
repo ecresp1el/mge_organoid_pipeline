@@ -28,7 +28,7 @@ Run Panel B interactively (no Slurm required)
 - Run:
   - `module load Bioinformatics`
   - `module load r-seurat/4.1.1-R-4.2.0-5z5hgo7`
-  - `Rscript scripts/06_cross_study_panelB_markers.R --config config/panel_b_cross_study_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label panel_b_cross_study_v1 --detailed-log true`
+  - `Rscript scripts/06_cross_study_panelB_markers.R --config config/panel_b_cross_study_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label panel_b_cross_study_v1 --detailed-log true --write-prepared true`
 - Note: for Assay5 studies (for example Varela), use a Seurat v5 runtime so the script can use `LayerData` directly.
 - Note: detailed logs now include assay slot inventory, assay layer inventory, feature namespace detection, cell overlap checks, and metadata structure summaries.
 - Example config now includes both Bershteyn studies as separate columns:
@@ -40,6 +40,9 @@ Run Panel B interactively (no Slurm required)
   - OFF-target markers are assembled in the bottom block.
   - Study column labels include plotted cell counts (`n=<cells>`) for quick auditing.
   - Figure subtitle includes `Plotted cells: <study>=<n> | ...` in left-to-right order.
+- The script now writes a reusable input bundle for downstream scripts:
+  - `panel_b_prepared_inputs.rds` (per-study UMAP coords + marker matrix + status/metadata fields)
+  - This is Seurat-runtime independent and is written by default (`--write-prepared true`).
 - Marker set used by Panel B (fixed order):
   - ON-target: `DCX,GAD2,DLX5,LHX6,MAF,SST,LHX8,SP8`
   - OFF-target: `PAX6,NEUROD2,ISL1,ACHE`
@@ -55,6 +58,7 @@ Run Panel B interactively (no Slurm required)
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_metadata_columns.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_ident_counts.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_feature_space.tsv`
+  - `PROJECT_ROOT/results/<run_label>/plots/panel_b_prepared_inputs.rds`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_issues.tsv`
 
