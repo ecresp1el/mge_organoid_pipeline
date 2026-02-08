@@ -160,6 +160,48 @@ validate_row_plot_collection <- function(row_plots, genes_expected) {
   }
 }
 
+study_cells_plotted <- function(study_info) {
+  n <- NA_integer_
+  if (!is.null(study_info$n_cells_common) && length(study_info$n_cells_common) > 0 && !is.na(study_info$n_cells_common)) {
+    n <- as.integer(study_info$n_cells_common)
+  } else if (!is.null(study_info$n_cells_umap) && length(study_info$n_cells_umap) > 0 && !is.na(study_info$n_cells_umap)) {
+    n <- as.integer(study_info$n_cells_umap)
+  } else if (!is.null(study_info$n_cells_object) && length(study_info$n_cells_object) > 0 && !is.na(study_info$n_cells_object)) {
+    n <- as.integer(study_info$n_cells_object)
+  }
+  n
+}
+
+build_plot_study_context <- function(studies_info, ordered_labels) {
+  labels_raw <- vapply(studies_info, function(x) x$study_label, character(1))
+  idx <- match(ordered_labels, labels_raw)
+  if (any(is.na(idx))) {
+    stop("Internal error: failed to match ordered study labels to study records.", call. = FALSE)
+  }
+
+  ordered_info <- studies_info[idx]
+  ordered_plot_labels <- character(length(ordered_info))
+  cells_pairs <- character(length(ordered_info))
+
+  for (i in seq_along(ordered_info)) {
+    cell_n <- study_cells_plotted(ordered_info[[i]])
+    ordered_info[[i]]$study_label_plot <- paste0(
+      ordered_info[[i]]$study_label,
+      "\n(n=",
+      fmt_count(cell_n),
+      ")"
+    )
+    ordered_plot_labels[[i]] <- ordered_info[[i]]$study_label_plot
+    cells_pairs[[i]] <- paste0(ordered_info[[i]]$study_label, "=", fmt_count(cell_n))
+  }
+
+  list(
+    studies_info = ordered_info,
+    ordered_plot_labels = ordered_plot_labels,
+    cells_summary = paste(cells_pairs, collapse = " | ")
+  )
+}
+
 fmt_bytes <- function(bytes) {
   if (is.null(bytes) || length(bytes) == 0 || is.na(bytes) || !is.finite(bytes)) return("NA")
   b <- as.numeric(bytes)
@@ -2314,9 +2356,15 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
   pooled_expr <- numeric()
 
   for (study_info in studies_info) {
+    study_label_plot <- if (!is.null(study_info$study_label_plot) && nzchar(study_info$study_label_plot)) {
+      study_info$study_label_plot
+    } else {
+      study_info$study_label
+    }
+
     if (study_info$status != "ok") {
       placeholder_chunks[[length(placeholder_chunks) + 1]] <- data.frame(
-        study_label = study_info$study_label,
+        study_label = study_label_plot,
         UMAP_1 = 0,
         UMAP_2 = 0,
         reason = study_info$reason,
@@ -2341,7 +2389,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     if (expr_res$status != "ok") {
       reason <- if (expr_res$status == "missing_gene") infer_missing_gene_reason(study_info) else expr_res$reason
       placeholder_chunks[[length(placeholder_chunks) + 1]] <- data.frame(
-        study_label = study_info$study_label,
+        study_label = study_label_plot,
         UMAP_1 = 0,
         UMAP_2 = 0,
         reason = reason,
@@ -2360,7 +2408,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
 
     chunk <- study_info$coords
     chunk$expr <- expr_res$expr
-    chunk$study_label <- study_info$study_label
+    chunk$study_label <- study_label_plot
     chunk <- chunk[, c("study_label", "UMAP_1", "UMAP_2", "expr"), drop = FALSE]
     point_chunks[[length(point_chunks) + 1]] <- chunk
     pooled_expr <- c(pooled_expr, chunk$expr[is.finite(chunk$expr)])
@@ -2425,8 +2473,8 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     p <- p + geom_point(
       data = point_df,
       aes(x = UMAP_1, y = UMAP_2, color = expr),
-      size = 0.08,
-      alpha = 0.85,
+      size = 0.10,
+      alpha = 0.82,
       stroke = 0,
       show.legend = FALSE
     )
@@ -2438,7 +2486,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
       aes(x = UMAP_1, y = UMAP_2, label = reason),
       inherit.aes = FALSE,
       color = "grey35",
-      size = 2.8,
+      size = 2.7,
       lineheight = 0.9
     )
   }
@@ -2455,26 +2503,32 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     ) +
     guides(
       color = guide_colorbar(
-        title.position = "top",
-        barheight = grid::unit(22, "pt"),
-        frame.colour = "grey65"
+        title.position = "left",
+        title.hjust = 0.5,
+        direction = "horizontal",
+        barwidth = grid::unit(82, "pt"),
+        barheight = grid::unit(8, "pt"),
+        frame.colour = "grey65",
+        ticks.colour = "grey40"
       )
     ) +
     labs(title = paste0(gene, " (", gene_group, ")"), x = NULL, y = NULL) +
-    theme_minimal(base_size = 8) +
+    theme_minimal(base_size = 8.5) +
     theme(
       panel.grid = element_blank(),
-      panel.border = element_rect(color = "grey80", fill = NA, size = 0.3),
-      strip.background = element_rect(fill = "grey95", color = "grey80"),
-      strip.text = element_text(size = 8, face = "bold"),
+      panel.border = element_rect(color = "grey80", fill = NA, linewidth = 0.3),
+      strip.background = element_rect(fill = "grey96", color = "grey80", linewidth = 0.3),
+      strip.text = element_text(size = 8, face = "bold", lineheight = 0.9),
       axis.text = element_blank(),
       axis.ticks = element_blank(),
-      plot.title = element_text(size = 9, face = "bold", hjust = 0),
-      panel.spacing = grid::unit(2, "mm"),
-      legend.position = "right",
+      plot.title = element_text(size = 9.5, face = "bold", hjust = 0),
+      panel.spacing = grid::unit(4, "mm"),
+      legend.position = "bottom",
       legend.title = element_text(size = 8, face = "bold"),
       legend.text = element_text(size = 7),
-      plot.margin = margin(2, 4, 2, 4)
+      legend.margin = margin(0, 0, 0, 0),
+      legend.box.margin = margin(0, 0, 0, 0),
+      plot.margin = margin(3, 8, 3, 8)
     )
 
   row_summary <- data.frame(
@@ -2683,9 +2737,13 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   }
   ordered_labels <- plot_study_order(studies_info)
   layout_spec <- validate_panel_b_layout_inputs(studies_info, ordered_labels)
+  plot_context <- build_plot_study_context(studies_info, ordered_labels)
+  studies_info_plot <- plot_context$studies_info
+  ordered_plot_labels <- plot_context$ordered_plot_labels
   log_msg("Plot study column order (left->right): ", collapse_csv(ordered_labels))
   log_msg("ON-target genes (top block): ", collapse_csv(layout_spec$on_genes))
   log_msg("OFF-target genes (bottom block): ", collapse_csv(layout_spec$off_genes))
+  log_msg("Plotted cells by study (ordered): ", plot_context$cells_summary)
 
   study_status <- build_study_status_table(studies_info)
   marker_presence <- build_marker_presence_table(studies_info)
@@ -2711,7 +2769,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   ident_counts_path <- file.path(out_dir, "panel_b_ident_counts.tsv")
   feature_space_path <- file.path(out_dir, "panel_b_feature_space.tsv")
 
-  log_msg("Building Panel B rows for ", length(GENE_ORDER), " genes across ", length(studies_info), " studies.")
+  log_msg("Building Panel B rows for ", length(GENE_ORDER), " genes across ", length(studies_info_plot), " studies.")
   row_plots <- vector("list", length(GENE_ORDER))
   names(row_plots) <- GENE_ORDER
   issue_chunks <- list()
@@ -2719,7 +2777,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   for (i in seq_along(GENE_ORDER)) {
     gene <- GENE_ORDER[[i]]
     gene_group <- if (gene %in% ON_TARGET_GENES) "ON-target" else "OFF-target"
-    row_res <- build_gene_row(gene, gene_group, studies_info, ordered_labels)
+    row_res <- build_gene_row(gene, gene_group, studies_info_plot, ordered_plot_labels)
     row_plots[[i]] <- row_res$plot
     if (show_progress) {
       print(row_res$plot)
@@ -2800,15 +2858,18 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   ) +
     plot_annotation(
       title = "Panel B: Cross-study marker expression on existing UMAPs",
-      subtitle = paste0("Columns (left->right): ", paste(ordered_labels, collapse = " | ")),
+      subtitle = paste0(
+        "Columns (left->right): ", paste(ordered_labels, collapse = " | "),
+        "\nPlotted cells: ", plot_context$cells_summary
+      ),
       theme = theme(
         plot.title = element_text(size = 12, face = "bold", hjust = 0),
         plot.subtitle = element_text(size = 9, hjust = 0)
       )
     )
 
-  fig_width <- max(10, length(studies_info) * 2.15 + 1.8)
-  fig_height <- max(12, length(GENE_ORDER) * 1.65 + 2.2)
+  fig_width <- max(16, length(studies_info_plot) * 2.9 + 3.5)
+  fig_height <- max(18, length(GENE_ORDER) * 2.0 + 5.0)
   png_path <- file.path(out_dir, "panel_b_cross_study_markers.png")
   pdf_path <- file.path(out_dir, "panel_b_cross_study_markers.pdf")
   svg_path <- file.path(out_dir, "panel_b_cross_study_markers.svg")
@@ -2863,7 +2924,12 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     ),
     row_plots = row_plots,
     final_plot = fig,
-    studies_info = studies_info
+    studies_info = studies_info,
+    plot_context = list(
+      study_order = ordered_labels,
+      study_order_plot_labels = ordered_plot_labels,
+      plotted_cells_summary = plot_context$cells_summary
+    )
   )
 
   if (export_global) {

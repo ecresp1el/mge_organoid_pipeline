@@ -31,10 +31,15 @@ Run Panel B interactively (no Slurm required)
   - `Rscript scripts/06_cross_study_panelB_markers.R --config config/panel_b_cross_study_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label panel_b_cross_study_v1 --detailed-log true`
 - Note: for Assay5 studies (for example Varela), use a Seurat v5 runtime so the script can use `LayerData` directly.
 - Note: detailed logs now include assay slot inventory, assay layer inventory, feature namespace detection, cell overlap checks, and metadata structure summaries.
+- Example config now includes both Bershteyn studies as separate columns:
+  - `Bershteyn 2025`
+  - `Bershteyn 2023`
 - Plot layout is enforced programmatically before plotting:
   - Varela is always the left-most study column when present.
   - ON-target markers are assembled in the top block.
   - OFF-target markers are assembled in the bottom block.
+  - Study column labels include plotted cell counts (`n=<cells>`) for quick auditing.
+  - Figure subtitle includes `Plotted cells: <study>=<n> | ...` in left-to-right order.
 - Marker set used by Panel B (fixed order):
   - ON-target: `DCX,GAD2,DLX5,LHX6,MAF,SST,LHX8,SP8`
   - OFF-target: `PAX6,NEUROD2,ISL1,ACHE`
