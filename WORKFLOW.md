@@ -44,7 +44,7 @@ PROJECT_ROOT/
   - Samarasinghe_2021 (GSE165577; counts CSVs): `PROJECT_ROOT/data/raw/samarasinghe_2021_geo_files/`
 - NeMO landing-page downloads (Siebert 2026, `nemo:dat-htzat9t`):
   - `PROJECT_ROOT/data/raw/siebert_2026_nemo/` (metadata, BDBags, subset fetch + downloads)
-  - Status: **TBD** until NeMO publishes manifests/files.
+  - Canonical cleaned Seurat landing path: `PROJECT_ROOT/results/siebert_2026/siebert_2026_seurat.rds`
 - Processed / results:
   - Walsh: `PROJECT_ROOT/results/walsh_day75/`
   - Bershteyn_2025: `PROJECT_ROOT/results/bershteyn_2025/` (canonical Seurat copy + UMAP plots)
@@ -52,6 +52,7 @@ PROJECT_ROOT/
   - Bershteyn_2023: `PROJECT_ROOT/results/bershteyn_2023/` (provided Seurat object copied + UMAP plotted)
   - Samarasinghe_2021: **not generated yet** (expected: `PROJECT_ROOT/results/samarasinghe_2021/`)
   - Samarasinghe_2021 LIGER (paper-matched): **not generated yet** (expected: `PROJECT_ROOT/results/samarasinghe_2021_liger/`)
+  - Siebert_2026: `PROJECT_ROOT/results/siebert_2026/` (canonical cleaned Seurat copy path)
   - Varela (this paper): `PROJECT_ROOT/results/varela_this_paper/varela_this_paper_seurat.rds` (true copy of `/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds`)
 - Logs: `PROJECT_ROOT/logs/`
 - Job scripts: `PROJECT_ROOT/jobs/`
@@ -67,6 +68,7 @@ PROJECT_ROOT/
 - Samarasinghe 2021 (GSE165577) expected outputs (not generated yet):
   - Seurat: `results/samarasinghe_2021/samarasinghe_2021_seurat.rds`
   - UMAP: `results/samarasinghe_2021/plots/umap_by_cluster.{png,pdf}`
+- Siebert 2026 canonical Seurat path: `results/siebert_2026/siebert_2026_seurat.rds` (UMAP plot may be generated later under `results/siebert_2026/plots/`)
 
 ## Study Status Audit (2026-02-04)
 
@@ -81,7 +83,7 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 | Bershteyn 2023 (GSE208672) | Yes (provided Seurat `.rds.gz`) | Yes (`results/bershteyn_2023/bershteyn_2023_seurat.rds`) | Yes (`results/bershteyn_2023/plots/umap_by_cluster.png`) | Raw `suppl/` contains extra variants (`.rds`, `.gz2`) from download/read debugging. |
 | Samarasinghe 2021 (GSE165577) | Yes (filtered/normalized counts CSVs) | Not yet (script ready) | Not yet | Needs Seurat run (`scripts/05_samarasinghe_2021_seurat.R`). LIGER step pending. |
 | Varela (this paper, Day30) | Yes (`/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds`) | Yes (`results/varela_this_paper/varela_this_paper_seurat.rds`) | Included in Panel B assembly | Canonical Panel B path is under `PROJECT_ROOT/results/...` and now uses a true copied file. |
-| Siebert 2026 (NeMO `nemo:dat-htzat9t`) | Not published (metadata only) | No | No | Waiting on NeMO manifests/files; placeholder only. |
+| Siebert 2026 (NeMO `nemo:dat-htzat9t`) | Metadata available (`data/raw/siebert_2026_nemo/`) | Canonical path: `results/siebert_2026/siebert_2026_seurat.rds` | Optional (when plotted) | Cleaned Seurat object should be copied to canonical results path for pipeline use. |
 
 ## Known Deviations / Cleanup Items
 - If you ever see `PROJECT_ROOT/data/raw/{matrix,miniml,soft,suppl}/` at the top level (they should not exist), they are empty leftovers from an earlier download script bug; safe to delete.
@@ -130,9 +132,17 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 - Slurm template for cross-study Panel B (Seurat v5 runtime / Assay5-aware): `slurm_templates/06_cross_study_panelB_markers_seurat5.sbatch.template`
 - Human developing GE comparison placeholder (next stage draft): `scripts/07_compare_human_developing_ge_tbd.R`
 - Slurm template for human GE placeholder: `slurm_templates/07_compare_human_developing_ge_tbd.sbatch.template`
+
 - Main pipeline: `scripts/02_walsh_day75_seurat.R` (methods-locked QC/normalize/HVG/CC/Scale/PCA/stress removal/UMAP/clustering; checkpoints; Elbow fallback)
 - Sweeps: `scripts/02b_walsh_k_sweep.R`, `02c_walsh_dims_sweep.R`, `02d_walsh_resolution_sweep.R`, `02e_walsh_kres_sweep.R`
 - Annotation: `scripts/02f_walsh_annotation.R` (adds walsh_group labels, tables, annotated UMAP)
+
+## Register Siebert RDS
+Run from your local terminal (Mac/Linux):
+- `ssh elcrespo@gl-login1.arc-ts.umich.edu "mkdir -p /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siebert_2026"`
+- `rsync -avh --progress "/Users/elcrespo/Downloads/<your_file>.rds" "elcrespo@gl-login1.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siebert_2026/siebert_2026_seurat.rds"`
+- Verify on Great Lakes:
+  - `ls -lh /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siebert_2026/siebert_2026_seurat.rds`
 
 ## Canonical plot paths to share
 - 15 clusters (labels 0–14): `results/walsh_day75/kres_sweep_plots/umap_by_cluster_res0.8_k30.png`

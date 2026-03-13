@@ -13,6 +13,7 @@ list(
     "bershteyn_2025",
     "bershteyn_2023",
     "xiang_2018",
+    "siebert_2026",
     "varela_this_paper"
   ),
 

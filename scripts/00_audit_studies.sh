@@ -84,9 +84,11 @@ samar_seu="${results_dir}/samarasinghe_2021/samarasinghe_2021_seurat.rds"
 samar_umap="${results_dir}/samarasinghe_2021/plots/umap_by_cluster.png"
 echo "| Samarasinghe 2021 (GSE165577) | $(yn_file "$samar_raw") | $(yn_file "$samar_seu") | $(yn_file "$samar_umap") | seurat+umap not generated yet |"
 
-# Siebert 2026 (NeMO placeholder)
+# Siebert 2026 (cleaned Seurat object + NeMO metadata)
 siebert_meta="${raw_dir}/siebert_2026_nemo/metadata.json"
-echo "| Siebert 2026 (NeMO nemo:dat-htzat9t) | $(yn_file "$siebert_meta") (metadata only) | No | No | waiting on NeMO manifests/files |"
+siebert_seu="${results_dir}/siebert_2026/siebert_2026_seurat.rds"
+siebert_umap="${results_dir}/siebert_2026/plots/umap_by_cluster.png"
+echo "| Siebert 2026 (NeMO nemo:dat-htzat9t) | $(yn_file "$siebert_meta") | $(yn_file "$siebert_seu") | $(yn_file "$siebert_umap") | canonical seurat path: results/siebert_2026/siebert_2026_seurat.rds |"
 
 echo
 echo "Sanity checks:"

@@ -4,7 +4,7 @@
 # If your cluster module string differs, set SEURAT5_MODULE before submission.
 #
 # Example:
-#   export SEURAT5_MODULE="r-seurat/5.x.x-R-4.3.x-<module-hash>"
+#   export SEURAT5_MODULE="r-seurat/5.1.0-R-4.4.1-c3m7yfq"
 #   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/06_cross_study_panelB_markers_seurat5.sbatch
 
 #SBATCH --job-name=panelb_markers_v5
@@ -18,7 +18,7 @@
 #SBATCH --account=parent0
 
 module load Bioinformatics
-SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.0.1-R-4.3.1}"
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
 if ! module load "${SEURAT5_MODULE}"; then
   echo "ERROR: failed to load ${SEURAT5_MODULE}"
   echo "Set SEURAT5_MODULE to an available Seurat v5 module on Great Lakes."

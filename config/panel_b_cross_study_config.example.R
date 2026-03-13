@@ -12,6 +12,7 @@ list(
       "bershteyn_2023",
       "xiang_2018",
       "samarasinghe_2021",
+      "siebert_2026",
       "varela_this_paper"
     ),
     study_label = c(
@@ -20,6 +21,7 @@ list(
       "Bershteyn 2023",
       "Xiang",
       "Samarasinghe",
+      "Siebert 2026",
       "Varela (This paper)"
     ),
     # Paths are explicit and resolved relative to project_root if not absolute.
@@ -30,13 +32,14 @@ list(
       "results/bershteyn_2023/bershteyn_2023_seurat.rds",
       "results/xiang_2018/xiang_2018_seurat.rds",
       "results/samarasinghe_2021/samarasinghe_2021_seurat.rds",
+      "results/siebert_2026/siebert_2026_seurat.rds",
       "results/varela_this_paper/varela_this_paper_seurat.rds"
     ),
     # Note: Walsh final object uses "umap_sel"/"umap20" rather than "umap".
-    reduction = c("umap_sel", "umap", "umap", "umap", "umap", "umap"),
-    assay = c("RNA", "RNA", "RNA", "RNA", "RNA", "RNA"),
+    reduction = c("umap_sel", "umap", "umap", "umap", "umap", "umap", "umap"),
+    assay = c("RNA", "RNA", "RNA", "RNA", "RNA", "RNA", "RNA"),
     # Optional. Script defaults to "data" then falls back to "counts" if needed.
-    expression_slot = c("data", "data", "data", "data", "data", "data"),
+    expression_slot = c("data", "data", "data", "data", "data", "counts", "data"),
     # Optional. Symbol->feature mapping table path (relative to project_root).
     # Useful when assay features are Ensembl IDs (Xiang) but markers are symbols.
     feature_map_path = c(
@@ -44,6 +47,7 @@ list(
       "",
       "",
       "data/raw/xiang_2018_geo_files/suppl/GSE98201_genes.tsv.gz",
+      "",
       "",
       ""
     ),

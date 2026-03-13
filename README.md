@@ -6,7 +6,15 @@ Status snapshot (Feb 2026)
 - Xiang 2018 (GSE98201 scRNA 10x): Seurat + UMAP generated — see `results/xiang_2018/` (`plots/umap_by_cluster.{png,pdf}`).
 - Bershteyn 2023 (GSE208672): provided Seurat object plotted + copied — see `results/bershteyn_2023/` (`plots/umap_by_cluster.{png,pdf}`).
 - Samarasinghe 2021 (GSE165577): counts downloaded (`data/raw/samarasinghe_2021_geo_files/suppl/`); Seurat script/template ready; results not generated yet; LIGER run pending.
-- Siebert 2026 (NeMO `nemo:dat-htzat9t`): no files published yet (metadata only).
+- Siebert 2026 (NeMO `nemo:dat-htzat9t`): canonical Seurat landing path is `results/siebert_2026/siebert_2026_seurat.rds` (with NeMO metadata under `data/raw/siebert_2026_nemo/`).
+
+Register a cleaned Siebert `.rds` (from local laptop to Great Lakes)
+- Create canonical destination directory on Great Lakes:
+  - `ssh elcrespo@gl-login1.arc-ts.umich.edu "mkdir -p /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siebert_2026"`
+- Copy local `.rds` into canonical study path (run from local terminal):
+  - `rsync -avh --progress "/Users/elcrespo/Downloads/<your_file>.rds" "elcrespo@gl-login1.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siebert_2026/siebert_2026_seurat.rds"`
+- Optional verify on Great Lakes:
+  - `ls -lh /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siebert_2026/siebert_2026_seurat.rds`
 
 Path migration note (2026-02-08)
 - Bershteyn 2025 canonical result path moved from legacy `results/bershteyn/` logic to `results/bershteyn_2025/`.

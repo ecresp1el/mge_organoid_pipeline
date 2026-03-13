@@ -27,6 +27,7 @@
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_off_target.png
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_off_target.pdf
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_off_target.svg
+# - PROJECT_ROOT/results/<run_label>/plots/ON_vs_OFF/<gene>.png
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_study_status.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv
 # - PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv
@@ -58,6 +59,9 @@ OFF_TARGET_GENES <- c("SP8", "PAX6", "NEUROD2", "ISL1", "ACHE", "NKX6-2", "MKI67
 GENE_ORDER <- c(ON_TARGET_GENES, OFF_TARGET_GENES)
 PNG_DPI <- 600
 DETAILED_LOG <- TRUE
+BASE_POINT_SIZE <- 0.10
+WALSH_POINT_SIZE_MULTIPLIER <- 5
+DEFAULT_POINT_SIZE_MULTIPLIER <- 2
 
 log_msg <- function(...) {
   msg <- paste0(..., collapse = " ")
@@ -348,6 +352,50 @@ save_off_target_figure <- function(off_row_plots,
     pdf = off_pdf,
     svg = off_svg
   )
+}
+
+sanitize_filename_component <- function(x) {
+  if (is.null(x) || length(x) == 0) return("unnamed")
+  out <- gsub("[^A-Za-z0-9._-]+", "_", as.character(x[[1]]))
+  out <- gsub("^_+|_+$", "", out)
+  if (!nzchar(out)) out <- "unnamed"
+  out
+}
+
+save_per_gene_umap_pngs <- function(row_plots,
+                                    genes_in_order,
+                                    out_dir,
+                                    fig_width,
+                                    fig_height,
+                                    dpi = PNG_DPI) {
+  if (length(row_plots) == 0 || length(genes_in_order) == 0) return(character(0))
+  gene_dir <- file.path(out_dir, "ON_vs_OFF")
+  dir.create(gene_dir, recursive = TRUE, showWarnings = FALSE)
+
+  out_paths <- character(length(genes_in_order))
+  names(out_paths) <- genes_in_order
+
+  for (i in seq_along(genes_in_order)) {
+    gene <- genes_in_order[[i]]
+    gene_plot <- row_plots[[gene]]
+    if (is.null(gene_plot)) next
+    gene_file <- paste0(sanitize_filename_component(gene), ".png")
+    gene_png <- file.path(gene_dir, gene_file)
+    log_msg("Writing per-gene PNG [", i, "/", length(genes_in_order), "]: ", gene_png)
+    ggsave(
+      filename = gene_png,
+      plot = gene_plot,
+      width = fig_width,
+      height = fig_height,
+      units = "in",
+      dpi = dpi,
+      bg = "white",
+      limitsize = FALSE
+    )
+    out_paths[[gene]] <- gene_png
+  }
+
+  out_paths[!is.na(out_paths) & nzchar(out_paths)]
 }
 
 fmt_bytes <- function(bytes) {
@@ -1329,6 +1377,7 @@ print_usage <- function() {
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.{pdf,svg}",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_on_target.{png,pdf,svg}",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers_off_target.{png,pdf,svg}",
+      "  PROJECT_ROOT/results/<run_label>/plots/ON_vs_OFF/<gene>.png",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_study_status.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_marker_presence.tsv",
       "  PROJECT_ROOT/results/<run_label>/plots/panel_b_row_summary.tsv",
@@ -2715,6 +2764,12 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
       study_info$study_label
     }
 
+    size_multiplier <- if (identical(tolower(study_info$study_id), "walsh")) {
+      WALSH_POINT_SIZE_MULTIPLIER
+    } else {
+      DEFAULT_POINT_SIZE_MULTIPLIER
+    }
+
     if (study_info$status != "ok") {
       placeholder_chunks[[length(placeholder_chunks) + 1]] <- data.frame(
         study_label = study_label_plot,
@@ -2762,7 +2817,8 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     chunk <- study_info$coords
     chunk$expr <- expr_res$expr
     chunk$study_label <- study_label_plot
-    chunk <- chunk[, c("study_label", "UMAP_1", "UMAP_2", "expr"), drop = FALSE]
+    chunk$pt_size <- BASE_POINT_SIZE * size_multiplier
+    chunk <- chunk[, c("study_label", "UMAP_1", "UMAP_2", "expr", "pt_size"), drop = FALSE]
     point_chunks[[length(point_chunks) + 1]] <- chunk
     pooled_expr <- c(pooled_expr, chunk$expr[is.finite(chunk$expr)])
   }
@@ -2772,6 +2828,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     UMAP_1 = numeric(),
     UMAP_2 = numeric(),
     expr = numeric(),
+    pt_size = numeric(),
     stringsAsFactors = FALSE
   )
   placeholder_df <- if (length(placeholder_chunks) > 0) do.call(rbind, placeholder_chunks) else data.frame(
@@ -2825,8 +2882,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
   if (nrow(point_df) > 0) {
     p <- p + geom_point(
       data = point_df,
-      aes(x = UMAP_1, y = UMAP_2, color = expr),
-      size = 0.10,
+      aes(x = UMAP_1, y = UMAP_2, color = expr, size = pt_size),
       alpha = 0.82,
       stroke = 0,
       show.legend = FALSE
@@ -2839,7 +2895,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
       aes(x = UMAP_1, y = UMAP_2, label = reason),
       inherit.aes = FALSE,
       color = "grey35",
-      size = 2.7,
+      size = 3.0,
       lineheight = 0.9
     )
   }
@@ -2854,6 +2910,7 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
       oob = scales::squish,
       name = gene
     ) +
+    scale_size_identity() +
     guides(
       color = guide_colorbar(
         title.position = "left",
@@ -2866,19 +2923,19 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
       )
     ) +
     labs(title = paste0(gene, " (", gene_group, ")"), x = NULL, y = NULL) +
-    theme_minimal(base_size = 8.5) +
+    theme_minimal(base_size = 10) +
     theme(
       panel.grid = element_blank(),
       panel.border = element_rect(color = "grey80", fill = NA, linewidth = 0.3),
       strip.background = element_rect(fill = "grey96", color = "grey80", linewidth = 0.3),
-      strip.text = element_text(size = 8, face = "bold", lineheight = 0.9),
+      strip.text = element_text(size = 9, face = "bold", lineheight = 0.95),
       axis.text = element_blank(),
       axis.ticks = element_blank(),
-      plot.title = element_text(size = 9.5, face = "bold", hjust = 0),
-      panel.spacing = grid::unit(4, "mm"),
+      plot.title = element_text(size = 11, face = "bold", hjust = 0),
+      panel.spacing = grid::unit(5, "mm"),
       legend.position = "bottom",
-      legend.title = element_text(size = 8, face = "bold"),
-      legend.text = element_text(size = 7),
+      legend.title = element_text(size = 9, face = "bold"),
+      legend.text = element_text(size = 8),
       legend.margin = margin(0, 0, 0, 0),
       legend.box.margin = margin(0, 0, 0, 0),
       plot.margin = margin(3, 8, 3, 8)
@@ -3255,9 +3312,9 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       )
     )
 
-  fig_width <- max(16, length(studies_info_plot) * 2.5 + 2.5)
-  fig_height <- max(20, length(GENE_ORDER) * 1.3 + 4.0)
-  fig_height_single <- max(12, max(length(on_row_plots), length(off_row_plots)) * 1.6 + 4.0)
+  fig_width <- max(18, length(studies_info_plot) * 2.7 + 3.0)
+  fig_height <- max(24, length(GENE_ORDER) * 1.45 + 5.0)
+  fig_height_single <- max(14, max(length(on_row_plots), length(off_row_plots)) * 1.75 + 4.5)
   png_path <- file.path(out_dir, "panel_b_cross_study_markers.png")
   pdf_path <- file.path(out_dir, "panel_b_cross_study_markers.pdf")
   svg_path <- file.path(out_dir, "panel_b_cross_study_markers.svg")
@@ -3288,6 +3345,16 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     fig_width = fig_width,
     fig_height = fig_height_single
   )
+  per_gene_png_paths <- save_per_gene_umap_pngs(
+    row_plots = row_plots,
+    genes_in_order = GENE_ORDER,
+    out_dir = out_dir,
+    fig_width = fig_width,
+    fig_height = max(3.8, 2.2 + length(studies_info_plot) * 0.35),
+    dpi = PNG_DPI
+  )
+  per_gene_png_dir <- file.path(out_dir, "ON_vs_OFF")
+  log_msg("Wrote per-gene ON_vs_OFF PNG directory: ", per_gene_png_dir)
 
   log_msg("Done.")
   print_study_diagnostics(study_status)
@@ -3320,6 +3387,8 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       png_off_target = off_export$png,
       pdf_off_target = off_export$pdf,
       svg_off_target = off_export$svg,
+      per_gene_png_dir = per_gene_png_dir,
+      per_gene_png = per_gene_png_paths,
       study_status = study_status_path,
       marker_presence = marker_presence_path,
       assay_slot_summary = assay_slot_summary_path,
