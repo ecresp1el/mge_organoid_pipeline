@@ -52,8 +52,8 @@ Run Panel B interactively (no Slurm required)
   - `results/panel_b_prepared_objects/panel_b_prepared_object_paths.tsv` (canonical manifest)
   - `<run_label>/plots/panel_b_prepared_object_paths.tsv` (run-scoped manifest snapshot)
 - Marker set used by Panel B (fixed order):
-  - ON-target: `DCX,GAD2,DLX5,LHX6,MAF,SST`
-  - OFF-target: `LHX8,SP8,PAX6,NEUROD2,ISL1,ACHE`
+  - ON-target: `DCX,GAD2,DLX5,LHX6,MAF,SST,ERBB4,MEF2C,MAFB,LHX8,NKX2-1`
+  - OFF-target: `SP8,PAX6,NEUROD2,ISL1,ACHE,NKX6-2,MKI67`
 - Outputs:
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.png`
   - `PROJECT_ROOT/results/<run_label>/plots/panel_b_cross_study_markers.pdf`
@@ -110,7 +110,7 @@ Xiang Ensembl ID note
   - mappings are applied automatically at runtime (no hardcoded per-marker logic in the extraction path)
 - Because Panel B markers are symbols (`DCX`, `LHX6`, etc.), Xiang needs symbol-to-Ensembl mapping to avoid false "Gene not found" rows.
 - See `panel_b_feature_space.tsv` for `feature_id_type` and `feature_id_examples`.
-- Current symbol-to-Ensembl mappings for the Panel B markers (verified against Xiang object):
+- Current symbol-to-Ensembl mappings for a subset of Panel B markers (verified against Xiang object):
   - `DCX` -> `ENSG00000077279`
   - `GAD2` -> `ENSG00000136750`
   - `DLX5` -> `ENSG00000105880`
@@ -123,6 +123,7 @@ Xiang Ensembl ID note
   - `NEUROD2` -> `ENSG00000171532`
   - `ISL1` -> `ENSG00000016082`
   - `ACHE` -> `ENSG00000087085`
+- Additional Panel B markers (`ERBB4`, `MEF2C`, `MAFB`, `NKX2-1`, `NKX6-2`, `MKI67`) are remapped dynamically at runtime when present in the configured feature map; audit run-specific remaps in `panel_b_study_status.tsv` via `marker_gene_feature_map`.
 
 Run Panel B on Slurm
 - Seurat v4 runtime template:

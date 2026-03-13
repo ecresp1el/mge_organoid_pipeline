@@ -49,9 +49,12 @@ suppressPackageStartupMessages({
   library(patchwork)
 })
 
-ON_TARGET_GENES <- c("DCX", "GAD2", "DLX5", "LHX6", "MAF", "SST")
+ON_TARGET_GENES <- c(
+  "DCX", "GAD2", "DLX5", "LHX6", "MAF", "SST",
+  "ERBB4", "MEF2C", "MAFB", "LHX8", "NKX2-1"
+)
 # NOTE: ACHE is the intended marker symbol (not ACHF).
-OFF_TARGET_GENES <- c("LHX8", "SP8", "PAX6", "NEUROD2", "ISL1", "ACHE")
+OFF_TARGET_GENES <- c("SP8", "PAX6", "NEUROD2", "ISL1", "ACHE", "NKX6-2", "MKI67")
 GENE_ORDER <- c(ON_TARGET_GENES, OFF_TARGET_GENES)
 PNG_DPI <- 600
 DETAILED_LOG <- TRUE
