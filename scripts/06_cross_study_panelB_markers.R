@@ -94,6 +94,11 @@ fmt_bool <- function(x) {
   if (isTRUE(x)) "TRUE" else "FALSE"
 }
 
+is_counts_like_slot <- function(slot_name) {
+  if (is.null(slot_name) || length(slot_name) == 0 || is.na(slot_name) || !nzchar(slot_name)) return(FALSE)
+  grepl("^counts($|\\.)", as.character(slot_name[[1]]))
+}
+
 collapse_csv <- function(x) {
   if (is.null(x) || length(x) == 0) return("")
   paste(as.character(x), collapse = ",")
@@ -2259,6 +2264,11 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   }
 
   info$n_marker_genes_present <- length(gene_hits)
+  if (!is.null(expr_sub) && is_counts_like_slot(info$expression_slot)) {
+    # Keep cross-study color scales comparable: count-derived matrices are log1p-transformed at plot time.
+    expr_sub <- log1p(as.matrix(expr_sub))
+    log_detail("Applied log1p transform to count-derived expression matrix for plotting.")
+  }
   info$marker_genes_present <- collapse_csv(gene_hits)
   info$marker_genes_missing <- collapse_csv(gene_missing)
   if (info$n_marker_genes_present == 0 && identical(info$feature_id_type, "ensembl_id")) {
