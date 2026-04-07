@@ -90,6 +90,12 @@ siebert_seu="${results_dir}/siebert_2026/siebert_2026_seurat.rds"
 siebert_umap="${results_dir}/siebert_2026/plots/umap_by_cluster.png"
 echo "| Siebert 2026 (NeMO nemo:dat-htzat9t) | $(yn_file "$siebert_meta") | $(yn_file "$siebert_seu") | $(yn_file "$siebert_umap") | canonical seurat path: results/siebert_2026/siebert_2026_seurat.rds |"
 
+# He et al HNOCA full V2 (Zenodo 14160929)
+he_raw="${raw_dir}/he_et_al_zenodo/suppl/hnoca_allmeta.h5ad"
+he_seu="${results_dir}/he_et_al/he_et_al_scn8a_seurat.rds"
+he_umap="${results_dir}/he_et_al/plots/scn8a_umap.png"
+echo "| He et al HNOCA (Zenodo 14160929 full V2) | $(yn_file "$he_raw") | $(yn_file "$he_seu") | $(yn_file "$he_umap") | scoped SCN8A-ready object for cross-study SCN8A panel |"
+
 echo
 echo "Sanity checks:"
 echo "- data/raw exists: $(yn_dir "$raw_dir")"

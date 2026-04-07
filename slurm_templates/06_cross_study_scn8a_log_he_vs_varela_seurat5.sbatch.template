@@ -1,0 +1,36 @@
+#!/bin/bash
+# SCN8A-only two-study comparison (He et al full V2 vs Varela).
+
+#SBATCH --job-name=scn8a_he_varela
+#SBATCH --time=06:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=96G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_scn8a_he_varela_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_scn8a_he_varela_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+if ! module load "${SEURAT5_MODULE}"; then
+  echo "ERROR: failed to load ${SEURAT5_MODULE}"
+  echo "Set SEURAT5_MODULE to an available Seurat v5 module on Great Lakes."
+  echo "Hint: module avail r-seurat"
+  exit 1
+fi
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+CONFIG_PATH="${REPO_ROOT}/config/scn8a_he_vs_varela_config.example.R"
+RUN_LABEL="panel_b_scn8a_he_vs_varela_v1"
+
+set -euo pipefail
+set -x
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT
+Rscript "${REPO_ROOT}/scripts/06_cross_study_scn8a_log.R" \
+  --config "${CONFIG_PATH}" \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${RUN_LABEL}"

@@ -42,6 +42,7 @@ PROJECT_ROOT/
     - 10x matrix/genes/barcodes: `.../suppl/GSE98201_{matrix,genes,barcodes}.tsv.gz`
   - Bershteyn_2023 (GSE208672; supplied Seurat RDS): `PROJECT_ROOT/data/raw/bershteyn_2023_geo_files/`
   - Samarasinghe_2021 (GSE165577; counts CSVs): `PROJECT_ROOT/data/raw/samarasinghe_2021_geo_files/`
+  - He et al HNOCA full V2 (Zenodo 14160929): `PROJECT_ROOT/data/raw/he_et_al_zenodo/suppl/hnoca_allmeta.h5ad`
 - NeMO landing-page downloads (Siebert 2026, `nemo:dat-htzat9t`):
   - `PROJECT_ROOT/data/raw/siebert_2026_nemo/` (metadata, BDBags, subset fetch + downloads)
   - Canonical cleaned Seurat landing path: `PROJECT_ROOT/results/siebert_2026/siebert_2026_seurat.rds`
@@ -54,6 +55,8 @@ PROJECT_ROOT/
   - Samarasinghe_2021 LIGER (paper-matched): **not generated yet** (expected: `PROJECT_ROOT/results/samarasinghe_2021_liger/`)
   - Siebert_2026: `PROJECT_ROOT/results/siebert_2026/` (canonical cleaned Seurat copy path)
   - Varela (this paper): `PROJECT_ROOT/results/varela_this_paper/varela_this_paper_seurat.rds` (true copy of `/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds`)
+  - He et al SCN8A slice (intermediate): `PROJECT_ROOT/data/processed/he_et_al_scn8a_slice/`
+  - He et al SCN8A-ready Seurat: `PROJECT_ROOT/results/he_et_al/he_et_al_scn8a_seurat.rds`
 - Logs: `PROJECT_ROOT/logs/`
 - Job scripts: `PROJECT_ROOT/jobs/`
 
@@ -69,6 +72,7 @@ PROJECT_ROOT/
   - Seurat: `results/samarasinghe_2021/samarasinghe_2021_seurat.rds`
   - UMAP: `results/samarasinghe_2021/plots/umap_by_cluster.{png,pdf}`
 - Siebert 2026 canonical Seurat path: `results/siebert_2026/siebert_2026_seurat.rds` (UMAP plot may be generated later under `results/siebert_2026/plots/`)
+- He et al full V2 SCN8A-ready Seurat: `results/he_et_al/he_et_al_scn8a_seurat.rds`; sanity plot `results/he_et_al/plots/scn8a_umap.{png,pdf}`
 
 ## Study Status Audit (2026-02-04)
 
@@ -84,6 +88,7 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 | Samarasinghe 2021 (GSE165577) | Yes (filtered/normalized counts CSVs) | Not yet (script ready) | Not yet | Needs Seurat run (`scripts/05_samarasinghe_2021_seurat.R`). LIGER step pending. |
 | Varela (this paper, Day30) | Yes (`/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds`) | Yes (`results/varela_this_paper/varela_this_paper_seurat.rds`) | Included in Panel B assembly | Canonical Panel B path is under `PROJECT_ROOT/results/...` and now uses a true copied file. |
 | Siebert 2026 (NeMO `nemo:dat-htzat9t`) | Metadata available (`data/raw/siebert_2026_nemo/`) | Canonical path: `results/siebert_2026/siebert_2026_seurat.rds` | Optional (when plotted) | Cleaned Seurat object should be copied to canonical results path for pipeline use. |
+| He et al HNOCA full V2 (Zenodo 14160929) | Yes (`data/raw/he_et_al_zenodo/suppl/hnoca_allmeta.h5ad`) | Yes (`results/he_et_al/he_et_al_scn8a_seurat.rds`) | Yes (`results/he_et_al/plots/scn8a_umap.png`) | SCN8A-only extracted slice for cross-study SCN8A panel. |
 
 ## Known Deviations / Cleanup Items
 - If you ever see `PROJECT_ROOT/data/raw/{matrix,miniml,soft,suppl}/` at the top level (they should not exist), they are empty leftovers from an earlier download script bug; safe to delete.
@@ -123,11 +128,21 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 - Audit current study status: `scripts/00_audit_studies.sh` (prints a Markdown table)
 - NeMO Siebert landing page/BDBag: `scripts/01b_download_siebert_nemo.sh`
 - Extra GEO downloads (Xiang_2018, Samarasinghe_2021, Bershteyn_2023): `scripts/01c_download_extra_geo.sh`
+- He et al full V2 download (Zenodo 14160929): `scripts/01d_download_he_et_al_zenodo.sh`
 - Samarasinghe 2021 Seurat/UMAP: `scripts/05_samarasinghe_2021_seurat.R`
 - Samarasinghe 2021 LIGER (paper settings): `scripts/05b_samarasinghe_2021_liger.R`
 - Xiang 2018 scRNA 10x (GSE98201) Seurat/UMAP: `scripts/05c_xiang_2018_seurat.R`
 - Bershteyn 2023 Seurat plotting: `scripts/05d_bershteyn_2023_seurat_plot.R`
+- He et al SCN8A extraction from full h5ad: `scripts/05e_extract_he_et_al_scn8a_slice.py`
+- He et al SCN8A Seurat build: `scripts/05f_he_et_al_scn8a_seurat.R`
 - Cross-study marker Panel B figure assembly (no analysis/recompute): `scripts/06_cross_study_panelB_markers.R`
+- Cross-study multi-gene UMAP panel (log1p): `scripts/06_cross_study_gene_panel_log.R`
+- Cross-study SCN8A He-vs-Varela config: `config/scn8a_he_vs_varela_config.example.R`
+- Cross-study LHX6/NKX2.1 He-vs-Varela config: `config/gene_panel_he_vs_varela_config.example.R`
+- Slurm template for SCN8A He-vs-Varela (Seurat v5): `slurm_templates/06_cross_study_scn8a_log_he_vs_varela_seurat5.sbatch.template`
+- Slurm template for He LHX6/NKX2.1 extraction: `slurm_templates/05e_extract_he_et_al_lhx6_nkx21_slice.sbatch.template`
+- Slurm template for LHX6/NKX2.1 He-vs-Varela panel (Seurat v5): `slurm_templates/06_cross_study_gene_panel_he_vs_varela_seurat5.sbatch.template`
+- Completion checker for He-vs-Varela gene panel: `scripts/00b_check_he_vs_varela_gene_panel.sh`
 - Slurm template for cross-study Panel B (Seurat v4 runtime): `slurm_templates/06_cross_study_panelB_markers.sbatch.template`
 - Slurm template for cross-study Panel B (Seurat v5 runtime / Assay5-aware): `slurm_templates/06_cross_study_panelB_markers_seurat5.sbatch.template`
 - Human developing GE comparison placeholder (next stage draft): `scripts/07_compare_human_developing_ge_tbd.R`
