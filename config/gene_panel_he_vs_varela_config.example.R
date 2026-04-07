@@ -1,7 +1,7 @@
 list(
   project_root = "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder",
   run_label = "gene_panel_he_vs_varela_v1",
-  genes = c("LHX6", "NKX2.1"),
+  genes = c("LHX6", "NKX2.1", "ERBB4", "MAF", "MAFB"),
   studies = data.frame(
     study_id = c(
       "he_et_al",

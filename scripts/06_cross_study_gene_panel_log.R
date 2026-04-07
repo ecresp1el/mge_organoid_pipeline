@@ -347,6 +347,23 @@ build_plot <- function(plot_data, study_labels, genes) {
   placeholder_df <- plot_data$placeholder_df
   pooled_expr <- plot_data$pooled_expr
 
+  # Rescale coordinates per study for plotting so each study uses panel space.
+  # This keeps UMAP aspect ratio within each study while avoiding cross-study squishing.
+  if (nrow(point_df) > 0) {
+    for (study in unique(as.character(point_df$study_label))) {
+      idx <- which(as.character(point_df$study_label) == study)
+      if (length(idx) == 0) next
+      xr <- range(point_df$UMAP_1[idx], finite = TRUE, na.rm = TRUE)
+      yr <- range(point_df$UMAP_2[idx], finite = TRUE, na.rm = TRUE)
+      span <- max(diff(xr), diff(yr))
+      if (!is.finite(span) || span <= 0) span <- 1
+      xmid <- mean(xr)
+      ymid <- mean(yr)
+      point_df$UMAP_1[idx] <- (point_df$UMAP_1[idx] - xmid) / span
+      point_df$UMAP_2[idx] <- (point_df$UMAP_2[idx] - ymid) / span
+    }
+  }
+
   point_df$study_label <- factor(point_df$study_label, levels = study_labels)
   point_df$gene_label <- factor(point_df$gene_label, levels = genes)
   placeholder_df$study_label <- factor(placeholder_df$study_label, levels = study_labels)
@@ -398,7 +415,7 @@ build_plot <- function(plot_data, study_labels, genes) {
   }
 
   p +
-    facet_grid(rows = vars(gene_label), cols = vars(study_label), drop = FALSE, scales = "fixed") +
+    facet_grid(rows = vars(study_label), cols = vars(gene_label), drop = FALSE, scales = "fixed") +
     coord_equal() +
     scale_color_gradientn(
       colours = PALETTE_GREY_PURPLE,
@@ -414,7 +431,7 @@ build_plot <- function(plot_data, study_labels, genes) {
     ) +
     labs(
       title = "Cross-study marker expression (log1p)",
-      subtitle = "Color scale: grey -> purple",
+      subtitle = "Color scale: grey -> purple; per-study UMAP display scaling",
       x = NULL, y = NULL
     ) +
     theme_minimal(base_size = 10) +
@@ -484,8 +501,8 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   utils::write.table(plot_data$status_df, file = status_path, sep = "\t", quote = FALSE, row.names = FALSE)
   log_msg("Wrote status table: ", status_path)
 
-  fig_width <- max(10, length(study_labels) * 3.2 + 1.8)
-  fig_height <- max(4.8, length(genes) * 2.8 + 1.2)
+  fig_width <- max(10, length(genes) * 3.2 + 1.8)
+  fig_height <- max(4.8, length(study_labels) * 2.8 + 1.2)
   log_msg("Writing PNG: ", png_path)
   ggsave(
     filename = png_path, plot = p, width = fig_width, height = fig_height,

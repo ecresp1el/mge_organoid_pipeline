@@ -3,8 +3,8 @@
 
 #SBATCH --job-name=genepanel_he_varela
 #SBATCH --time=06:00:00
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=96G
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=64G
 #SBATCH --nodes=1
 #SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_genepanel_he_varela_%j.log
 #SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_genepanel_he_varela_%j.log
@@ -23,7 +23,7 @@ fi
 REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 CONFIG_PATH="${REPO_ROOT}/config/gene_panel_he_vs_varela_config.example.R"
-RUN_LABEL="gene_panel_he_vs_varela_v1"
+RUN_LABEL="${RUN_LABEL:-gene_panel_he_vs_varela_v1}"
 
 set -euo pipefail
 set -x

@@ -18,6 +18,7 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 H5AD_PATH="${PROJECT_ROOT}/data/raw/he_et_al_zenodo/suppl/hnoca_allmeta.h5ad"
 OUT_DIR="${PROJECT_ROOT}/data/processed/he_et_al_scn8a_slice"
 PY_ENV_DIR="${PROJECT_ROOT}/data/processed/he_et_al_py311_env"
+GENES="${GENES:-SCN8A,LHX6,NKX2.1,ERBB4,MAF,MAFB}"
 
 set -euo pipefail
 set -x
@@ -42,4 +43,4 @@ PYTHON_BIN="${PY_ENV_DIR}/bin/python"
 "${PYTHON_BIN}" "${REPO_ROOT}/scripts/05e_extract_he_et_al_scn8a_slice.py" \
   --h5ad "${H5AD_PATH}" \
   --outdir "${OUT_DIR}" \
-  --genes "SCN8A,LHX6,NKX2.1"
+  --genes "${GENES}"

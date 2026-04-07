@@ -4,29 +4,75 @@
 # This is intentionally scoped for SCN8A cross-study plotting compatibility.
 
 suppressPackageStartupMessages({
-  library(optparse)
   library(Matrix)
   library(Seurat)
   library(data.table)
   library(ggplot2)
 })
 
-option_list <- list(
-  make_option(c("-p", "--project-root"), type = "character", default = Sys.getenv("PROJECT_ROOT"),
-              help = "Runtime workspace (PROJECT_ROOT). Required."),
-  make_option(c("--slice-dir"), type = "character", default = NULL,
-              help = "Directory from 05e_extract_he_et_al_scn8a_slice.py outputs."),
-  make_option(c("-o", "--outdir"), type = "character", default = NULL,
-              help = "Output directory (default: PROJECT_ROOT/results/he_et_al)")
-)
-opt <- parse_args(OptionParser(option_list = option_list))
+parse_args <- function(args) {
+  out <- list(
+    `project-root` = Sys.getenv("PROJECT_ROOT"),
+    `slice-dir` = NULL,
+    outdir = NULL,
+    help = FALSE
+  )
+  i <- 1L
+  while (i <= length(args)) {
+    a <- args[[i]]
+    if (a == "--help" || a == "-h") {
+      out$help <- TRUE
+      i <- i + 1L
+      next
+    }
+
+    if (a == "-p") a <- "--project-root"
+    if (a == "-o") a <- "--outdir"
+    if (!startsWith(a, "--")) stop("Unknown argument: ", a, call. = FALSE)
+    key <- substring(a, 3L)
+    if (!(key %in% names(out))) stop("Unknown argument: ", a, call. = FALSE)
+    if (i == length(args)) stop("Missing value for argument: ", a, call. = FALSE)
+    out[[key]] <- args[[i + 1L]]
+    i <- i + 2L
+  }
+  out
+}
+
+print_usage <- function() {
+  cat(
+    paste(
+      "Usage:",
+      "  Rscript scripts/05f_he_et_al_scn8a_seurat.R --project-root <PROJECT_ROOT> [--slice-dir <dir>] [--outdir <dir>]",
+      "",
+      "Defaults:",
+      "  --project-root defaults to PROJECT_ROOT env var",
+      "  --slice-dir defaults to <PROJECT_ROOT>/data/processed/he_et_al_scn8a_slice",
+      "  --outdir defaults to <PROJECT_ROOT>/results/he_et_al",
+      sep = "\n"
+    )
+  )
+}
+
+opt <- parse_args(commandArgs(trailingOnly = TRUE))
+if (isTRUE(opt$help)) {
+  print_usage()
+  quit(save = "no", status = 0)
+}
 
 trim_trailing_slash <- function(x) sub("/+$", "", x)
 
-if (!nzchar(opt$project_root)) {
+fread_any <- function(path, ...) {
+  if (grepl("\\.gz$", path, ignore.case = TRUE)) {
+    data.table::fread(cmd = paste("gzip -dc", shQuote(path)), ...)
+  } else {
+    data.table::fread(path, ...)
+  }
+}
+
+if (!nzchar(opt$`project-root`)) {
   stop("PROJECT_ROOT or --project-root is required")
 }
-project_root <- trim_trailing_slash(opt$project_root)
+project_root <- trim_trailing_slash(opt$`project-root`)
 
 slice_dir <- opt$`slice-dir`
 if (is.null(slice_dir) || !nzchar(slice_dir)) {
@@ -59,8 +105,8 @@ if (!inherits(counts, "dgCMatrix")) {
   counts <- as(counts, "dgCMatrix")
 }
 
-features <- fread(genes_path, header = FALSE)$V1
-cells <- fread(barcodes_path, header = FALSE)$V1
+features <- fread_any(genes_path, header = FALSE)$V1
+cells <- fread_any(barcodes_path, header = FALSE)$V1
 if (length(features) != nrow(counts)) {
   stop("Feature count mismatch: genes.tsv has ", length(features), " rows, matrix has ", nrow(counts))
 }
@@ -83,7 +129,7 @@ seu <- CreateSeuratObject(
 seu <- NormalizeData(seu, normalization.method = "LogNormalize", scale.factor = 10000, verbose = FALSE)
 
 message("Reading UMAP coordinates...")
-umap_dt <- fread(umap_path)
+umap_dt <- fread_any(umap_path)
 required_cols <- c("cell_id", "UMAP_1", "UMAP_2")
 if (!all(required_cols %in% names(umap_dt))) {
   stop("UMAP file missing required columns: ", paste(setdiff(required_cols, names(umap_dt)), collapse = ","))
@@ -114,7 +160,7 @@ seu[["umap"]] <- CreateDimReducObject(
 # Attach selected metadata when available.
 if (file.exists(obs_meta_path)) {
   message("Reading extracted obs metadata...")
-  obs_dt <- fread(obs_meta_path)
+  obs_dt <- fread_any(obs_meta_path)
   if ("cell_id" %in% names(obs_dt)) {
     obs_dt <- unique(obs_dt, by = "cell_id")
     meta_idx <- match(colnames(seu), obs_dt$cell_id)
