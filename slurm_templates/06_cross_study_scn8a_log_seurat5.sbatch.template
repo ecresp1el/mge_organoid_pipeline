@@ -1,0 +1,52 @@
+#!/bin/bash
+# SCN8A-only cross-study UMAP plotting (always log1p expression values).
+# Seurat v5 runtime template.
+#
+# Example:
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/06_cross_study_scn8a_log_seurat5.sbatch
+
+#SBATCH --job-name=panelb_scn8a_v5
+#SBATCH --time=08:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=96G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_panelb_scn8a_v5_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/06_panelb_scn8a_v5_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+if ! module load "${SEURAT5_MODULE}"; then
+  echo "ERROR: failed to load ${SEURAT5_MODULE}"
+  echo "Set SEURAT5_MODULE to an available Seurat v5 module on Great Lakes."
+  echo "Hint: module avail r-seurat"
+  exit 1
+fi
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+CONFIG_PATH="${REPO_ROOT}/config/panel_b_cross_study_config.example.R"
+RUN_LABEL="panel_b_scn8a_log_v1_seurat5"
+
+set -euo pipefail
+set -x
+mkdir -p "${PROJECT_ROOT}/logs"
+
+echo "=== SCN8A-only cross-study plotting job context ==="
+date
+hostname
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "SLURM_JOB_NAME=${SLURM_JOB_NAME:-}"
+echo "PROJECT_ROOT=${PROJECT_ROOT}"
+echo "CONFIG_PATH=${CONFIG_PATH}"
+echo "RUN_LABEL=${RUN_LABEL}"
+echo "SEURAT5_MODULE=${SEURAT5_MODULE}"
+module list 2>&1
+
+export PROJECT_ROOT
+Rscript "${REPO_ROOT}/scripts/06_cross_study_scn8a_log.R" \
+  --config "${CONFIG_PATH}" \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${RUN_LABEL}"
+
