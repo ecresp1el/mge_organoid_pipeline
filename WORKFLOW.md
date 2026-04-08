@@ -159,7 +159,101 @@ Run from your local terminal (Mac/Linux):
 - Verify on Great Lakes:
   - `ls -lh /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siebert_2026/siebert_2026_seurat.rds`
 
-## Canonical plot paths to share
+## Centralized Table: Final Seurat Object Paths
+
+| Study                  | Seurat Object Path                                                                                      | Script/Step Producing It                        | UMAP Included? | Notes                                      |
+|------------------------|--------------------------------------------------------------------------------------------------------|-------------------------------------------------|---------------|---------------------------------------------|
+| Walsh (GSE250482)      | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/walsh_day75/walsh_day75_final.rds`  | scripts/02_walsh_day75_seurat.R                 | Yes           | Also: `walsh_day75_final_annotated.rds`     |
+| Bershteyn 2025         | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/bershteyn_2025/bershteyn_2025_seurat.rds` | Downloaded, then processed/checked              | Yes           | Provided as .rds.gz, copied to results      |
+| Bershteyn 2023         | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/bershteyn_2023/bershteyn_2023_seurat.rds` | Downloaded, then processed/checked              | Yes           | Provided as .rds.gz, copied to results      |
+| Xiang 2018             | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/xiang_2018/xiang_2018_seurat.rds`   | scripts/05c_xiang_2018_seurat.R                 | Yes           | Built from 10x matrix/genes/barcodes        |
+| Siebert 2026           | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siebert_2026/siebert_2026_seurat.rds` | Registered/copy step                            | Yes           | Canonical cleaned Seurat object             |
+| Varela (this paper)    | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds` | Copied from `/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds` | Yes           | Used in Panel B assembly                    |
+| He et al SCN8A         | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/he_et_al/he_et_al_scn8a_seurat.rds`  | scripts/05f_he_et_al_scn8a_seurat.R             | Yes           | Built from extracted slice                  |
+| Samarasinghe 2021      | *(Not present yet)*                                                                                    | scripts/05_samarasinghe_2021_seurat.R           | No            | Script ready, output not found              |
+
+---
+
+## Workflow Summary & R Handover Points
+
+- Each study’s pipeline produces a final `.rds` Seurat object in the results directory above.
+- UMAPs are generated and embedded in these objects by the R scripts listed.
+- Once the final `.rds` is present, you can load it in R for downstream analysis and plotting—no need to rerun earlier steps.
+- Comparative plots and cross-study analyses use these `.rds` files as input.
+
+**Example R usage:**
+```R
+seu <- readRDS("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/walsh_day75/walsh_day75_final.rds")
+```
+
+---
+
+## Shared vs. Unique Features Across Studies
+
+**Shared features:**
+- All Seurat objects contain UMAP embeddings, cluster assignments, and basic metadata (cell/sample IDs, domains, etc.).
+
+**Unique features:**
+- Some studies include additional metadata (e.g., stress scores, domain labels, custom annotations).
+- See the scripts and config files for details per study.
+
+---
+
+## Pipeline Workflow: Inputs, Outputs, and Scripts
+
+Below is a high-level workflow for each major study, with scripts and key input/output files:
+
+### Walsh (GSE250482)
+- **Script:** `scripts/02_walsh_day75_seurat.R`
+- **Inputs:** Raw GEO files, gene lists (hypoxia/glycolysis)
+- **Outputs:** `walsh_day75_final.rds`, UMAP plots, annotation tables
+- **R handover:** After `walsh_day75_final.rds` is created, all downstream analysis/plotting can be done in R
+
+### Bershteyn 2025/2023
+- **Script:** Download/copy, then processed/checked
+- **Inputs:** Provided Seurat `.rds.gz` files
+- **Outputs:** `bershteyn_2025_seurat.rds`, `bershteyn_2023_seurat.rds`, UMAP plots
+- **R handover:** After `.rds` is copied to results, ready for R analysis
+
+### Xiang 2018
+- **Script:** `scripts/05c_xiang_2018_seurat.R`
+- **Inputs:** 10x matrix/genes/barcodes
+- **Outputs:** `xiang_2018_seurat.rds`, UMAP plots
+- **R handover:** After `.rds` is created, ready for R analysis
+
+### Siebert 2026
+- **Script:** Registered/copy step
+- **Inputs:** Cleaned Seurat object
+- **Outputs:** `siebert_2026_seurat.rds`
+- **R handover:** After `.rds` is copied, ready for R analysis
+
+### Varela (this paper)
+- **Script:** Copied from legacy path
+- **Inputs:** `/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds`
+- **Outputs:** `varela_this_paper_seurat.rds`
+- **R handover:** After `.rds` is copied, ready for R analysis
+
+### He et al SCN8A
+- **Script:** `scripts/05f_he_et_al_scn8a_seurat.R`
+- **Inputs:** Extracted slice files
+- **Outputs:** `he_et_al_scn8a_seurat.rds`
+- **R handover:** After `.rds` is created, ready for R analysis
+
+### Samarasinghe 2021
+- **Script:** `scripts/05_samarasinghe_2021_seurat.R`
+- **Inputs:** Filtered/normalized counts CSVs
+- **Outputs:** *(Not present yet)*
+- **R handover:** After `.rds` is created, ready for R analysis
+
+---
+
+## Comparative Plotting: On/Off Target Markers
+
+- Comparative plots use the final `.rds` objects above as input.
+- Panel B and cross-study marker scripts (e.g., `scripts/06_cross_study_panelB_markers.R`) expect these paths.
+- All paths have been confirmed to exist (except Samarasinghe 2021, pending generation).
+
+---
 - 15 clusters (labels 0–14): `results/walsh_day75/kres_sweep_plots/umap_by_cluster_res0.8_k30.png`
 - 14 clusters (labels 0–13): `results/walsh_day75/kres_sweep_plots/umap_by_cluster_res0.8_k50.png`
 - Walsh-group annotated UMAP: `results/walsh_day75/annotation_plots/umap_by_walsh_group.png`
