@@ -62,6 +62,7 @@ DETAILED_LOG <- TRUE
 BASE_POINT_SIZE <- 0.10
 WALSH_POINT_SIZE_MULTIPLIER <- 5
 DEFAULT_POINT_SIZE_MULTIPLIER <- 2
+REQUIRED_VARELA_STUDIES <- c("varela_this_paper", "varela_div90")
 
 log_msg <- function(...) {
   msg <- paste0(..., collapse = " ")
@@ -110,7 +111,9 @@ plot_study_order <- function(studies_info) {
   labels_norm <- tolower(labels)
   varela_idx <- which(grepl("varela", ids, fixed = TRUE) | grepl("varela", labels_norm, fixed = TRUE))
   if (length(varela_idx) == 0) return(labels)
-  varela_idx <- unique(varela_idx)
+  required_idx <- unname(match(REQUIRED_VARELA_STUDIES, ids))
+  required_idx <- required_idx[!is.na(required_idx)]
+  varela_idx <- unique(c(required_idx, varela_idx))
   c(labels[varela_idx], labels[setdiff(seq_along(labels), varela_idx)])
 }
 
@@ -127,6 +130,28 @@ validate_panel_b_layout_inputs <- function(studies_info, ordered_labels) {
   if (anyDuplicated(ordered_labels) > 0) {
     dup <- unique(ordered_labels[duplicated(ordered_labels)])
     stop("Duplicate study_label values are not allowed for faceting: ", collapse_csv(dup), call. = FALSE)
+  }
+  labels_raw <- vapply(studies_info, function(x) x$study_label, character(1))
+  ids_raw <- tolower(vapply(studies_info, function(x) x$study_id, character(1)))
+  ordered_idx <- match(ordered_labels, labels_raw)
+  if (any(is.na(ordered_idx))) {
+    stop("Internal error: failed to map ordered study labels to study IDs.", call. = FALSE)
+  }
+  ordered_ids <- ids_raw[ordered_idx]
+  missing_required_varela <- setdiff(REQUIRED_VARELA_STUDIES, ordered_ids)
+  if (length(missing_required_varela) > 0) {
+    stop(
+      "Panel B requires both Varela studies: varela_this_paper (DIV30) and varela_div90 (DIV90). Missing: ",
+      collapse_csv(missing_required_varela),
+      call. = FALSE
+    )
+  }
+  if (!all(ordered_ids[seq_along(REQUIRED_VARELA_STUDIES)] == REQUIRED_VARELA_STUDIES)) {
+    stop(
+      "Study row order must start with varela_this_paper (DIV30), then varela_div90 (DIV90). Computed order: ",
+      collapse_csv(ordered_ids),
+      call. = FALSE
+    )
   }
   if (anyDuplicated(GENE_ORDER) > 0) {
     dup <- unique(GENE_ORDER[duplicated(GENE_ORDER)])
@@ -152,15 +177,6 @@ validate_panel_b_layout_inputs <- function(studies_info, ordered_labels) {
   }
   if (length(off_genes) == 0) {
     stop("No OFF-target genes available in GENE_ORDER; cannot build bottom block.", call. = FALSE)
-  }
-
-  has_varela <- grepl("varela", tolower(ordered_labels), fixed = TRUE)
-  if (any(has_varela) && !isTRUE(has_varela[[1]])) {
-    stop(
-      "Varela must be the top-most study row. Computed order: ",
-      collapse_csv(ordered_labels),
-      call. = FALSE
-    )
   }
 
   list(
@@ -1546,6 +1562,15 @@ read_config <- function(config_path) {
   }
   if (anyDuplicated(studies$study_label) > 0) {
     stop("studies$study_label must be unique for fixed panel layout.", call. = FALSE)
+  }
+  study_ids_norm <- tolower(studies$study_id)
+  missing_required_varela <- setdiff(REQUIRED_VARELA_STUDIES, study_ids_norm)
+  if (length(missing_required_varela) > 0) {
+    stop(
+      "Config must include both Varela studies: varela_this_paper (DIV30) and varela_div90 (DIV90). Missing: ",
+      collapse_csv(missing_required_varela),
+      call. = FALSE
+    )
   }
 
   cfg$run_label <- as.character(cfg$run_label)
