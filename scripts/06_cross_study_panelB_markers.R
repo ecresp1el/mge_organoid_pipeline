@@ -7,7 +7,7 @@
 # - No analysis is performed (no normalization/scaling/PCA/UMAP/clustering/integration).
 # - Study identities, labels, ordering, object paths, assays, and reductions come from config.
 # - Fixed marker order is enforced to match the reference panel.
-# - Every study object path must be explicitly provided and must reside under PROJECT_ROOT.
+# - Every study object path must be explicitly provided; relative paths resolve under PROJECT_ROOT.
 # - Missing object/reduction/assay/gene conditions are rendered as same-size placeholders.
 #
 # Inputs:
@@ -157,7 +157,7 @@ validate_panel_b_layout_inputs <- function(studies_info, ordered_labels) {
   has_varela <- grepl("varela", tolower(ordered_labels), fixed = TRUE)
   if (any(has_varela) && !isTRUE(has_varela[[1]])) {
     stop(
-      "Varela must be the left-most study column. Computed order: ",
+      "Varela must be the top-most study row. Computed order: ",
       collapse_csv(ordered_labels),
       call. = FALSE
     )
@@ -226,8 +226,8 @@ build_plot_study_context <- function(studies_info, ordered_labels) {
 }
 
 build_target_block <- function(row_plots, block_title) {
-  wrap_plots(row_plots, ncol = 1) +
-    plot_layout(heights = rep(1, length(row_plots))) +
+  wrap_plots(row_plots, ncol = length(row_plots)) +
+    plot_layout(widths = rep(1, length(row_plots))) +
     plot_annotation(
       title = block_title,
       theme = theme(
@@ -245,9 +245,9 @@ build_single_target_figure <- function(target_block,
     plot_annotation(
       title = paste0("Panel B: ", target_label, " marker expression on existing UMAPs"),
       subtitle = paste0(
-        "Columns (left->right): ", paste(ordered_labels, collapse = " | "),
+        "Study rows (top->bottom): ", paste(ordered_labels, collapse = " | "),
         "\nPlotted cells: ", cells_summary,
-        "\nRow order (top->bottom): ", row_order_text
+        "\nGene columns (left->right): ", row_order_text
       ),
       theme = theme(
         plot.title = element_text(size = 12, face = "bold", hjust = 0),
@@ -1458,7 +1458,7 @@ is_subpath <- function(path, root) {
 }
 
 resolve_under_project_root <- function(path_value, project_root) {
-  # Enforce explicit, non-globbed study paths under PROJECT_ROOT only.
+  # Enforce explicit, non-globbed paths under PROJECT_ROOT.
   if (!is.character(path_value) || length(path_value) != 1 || !nzchar(path_value)) {
     stop("Invalid path in config: must be non-empty string", call. = FALSE)
   }
@@ -1473,12 +1473,28 @@ resolve_under_project_root <- function(path_value, project_root) {
   candidate <- normalize_abs(candidate, must_work = FALSE)
   if (!is_subpath(candidate, project_root)) {
     stop(
-      "All study object paths must be under PROJECT_ROOT. Invalid path: ",
+      "Path must be under PROJECT_ROOT. Invalid path: ",
       candidate,
       call. = FALSE
     )
   }
   candidate
+}
+
+resolve_input_path <- function(path_value, project_root) {
+  # Input object paths may be absolute (external references) or relative to PROJECT_ROOT.
+  if (!is.character(path_value) || length(path_value) != 1 || !nzchar(path_value)) {
+    stop("Invalid path in config: must be non-empty string", call. = FALSE)
+  }
+  if (grepl("[*?\\[]", path_value)) {
+    stop("Path globbing is not allowed in config path: ", path_value, call. = FALSE)
+  }
+  candidate <- if (startsWith(path_value, "/")) {
+    path_value
+  } else {
+    file.path(project_root, path_value)
+  }
+  normalize_abs(candidate, must_work = FALSE)
 }
 
 read_config <- function(config_path) {
@@ -1613,7 +1629,7 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   info <- list(
     study_id = study_row$study_id,
     study_label = study_row$study_label,
-    object_path = resolve_under_project_root(study_row$object_path, project_root),
+    object_path = resolve_input_path(study_row$object_path, project_root),
     reduction = study_row$reduction,
     assay = study_row$assay,
     preferred_slot = study_row$expression_slot,
@@ -1889,7 +1905,7 @@ prepare_study <- function(study_row, project_root, retain_seurat = FALSE) {
   info$feature_map_source <- ""
 
   if (!is.na(info$feature_map_path) && nzchar(info$feature_map_path)) {
-    resolved_map <- resolve_under_project_root(info$feature_map_path, project_root)
+    resolved_map <- resolve_input_path(info$feature_map_path, project_root)
     info$feature_map_resolved <- resolved_map
     if (file.exists(resolved_map)) {
       map_file_res <- read_feature_symbol_map(resolved_map)
@@ -2879,8 +2895,8 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
   )
 
 
-  # Strict grey-to-purple palette
-  PALETTE_GREY_PURPLE <- c("#d9d9d9", "#bcbddc", "#756bb1", "#54278f")
+  # Strict grey-to-purple palette (no blue ramp).
+  PALETTE_GREY_PURPLE <- c("#e0e0e0", "#d8b4fe", "#a855f7", "#6b21a8")
 
   # Add gene as a column variable for facet_grid
   point_df$gene <- gene
@@ -3183,7 +3199,7 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
   plot_context <- build_plot_study_context(studies_info, ordered_labels)
   studies_info_plot <- plot_context$studies_info
   ordered_plot_labels <- plot_context$ordered_plot_labels
-  log_msg("Plot study column order (left->right): ", collapse_csv(ordered_labels))
+  log_msg("Plot study row order (top->bottom): ", collapse_csv(ordered_labels))
   log_msg("ON-target genes (top block): ", collapse_csv(layout_spec$on_genes))
   log_msg("OFF-target genes (bottom block): ", collapse_csv(layout_spec$off_genes))
   log_msg("Plotted cells by study (ordered): ", plot_context$cells_summary)
@@ -3321,10 +3337,10 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     plot_annotation(
       title = "Panel B: Cross-study marker expression on existing UMAPs",
       subtitle = paste0(
-        "Columns (left->right): ", paste(ordered_labels, collapse = " | "),
+        "Study rows (top->bottom): ", paste(ordered_labels, collapse = " | "),
         "\nPlotted cells: ", plot_context$cells_summary,
-        "\nON row order: ", paste(layout_spec$on_genes, collapse = ", "),
-        "\nOFF row order: ", paste(layout_spec$off_genes, collapse = ", ")
+        "\nON gene columns (left->right): ", paste(layout_spec$on_genes, collapse = ", "),
+        "\nOFF gene columns (left->right): ", paste(layout_spec$off_genes, collapse = ", ")
       ),
       theme = theme(
         plot.title = element_text(size = 12, face = "bold", hjust = 0),
@@ -3332,9 +3348,10 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
       )
     )
 
-  fig_width <- max(18, length(studies_info_plot) * 2.7 + 3.0)
-  fig_height <- max(24, length(GENE_ORDER) * 1.45 + 5.0)
-  fig_height_single <- max(14, max(length(on_row_plots), length(off_row_plots)) * 1.75 + 4.5)
+  max_gene_cols <- max(length(on_row_plots), length(off_row_plots))
+  fig_width <- max(18, max_gene_cols * 2.5 + 4.0)
+  fig_height <- max(16, length(studies_info_plot) * 2.1 + 7.0)
+  fig_height_single <- max(10, length(studies_info_plot) * 1.8 + 3.0)
   png_path <- file.path(out_dir, "panel_b_cross_study_markers.png")
   pdf_path <- file.path(out_dir, "panel_b_cross_study_markers.pdf")
   svg_path <- file.path(out_dir, "panel_b_cross_study_markers.svg")
@@ -3369,8 +3386,8 @@ main <- function(cli_args = commandArgs(trailingOnly = TRUE)) {
     row_plots = row_plots,
     genes_in_order = GENE_ORDER,
     out_dir = out_dir,
-    fig_width = fig_width,
-    fig_height = max(3.8, 2.2 + length(studies_info_plot) * 0.35),
+    fig_width = 5.4,
+    fig_height = max(6.8, 2.8 + length(studies_info_plot) * 0.85),
     dpi = PNG_DPI
   )
   per_gene_png_dir <- file.path(out_dir, "ON_vs_OFF")
