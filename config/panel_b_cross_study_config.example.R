@@ -7,47 +7,45 @@ list(
   prepared_objects_root = "results/panel_b_prepared_objects",
   studies = data.frame(
     study_id = c(
+      "varela_this_paper",
+      "varela_div90",
       "walsh",
       "bershteyn_2025",
       "bershteyn_2023",
       "xiang_2018",
       "samarasinghe_2021",
-      "siebert_2026",
-      "varela_this_paper"
+      "siebert_2026"
     ),
     study_label = c(
+      "Varela (This paper)",
+      "Varela DIV90",
       "Walsh",
       "Bershteyn 2025",
       "Bershteyn 2023",
       "Xiang",
       "Samarasinghe",
-      "Siebert 2026",
-      "Varela (This paper)"
+      "Siebert 2026"
     ),
-    # Paths are explicit and resolved relative to project_root if not absolute.
-    # No path guessing and no globbing are used.
     object_path = c(
+      "results/varela_this_paper/varela_this_paper_seurat.rds",
+      "/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds",
       "results/walsh_day75/walsh_day75_final_annotated.rds",
       "results/bershteyn_2025/bershteyn_2025_seurat.rds",
       "results/bershteyn_2023/bershteyn_2023_seurat.rds",
       "results/xiang_2018/xiang_2018_seurat.rds",
       "results/samarasinghe_2021/samarasinghe_2021_seurat.rds",
-      "results/siebert_2026/siebert_2026_seurat.rds",
-      "results/varela_this_paper/varela_this_paper_seurat.rds"
+      "results/siebert_2026/siebert_2026_seurat.rds"
     ),
-    # Note: Walsh final object uses "umap_sel"/"umap20" rather than "umap".
-    reduction = c("umap_sel", "umap", "umap", "umap", "umap", "umap", "umap"),
-    assay = c("RNA", "RNA", "RNA", "RNA", "RNA", "RNA", "RNA"),
-    # Optional. Script defaults to "data" then falls back to "counts" if needed.
-    expression_slot = c("data", "data", "data", "data", "data", "counts", "data"),
-    # Optional. Symbol->feature mapping table path (relative to project_root).
-    # Useful when assay features are Ensembl IDs (Xiang) but markers are symbols.
+    reduction = c("umap", "umap", "umap_sel", "umap", "umap", "umap", "umap", "umap"),
+    assay = c("RNA", "RNA", "RNA", "RNA", "RNA", "RNA", "RNA", "RNA"),
+    expression_slot = c("data", "data", "data", "data", "data", "data", "data", "counts"),
     feature_map_path = c(
       "",
       "",
       "",
-      "data/raw/xiang_2018_geo_files/suppl/GSE98201_genes.tsv.gz",
       "",
+      "",
+      "data/raw/xiang_2018_geo_files/suppl/GSE98201_genes.tsv.gz",
       "",
       ""
     ),

@@ -2878,6 +2878,16 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     stringsAsFactors = FALSE
   )
 
+
+  # Strict grey-to-purple palette
+  PALETTE_GREY_PURPLE <- c("#d9d9d9", "#bcbddc", "#756bb1", "#54278f")
+
+  # Add gene as a column variable for facet_grid
+  point_df$gene <- gene
+  placeholder_df$gene <- gene
+  facets_seed$gene <- gene
+  legend_seed$gene <- gene
+
   p <- ggplot() +
     geom_blank(data = facets_seed, aes(x = UMAP_1, y = UMAP_2)) +
     geom_point(
@@ -2910,12 +2920,12 @@ build_gene_row <- function(gene, gene_group, studies_info, ordered_labels) {
     )
   }
 
+  # Facet: studies as rows, genes as columns
   p <- p +
-    facet_wrap(~study_label, nrow = 1, drop = FALSE, scales = "fixed") +
+    facet_grid(study_label ~ gene, drop = FALSE, scales = "fixed") +
     coord_equal() +
     scale_color_gradientn(
-      # Use a visible low-expression gray tone to avoid "blank-looking" panels.
-      colours = c("#d9d9d9", "#6baed6", "#08306b"),
+      colours = PALETTE_GREY_PURPLE,
       limits = limits,
       oob = scales::squish,
       name = gene
