@@ -264,12 +264,18 @@ Below is a high-level workflow for each major study, with scripts and key input/
   - Walsh pipeline: `module load Bioinformatics` + `module load r-seurat/4.1.1-R-4.1.1-qyci4bo`
   - Plotting / Xiang / Bershteyn_2023: `module load Bioinformatics` + `module load r-seurat/4.1.1-R-4.2.0-5z5hgo7`
   - Panel B with Assay5 studies (e.g., Varela): submit with the Seurat v5 template and set `SEURAT5_MODULE` to an available v5 module.
+  - Current Panel B Seurat v5 template uses:
+    - `CONFIG_PATH=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/config/panel_b_cross_study_config.example.R`
+    - `RUN_LABEL=panel_b_cross_study_v1_seurat5`
+    - outputs under `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/panel_b_cross_study_v1_seurat5/plots/`
   - Panel B marker list (fixed order; defined in `scripts/06_cross_study_panelB_markers.R`) is:
     - ON-target: `DCX,GAD2,DLX5,LHX6,MAF,SST,ERBB4,MEF2C,MAFB,LHX8,NKX2-1`
     - OFF-target: `SP8,PAX6,NEUROD2,ISL1,ACHE,NKX6-2,MKI67` (`ACHE`, not `ACHF`)
   - Xiang Panel B note: Xiang features are Ensembl-like IDs; symbol markers require symbol-to-Ensembl mapping for direct lookup.
   - Panel B symbol remap is dynamic: set optional `feature_map_path` per study in `config/panel_b_cross_study_config.example.R` and the script remaps current `GENE_ORDER` markers automatically.
-  - Panel B combined figure is emitted as PNG/PDF/SVG with fixed layout logic: Varela left-most column when present, ON-target block on top, OFF-target block on bottom.
+  - Panel B combined figure is emitted as PNG/PDF/SVG with fixed layout logic: study rows (top->bottom), gene columns (left->right), ON-target block on top, OFF-target block on bottom.
+  - Panel B now requires both Varela studies and fixed first-two row order:
+    - `varela_this_paper` (DIV30), then `varela_div90` (DIV90).
   - Panel B also emits separate ON-only and OFF-only PNG/PDF/SVG files; PNG exports are high print quality (`dpi=600`).
   - Panel B figure labels now include plotted cell counts per study (`n=<cells>`), and the config example includes both `Bershteyn 2025` and `Bershteyn 2023`.
   - Panel B now also writes `results/<run_label>/plots/panel_b_prepared_inputs.rds` for downstream scripts (matched coords + marker matrix per study).
@@ -278,8 +284,8 @@ Below is a high-level workflow for each major study, with scripts and key input/
     with manifest `results/panel_b_prepared_objects/panel_b_prepared_object_paths.tsv`.
   - Stage 07 placeholder consumes that manifest and writes run-scoped planning artifacts under:
     `results/<run_label>/human_ge_comparison_tbd/`.
-  - To download Panel B outputs to a local Mac path, run `rsync` from the local terminal (not on Great Lakes login node), for example:
-    `rsync -avh --progress "elcrespo@gl-login1.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/<run_label>/plots/*.png" "/Users/ecrespo/Desktop/output_files_from_pipeline/<run_label>/"`
+  - To download Panel B outputs to local Downloads (run from local terminal, not Great Lakes login node), for example:
+    `rsync -avh --progress --prune-empty-dirs --include='*/' --include='*.png' --include='*.pdf' --include='*.svg' --exclude='*' "elcrespo@gl-login1.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/panel_b_cross_study_v1_seurat5/plots/" "/Users/ecrespo/Downloads/panel_b_cross_study_v1_seurat5_plots/"`
 - Slurm does **not** expand shell variables in `#SBATCH --output/--error`; templates use absolute log paths to keep runtime artifacts out of the repo.
 - Methods-locked parameters retained: QC 1000–5000 genes, <15% MT (^MT-); LogNormalize (scale.factor=1e4); HVG=5000 (vst); regress S.Score & G2M.Score; dims=1:20 for neighbors/UMAP; clustering resolution default 2.0 (sweeps explore alternatives); stress removal clusters mean score >0.5.
 - Checkpoints allow reruns without redoing QC/normalization/scaling; sweeps start from post-stress PCA checkpoint.

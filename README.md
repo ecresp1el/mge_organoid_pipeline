@@ -79,19 +79,19 @@ Run Panel B interactively (no Slurm required)
 - Optional config field: `studies$feature_map_path` for symbol->feature remapping (used for Xiang Ensembl features).
 - Run:
   - `module load Bioinformatics`
-  - `module load r-seurat/4.1.1-R-4.2.0-5z5hgo7`
-  - `Rscript scripts/06_cross_study_panelB_markers.R --config config/panel_b_cross_study_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label panel_b_cross_study_v1 --detailed-log true --write-prepared true --write-study-objects true --prepared-objects-root results/panel_b_prepared_objects`
-- Note: for Assay5 studies (for example Varela), use a Seurat v5 runtime so the script can use `LayerData` directly.
+  - `module load r-seurat/5.1.0-R-4.4.1-c3m7yfq`
+  - `Rscript scripts/06_cross_study_panelB_markers.R --config config/panel_b_cross_study_config.example.R --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label panel_b_cross_study_v1_seurat5 --detailed-log true --write-prepared true --write-study-objects true --prepared-objects-root results/panel_b_prepared_objects`
+- Note: Assay5 studies (for example both Varela objects) require a Seurat v5 runtime so the script can use `LayerData` directly.
 - Note: detailed logs now include assay slot inventory, assay layer inventory, feature namespace detection, cell overlap checks, and metadata structure summaries.
-- Example config now includes both Bershteyn studies as separate columns:
-  - `Bershteyn 2025`
-  - `Bershteyn 2023`
+- Current config (`config/panel_b_cross_study_config.example.R`) includes both required Varela study object paths:
+  - `varela_this_paper`: `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds`
+  - `varela_div90`: `/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds`
 - Plot layout is enforced programmatically before plotting:
-  - Varela is always the left-most study column when present.
-  - ON-target markers are assembled in the top block.
-  - OFF-target markers are assembled in the bottom block.
-  - Study column labels include plotted cell counts (`n=<cells>`) for quick auditing.
-  - Figure subtitle includes `Plotted cells: <study>=<n> | ...` in left-to-right order.
+  - Studies are rendered as rows (top->bottom), genes are rendered as columns (left->right).
+  - The first two study rows are required and ordered: `varela_this_paper` (DIV30), then `varela_div90` (DIV90).
+  - ON-target markers are assembled in the top block and OFF-target markers in the bottom block.
+  - Study row labels include plotted cell counts (`n=<cells>`) for quick auditing.
+  - Figure subtitle includes `Plotted cells: <study>=<n> | ...` in top-to-bottom study order.
 - The script now writes a reusable input bundle for downstream scripts:
   - `panel_b_prepared_inputs.rds` (per-study UMAP coords + marker matrix + status/metadata fields)
   - This is Seurat-runtime independent and is written by default (`--write-prepared true`).
@@ -186,13 +186,11 @@ Run Panel B on Slurm
 
 Copy Panel B outputs to local machine (run from local terminal, not Great Lakes)
 - Create local destination:
-  - `mkdir -p "/Users/ecrespo/Desktop/output_files_from_pipeline/panel_b_cross_study_hq_20260208_182430"`
-- Copy PNG images only from the latest high-quality run:
-  - `rsync -avh --progress "elcrespo@gl-login1.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/panel_b_cross_study_hq_20260208_182430/plots/*.png" "/Users/ecrespo/Desktop/output_files_from_pipeline/panel_b_cross_study_hq_20260208_182430/"`
-- Copy the full `plots/` folder (PNG/PDF/SVG/TSV):
-  - `rsync -avh --progress "elcrespo@gl-login1.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/panel_b_cross_study_hq_20260208_182430/plots/" "/Users/ecrespo/Desktop/output_files_from_pipeline/panel_b_cross_study_hq_20260208_182430/"`
+  - `mkdir -p "/Users/ecrespo/Downloads/panel_b_cross_study_v1_seurat5_plots"`
+- Copy PNG/PDF/SVG outputs for the current Seurat v5 run label:
+  - `rsync -avh --progress --prune-empty-dirs --include='*/' --include='*.png' --include='*.pdf' --include='*.svg' --exclude='*' "elcrespo@gl-login1.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/panel_b_cross_study_v1_seurat5/plots/" "/Users/ecrespo/Downloads/panel_b_cross_study_v1_seurat5_plots/"`
 - Tip:
-  - replace `panel_b_cross_study_hq_20260208_182430` with any other run label you want to pull.
+  - replace `panel_b_cross_study_v1_seurat5` with any other run label you want to pull.
 
 Docs
 - Workflow + directory conventions: `WORKFLOW.md`
