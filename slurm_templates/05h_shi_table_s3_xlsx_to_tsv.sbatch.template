@@ -1,0 +1,31 @@
+#!/bin/bash
+#SBATCH --job-name=shi_s3_xlsx2tsv
+#SBATCH --time=00:20:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=4G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05h_shi_table_s3_xlsx_to_tsv_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05h_shi_table_s3_xlsx_to_tsv_%j.log
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=your_email@umich.edu
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+
+# Convert Shi Table S3 from .xlsx to .tsv (no extra Python package deps).
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+
+XLSX_PATH="${PROJECT_ROOT}/data/raw/shi_2019_geo_files/supplementary/science.abj6641_table_s3.xlsx"
+TSV_PATH="${PROJECT_ROOT}/data/raw/shi_2019_geo_files/supplementary/science.abj6641_table_s3.tsv"
+
+set -euo pipefail
+set -x
+mkdir -p "${PROJECT_ROOT}/logs"
+mkdir -p "$(dirname "${TSV_PATH}")"
+
+python3 "${REPO_ROOT}/scripts/05h_shi_table_s3_xlsx_to_tsv.py" \
+  --xlsx "${XLSX_PATH}" \
+  --sheet 1 \
+  --out "${TSV_PATH}"
+

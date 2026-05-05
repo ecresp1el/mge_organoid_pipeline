@@ -1,0 +1,36 @@
+#!/bin/bash
+#SBATCH --job-name=shi_s3_annot
+#SBATCH --time=04:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05i_shi_2019_annotate_from_table_s3_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05i_shi_2019_annotate_from_table_s3_%j.log
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=your_email@umich.edu
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+
+# Annotate Shi 2019 clusters using paper Table S3 DEGs.
+
+module load Bioinformatics
+module load r-seurat/5.1.0-R-4.4.1-c3m7yfq
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+
+set -euo pipefail
+set -x
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT
+Rscript "${REPO_ROOT}/scripts/05i_shi_2019_annotate_from_table_s3.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --seurat-rds "${PROJECT_ROOT}/results/shi_2019_paper_qc/shi_2019_seurat.rds" \
+  --table-s3-tsv "${PROJECT_ROOT}/data/raw/shi_2019_geo_files/supplementary/science.abj6641_table_s3.tsv" \
+  --resolution 0.11 \
+  --top-n-our 200 \
+  --top-n-paper 200 \
+  --min-pct 0.2 \
+  --logfc-threshold 0.25
+

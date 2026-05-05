@@ -9,6 +9,7 @@ Status snapshot (Feb 2026)
 - Siebert 2026 (NeMO `nemo:dat-htzat9t`): canonical Seurat landing path is `results/siebert_2026/siebert_2026_seurat.rds` (with NeMO metadata under `data/raw/siebert_2026_nemo/`).
 - He et al HNOCA full V2 (Zenodo `14160929`): raw source path `data/raw/he_et_al_zenodo/suppl/hnoca_allmeta.h5ad`; SCN8A-scoped Seurat output path `results/he_et_al/he_et_al_scn8a_seurat.rds`.
 - Shi et al 2019 (GSE135827): raw GEO count table path `data/raw/shi_2019_geo_files/suppl/GSE135827_GE_mat_raw_count_with_week_info.txt.gz`; standalone Seurat output path `results/shi_2019/shi_2019_seurat.rds`.
+- Shi et al Table S3 annotation: Table S3 `.xlsx` can be converted to TSV via `scripts/05h_shi_table_s3_xlsx_to_tsv.py`; cluster-to-cell-type mapping stage via `scripts/05i_shi_2019_annotate_from_table_s3.R`.
 
 Register a cleaned Siebert `.rds` (from local laptop to Great Lakes)
 - Create canonical destination directory on Great Lakes:
@@ -30,6 +31,8 @@ Key scripts
 - He et al SCN8A slice extraction (Python): `scripts/05e_extract_he_et_al_scn8a_slice.py`
 - He et al SCN8A Seurat build: `scripts/05f_he_et_al_scn8a_seurat.R`
 - Shi et al standalone Seurat/UMAP build: `scripts/05g_shi_2019_seurat.R`
+- Shi Table S3 xlsx->tsv conversion: `scripts/05h_shi_table_s3_xlsx_to_tsv.py`
+- Shi Table S3-based annotation mapping: `scripts/05i_shi_2019_annotate_from_table_s3.R`
 - Cross-study multi-gene panel (log1p): `scripts/06_cross_study_gene_panel_log.R`
 - He-vs-Varela gene-panel config (LHX6, NKX2.1): `config/gene_panel_he_vs_varela_config.example.R`
 - He LHX6/NKX2.1 extraction Slurm template: `slurm_templates/05e_extract_he_et_al_lhx6_nkx21_slice.sbatch.template`
@@ -44,6 +47,8 @@ Key scripts
 - Slurm template for Panel B (Seurat v5 runtime / Assay5-aware): `slurm_templates/06_cross_study_panelB_markers_seurat5.sbatch.template`
 - Slurm template for Shi GEO download: `slurm_templates/01e_download_shi_geo.sbatch.template`
 - Slurm template for Shi Seurat/UMAP build: `slurm_templates/05g_shi_2019_seurat.sbatch.template`
+- Slurm template for Shi Table S3 xlsx->tsv conversion: `slurm_templates/05h_shi_table_s3_xlsx_to_tsv.sbatch.template`
+- Slurm template for Shi Table S3 annotation mapping: `slurm_templates/05i_shi_2019_annotate_from_table_s3.sbatch.template`
 - Human GE comparison placeholder (next stage draft): `scripts/07_compare_human_developing_ge_tbd.R`
 - Slurm template for Human GE placeholder: `slurm_templates/07_compare_human_developing_ge_tbd.sbatch.template`
 - Status audit: `scripts/00_audit_studies.sh` (prints a Markdown table)
@@ -93,6 +98,22 @@ Shi et al 2019 standalone workflow (GSE135827)
   - `PROJECT_ROOT/results/shi_2019/shi_2019_cell_metadata.tsv.gz`
   - `PROJECT_ROOT/results/shi_2019/shi_2019_metadata_columns_summary.tsv`
   - `PROJECT_ROOT/results/shi_2019/shi_2019_sample_metadata_from_series_matrix.tsv`
+
+Shi et al Table S3 annotation workflow (major cell-type mapping)
+- Stage A (copy Table S3 xlsx from local machine to Great Lakes; run on local terminal):
+  - `mkdir -p "/Users/ecrespo/Downloads/science.abj6641_tables_s2_to_s9"`
+  - `rsync -avh --progress "/Users/ecrespo/Downloads/science.abj6641_tables_s2_to_s9/science.abj6641_table_s3.xlsx" "elcrespo@gl-login1.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/data/raw/shi_2019_geo_files/supplementary/science.abj6641_table_s3.xlsx"`
+- Stage B (convert Table S3 xlsx to TSV on Great Lakes):
+  - `cp slurm_templates/05h_shi_table_s3_xlsx_to_tsv.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/05h_shi_table_s3_xlsx_to_tsv.sbatch`
+  - `sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/05h_shi_table_s3_xlsx_to_tsv.sbatch`
+- Stage C (map paper major cell types to Shi clusters):
+  - `cp slurm_templates/05i_shi_2019_annotate_from_table_s3.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/05i_shi_2019_annotate_from_table_s3.sbatch`
+  - `sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/05i_shi_2019_annotate_from_table_s3.sbatch`
+- Key outputs:
+  - `PROJECT_ROOT/results/shi_2019_paper_qc/table_s3_annotation/cluster_to_paper_celltype_res0_11.tsv`
+  - `PROJECT_ROOT/results/shi_2019_paper_qc/table_s3_annotation/cluster_vs_paper_scores_res0_11.tsv`
+  - `PROJECT_ROOT/results/shi_2019_paper_qc/table_s3_annotation/shi_2019_seurat_annotated_table_s3_res0_11.rds`
+  - `PROJECT_ROOT/results/shi_2019_paper_qc/table_s3_annotation/plots/umap_by_table_s3_celltype_res0_11.png`
 
 Run Panel B interactively (no Slurm required)
 - Edit config template: `config/panel_b_cross_study_config.example.R`

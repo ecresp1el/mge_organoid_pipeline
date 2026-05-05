@@ -141,6 +141,8 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 - He et al SCN8A extraction from full h5ad: `scripts/05e_extract_he_et_al_scn8a_slice.py`
 - He et al SCN8A Seurat build: `scripts/05f_he_et_al_scn8a_seurat.R`
 - Shi et al standalone Seurat + UMAP: `scripts/05g_shi_2019_seurat.R`
+- Shi Table S3 xlsx->tsv conversion (no extra deps): `scripts/05h_shi_table_s3_xlsx_to_tsv.py`
+- Shi Table S3-based cluster annotation mapping: `scripts/05i_shi_2019_annotate_from_table_s3.R`
 - Cross-study marker Panel B figure assembly (no analysis/recompute): `scripts/06_cross_study_panelB_markers.R`
 - Cross-study multi-gene UMAP panel (log1p): `scripts/06_cross_study_gene_panel_log.R`
 - Cross-study SCN8A He-vs-Varela config: `config/scn8a_he_vs_varela_config.example.R`
@@ -151,6 +153,8 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 - Completion checker for He-vs-Varela gene panel: `scripts/00b_check_he_vs_varela_gene_panel.sh`
 - Slurm template for cross-study Panel B (Seurat v4 runtime): `slurm_templates/06_cross_study_panelB_markers.sbatch.template`
 - Slurm template for cross-study Panel B (Seurat v5 runtime / Assay5-aware): `slurm_templates/06_cross_study_panelB_markers_seurat5.sbatch.template`
+- Slurm template for Shi Table S3 xlsx->tsv conversion: `slurm_templates/05h_shi_table_s3_xlsx_to_tsv.sbatch.template`
+- Slurm template for Shi Table S3 annotation mapping: `slurm_templates/05i_shi_2019_annotate_from_table_s3.sbatch.template`
 - Human developing GE comparison placeholder (next stage draft): `scripts/07_compare_human_developing_ge_tbd.R`
 - Slurm template for human GE placeholder: `slurm_templates/07_compare_human_developing_ge_tbd.sbatch.template`
 
@@ -178,6 +182,7 @@ Run from your local terminal (Mac/Linux):
 | Varela (DIV90)         | `/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds` | External analysis output | Yes | DIV90 timepoint, ventral SOSRS             |
 | He et al SCN8A         | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/he_et_al/he_et_al_scn8a_seurat.rds`  | scripts/05f_he_et_al_scn8a_seurat.R             | Yes           | Built from extracted slice                  |
 | Shi 2019 (GSE135827)   | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_2019/shi_2019_seurat.rds` | scripts/05g_shi_2019_seurat.R | Yes | Standalone GEO matrix workflow; metadata exports under `results/shi_2019/` |
+| Shi 2019 (Table S3-annotated) | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_2019_paper_qc/table_s3_annotation/shi_2019_seurat_annotated_table_s3_res0_11.rds` | scripts/05i_shi_2019_annotate_from_table_s3.R | Yes | Cluster labels mapped to paper major cell types via Table S3 DEGs |
 | Samarasinghe 2021      | *(Not present yet)*                                                                                    | scripts/05_samarasinghe_2021_seurat.R           | No            | Script ready, output not found              |
 
 ---
