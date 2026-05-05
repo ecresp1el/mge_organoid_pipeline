@@ -401,7 +401,7 @@ build_plot <- function(plot_data, study_labels, genes) {
     p <- p + geom_point(
       data = point_df,
       aes(x = UMAP_1, y = UMAP_2, color = expr),
-      size = 0.20, alpha = 0.85, stroke = 0, show.legend = FALSE
+      size = 0.40, alpha = 0.85, stroke = 0, show.legend = FALSE
     )
   }
 
