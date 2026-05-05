@@ -228,6 +228,12 @@ cell_ids <- strsplit(header_line, "\t", fixed = TRUE)[[1]]
 if (length(cell_ids) < 10) {
   stop("Header parse failed: expected many cell IDs, got ", length(cell_ids))
 }
+raw_cell_ids <- cell_ids
+dup_cell_count <- sum(duplicated(raw_cell_ids))
+if (dup_cell_count > 0) {
+  message("Detected ", dup_cell_count, " duplicated cell IDs in header; making unique names for Seurat compatibility.")
+  cell_ids <- make.unique(raw_cell_ids, sep = "_dup")
+}
 
 message("Reading count table body and converting to sparse matrix...")
 read_cmd <- if (grepl("\\.gz$", counts_path, ignore.case = TRUE)) {
@@ -281,16 +287,30 @@ rm(spmat)
 gc()
 
 # Derive basic cell metadata from barcode suffix.
-cell_meta <- data.table(cell_id = colnames(seu))
+cell_meta <- data.table(
+  cell_id = colnames(seu),
+  raw_cell_id = raw_cell_ids
+)
 cell_meta[, study_id := "shi_2019"]
-cell_meta[, week_label := ifelse(grepl("-GW[0-9]+(?:-[0-9]+)?$", cell_id, perl = TRUE),
-                                 sub("^.*-(GW[0-9]+(?:-[0-9]+)?)$", "\\1", cell_id, perl = TRUE),
+cell_meta[, has_duplicated_raw_cell_id := duplicated(raw_cell_id) | duplicated(raw_cell_id, fromLast = TRUE)]
+cell_meta[, week_label := ifelse(grepl("-GW[0-9]+(?:[-_][0-9A-Za-z]+)?$", raw_cell_id, perl = TRUE),
+                                 sub("^.*-(GW[0-9]+(?:[-_][0-9A-Za-z]+)?)$", "\\1", raw_cell_id, perl = TRUE),
                                  NA_character_)]
-cell_meta[, week_numeric := suppressWarnings(as.integer(sub("^GW", "", week_label)))]
-cell_meta[, barcode := sub("-GW[0-9]+(?:-[0-9]+)?$", "", cell_id, perl = TRUE)]
+cell_meta[, week_numeric := suppressWarnings(as.integer(sub("^GW([0-9]+).*$", "\\1", week_label, perl = TRUE)))]
+cell_meta[, barcode := sub("-GW[0-9]+(?:[-_][0-9A-Za-z]+)?$", "", raw_cell_id, perl = TRUE)]
 
 rownames(cell_meta) <- cell_meta$cell_id
-seu <- AddMetaData(seu, metadata = as.data.frame(cell_meta[, .(study_id, week_label, week_numeric, barcode)]))
+seu <- AddMetaData(
+  seu,
+  metadata = as.data.frame(cell_meta[, .(
+    raw_cell_id,
+    has_duplicated_raw_cell_id,
+    study_id,
+    week_label,
+    week_numeric,
+    barcode
+  )])
+)
 
 # Optional sample-level metadata from GEO series matrix.
 sample_meta <- parse_series_matrix_samples(series_matrix_path)
