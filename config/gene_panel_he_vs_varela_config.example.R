@@ -5,19 +5,22 @@ list(
   studies = data.frame(
     study_id = c(
       "he_et_al",
-      "varela_this_paper"
+      "varela_this_paper",
+      "varela_div90"
     ),
     study_label = c(
       "He et al (HNOCA Full V2)",
-      "Varela (This paper)"
+      "Varela (This paper)",
+      "Varela DIV90"
     ),
     object_path = c(
       "results/he_et_al/he_et_al_scn8a_seurat.rds",
-      "results/varela_this_paper/varela_this_paper_seurat.rds"
+      "results/varela_this_paper/varela_this_paper_seurat.rds",
+      "/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds"
     ),
-    reduction = c("umap", "umap"),
-    assay = c("RNA", "RNA"),
-    expression_slot = c("data", "data"),
+    reduction = c("umap", "umap", "umap"),
+    assay = c("RNA", "RNA", "RNA"),
+    expression_slot = c("data", "data", "data"),
     stringsAsFactors = FALSE
   )
 )
