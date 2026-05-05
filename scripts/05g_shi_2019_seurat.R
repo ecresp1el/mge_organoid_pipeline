@@ -19,7 +19,12 @@ parse_args <- function(args) {
     `series-matrix` = NULL,
     outdir = NULL,
     `min-features` = "500",
+    `max-features` = NA_character_,
+    `max-umi` = NA_character_,
     `max-percent-mt` = "20",
+    `max-percent-hb` = NA_character_,
+    `gene-min-cells` = "3",
+    `filter-profile` = "default",
     `nfeatures` = "3000",
     `dims` = "30",
     resolution = "0.8",
@@ -60,7 +65,12 @@ print_usage <- function() {
       "  --series-matrix <path>  GEO series matrix for sample metadata (default: data/raw/shi_2019_geo_files/matrix/GSE135827_series_matrix.txt.gz)",
       "  --outdir <path>         Output directory (default: PROJECT_ROOT/results/shi_2019)",
       "  --min-features <int>    Cell filter lower bound on nFeature_RNA (default: 500)",
+      "  --max-features <int>    Cell filter upper bound on nFeature_RNA (default: unset)",
+      "  --max-umi <int>         Cell filter upper bound on nCount_RNA (default: unset)",
       "  --max-percent-mt <num>  Cell filter upper bound on percent.mt (default: 20)",
+      "  --max-percent-hb <num>  Cell filter upper bound on percent.hb (default: unset)",
+      "  --gene-min-cells <int>  Keep genes expressed in at least this many cells (default: 3)",
+      "  --filter-profile <name> Filter profile: default or shi_paper",
       "  --nfeatures <int>       HVGs for FindVariableFeatures (default: 3000)",
       "  --dims <int>            PCs used for neighbors/UMAP (default: 30)",
       "  --resolution <num>      Cluster resolution (default: 0.8)",
@@ -207,12 +217,33 @@ dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
 
 min_features <- as.integer(opt$`min-features`)
+max_features <- suppressWarnings(as.integer(opt$`max-features`))
+max_umi <- suppressWarnings(as.integer(opt$`max-umi`))
 max_percent_mt <- as.numeric(opt$`max-percent-mt`)
+max_percent_hb <- suppressWarnings(as.numeric(opt$`max-percent-hb`))
+gene_min_cells <- as.integer(opt$`gene-min-cells`)
+filter_profile <- as.character(opt$`filter-profile`)
 nfeatures <- as.integer(opt$nfeatures)
 dims_use <- as.integer(opt$dims)
 resolution <- as.numeric(opt$resolution)
+
+if (!nzchar(filter_profile)) filter_profile <- "default"
+if (identical(filter_profile, "shi_paper")) {
+  # Paper-matched QC settings from Shi et al methods section.
+  min_features <- 800L
+  max_features <- 4000L
+  max_umi <- 15000L
+  max_percent_mt <- 5
+  max_percent_hb <- 5
+  gene_min_cells <- 5L
+}
+
 if (is.na(min_features) || min_features < 0) stop("Invalid --min-features")
+if (!is.na(max_features) && max_features <= min_features) stop("Invalid --max-features")
+if (!is.na(max_umi) && max_umi <= 0) stop("Invalid --max-umi")
 if (is.na(max_percent_mt) || max_percent_mt <= 0) stop("Invalid --max-percent-mt")
+if (!is.na(max_percent_hb) && max_percent_hb <= 0) stop("Invalid --max-percent-hb")
+if (is.na(gene_min_cells) || gene_min_cells < 1) stop("Invalid --gene-min-cells")
 if (is.na(nfeatures) || nfeatures <= 0) stop("Invalid --nfeatures")
 if (is.na(dims_use) || dims_use <= 1) stop("Invalid --dims")
 if (is.na(resolution) || resolution <= 0) stop("Invalid --resolution")
@@ -280,7 +311,8 @@ message("Creating Seurat object...")
 seu <- CreateSeuratObject(
   counts = spmat,
   project = "Shi2019",
-  min.cells = 3,
+  # Keep all genes initially so cell-level QC matches paper ordering.
+  min.cells = 0,
   min.features = 0
 )
 rm(spmat)
@@ -319,9 +351,40 @@ if (nrow(sample_meta) > 0) {
 }
 
 seu[["percent.mt"]] <- PercentageFeatureSet(seu, pattern = "^MT-")
+hb_pattern <- "^HB[ABDEGMPQZ]"
+hb_genes <- grep(hb_pattern, rownames(seu), value = TRUE)
+if (length(hb_genes) > 0) {
+  seu[["percent.hb"]] <- PercentageFeatureSet(seu, pattern = hb_pattern)
+} else {
+  seu[["percent.hb"]] <- 0
+}
 
-message("Applying QC filter: nFeature_RNA > ", min_features, ", percent.mt < ", max_percent_mt)
-seu <- subset(seu, subset = nFeature_RNA > min_features & percent.mt < max_percent_mt)
+cells_before_qc <- ncol(seu)
+genes_before_qc <- nrow(seu)
+message("Applying QC filter profile: ", filter_profile)
+message(
+  "QC thresholds: nFeature_RNA > ", min_features,
+  ifelse(is.na(max_features), "", paste0(", nFeature_RNA < ", max_features)),
+  ifelse(is.na(max_umi), "", paste0(", nCount_RNA < ", max_umi)),
+  ", percent.mt < ", max_percent_mt,
+  ifelse(is.na(max_percent_hb), "", paste0(", percent.hb < ", max_percent_hb)),
+  ", gene_min_cells >= ", gene_min_cells
+)
+
+qc_keep <- seu$nFeature_RNA > min_features & seu$percent.mt < max_percent_mt
+if (!is.na(max_features)) qc_keep <- qc_keep & (seu$nFeature_RNA < max_features)
+if (!is.na(max_umi)) qc_keep <- qc_keep & (seu$nCount_RNA < max_umi)
+if (!is.na(max_percent_hb)) qc_keep <- qc_keep & (seu$percent.hb < max_percent_hb)
+
+seu <- subset(seu, cells = colnames(seu)[qc_keep])
+cells_after_qc <- ncol(seu)
+genes_after_cell_qc <- nrow(seu)
+
+message("Applying gene filter: expressed in at least ", gene_min_cells, " cells")
+counts_m <- GetAssayData(seu, assay = "RNA", layer = "counts")
+genes_keep <- Matrix::rowSums(counts_m > 0) >= gene_min_cells
+seu <- subset(seu, features = rownames(seu)[genes_keep])
+genes_after_gene_qc <- nrow(seu)
 
 message("Normalize / HVG / Scale / PCA / Neighbors / Clusters / UMAP...")
 seu <- NormalizeData(seu)
@@ -343,8 +406,29 @@ meta_summary <- summarize_metadata(seu@meta.data)
 fwrite(meta_summary, file.path(outdir, "shi_2019_metadata_columns_summary.tsv"), sep = "\t")
 
 summary_dt <- data.table(
-  metric = c("n_cells", "n_features", "default_assay", "reductions", "clusters", "weeks_detected"),
+  metric = c(
+    "filter_profile",
+    "gene_min_cells",
+    "cells_before_qc",
+    "genes_before_qc",
+    "cells_after_qc",
+    "genes_after_cell_qc",
+    "genes_after_gene_qc",
+    "n_cells",
+    "n_features",
+    "default_assay",
+    "reductions",
+    "clusters",
+    "weeks_detected"
+  ),
   value = c(
+    filter_profile,
+    as.character(gene_min_cells),
+    as.character(cells_before_qc),
+    as.character(genes_before_qc),
+    as.character(cells_after_qc),
+    as.character(genes_after_cell_qc),
+    as.character(genes_after_gene_qc),
     as.character(ncol(seu)),
     as.character(nrow(seu)),
     DefaultAssay(seu),

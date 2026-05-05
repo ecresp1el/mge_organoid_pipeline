@@ -2,7 +2,7 @@
 #SBATCH --job-name=shi2019_seurat
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=16
-#SBATCH --mem=170G
+#SBATCH --mem=64G
 #SBATCH --nodes=1
 #SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05g_shi_2019_seurat_%j.log
 #SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05g_shi_2019_seurat_%j.log
@@ -24,4 +24,6 @@ set -x
 mkdir -p "${PROJECT_ROOT}/logs"
 
 export PROJECT_ROOT
-Rscript "${REPO_ROOT}/scripts/05g_shi_2019_seurat.R" --project-root "${PROJECT_ROOT}"
+Rscript "${REPO_ROOT}/scripts/05g_shi_2019_seurat.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --filter-profile shi_paper
