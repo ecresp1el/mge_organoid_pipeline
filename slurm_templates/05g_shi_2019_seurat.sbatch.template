@@ -1,0 +1,27 @@
+#!/bin/bash
+#SBATCH --job-name=shi2019_seurat
+#SBATCH --time=24:00:00
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=192G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05g_shi_2019_seurat_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05g_shi_2019_seurat_%j.log
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=your_email@umich.edu
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+
+# Build Shi et al (GSE135827) standalone Seurat object + UMAP.
+
+module load Bioinformatics
+module load r-seurat/5.1.0-R-4.4.1-c3m7yfq
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+
+set -euo pipefail
+set -x
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT
+Rscript "${REPO_ROOT}/scripts/05g_shi_2019_seurat.R" --project-root "${PROJECT_ROOT}"

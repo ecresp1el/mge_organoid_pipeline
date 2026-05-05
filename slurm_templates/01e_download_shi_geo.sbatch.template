@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH --job-name=download_shi_geo
+#SBATCH --time=08:00:00
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=24G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/01e_download_shi_geo_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/01e_download_shi_geo_%j.log
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=your_email@umich.edu
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+
+# Template for downloading Shi et al GEO dataset GSE135827.
+# NOTE: Slurm does not expand shell variables in #SBATCH output/error paths.
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+
+set -euo pipefail
+
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT
+"${REPO_ROOT}/scripts/01e_download_shi_geo.sh" --project-root "${PROJECT_ROOT}"

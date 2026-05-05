@@ -8,6 +8,7 @@ Status snapshot (Feb 2026)
 - Samarasinghe 2021 (GSE165577): counts downloaded (`data/raw/samarasinghe_2021_geo_files/suppl/`); Seurat script/template ready; results not generated yet; LIGER run pending.
 - Siebert 2026 (NeMO `nemo:dat-htzat9t`): canonical Seurat landing path is `results/siebert_2026/siebert_2026_seurat.rds` (with NeMO metadata under `data/raw/siebert_2026_nemo/`).
 - He et al HNOCA full V2 (Zenodo `14160929`): raw source path `data/raw/he_et_al_zenodo/suppl/hnoca_allmeta.h5ad`; SCN8A-scoped Seurat output path `results/he_et_al/he_et_al_scn8a_seurat.rds`.
+- Shi et al 2019 (GSE135827): raw GEO count table path `data/raw/shi_2019_geo_files/suppl/GSE135827_GE_mat_raw_count_with_week_info.txt.gz`; standalone Seurat output path `results/shi_2019/shi_2019_seurat.rds`.
 
 Register a cleaned Siebert `.rds` (from local laptop to Great Lakes)
 - Create canonical destination directory on Great Lakes:
@@ -25,8 +26,10 @@ Path migration note (2026-02-08)
 Key scripts
 - Downloads: `scripts/01c_download_extra_geo.sh` (Xiang_2018, Samarasinghe_2021, Bershteyn_2023)
 - He et al full V2 download: `scripts/01d_download_he_et_al_zenodo.sh`
+- Shi et al GEO download: `scripts/01e_download_shi_geo.sh`
 - He et al SCN8A slice extraction (Python): `scripts/05e_extract_he_et_al_scn8a_slice.py`
 - He et al SCN8A Seurat build: `scripts/05f_he_et_al_scn8a_seurat.R`
+- Shi et al standalone Seurat/UMAP build: `scripts/05g_shi_2019_seurat.R`
 - Cross-study multi-gene panel (log1p): `scripts/06_cross_study_gene_panel_log.R`
 - He-vs-Varela gene-panel config (LHX6, NKX2.1): `config/gene_panel_he_vs_varela_config.example.R`
 - He LHX6/NKX2.1 extraction Slurm template: `slurm_templates/05e_extract_he_et_al_lhx6_nkx21_slice.sbatch.template`
@@ -39,6 +42,8 @@ Key scripts
 - SCN8A He-vs-Varela Slurm template: `slurm_templates/06_cross_study_scn8a_log_he_vs_varela_seurat5.sbatch.template`
 - Slurm template for Panel B (Seurat v4 runtime): `slurm_templates/06_cross_study_panelB_markers.sbatch.template`
 - Slurm template for Panel B (Seurat v5 runtime / Assay5-aware): `slurm_templates/06_cross_study_panelB_markers_seurat5.sbatch.template`
+- Slurm template for Shi GEO download: `slurm_templates/01e_download_shi_geo.sbatch.template`
+- Slurm template for Shi Seurat/UMAP build: `slurm_templates/05g_shi_2019_seurat.sbatch.template`
 - Human GE comparison placeholder (next stage draft): `scripts/07_compare_human_developing_ge_tbd.R`
 - Slurm template for Human GE placeholder: `slurm_templates/07_compare_human_developing_ge_tbd.sbatch.template`
 - Status audit: `scripts/00_audit_studies.sh` (prints a Markdown table)
@@ -73,6 +78,21 @@ He-vs-Varela marker panel for `LHX6` and `NKX2.1` (grey->purple)
   - `scripts/00b_check_he_vs_varela_gene_panel.sh --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder`
 - Output image:
   - `PROJECT_ROOT/results/gene_panel_he_vs_varela_v1/plots/gene_panel_cross_study_log.png`
+
+Shi et al 2019 standalone workflow (GSE135827)
+- Stage 1 (download GEO files under `data/raw/shi_2019_geo_files/`):
+  - `cp slurm_templates/01e_download_shi_geo.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/01e_download_shi_geo.sbatch`
+  - `sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/01e_download_shi_geo.sbatch`
+- Stage 2 (build standalone Seurat object + UMAP):
+  - `cp slurm_templates/05g_shi_2019_seurat.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/05g_shi_2019_seurat.sbatch`
+  - `sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/05g_shi_2019_seurat.sbatch`
+- Key outputs:
+  - `PROJECT_ROOT/results/shi_2019/shi_2019_seurat.rds`
+  - `PROJECT_ROOT/results/shi_2019/plots/umap_by_cluster.png`
+  - `PROJECT_ROOT/results/shi_2019/plots/umap_by_week.png`
+  - `PROJECT_ROOT/results/shi_2019/shi_2019_cell_metadata.tsv.gz`
+  - `PROJECT_ROOT/results/shi_2019/shi_2019_metadata_columns_summary.tsv`
+  - `PROJECT_ROOT/results/shi_2019/shi_2019_sample_metadata_from_series_matrix.tsv`
 
 Run Panel B interactively (no Slurm required)
 - Edit config template: `config/panel_b_cross_study_config.example.R`

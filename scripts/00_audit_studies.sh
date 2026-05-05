@@ -96,6 +96,12 @@ he_seu="${results_dir}/he_et_al/he_et_al_scn8a_seurat.rds"
 he_umap="${results_dir}/he_et_al/plots/scn8a_umap.png"
 echo "| He et al HNOCA (Zenodo 14160929 full V2) | $(yn_file "$he_raw") | $(yn_file "$he_seu") | $(yn_file "$he_umap") | scoped SCN8A-ready object for cross-study SCN8A panel |"
 
+# Shi et al 2019 (GSE135827)
+shi_raw="${raw_dir}/shi_2019_geo_files/suppl/GSE135827_GE_mat_raw_count_with_week_info.txt.gz"
+shi_seu="${results_dir}/shi_2019/shi_2019_seurat.rds"
+shi_umap="${results_dir}/shi_2019/plots/umap_by_cluster.png"
+echo "| Shi et al 2019 (GSE135827) | $(yn_file "$shi_raw") | $(yn_file "$shi_seu") | $(yn_file "$shi_umap") | standalone Seurat + UMAP workflow with week metadata from barcode suffix |"
+
 echo
 echo "Sanity checks:"
 echo "- data/raw exists: $(yn_dir "$raw_dir")"
