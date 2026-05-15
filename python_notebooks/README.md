@@ -864,6 +864,72 @@ for Shi because Varela DIV30 came from a 16 GB Seurat object and has more cells.
 Continue to monitor rather than interrupting unless the Rscript process exits or
 an error appears.
 
+## Batch Conversion With Slurm
+
+Use the notebook for smoke tests and AnnData analysis. Use Slurm for large
+one-time conversions such as Varela DIV30 and DIV90.
+
+The batch entry point is:
+
+```text
+python_notebooks/scripts/convert_seurat_to_anndata.py
+```
+
+The Slurm template is:
+
+```text
+slurm_templates/08_convert_python_anndata.sbatch.template
+```
+
+Submit the default job:
+
+```bash
+cp slurm_templates/08_convert_python_anndata.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/08_convert_python_anndata.sbatch
+
+sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/08_convert_python_anndata.sbatch
+```
+
+Default job behavior:
+
+```text
+account:   parent0
+partition: standard
+memory:    160G
+CPUs:      4
+time:      12:00:00
+studies:   all
+overwrite: false
+```
+
+Because `overwrite=false`, existing current outputs are skipped. Since
+`shi_2019_paper_qc.h5ad` already exists, the batch job should report
+`needs_conversion=False` for Shi and move on to Varela outputs.
+
+To submit only Varela DIV30 and DIV90:
+
+```bash
+STUDIES="varela_div30 varela_div90" \
+sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/08_convert_python_anndata.sbatch
+```
+
+Logs are written to:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/08_convert_python_anndata_<jobid>.log
+```
+
+Expected cached outputs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/shi_2019_paper_qc.h5ad
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div30.h5ad
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div90.h5ad
+```
+
+After these files exist, notebooks should load AnnData directly with
+`anndata.read_h5ad(..., backed="r")` instead of rerunning Seurat conversion.
+
 ## Fresh Login Test
 
 These instructions are the ground truth for testing the Python entry point from a
