@@ -2,6 +2,9 @@
 
 from pathlib import Path
 from datetime import datetime
+import os
+import subprocess
+import sys
 
 from .paths import default_anndata_dir, ensure_under_path, resolve_project_root
 from .validation import validate_anndata
@@ -14,13 +17,19 @@ def _timestamp():
 class SeuratToAnnDataConverter:
     """Convert Seurat `.rds` objects to cached AnnData `.h5ad` files."""
 
-    def __init__(self, project_root=None, output_dir=None, overwrite=False, verbose=True):
+    def __init__(self, project_root=None, output_dir=None, overwrite=False, verbose=True, repo_root=None):
         self.project_root = resolve_project_root(project_root)
         self.output_dir = Path(output_dir).expanduser() if output_dir else default_anndata_dir(self.project_root)
         self.output_dir = ensure_under_path(self.output_dir, self.project_root)
         self.overwrite = bool(overwrite)
         self.verbose = bool(verbose)
+        self.repo_root = Path(repo_root).expanduser().resolve() if repo_root else self._infer_repo_root()
         self._r_convert = None
+
+    def _infer_repo_root(self):
+        here = Path(__file__).resolve()
+        # converter.py -> mge_organoid_python -> src -> python_notebooks -> repo
+        return here.parents[3]
 
     def log(self, message):
         if self.verbose:
@@ -81,15 +90,7 @@ class SeuratToAnnDataConverter:
         )
         if needs_conversion:
             self.log("Study {}: starting RDS -> H5AD conversion".format(study.study_id))
-            r_convert = self._get_r_converter()
-            r_convert(
-                str(source),
-                str(target),
-                study.assay,
-                study.reduction,
-                study.expression_layer,
-                bool(do_overwrite),
-            )
+            self._run_rscript_converter(source, target, study, do_overwrite)
             self.log("Study {}: finished conversion write".format(study.study_id))
         else:
             self.log("Study {}: using existing cached H5AD".format(study.study_id))
@@ -120,6 +121,52 @@ class SeuratToAnnDataConverter:
             paths[study.study_id] = self.convert_file(study, overwrite=overwrite)
         self.log("All file conversions complete")
         return paths
+
+    def _run_rscript_converter(self, source, target, study, overwrite):
+        script = self.repo_root / "python_notebooks" / "scripts" / "seurat_to_h5ad.R"
+        if not script.exists():
+            raise FileNotFoundError("Missing R conversion helper: {}".format(script))
+
+        cmd = [
+            "Rscript",
+            str(script),
+            "--seurat",
+            str(source),
+            "--h5ad",
+            str(target),
+            "--assay",
+            study.assay,
+            "--reduction",
+            study.reduction,
+            "--expression_layer",
+            study.expression_layer,
+            "--overwrite",
+            "true" if overwrite else "false",
+        ]
+        self.log("Running Rscript subprocess: {}".format(" ".join(cmd)))
+
+        env = os.environ.copy()
+        env.setdefault("PROJECT_ROOT", str(self.project_root))
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(self.repo_root),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            print(line, end="", flush=True)
+        returncode = proc.wait()
+        if returncode != 0:
+            raise RuntimeError(
+                "Rscript Seurat -> H5AD conversion failed for {} with exit code {}".format(
+                    study.study_id,
+                    returncode,
+                )
+            )
 
     def _read_h5ad(self, path):
         try:
