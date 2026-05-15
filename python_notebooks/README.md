@@ -544,6 +544,55 @@ is not doing conversion work. It only resolves the repo path and adds
 still attached to a wedged kernel process or has a stale notebook tab after the
 file changed on disk.
 
+The notebook file itself should have no saved running state. You can verify from
+the repo root:
+
+```bash
+python3 - <<'PY'
+import json
+nb = json.load(open("python_notebooks/notebooks/01_seurat_to_anndata.ipynb"))
+for i, cell in enumerate(nb["cells"][:5]):
+    print(i, cell.get("cell_type"), "execution_count=", cell.get("execution_count"), "outputs=", len(cell.get("outputs", [])))
+PY
+```
+
+Expected output for a clean notebook:
+
+```text
+0 markdown execution_count= None outputs= 0
+1 markdown execution_count= None outputs= 0
+2 code execution_count= None outputs= 0
+3 code execution_count= None outputs= 0
+4 code execution_count= None outputs= 0
+```
+
+If a cell starts running immediately when you open the notebook, check for stale
+kernel processes:
+
+```bash
+ps -u "$USER" -f | rg 'jupyter|ipykernel|python.*kernel|ipython' || true
+```
+
+If you see an old `ipykernel_launcher` process for this notebook, shut down the
+kernel from VS Code first. If the UI cannot stop it, terminate that specific
+kernel PID from the terminal with `kill <PID>`, then reopen the notebook and
+select `mge-organoid-python (Python 3.11.15)` again.
+
+Only kill a PID that appears in `ps` from your current compute-node terminal. If
+`kill <PID>` says `No such process`, that PID is not active in that terminal
+context anymore; rerun the `ps` command and use the current PID, if any.
+
+If `ps` prints no Jupyter/kernel process but the first cell appears to start
+running immediately when the notebook opens, VS Code is showing stale notebook UI
+state. The notebook file is not actually running. Use:
+
+```text
+Developer: Reload Window
+```
+
+Then reopen the notebook, select `mge-organoid-python (Python 3.11.15)`, and
+run only the first code cell.
+
 Recovery steps:
 
 ```text
