@@ -389,6 +389,49 @@ Then close and reopen the notebook tab or use the VS Code command palette:
 Developer: Reload Window
 ```
 
+If the kernel picker opens but does not show the env, choose:
+
+```text
+Select Another Kernel -> Python Environments -> Enter interpreter path
+```
+
+Then paste:
+
+```text
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+```
+
+If clicking `Select Kernel` does not open anything at all, use the command
+palette instead:
+
+```text
+Notebook: Select Notebook Kernel
+```
+
+If that still does not open a picker, reload the VS Code window and try again:
+
+```text
+Developer: Reload Window
+```
+
+Confirmed VS Code state for this project:
+
+```text
+Notebook kernel selected: mge-organoid-python (Python 3.11.15)
+```
+
+First notebook cell expected output:
+
+```text
+PosixPath('/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline')
+```
+
+Confirmed notebook state for this project:
+
+```text
+PosixPath('/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline')
+```
+
 Run the notebook cells in order. The conversion cell writes outputs to:
 
 ```text
