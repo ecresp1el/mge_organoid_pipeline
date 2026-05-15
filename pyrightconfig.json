@@ -1,0 +1,9 @@
+{
+  "include": [
+    "python_notebooks/src",
+    "python_notebooks/notebooks"
+  ],
+  "extraPaths": [
+    "python_notebooks/src"
+  ]
+}

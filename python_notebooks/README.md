@@ -432,6 +432,65 @@ Confirmed notebook state for this project:
 PosixPath('/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline')
 ```
 
+Second notebook cell expected output:
+
+```text
+PROJECT_ROOT = /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+shi_2019_paper_qc: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_2019_paper_qc/shi_2019_seurat.rds
+varela_div30: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds
+varela_div90: /nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds
+```
+
+If VS Code shows `Import "mge_organoid_python" could not be resolved` but the
+cell runs and prints the paths above, Python is working correctly. That warning
+comes from the editor language server, not the notebook runtime. The repo has a
+`pyrightconfig.json` file that points VS Code/Pylance at `python_notebooks/src`;
+reload the VS Code window if the warning does not clear.
+
+Plain-language explanation of `pyrightconfig.json`:
+
+```json
+{
+  "include": [
+    "python_notebooks/src",
+    "python_notebooks/notebooks"
+  ],
+  "extraPaths": [
+    "python_notebooks/src"
+  ]
+}
+```
+
+`pyrightconfig.json` is for VS Code/Pylance static checking only. It does not
+run the notebook and it does not change where Python looks at runtime.
+
+`include` tells Pylance which repo folders to analyze. Here, it means:
+
+```text
+python_notebooks/src       -> analyze the custom Python package
+python_notebooks/notebooks -> analyze notebook-side Python code
+```
+
+`extraPaths` tells Pylance where importable local packages live. Here, it means:
+
+```text
+python_notebooks/src
+```
+
+so the editor can understand:
+
+```python
+import mge_organoid_python
+```
+
+The notebook runtime still gets the same path from the first notebook cell,
+which adds `python_notebooks/src` to `sys.path`. In short:
+
+```text
+pyrightconfig.json -> helps VS Code stop showing a false import warning
+first notebook cell -> makes the package importable when the notebook runs
+```
+
 Run the notebook cells in order. The conversion cell writes outputs to:
 
 ```text
