@@ -1,20 +1,30 @@
 """Seurat RDS to AnnData conversion through a Python-driven R bridge."""
 
 from pathlib import Path
+from datetime import datetime
 
 from .paths import default_anndata_dir, ensure_under_path, resolve_project_root
 from .validation import validate_anndata
 
 
+def _timestamp():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
 class SeuratToAnnDataConverter:
     """Convert Seurat `.rds` objects to cached AnnData `.h5ad` files."""
 
-    def __init__(self, project_root=None, output_dir=None, overwrite=False):
+    def __init__(self, project_root=None, output_dir=None, overwrite=False, verbose=True):
         self.project_root = resolve_project_root(project_root)
         self.output_dir = Path(output_dir).expanduser() if output_dir else default_anndata_dir(self.project_root)
         self.output_dir = ensure_under_path(self.output_dir, self.project_root)
         self.overwrite = bool(overwrite)
+        self.verbose = bool(verbose)
         self._r_convert = None
+
+    def log(self, message):
+        if self.verbose:
+            print("[{}] {}".format(_timestamp(), message), flush=True)
 
     def output_path(self, study):
         path = study.h5ad_path(project_root=self.project_root, output_dir=self.output_dir)
@@ -39,7 +49,17 @@ class SeuratToAnnDataConverter:
         target.parent.mkdir(parents=True, exist_ok=True)
 
         do_overwrite = self.overwrite if overwrite is None else bool(overwrite)
-        if do_overwrite or self.needs_conversion(study):
+        needs_conversion = do_overwrite or self.needs_conversion(study)
+        self.log(
+            "Study {study_id}: source={source} target={target} needs_conversion={needs}".format(
+                study_id=study.study_id,
+                source=source,
+                target=target,
+                needs=needs_conversion,
+            )
+        )
+        if needs_conversion:
+            self.log("Study {}: starting RDS -> H5AD conversion".format(study.study_id))
             r_convert = self._get_r_converter()
             r_convert(
                 str(source),
@@ -49,19 +69,36 @@ class SeuratToAnnDataConverter:
                 study.expression_layer,
                 bool(do_overwrite),
             )
+            self.log("Study {}: finished conversion write".format(study.study_id))
+        else:
+            self.log("Study {}: using existing cached H5AD".format(study.study_id))
 
+        self.log("Study {}: loading H5AD into AnnData".format(study.study_id))
         adata = self._read_h5ad(target)
+        self.log("Study {}: validating AnnData".format(study.study_id))
         report = validate_anndata(study, adata, target)
+        self.log(
+            "Study {study_id}: ready n_obs={n_obs:,} n_vars={n_vars:,} has_umap={has_umap}".format(
+                study_id=study.study_id,
+                n_obs=report.n_obs,
+                n_vars=report.n_vars,
+                has_umap=report.has_umap,
+            )
+        )
         return adata, report
 
     def convert_many(self, studies, overwrite=None):
         """Convert studies and return `(adatas, reports)` dictionaries/lists."""
+        studies = list(studies)
+        self.log("Starting conversion/load for {} studies".format(len(studies)))
         adatas = {}
         reports = []
-        for study in studies:
+        for idx, study in enumerate(studies, start=1):
+            self.log("({}/{}) {}".format(idx, len(studies), study.study_id))
             adata, report = self.convert(study, overwrite=overwrite)
             adatas[study.study_id] = adata
             reports.append(report)
+        self.log("All studies complete")
         return adatas, reports
 
     def _read_h5ad(self, path):
@@ -106,13 +143,16 @@ class SeuratToAnnDataConverter:
                     stop("Seurat source does not exist: ", seurat_path, call. = FALSE)
                 }
                 if (file.exists(h5ad_path) && !isTRUE(overwrite)) {
+                    message("[R] Existing H5AD found; skipping conversion: ", h5ad_path)
                     return(normalizePath(h5ad_path, mustWork = TRUE))
                 }
 
+                message("[R] Reading Seurat RDS: ", seurat_path)
                 obj <- readRDS(seurat_path)
                 if (!inherits(obj, "Seurat")) {
                     stop("Object is not a Seurat object: ", seurat_path, call. = FALSE)
                 }
+                message("[R] Loaded Seurat object with ", ncol(obj), " cells and ", nrow(obj), " features")
                 if (!(assay %in% Seurat::Assays(obj))) {
                     stop(
                         "Missing assay '", assay, "'. Available assays: ",
@@ -133,10 +173,13 @@ class SeuratToAnnDataConverter:
                     inherits(obj[[assay]], "Assay5") &&
                     exists("JoinLayers", where = asNamespace("SeuratObject"), inherits = FALSE)
                 ) {
+                    message("[R] Assay5 detected; joining layers for assay: ", assay)
                     obj <- SeuratObject::JoinLayers(obj, assay = assay)
                 }
+                message("[R] Converting Seurat object to SingleCellExperiment")
                 sce <- Seurat::as.SingleCellExperiment(obj, assay = assay)
 
+                message("[R] Transferring reduction to reducedDim X_umap: ", reduction)
                 emb <- Seurat::Embeddings(obj, reduction = reduction)
                 if (is.null(dim(emb)) || nrow(emb) == 0 || ncol(emb) < 2) {
                     stop("Reduction '", reduction, "' does not contain a two-dimensional embedding.", call. = FALSE)
@@ -167,7 +210,9 @@ class SeuratToAnnDataConverter:
                 }
 
                 dir.create(dirname(h5ad_path), showWarnings = FALSE, recursive = TRUE)
+                message("[R] Writing H5AD: ", h5ad_path, " (X_name=", x_name, ")")
                 zellkonverter::writeH5AD(sce, file = h5ad_path, X_name = x_name)
+                message("[R] Finished writing H5AD: ", h5ad_path)
                 normalizePath(h5ad_path, mustWork = TRUE)
             }
             '''
