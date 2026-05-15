@@ -79,6 +79,137 @@ compute node using your Great Lakes SSH jump-host setup. Once VS Code is
 connected to the compute node, use the same `mge-organoid-python` environment
 and notebook kernel there.
 
+## Current Step-By-Step Notebook Test
+
+Use this section when starting from the confirmed state:
+
+```text
+login node: gl-login1
+repo: /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+conda base: /home/elcrespo/miniconda3
+env: mge-organoid-python
+python: Python 3.11.15
+default Slurm account: parent0
+```
+
+### A. Login-Node Setup Checks
+
+These commands are safe on the login node because they only register the kernel
+and validate paths/imports.
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+conda activate mge-organoid-python
+```
+
+Register the kernel:
+
+```bash
+python -m ipykernel install --user \
+  --name mge-organoid-python \
+  --display-name "Python (mge-organoid-python)"
+```
+
+Expected output:
+
+```text
+Installed kernelspec mge-organoid-python in /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python
+```
+
+Set the runtime root:
+
+```bash
+export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+```
+
+Confirm the three source objects:
+
+```bash
+ls -lh \
+  "$PROJECT_ROOT/results/shi_2019_paper_qc/shi_2019_seurat.rds" \
+  "$PROJECT_ROOT/results/varela_this_paper/varela_this_paper_seurat.rds" \
+  "/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds"
+```
+
+Expected result: three `.rds` files are listed.
+
+Confirm the Python package sees the same paths:
+
+```bash
+PYTHONPATH="$PWD/python_notebooks/src" python - <<'PY'
+from mge_organoid_python import default_studies, resolve_project_root, validate_source_paths
+
+print("PROJECT_ROOT =", resolve_project_root())
+studies = default_studies()
+for study in studies:
+    print(study.study_id, "=>", study.seurat_path)
+
+missing = validate_source_paths(studies)
+if missing:
+    raise SystemExit("Missing inputs: " + repr(missing))
+print("All default Seurat inputs are present.")
+PY
+```
+
+Stop here if any source object is missing.
+
+### B. Request Notebook Resources
+
+From the login-node VS Code terminal:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+python_notebooks/scripts/start_vscode_compute_job.sh
+```
+
+This requests the default notebook allocation:
+
+```text
+account:   parent0
+partition: standard
+memory:    128GB
+CPUs:      4
+time:      04:00:00
+```
+
+When Slurm grants the allocation, keep that terminal open and note the compute
+node name.
+
+### C. Connect VS Code To The Compute Node
+
+Use VS Code Remote SSH to connect to the allocated compute node through the
+Great Lakes login node jump host. The notebook must run from this compute-node
+VS Code session, not from the `gl-login1` session.
+
+In the compute-node VS Code terminal, run:
+
+```bash
+hostname
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+conda activate mge-organoid-python
+export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+```
+
+`hostname` should show the allocated compute node, not `gl-login1`.
+
+Open:
+
+```text
+python_notebooks/notebooks/01_seurat_to_anndata.ipynb
+```
+
+Select:
+
+```text
+Python (mge-organoid-python)
+```
+
+Run the notebook cells in order. The conversion cell writes outputs to:
+
+```text
+$PROJECT_ROOT/results/python_anndata/
+```
+
 ## Fresh Login Test
 
 These instructions are the ground truth for testing the Python entry point from a

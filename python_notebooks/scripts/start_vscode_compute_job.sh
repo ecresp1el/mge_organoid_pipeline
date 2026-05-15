@@ -81,7 +81,14 @@ Requesting interactive VS Code notebook allocation:
   job name:  ${job_name}
 
 Keep this terminal open while you use the compute node.
-After Slurm grants the allocation, note the node name in the salloc output.
+After Slurm grants the allocation:
+  1. Note the compute node name in the salloc output.
+  2. Keep this terminal open.
+  3. Connect VS Code to that compute node using your Great Lakes SSH jump-host setup.
+  4. In the compute-node VS Code terminal, run:
+       cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+       conda activate mge-organoid-python
+       export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 EOF
 
 exec salloc \
