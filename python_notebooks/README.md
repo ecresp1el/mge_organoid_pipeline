@@ -494,6 +494,25 @@ first notebook cell -> makes the package importable when the notebook runs
 Run notebook cells in order until the smoke-test conversion cell. Do not use
 `Run All` for the first test.
 
+Before conversion, the notebook includes a resource diagnostic cell. Expected
+output includes:
+
+```text
+Resource diagnostics before conversion
+hostname: gl3121.arc-ts.umich.edu
+python: /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+PROJECT_ROOT: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+Rscript: /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/Rscript
+SLURM_JOB_ID: ...
+SLURM_CPUS_PER_TASK: 4
+CPU count: ...
+/proc/meminfo first lines:
+MemTotal: ...
+```
+
+Why this matters: this proves the notebook is using the compute-node kernel and
+shows the memory/Slurm context before any Seurat conversion starts.
+
 The main conversion cell now starts with Shi only:
 
 ```python
@@ -523,13 +542,24 @@ Cache directory: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/resul
 Expected R-side messages during conversion look like:
 
 ```text
-[R] Reading Seurat RDS: ...
-[R] Loaded Seurat object with ... cells and ... features
-[R] Converting Seurat object to SingleCellExperiment
-[R] Transferring reduction to reducedDim X_umap: umap
-[R] Writing H5AD: ...
-[R] Finished writing H5AD: ...
+[R YYYY-MM-DD HH:MM:SS] Reading Seurat RDS: ...
+[R YYYY-MM-DD HH:MM:SS] Loaded Seurat object with ... cells and ... features
+[R YYYY-MM-DD HH:MM:SS] Converting Seurat object to SingleCellExperiment
+[R YYYY-MM-DD HH:MM:SS] Transferring reduction to reducedDim X_umap: umap
+[R YYYY-MM-DD HH:MM:SS] Writing H5AD: ...
+[R YYYY-MM-DD HH:MM:SS] Finished writing H5AD: ...
 ```
+
+Implementation note: conversion now runs in an external `Rscript` subprocess
+instead of embedding R directly inside the notebook kernel. This matters because
+native R, Seurat, or zellkonverter failures can crash an in-process `rpy2`
+kernel without producing a normal Python traceback. With `Rscript`, the notebook
+should keep running and show the R log/error if conversion fails.
+
+Having 128 GB RAM is necessary but not sufficient to prevent every kernel crash:
+kernel crashes can come from native-library segfaults, R/Python ABI conflicts,
+or subprocesses being killed by memory pressure. The resource diagnostic plus
+external `Rscript` path makes those cases easier to distinguish.
 
 If a cached `.h5ad` already exists and is newer than the source `.rds`, the
 cell should say it is using the existing cached H5AD instead of converting.
