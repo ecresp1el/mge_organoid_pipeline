@@ -561,6 +561,41 @@ kernel crashes can come from native-library segfaults, R/Python ABI conflicts,
 or subprocesses being killed by memory pressure. The resource diagnostic plus
 external `Rscript` path makes those cases easier to distinguish.
 
+If the diagnostic shows this pattern, stop:
+
+```text
+hostname: gl-login3.arc-ts.umich.edu
+PROJECT_ROOT: None
+SLURM_JOB_ID: None
+SLURM_JOB_NODELIST: None
+SLURM_CPUS_PER_TASK: None
+SLURM_MEM_PER_NODE: None
+```
+
+What it means:
+
+```text
+The notebook kernel is running on a login node, not on the allocated compute node.
+The notebook kernel also did not inherit PROJECT_ROOT.
+Do not run conversion in this state.
+```
+
+The notebook now raises an error if `hostname` starts with `gl-login` before any
+conversion starts. The converter also refuses to convert on login nodes by
+default.
+
+Fix:
+
+```text
+1. Keep the salloc terminal open.
+2. Use VS Code Remote SSH to connect to the allocated compute node, for example gl3121.
+3. In that compute-node VS Code session, activate mge-organoid-python.
+4. Export PROJECT_ROOT.
+5. Reopen the notebook from that compute-node session.
+6. Select mge-organoid-python (Python 3.11.15).
+7. Rerun the diagnostic cell.
+```
+
 If a cached `.h5ad` already exists and is newer than the source `.rds`, the
 cell should say it is using the existing cached H5AD instead of converting.
 

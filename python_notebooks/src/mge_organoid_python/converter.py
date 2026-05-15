@@ -3,6 +3,7 @@
 from pathlib import Path
 from datetime import datetime
 import os
+import platform
 import subprocess
 import sys
 
@@ -71,6 +72,7 @@ class SeuratToAnnDataConverter:
 
         This does not load the H5AD into memory. Use this for large studies.
         """
+        self._refuse_login_node_conversion()
         source = Path(study.seurat_path).expanduser()
         if not source.exists():
             raise FileNotFoundError("Missing Seurat source for {}: {}".format(study.study_id, source))
@@ -96,6 +98,17 @@ class SeuratToAnnDataConverter:
             self.log("Study {}: using existing cached H5AD".format(study.study_id))
 
         return target
+
+    def _refuse_login_node_conversion(self):
+        host = platform.node()
+        allow = os.environ.get("MGE_ALLOW_LOGIN_NODE_CONVERSION", "").lower() in {"1", "true", "yes"}
+        if host.startswith("gl-login") and not allow:
+            raise RuntimeError(
+                "Refusing Seurat -> AnnData conversion on login node '{}'. "
+                "Connect VS Code/Jupyter to an allocated compute node first. "
+                "This guard can be bypassed only by setting MGE_ALLOW_LOGIN_NODE_CONVERSION=true, "
+                "which is not recommended.".format(host)
+            )
 
     def convert_many(self, studies, overwrite=None):
         """Convert studies and return `(adatas, reports)` dictionaries/lists."""
