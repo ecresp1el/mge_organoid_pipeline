@@ -326,6 +326,69 @@ Select:
 Python (mge-organoid-python)
 ```
 
+If `Python (mge-organoid-python)` is not visible in VS Code, verify kernel
+registration from the compute-node terminal:
+
+```bash
+hostname
+conda activate mge-organoid-python
+python -m jupyter kernelspec list
+cat /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python/kernel.json
+```
+
+Expected meaning:
+
+```text
+hostname
+```
+
+should show the allocated compute node, not `gl-login1`.
+
+```text
+python -m jupyter kernelspec list
+```
+
+should include:
+
+```text
+mge-organoid-python    /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python
+```
+
+The `kernel.json` file should point to:
+
+```text
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+```
+
+Confirmed Great Lakes state for this project:
+
+```text
+hostname -> gl3103.arc-ts.umich.edu
+
+python -m jupyter kernelspec list includes:
+mge-organoid-python    /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python
+
+kernel.json argv includes:
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+
+kernel.json display_name:
+Python (mge-organoid-python)
+```
+
+If the kernelspec is missing, rerun:
+
+```bash
+python -m ipykernel install --user \
+  --name mge-organoid-python \
+  --display-name "Python (mge-organoid-python)"
+```
+
+Then close and reopen the notebook tab or use the VS Code command palette:
+
+```text
+Developer: Reload Window
+```
+
 Run the notebook cells in order. The conversion cell writes outputs to:
 
 ```text
