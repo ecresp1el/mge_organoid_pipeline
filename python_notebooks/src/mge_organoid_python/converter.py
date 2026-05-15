@@ -41,6 +41,27 @@ class SeuratToAnnDataConverter:
 
     def convert(self, study, overwrite=None):
         """Convert one study if needed and return `(adata, report)`."""
+        target = self.convert_file(study, overwrite=overwrite)
+
+        self.log("Study {}: loading H5AD into AnnData".format(study.study_id))
+        adata = self._read_h5ad(target)
+        self.log("Study {}: validating AnnData".format(study.study_id))
+        report = validate_anndata(study, adata, target)
+        self.log(
+            "Study {study_id}: ready n_obs={n_obs:,} n_vars={n_vars:,} has_umap={has_umap}".format(
+                study_id=study.study_id,
+                n_obs=report.n_obs,
+                n_vars=report.n_vars,
+                has_umap=report.has_umap,
+            )
+        )
+        return adata, report
+
+    def convert_file(self, study, overwrite=None):
+        """Convert one study if needed and return the cached `.h5ad` path.
+
+        This does not load the H5AD into memory. Use this for large studies.
+        """
         source = Path(study.seurat_path).expanduser()
         if not source.exists():
             raise FileNotFoundError("Missing Seurat source for {}: {}".format(study.study_id, source))
@@ -73,19 +94,7 @@ class SeuratToAnnDataConverter:
         else:
             self.log("Study {}: using existing cached H5AD".format(study.study_id))
 
-        self.log("Study {}: loading H5AD into AnnData".format(study.study_id))
-        adata = self._read_h5ad(target)
-        self.log("Study {}: validating AnnData".format(study.study_id))
-        report = validate_anndata(study, adata, target)
-        self.log(
-            "Study {study_id}: ready n_obs={n_obs:,} n_vars={n_vars:,} has_umap={has_umap}".format(
-                study_id=study.study_id,
-                n_obs=report.n_obs,
-                n_vars=report.n_vars,
-                has_umap=report.has_umap,
-            )
-        )
-        return adata, report
+        return target
 
     def convert_many(self, studies, overwrite=None):
         """Convert studies and return `(adatas, reports)` dictionaries/lists."""
@@ -100,6 +109,17 @@ class SeuratToAnnDataConverter:
             reports.append(report)
         self.log("All studies complete")
         return adatas, reports
+
+    def convert_many_files(self, studies, overwrite=None):
+        """Convert studies and return a dict of study id to cached `.h5ad` path."""
+        studies = list(studies)
+        self.log("Starting file conversion for {} studies".format(len(studies)))
+        paths = {}
+        for idx, study in enumerate(studies, start=1):
+            self.log("({}/{}) {}".format(idx, len(studies), study.study_id))
+            paths[study.study_id] = self.convert_file(study, overwrite=overwrite)
+        self.log("All file conversions complete")
+        return paths
 
     def _read_h5ad(self, path):
         try:

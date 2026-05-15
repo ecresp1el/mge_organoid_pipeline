@@ -491,11 +491,67 @@ pyrightconfig.json -> helps VS Code stop showing a false import warning
 first notebook cell -> makes the package importable when the notebook runs
 ```
 
-Run the notebook cells in order. The conversion cell writes outputs to:
+Run notebook cells in order until the smoke-test conversion cell. Do not use
+`Run All` for the first test.
+
+The main conversion cell now starts with Shi only:
+
+```python
+study = studies_by_id["shi_2019_paper_qc"]
+```
+
+Why this matters: Shi is much smaller than the Varela objects. This first proves
+that the R bridge, Seurat loading, UMAP transfer, H5AD writing, and AnnData
+loading all work before attempting the 16 GB Varela object.
+
+The smoke-test cell writes one output to:
 
 ```text
 $PROJECT_ROOT/results/python_anndata/
 ```
+
+The conversion cell should print progress before and during work. Expected
+Python-side messages look like:
+
+```text
+Smoke test: converting/loading one small study first.
+Cache directory: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata
+[YYYY-MM-DD HH:MM:SS] Study shi_2019_paper_qc: source=... target=... needs_conversion=True
+[YYYY-MM-DD HH:MM:SS] Study shi_2019_paper_qc: starting RDS -> H5AD conversion
+```
+
+Expected R-side messages during conversion look like:
+
+```text
+[R] Reading Seurat RDS: ...
+[R] Loaded Seurat object with ... cells and ... features
+[R] Converting Seurat object to SingleCellExperiment
+[R] Transferring reduction to reducedDim X_umap: umap
+[R] Writing H5AD: ...
+[R] Finished writing H5AD: ...
+```
+
+If a cached `.h5ad` already exists and is newer than the source `.rds`, the
+cell should say it is using the existing cached H5AD instead of converting.
+
+If the notebook was already open before this progress logging was added,
+restart the notebook kernel and rerun the setup/import cells so it reloads the
+updated `mge_organoid_python` module.
+
+After the Shi smoke test succeeds, use the optional Varela cell. It is
+intentionally written with commented lines:
+
+```python
+# varela_div30_path = converter.convert_file(studies_by_id["varela_div30"])
+# print("Varela DIV30 cached at:", varela_div30_path)
+
+# varela_div90_path = converter.convert_file(studies_by_id["varela_div90"])
+# print("Varela DIV90 cached at:", varela_div90_path)
+```
+
+Uncomment and run one Varela conversion at a time. These use `convert_file`,
+which writes `.h5ad` files but does not load the large `.h5ad` outputs back into
+memory. This is safer for large objects.
 
 Expected converted files:
 
