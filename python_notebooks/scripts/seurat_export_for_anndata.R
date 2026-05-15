@@ -129,9 +129,10 @@ write.table(
 )
 
 log_msg("Writing cell metadata: ", obs_path)
-obs <- obj@meta.data[colnames(mat), , drop = FALSE]
+cell_ids <- colnames(mat)
+obs <- obj@meta.data[cell_ids, , drop = FALSE]
 obs <- as.data.frame(lapply(obs, safe_tsv_value), stringsAsFactors = FALSE)
-obs <- data.frame(cell_id = rownames(obs), obs, check.names = FALSE, stringsAsFactors = FALSE)
+obs <- data.frame(cell_id = cell_ids, obs, check.names = FALSE, stringsAsFactors = FALSE)
 write.table(obs, obs_path, sep = "\t", quote = FALSE, row.names = FALSE, na = "")
 
 log_msg("Writing UMAP coordinates: ", umap_path)

@@ -570,6 +570,31 @@ Expected R-side messages during conversion look like:
 [R YYYY-MM-DD HH:MM:SS] Finished Seurat export for AnnData: ...
 ```
 
+If the notebook appears to sit at `Writing sparse Matrix Market`, this can be
+normal because the sparse matrix is being written as a large text Matrix Market
+file on shared storage. Monitor it from the compute-node terminal:
+
+```bash
+ls -lh /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/shi_2019_paper_qc_*/matrix.mtx
+ps -u "$USER" -f | grep -E 'seurat_export_for_anndata|Rscript' | grep -v grep
+```
+
+Expected meaning:
+
+```text
+matrix.mtx exists and grows -> R is still writing the sparse matrix
+Rscript process exists      -> conversion is still running
+```
+
+After `matrix.mtx` finishes, the notebook should move quickly through feature,
+barcode, metadata, UMAP, manifest, and Python `.h5ad` writing steps.
+
+If Python raises a `KeyError` while aligning `obs.tsv` to `barcodes.tsv`, it
+means the exported metadata cell IDs did not match the matrix cell IDs. The
+exporter now writes metadata `cell_id` from the matrix barcodes directly, and
+the Python assembler treats `barcodes.tsv` as authoritative if a mismatch is
+detected.
+
 Implementation note: conversion now runs in an external `Rscript` subprocess
 instead of embedding R directly inside the notebook kernel. R exports a sparse
 Matrix Market file plus metadata/UMAP TSV files, then Python writes `.h5ad` with
@@ -794,6 +819,50 @@ $PROJECT_ROOT/results/python_anndata/shi_2019_paper_qc.h5ad
 $PROJECT_ROOT/results/python_anndata/varela_div30.h5ad
 $PROJECT_ROOT/results/python_anndata/varela_div90.h5ad
 ```
+
+Confirmed Shi smoke-test success for this project:
+
+```text
+[2026-05-15 15:50:35] Study shi_2019_paper_qc: finished Python H5AD write:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/shi_2019_paper_qc.h5ad
+[2026-05-15 15:50:38] Study shi_2019_paper_qc: ready n_obs=56,136 n_vars=21,191 has_umap=True
+Smoke test complete.
+```
+
+Validated AnnData report:
+
+```text
+study_id:      shi_2019_paper_qc
+label:         Shi 2019 paper QC
+n_obs:         56,136
+n_vars:        21,191
+has_umap:      True
+n_obs_columns: 14
+n_var_columns: 1
+```
+
+Confirmed Shi plot check:
+
+```text
+The UMAP preview cell rendered one scatter plot for shi_2019_paper_qc.
+```
+
+Varela DIV30 conversion is larger than Shi. Confirmed start for this project:
+
+```text
+Study varela_div30
+source: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds
+target: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div30.h5ad
+Loaded Seurat object with 90,631 cells and 18,082 features
+Assay5 detected; joining layers for assay: RNA
+Matrix dimensions features x cells: 18,082 x 90,631
+Writing sparse Matrix Market: .../v.../matrix.mtx
+```
+
+The `Writing sparse Matrix Market` step should take longer for Varela DIV30 than
+for Shi because Varela DIV30 came from a 16 GB Seurat object and has more cells.
+Continue to monitor rather than interrupting unless the Rscript process exits or
+an error appears.
 
 ## Fresh Login Test
 

@@ -212,10 +212,22 @@ class SeuratToAnnDataConverter:
         umap = pd.read_csv(umap_path, sep="\t")
         manifest = pd.read_csv(manifest_path, sep="\t")
 
+        barcodes_list = list(barcodes["cell_id"])
+        if "cell_id" not in obs.columns:
+            obs.insert(0, "cell_id", barcodes_list)
+        elif list(obs["cell_id"]) != barcodes_list:
+            self.log(
+                "Study {}: obs.tsv cell_id values do not match barcodes.tsv; using barcodes as obs_names".format(
+                    study.study_id
+                )
+            )
+            obs = obs.rename(columns={"cell_id": "metadata_cell_id"})
+            obs.insert(0, "cell_id", barcodes_list)
+
         obs = obs.set_index("cell_id", drop=False)
         var = features.set_index("feature_id", drop=False)
-        if list(obs.index) != list(barcodes["cell_id"]):
-            obs = obs.loc[list(barcodes["cell_id"])]
+        if list(obs.index) != barcodes_list:
+            obs = obs.loc[barcodes_list]
         umap = umap.set_index("cell_id").loc[obs.index]
 
         adata = ad.AnnData(X=x, obs=obs, var=var)
