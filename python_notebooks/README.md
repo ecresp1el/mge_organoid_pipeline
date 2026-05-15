@@ -22,7 +22,45 @@ ssh elcrespo@gl-login1.arc-ts.umich.edu
 cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
 ```
 
-### 2. Load Conda
+### 2. Confirm Which Conda Is Available
+
+Do this before creating or updating anything.
+
+```bash
+conda --version
+```
+
+Expected result:
+
+```text
+conda <version>
+```
+
+If you see a conda version, conda is already accessible. On the current Great
+Lakes login node setup, this may come from your home Miniconda install rather
+than from a module.
+
+Confirm exactly which conda is being used:
+
+```bash
+type -a conda
+which conda
+conda info --base
+```
+
+Expected pattern for your current setup:
+
+```text
+/home/elcrespo/miniconda3
+```
+
+It is also okay if `type -a conda` reports that `conda` is a shell function;
+that is normal when conda has been initialized in your shell. The important
+check is that `conda info --base` points to the conda installation you intend to
+use.
+
+If `conda --version` says `conda: command not found`, then try loading a conda
+module:
 
 ```bash
 module purge
@@ -39,27 +77,106 @@ module avail mamba
 module avail miniconda
 ```
 
-### 3. Create Or Update The Conda Environment
+After loading any module, rerun:
 
-Create the env the first time:
+```bash
+conda --version
+which conda
+conda info --base
+```
+
+Do not continue until those commands work.
+
+### 3. Check Whether The Environment Already Exists
+
+List conda environments:
+
+```bash
+conda env list
+```
+
+Expected result if the env already exists:
+
+```text
+mge-organoid-python    <some path>
+```
+
+Expected result if the env does not exist:
+
+```text
+# conda environments:
+base                  * /home/elcrespo/miniconda3
+...
+```
+
+If `mge-organoid-python` is not listed, create it in step 4A.
+
+If `mge-organoid-python` is listed, update it in step 4B.
+
+### 4A. Create The Conda Environment
+
+Run this only if `conda env list` did not show `mge-organoid-python`:
 
 ```bash
 conda env create -f python_notebooks/environment.yml
 ```
 
-If the env already exists and you changed `environment.yml`, update it:
+Expected result:
+
+```text
+done
+#
+# To activate this environment, use
+#
+#     $ conda activate mge-organoid-python
+```
+
+After creation, confirm it exists:
+
+```bash
+conda env list
+```
+
+You should now see `mge-organoid-python`.
+
+### 4B. Update The Conda Environment
+
+Run this only if `conda env list` already showed `mge-organoid-python`:
 
 ```bash
 conda env update -n mge-organoid-python -f python_notebooks/environment.yml --prune
 ```
 
-Activate it:
+Expected result:
+
+```text
+done
+```
+
+### 5. Activate The Conda Environment
 
 ```bash
 conda activate mge-organoid-python
 ```
 
-### 4. Register The Notebook Kernel
+Confirm the active environment:
+
+```bash
+echo "$CONDA_DEFAULT_ENV"
+which python
+python --version
+```
+
+Expected result:
+
+```text
+mge-organoid-python
+```
+
+`which python` should point inside the `mge-organoid-python` environment, not to
+system Python.
+
+### 6. Register The Notebook Kernel
 
 ```bash
 python -m ipykernel install --user \
@@ -67,13 +184,13 @@ python -m ipykernel install --user \
   --display-name "Python (mge-organoid-python)"
 ```
 
-### 5. Set Runtime Root
+### 7. Set Runtime Root
 
 ```bash
 export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 ```
 
-### 6. Verify The Three Seurat Inputs
+### 8. Verify The Three Seurat Inputs
 
 ```bash
 ls -lh \
@@ -85,7 +202,7 @@ ls -lh \
 This should show three existing `.rds` files. Do not continue to conversion if
 one is missing.
 
-### 7. Verify Python Imports And Path Resolution
+### 9. Verify Python Imports And Path Resolution
 
 ```bash
 PYTHONPATH="$PWD/python_notebooks/src" python - <<'PY'
@@ -104,7 +221,7 @@ print("All default Seurat inputs are present.")
 PY
 ```
 
-### 8. Launch Jupyter
+### 10. Launch Jupyter
 
 Use the login node for light notebook editing and path checks only. The Seurat
 objects can be large, so full conversion should be done in a GUI/interactive
@@ -136,8 +253,7 @@ For later sessions, after the environment has already been created:
 ```bash
 ssh elcrespo@gl-login1.arc-ts.umich.edu
 cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
-module purge
-module load Anaconda3
+conda --version
 conda activate mge-organoid-python
 export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 jupyter lab --no-browser
