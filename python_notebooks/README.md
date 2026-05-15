@@ -244,6 +244,22 @@ salloc: Granted job allocation <job_id>
 salloc: Nodes <node_name> are ready for job
 ```
 
+Confirmed Great Lakes state for this project:
+
+```text
+salloc: Pending job allocation 50282695
+salloc: job 50282695 queued and waiting for resources
+salloc: job 50282695 has been allocated resources
+salloc: Granted job allocation 50282695
+salloc: Nodes gl3103 are ready for job
+```
+
+In this confirmed example, the compute node is:
+
+```text
+gl3103
+```
+
 If the job remains queued, wait. If Slurm reports an account, partition, memory,
 or time error, stop and fix the request before continuing.
 
@@ -283,6 +299,20 @@ mge-organoid-python
 .../envs/mge-organoid-python/bin/python
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 ```
+
+Confirmed Great Lakes state for this project:
+
+```text
+hostname                  -> gl3103.arc-ts.umich.edu
+echo "$CONDA_DEFAULT_ENV" -> mge-organoid-python
+which python              -> ~/miniconda3/envs/mge-organoid-python/bin/python
+python --version          -> Python 3.11.15
+echo "$PROJECT_ROOT"      -> /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+```
+
+This confirms the terminal is running on the allocated compute node, not on the
+login node. It also confirms the notebook kernel environment and runtime data
+root are available on the compute node.
 
 Open:
 
