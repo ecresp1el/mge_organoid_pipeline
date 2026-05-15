@@ -538,6 +538,51 @@ If the notebook was already open before this progress logging was added,
 restart the notebook kernel and rerun the setup/import cells so it reloads the
 updated `mge_organoid_python` module.
 
+If the first notebook cell hangs after a previous kernel crash, the cell itself
+is not doing conversion work. It only resolves the repo path and adds
+`python_notebooks/src` to `sys.path`. A hang there usually means VS Code is
+still attached to a wedged kernel process or has a stale notebook tab after the
+file changed on disk.
+
+Recovery steps:
+
+```text
+1. Interrupt the notebook cell if it is still running.
+2. Restart Kernel.
+3. Close the notebook tab.
+4. Reopen python_notebooks/notebooks/01_seurat_to_anndata.ipynb.
+5. Select mge-organoid-python (Python 3.11.15).
+6. Run only the first code cell again.
+```
+
+If it still hangs, reload VS Code:
+
+```text
+Developer: Reload Window
+```
+
+Then reconnect to the compute node if needed, reopen the notebook, select the
+same kernel, and run only the first code cell.
+
+Before reopening the notebook, you can confirm the kernel works from the
+compute-node terminal:
+
+```bash
+python - <<'PY'
+import sys
+from pathlib import Path
+print(sys.executable)
+print(Path.cwd().resolve())
+PY
+```
+
+Expected output includes:
+
+```text
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+```
+
 After the Shi smoke test succeeds, use the optional Varela cell. It is
 intentionally written with commented lines:
 
