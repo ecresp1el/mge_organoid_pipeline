@@ -6,6 +6,7 @@ import os
 import platform
 import subprocess
 import sys
+import tempfile
 
 from .paths import default_anndata_dir, ensure_under_path, resolve_project_root
 from .validation import validate_anndata
@@ -136,32 +137,34 @@ class SeuratToAnnDataConverter:
         return paths
 
     def _run_rscript_converter(self, source, target, study, overwrite):
-        script = self.repo_root / "python_notebooks" / "scripts" / "seurat_to_h5ad.R"
+        script = self.repo_root / "python_notebooks" / "scripts" / "seurat_export_for_anndata.R"
         if not script.exists():
             raise FileNotFoundError("Missing R conversion helper: {}".format(script))
 
+        export_dir = Path(
+            tempfile.mkdtemp(
+                prefix="{}_".format(study.study_id),
+                dir=str(target.parent),
+            )
+        )
         cmd = [
             "Rscript",
             str(script),
             "--seurat",
             str(source),
-            "--h5ad",
-            str(target),
+            "--outdir",
+            str(export_dir),
             "--assay",
             study.assay,
             "--reduction",
             study.reduction,
             "--expression_layer",
             study.expression_layer,
-            "--overwrite",
-            "true" if overwrite else "false",
         ]
         self.log("Running Rscript subprocess: {}".format(" ".join(cmd)))
 
         env = os.environ.copy()
         env.setdefault("PROJECT_ROOT", str(self.project_root))
-        env["RETICULATE_PYTHON"] = sys.executable
-        env["RETICULATE_AUTOCONFIGURE"] = "FALSE"
         proc = subprocess.Popen(
             cmd,
             cwd=str(self.repo_root),
@@ -182,6 +185,55 @@ class SeuratToAnnDataConverter:
                     returncode,
                 )
             )
+        self._write_h5ad_from_export(export_dir, target, study)
+
+    def _write_h5ad_from_export(self, export_dir, target, study):
+        self.log("Study {}: reading R export into Python".format(study.study_id))
+        try:
+            import anndata as ad
+            import pandas as pd
+            from scipy import io as scipy_io
+        except ImportError as exc:
+            raise RuntimeError(
+                "Missing Python packages for H5AD writing. Need anndata, pandas, and scipy."
+            ) from exc
+
+        matrix_path = export_dir / "matrix.mtx"
+        features_path = export_dir / "features.tsv"
+        barcodes_path = export_dir / "barcodes.tsv"
+        obs_path = export_dir / "obs.tsv"
+        umap_path = export_dir / "umap.tsv"
+        manifest_path = export_dir / "manifest.tsv"
+
+        x = scipy_io.mmread(matrix_path).tocsr().transpose().tocsr()
+        features = pd.read_csv(features_path, sep="\t")
+        barcodes = pd.read_csv(barcodes_path, sep="\t")
+        obs = pd.read_csv(obs_path, sep="\t", dtype=str)
+        umap = pd.read_csv(umap_path, sep="\t")
+        manifest = pd.read_csv(manifest_path, sep="\t")
+
+        obs = obs.set_index("cell_id", drop=False)
+        var = features.set_index("feature_id", drop=False)
+        if list(obs.index) != list(barcodes["cell_id"]):
+            obs = obs.loc[list(barcodes["cell_id"])]
+        umap = umap.set_index("cell_id").loc[obs.index]
+
+        adata = ad.AnnData(X=x, obs=obs, var=var)
+        adata.obsm["X_umap"] = umap[["UMAP_1", "UMAP_2"]].to_numpy()
+        adata.uns["source_seurat_path"] = str(study.seurat_path)
+        adata.uns["seurat_assay"] = study.assay
+        adata.uns["seurat_reduction"] = study.reduction
+        adata.uns["conversion_manifest"] = dict(zip(manifest["key"], manifest["value"]))
+
+        self.log(
+            "Study {}: writing H5AD with n_obs={:,} n_vars={:,}".format(
+                study.study_id,
+                adata.n_obs,
+                adata.n_vars,
+            )
+        )
+        adata.write_h5ad(target)
+        self.log("Study {}: finished Python H5AD write: {}".format(study.study_id, target))
 
     def _read_h5ad(self, path):
         try:
@@ -191,113 +243,3 @@ class SeuratToAnnDataConverter:
                 "Missing Python package 'anndata'. Activate the mge-organoid-python conda env."
             ) from exc
         return ad.read_h5ad(path)
-
-    def _get_r_converter(self):
-        if self._r_convert is not None:
-            return self._r_convert
-
-        try:
-            from rpy2 import robjects
-        except ImportError as exc:
-            raise RuntimeError(
-                "Missing Python package 'rpy2'. Activate the mge-organoid-python conda env."
-            ) from exc
-
-        robjects.r(
-            r'''
-            .mge_convert_seurat_to_h5ad <- function(
-                seurat_path,
-                h5ad_path,
-                assay,
-                reduction,
-                expression_layer,
-                overwrite
-            ) {
-                suppressPackageStartupMessages({
-                    library(Seurat)
-                    library(SeuratObject)
-                    library(SingleCellExperiment)
-                    library(SummarizedExperiment)
-                    library(zellkonverter)
-                })
-
-                if (!file.exists(seurat_path)) {
-                    stop("Seurat source does not exist: ", seurat_path, call. = FALSE)
-                }
-                if (file.exists(h5ad_path) && !isTRUE(overwrite)) {
-                    message("[R] Existing H5AD found; skipping conversion: ", h5ad_path)
-                    return(normalizePath(h5ad_path, mustWork = TRUE))
-                }
-
-                message("[R] Reading Seurat RDS: ", seurat_path)
-                obj <- readRDS(seurat_path)
-                if (!inherits(obj, "Seurat")) {
-                    stop("Object is not a Seurat object: ", seurat_path, call. = FALSE)
-                }
-                message("[R] Loaded Seurat object with ", ncol(obj), " cells and ", nrow(obj), " features")
-                if (!(assay %in% Seurat::Assays(obj))) {
-                    stop(
-                        "Missing assay '", assay, "'. Available assays: ",
-                        paste(Seurat::Assays(obj), collapse = ", "),
-                        call. = FALSE
-                    )
-                }
-                if (!(reduction %in% Seurat::Reductions(obj))) {
-                    stop(
-                        "Missing reduction '", reduction, "'. Available reductions: ",
-                        paste(Seurat::Reductions(obj), collapse = ", "),
-                        call. = FALSE
-                    )
-                }
-
-                Seurat::DefaultAssay(obj) <- assay
-                if (
-                    inherits(obj[[assay]], "Assay5") &&
-                    exists("JoinLayers", where = asNamespace("SeuratObject"), inherits = FALSE)
-                ) {
-                    message("[R] Assay5 detected; joining layers for assay: ", assay)
-                    obj <- SeuratObject::JoinLayers(obj, assay = assay)
-                }
-                message("[R] Converting Seurat object to SingleCellExperiment")
-                sce <- Seurat::as.SingleCellExperiment(obj, assay = assay)
-
-                message("[R] Transferring reduction to reducedDim X_umap: ", reduction)
-                emb <- Seurat::Embeddings(obj, reduction = reduction)
-                if (is.null(dim(emb)) || nrow(emb) == 0 || ncol(emb) < 2) {
-                    stop("Reduction '", reduction, "' does not contain a two-dimensional embedding.", call. = FALSE)
-                }
-                missing_emb <- setdiff(colnames(sce), rownames(emb))
-                if (length(missing_emb) > 0) {
-                    stop(
-                        "Reduction '", reduction, "' is missing embeddings for ",
-                        length(missing_emb), " cells.",
-                        call. = FALSE
-                    )
-                }
-                emb <- emb[colnames(sce), , drop = FALSE]
-                emb <- as.matrix(emb[, seq_len(2), drop = FALSE])
-                colnames(emb) <- c("UMAP_1", "UMAP_2")
-                SingleCellExperiment::reducedDim(sce, "X_umap") <- emb
-
-                assay_names <- names(SummarizedExperiment::assays(sce))
-                x_name <- NULL
-                if (identical(expression_layer, "data") && "logcounts" %in% assay_names) {
-                    x_name <- "logcounts"
-                } else if (expression_layer %in% assay_names) {
-                    x_name <- expression_layer
-                } else if ("counts" %in% assay_names) {
-                    x_name <- "counts"
-                } else if (length(assay_names) > 0) {
-                    x_name <- assay_names[[1]]
-                }
-
-                dir.create(dirname(h5ad_path), showWarnings = FALSE, recursive = TRUE)
-                message("[R] Writing H5AD: ", h5ad_path, " (X_name=", x_name, ")")
-                zellkonverter::writeH5AD(sce, file = h5ad_path, X_name = x_name)
-                message("[R] Finished writing H5AD: ", h5ad_path)
-                normalizePath(h5ad_path, mustWork = TRUE)
-            }
-            '''
-        )
-        self._r_convert = robjects.globalenv[".mge_convert_seurat_to_h5ad"]
-        return self._r_convert

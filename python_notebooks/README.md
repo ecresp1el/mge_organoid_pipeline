@@ -561,35 +561,22 @@ Cache directory: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/resul
 Expected R-side messages during conversion look like:
 
 ```text
-[R YYYY-MM-DD HH:MM:SS] RETICULATE_PYTHON: /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
-[R YYYY-MM-DD HH:MM:SS] RETICULATE_AUTOCONFIGURE: FALSE
 [R YYYY-MM-DD HH:MM:SS] Reading Seurat RDS: ...
 [R YYYY-MM-DD HH:MM:SS] Loaded Seurat object with ... cells and ... features
-[R YYYY-MM-DD HH:MM:SS] Converting Seurat object to SingleCellExperiment
-[R YYYY-MM-DD HH:MM:SS] Transferring reduction to reducedDim X_umap: umap
-[R YYYY-MM-DD HH:MM:SS] Writing H5AD: ...
-[R YYYY-MM-DD HH:MM:SS] Finished writing H5AD: ...
+[R YYYY-MM-DD HH:MM:SS] Extracting assay matrix for layer preference: data
+[R YYYY-MM-DD HH:MM:SS] Writing sparse Matrix Market: ...
+[R YYYY-MM-DD HH:MM:SS] Writing cell metadata: ...
+[R YYYY-MM-DD HH:MM:SS] Writing UMAP coordinates: ...
+[R YYYY-MM-DD HH:MM:SS] Finished Seurat export for AnnData: ...
 ```
 
 Implementation note: conversion now runs in an external `Rscript` subprocess
-instead of embedding R directly inside the notebook kernel. This matters because
-native R, Seurat, or zellkonverter failures can crash an in-process `rpy2`
-kernel without producing a normal Python traceback. With `Rscript`, the notebook
-should keep running and show the R log/error if conversion fails.
-
-`zellkonverter` uses `reticulate` internally. The converter forces reticulate to
-use the existing notebook conda environment:
-
-```text
-RETICULATE_PYTHON=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
-RETICULATE_AUTOCONFIGURE=FALSE
-```
-
-Why this matters: without these variables, reticulate may try to download and
-build its own Python through `pyenv`, which is slow and not appropriate for this
-workflow. If you see output like `Installing pyenv` or `Installing
-Python-3.14.0`, interrupt the notebook cell, restart the kernel, and rerun with
-the updated converter.
+instead of embedding R directly inside the notebook kernel. R exports a sparse
+Matrix Market file plus metadata/UMAP TSV files, then Python writes `.h5ad` with
+`anndata`. This avoids `zellkonverter`/`reticulate`, because reticulate may try
+to download and build its own Python through `pyenv`. If you see output like
+`Installing pyenv` or `Installing Python-3.14.0`, interrupt the notebook cell,
+restart the kernel, and rerun with the updated converter.
 
 Having 128 GB RAM is necessary but not sufficient to prevent every kernel crash:
 kernel crashes can come from native-library segfaults, R/Python ABI conflicts,
