@@ -1,0 +1,26 @@
+name: mge-organoid-python
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - pip
+  - jupyterlab
+  - notebook
+  - ipykernel
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - anndata
+  - h5py
+  - rpy2
+  - r-base
+  - r-essentials
+  - r-matrix
+  - r-seurat>=5
+  - r-seuratobject>=5
+  - bioconductor-singlecellexperiment
+  - bioconductor-summarizedexperiment
+  - bioconductor-s4vectors
+  - bioconductor-zellkonverter
