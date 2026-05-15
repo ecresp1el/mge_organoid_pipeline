@@ -160,6 +160,8 @@ class SeuratToAnnDataConverter:
 
         env = os.environ.copy()
         env.setdefault("PROJECT_ROOT", str(self.project_root))
+        env["RETICULATE_PYTHON"] = sys.executable
+        env["RETICULATE_AUTOCONFIGURE"] = "FALSE"
         proc = subprocess.Popen(
             cmd,
             cwd=str(self.repo_root),

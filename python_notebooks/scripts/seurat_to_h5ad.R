@@ -50,6 +50,15 @@ log_msg("R version: ", paste(R.version$major, R.version$minor, sep = "."))
 log_msg("Seurat version: ", as.character(utils::packageVersion("Seurat")))
 log_msg("SeuratObject version: ", as.character(utils::packageVersion("SeuratObject")))
 log_msg("zellkonverter version: ", as.character(utils::packageVersion("zellkonverter")))
+log_msg("RETICULATE_PYTHON: ", Sys.getenv("RETICULATE_PYTHON", unset = "<unset>"))
+log_msg("RETICULATE_AUTOCONFIGURE: ", Sys.getenv("RETICULATE_AUTOCONFIGURE", unset = "<unset>"))
+
+if (!nzchar(Sys.getenv("RETICULATE_PYTHON", unset = ""))) {
+  stop(
+    "RETICULATE_PYTHON is not set. Refusing to let reticulate auto-install Python.",
+    call. = FALSE
+  )
+}
 
 log_msg("Reading Seurat RDS: ", opt$seurat)
 obj <- readRDS(opt$seurat)

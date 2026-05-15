@@ -513,6 +513,25 @@ MemTotal: ...
 Why this matters: this proves the notebook is using the compute-node kernel and
 shows the memory/Slurm context before any Seurat conversion starts.
 
+Confirmed good notebook diagnostic for this project:
+
+```text
+Resource diagnostics before conversion
+hostname: gl3121.arc-ts.umich.edu
+python: /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+PROJECT_ROOT: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+Rscript: /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/Rscript
+SLURM_JOB_ID: 50282995
+SLURM_JOB_NODELIST: gl3121
+SLURM_CPUS_PER_TASK: 4
+SLURM_MEM_PER_NODE: 131072
+CPU count: 36
+MemTotal: ~196 GB
+MemAvailable: ~190 GB
+```
+
+This is the state required before running conversion.
+
 The main conversion cell now starts with Shi only:
 
 ```python
@@ -542,6 +561,8 @@ Cache directory: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/resul
 Expected R-side messages during conversion look like:
 
 ```text
+[R YYYY-MM-DD HH:MM:SS] RETICULATE_PYTHON: /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+[R YYYY-MM-DD HH:MM:SS] RETICULATE_AUTOCONFIGURE: FALSE
 [R YYYY-MM-DD HH:MM:SS] Reading Seurat RDS: ...
 [R YYYY-MM-DD HH:MM:SS] Loaded Seurat object with ... cells and ... features
 [R YYYY-MM-DD HH:MM:SS] Converting Seurat object to SingleCellExperiment
@@ -555,6 +576,20 @@ instead of embedding R directly inside the notebook kernel. This matters because
 native R, Seurat, or zellkonverter failures can crash an in-process `rpy2`
 kernel without producing a normal Python traceback. With `Rscript`, the notebook
 should keep running and show the R log/error if conversion fails.
+
+`zellkonverter` uses `reticulate` internally. The converter forces reticulate to
+use the existing notebook conda environment:
+
+```text
+RETICULATE_PYTHON=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+RETICULATE_AUTOCONFIGURE=FALSE
+```
+
+Why this matters: without these variables, reticulate may try to download and
+build its own Python through `pyenv`, which is slow and not appropriate for this
+workflow. If you see output like `Installing pyenv` or `Installing
+Python-3.14.0`, interrupt the notebook cell, restart the kernel, and rerun with
+the updated converter.
 
 Having 128 GB RAM is necessary but not sufficient to prevent every kernel crash:
 kernel crashes can come from native-library segfaults, R/Python ABI conflicts,
@@ -595,6 +630,59 @@ Fix:
 6. Select mge-organoid-python (Python 3.11.15).
 7. Rerun the diagnostic cell.
 ```
+
+Alternative fix: connect VS Code to a Jupyter server started manually on the
+compute node. From the compute-node terminal:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+conda activate mge-organoid-python
+export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+jupyter lab --no-browser --ip=0.0.0.0 --port=8899
+```
+
+Keep that terminal open. Jupyter prints a URL like:
+
+```text
+http://127.0.0.1:8899/lab?token=<token>
+```
+
+Do not paste the `127.0.0.1` URL into VS Code when VS Code is connected to a
+login node. `127.0.0.1` means "this same machine", so from the login-node VS
+Code session it points at the login node, not the compute node.
+
+Replace `127.0.0.1` with the allocated compute node hostname. For example, if
+the allocation is on `gl3121`, paste:
+
+```text
+http://gl3121.arc-ts.umich.edu:8899/lab?token=<token>
+```
+
+Use the same token printed by Jupyter.
+
+In VS Code, connect the notebook to that existing server URL. If VS Code prompts
+you to pick a Python environment instead of asking for a Jupyter server URL, you
+are in the kernel/interpreter picker, not the existing-server picker. Cancel
+that prompt.
+
+From the notebook UI, use:
+
+```text
+Select Kernel -> Select Another Kernel -> Existing Jupyter Server -> Enter the URL of the running Jupyter server
+```
+
+Paste the full URL printed by the compute-node `jupyter lab` command.
+
+If `Existing Jupyter Server` is not available in the notebook kernel selector,
+open the command palette and search for one of these commands:
+
+```text
+Jupyter: Specify Jupyter Server for Connections
+Jupyter: Select Jupyter Server
+```
+
+The correct path must ask for a server URL. If it only asks for a Python
+environment, cancel and choose the existing-server path instead.
 
 If a cached `.h5ad` already exists and is newer than the source `.rds`, the
 cell should say it is using the existing cached H5AD instead of converting.
