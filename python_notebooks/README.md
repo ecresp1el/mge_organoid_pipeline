@@ -97,6 +97,9 @@ default Slurm account: parent0
 These commands are safe on the login node because they only register the kernel
 and validate paths/imports.
 
+Goal: prove that the login session can see the repo, the conda env, the Jupyter
+kernel, and the source files. This does not perform Seurat conversion.
+
 ```bash
 cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
 conda activate mge-organoid-python
@@ -115,6 +118,10 @@ Expected output:
 ```text
 Installed kernelspec mge-organoid-python in /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python
 ```
+
+Why this matters: VS Code and Jupyter discover notebook environments through
+kernel specs. Registering this once lets the notebook offer
+`Python (mge-organoid-python)` as a selectable kernel.
 
 Confirmed Great Lakes state for this project:
 
@@ -140,6 +147,10 @@ Expected and confirmed value:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 ```
 
+Why this matters: repo files live under `/home`, but data/results live under
+`PROJECT_ROOT`. The Python code uses `PROJECT_ROOT` to keep generated `.h5ad`
+files out of the git repo.
+
 Confirm the three source objects:
 
 ```bash
@@ -150,6 +161,9 @@ ls -lh \
 ```
 
 Expected result: three `.rds` files are listed.
+
+Why this matters: these are the exact Seurat inputs the notebook will convert.
+Checking them before requesting compute resources catches path problems early.
 
 Confirmed Great Lakes state for this project:
 
@@ -180,6 +194,9 @@ PY
 ```
 
 Stop here if any source object is missing.
+
+Why this matters: this verifies the notebook-facing Python package imports
+correctly and resolves the same canonical inputs that were checked with `ls`.
 
 Confirmed Great Lakes state for this project:
 
@@ -213,14 +230,32 @@ CPUs:      4
 time:      04:00:00
 ```
 
+Why this matters: the notebook conversion reads 607 MB, 3.1 GB, and 16 GB RDS
+objects. The allocation moves the actual notebook kernel work off `gl-login1`
+and onto a Slurm compute node with requested RAM/CPUs.
+
 When Slurm grants the allocation, keep that terminal open and note the compute
 node name.
+
+Expected Slurm behavior:
+
+```text
+salloc: Granted job allocation <job_id>
+salloc: Nodes <node_name> are ready for job
+```
+
+If the job remains queued, wait. If Slurm reports an account, partition, memory,
+or time error, stop and fix the request before continuing.
 
 ### C. Connect VS Code To The Compute Node
 
 Use VS Code Remote SSH to connect to the allocated compute node through the
 Great Lakes login node jump host. The notebook must run from this compute-node
 VS Code session, not from the `gl-login1` session.
+
+Why this matters: opening the notebook from the login-node VS Code window would
+start the kernel on `gl-login1`. Connecting VS Code to the allocated compute
+node makes the notebook kernel run where the requested resources exist.
 
 In the compute-node VS Code terminal, run:
 
@@ -232,6 +267,22 @@ export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 ```
 
 `hostname` should show the allocated compute node, not `gl-login1`.
+
+Confirm the env and runtime root on the compute node:
+
+```bash
+echo "$CONDA_DEFAULT_ENV"
+which python
+echo "$PROJECT_ROOT"
+```
+
+Expected output:
+
+```text
+mge-organoid-python
+.../envs/mge-organoid-python/bin/python
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+```
 
 Open:
 
@@ -249,6 +300,14 @@ Run the notebook cells in order. The conversion cell writes outputs to:
 
 ```text
 $PROJECT_ROOT/results/python_anndata/
+```
+
+Expected converted files:
+
+```text
+$PROJECT_ROOT/results/python_anndata/shi_2019_paper_qc.h5ad
+$PROJECT_ROOT/results/python_anndata/varela_div30.h5ad
+$PROJECT_ROOT/results/python_anndata/varela_div90.h5ad
 ```
 
 ## Fresh Login Test
