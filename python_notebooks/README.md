@@ -116,10 +116,28 @@ Expected output:
 Installed kernelspec mge-organoid-python in /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python
 ```
 
+Confirmed Great Lakes state for this project:
+
+```text
+Installed kernelspec mge-organoid-python in /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python
+```
+
 Set the runtime root:
 
 ```bash
 export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+```
+
+Confirm it:
+
+```bash
+echo "$PROJECT_ROOT"
+```
+
+Expected and confirmed value:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 ```
 
 Confirm the three source objects:
@@ -132,6 +150,16 @@ ls -lh \
 ```
 
 Expected result: three `.rds` files are listed.
+
+Confirmed Great Lakes state for this project:
+
+```text
+Shi 2019 paper QC: 607M
+Varela DIV30:      16G
+Varela DIV90:      3.1G
+```
+
+Because the Varela objects are large, do not run conversion on the login node.
 
 Confirm the Python package sees the same paths:
 
@@ -152,6 +180,19 @@ PY
 ```
 
 Stop here if any source object is missing.
+
+Confirmed Great Lakes state for this project:
+
+```text
+PROJECT_ROOT = /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+shi_2019_paper_qc => /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_2019_paper_qc/shi_2019_seurat.rds
+varela_div30 => /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds
+varela_div90 => /nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds
+All default Seurat inputs are present.
+```
+
+At this point, login-node setup validation is complete. Continue to resource
+allocation before running notebook conversion.
 
 ### B. Request Notebook Resources
 
