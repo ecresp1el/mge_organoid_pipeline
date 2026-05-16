@@ -1,7 +1,18 @@
 # Python Notebook Entry Point
 
-This directory adds a Python-first workflow for converting selected Seurat `.rds`
-objects to AnnData `.h5ad` files without changing the existing R/Slurm pipeline.
+This directory adds a Python-first workflow for working with cached AnnData
+`.h5ad` files produced from selected Seurat `.rds` objects, without changing the
+existing R/Slurm pipeline.
+
+The normal notebook workflow is now load-only:
+
+```text
+open notebook -> load cached .h5ad files -> inspect/plot/analyze AnnData
+```
+
+Do not remake `.h5ad` files from the notebook during routine work. If a source
+Seurat object changes and the cache needs to be rebuilt, submit the Slurm batch
+job documented in `Batch Conversion With Slurm`.
 
 The repo remains code/config only. Runtime data and generated `.h5ad` files stay
 under:
@@ -31,9 +42,9 @@ standard partition: roughly 180 GB RAM per node
 largemem partition: roughly 1.5 TB RAM per node
 ```
 
-GPU is not needed for the current Seurat `.rds` to AnnData `.h5ad` conversion.
-Start with CPU/RAM on `standard`; use `largemem` only if conversion or loading
-fails due to memory.
+GPU is not needed for the current Seurat `.rds` to AnnData `.h5ad` conversion or
+for loading cached AnnData. Start with CPU/RAM on `standard`; use `largemem` only
+if a downstream analysis step fails due to memory.
 
 ## VS Code On A Compute Node
 
@@ -491,383 +502,88 @@ pyrightconfig.json -> helps VS Code stop showing a false import warning
 first notebook cell -> makes the package importable when the notebook runs
 ```
 
-Run notebook cells in order until the smoke-test conversion cell. Do not use
-`Run All` for the first test.
-
-Before conversion, the notebook includes a resource diagnostic cell. Expected
-output includes:
+Run notebook cells in order. The current notebook is load-only:
 
 ```text
-Resource diagnostics before conversion
-hostname: gl3121.arc-ts.umich.edu
-python: /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
-PROJECT_ROOT: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
-Rscript: /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/Rscript
-SLURM_JOB_ID: ...
-SLURM_CPUS_PER_TASK: 4
-CPU count: ...
-/proc/meminfo first lines:
-MemTotal: ...
+1. locate repo-local python_notebooks/src
+2. import the cached-loader API
+3. print runtime diagnostics
+4. confirm Seurat sources still exist
+5. confirm cached .h5ad files exist
+6. load cached AnnData with backed="r"
+7. plot UMAPs from adata.obsm["X_umap"]
 ```
 
-Why this matters: this proves the notebook is using the compute-node kernel and
-shows the memory/Slurm context before any Seurat conversion starts.
+It does not create or overwrite `.h5ad` files.
 
-Confirmed good notebook diagnostic for this project:
+The diagnostic cell may show a login-node hostname. That is acceptable for light
+cached-file inspection with `backed="r"`. It is not acceptable for Seurat
+conversion. Seurat conversion should be done only through the Slurm batch job.
 
-```text
-Resource diagnostics before conversion
-hostname: gl3121.arc-ts.umich.edu
-python: /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
-PROJECT_ROOT: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
-Rscript: /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/Rscript
-SLURM_JOB_ID: 50282995
-SLURM_JOB_NODELIST: gl3121
-SLURM_CPUS_PER_TASK: 4
-SLURM_MEM_PER_NODE: 131072
-CPU count: 36
-MemTotal: ~196 GB
-MemAvailable: ~190 GB
-```
-
-This is the state required before running conversion.
-
-The main conversion cell now starts with Shi only:
-
-```python
-study = studies_by_id["shi_2019_paper_qc"]
-```
-
-Why this matters: Shi is much smaller than the Varela objects. This first proves
-that the R bridge, Seurat loading, UMAP transfer, H5AD writing, and AnnData
-loading all work before attempting the 16 GB Varela object.
-
-The smoke-test cell writes one output to:
-
-```text
-$PROJECT_ROOT/results/python_anndata/
-```
-
-The conversion cell should print progress before and during work. Expected
-Python-side messages look like:
-
-```text
-Smoke test: converting/loading one small study first.
-Cache directory: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata
-[YYYY-MM-DD HH:MM:SS] Study shi_2019_paper_qc: source=... target=... needs_conversion=True
-[YYYY-MM-DD HH:MM:SS] Study shi_2019_paper_qc: starting RDS -> H5AD conversion
-```
-
-Expected R-side messages during conversion look like:
-
-```text
-[R YYYY-MM-DD HH:MM:SS] Reading Seurat RDS: ...
-[R YYYY-MM-DD HH:MM:SS] Loaded Seurat object with ... cells and ... features
-[R YYYY-MM-DD HH:MM:SS] Extracting assay matrix for layer preference: data
-[R YYYY-MM-DD HH:MM:SS] Writing sparse Matrix Market: ...
-[R YYYY-MM-DD HH:MM:SS] Writing cell metadata: ...
-[R YYYY-MM-DD HH:MM:SS] Writing UMAP coordinates: ...
-[R YYYY-MM-DD HH:MM:SS] Finished Seurat export for AnnData: ...
-```
-
-If the notebook appears to sit at `Writing sparse Matrix Market`, this can be
-normal because the sparse matrix is being written as a large text Matrix Market
-file on shared storage. Monitor it from the compute-node terminal:
-
-```bash
-ls -lh /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/shi_2019_paper_qc_*/matrix.mtx
-ps -u "$USER" -f | grep -E 'seurat_export_for_anndata|Rscript' | grep -v grep
-```
-
-Expected meaning:
-
-```text
-matrix.mtx exists and grows -> R is still writing the sparse matrix
-Rscript process exists      -> conversion is still running
-```
-
-After `matrix.mtx` finishes, the notebook should move quickly through feature,
-barcode, metadata, UMAP, manifest, and Python `.h5ad` writing steps.
-
-If Python raises a `KeyError` while aligning `obs.tsv` to `barcodes.tsv`, it
-means the exported metadata cell IDs did not match the matrix cell IDs. The
-exporter now writes metadata `cell_id` from the matrix barcodes directly, and
-the Python assembler treats `barcodes.tsv` as authoritative if a mismatch is
-detected.
-
-Implementation note: conversion now runs in an external `Rscript` subprocess
-instead of embedding R directly inside the notebook kernel. R exports a sparse
-Matrix Market file plus metadata/UMAP TSV files, then Python writes `.h5ad` with
-`anndata`. This avoids `zellkonverter`/`reticulate`, because reticulate may try
-to download and build its own Python through `pyenv`. If you see output like
-`Installing pyenv` or `Installing Python-3.14.0`, interrupt the notebook cell,
-restart the kernel, and rerun with the updated converter.
-
-Having 128 GB RAM is necessary but not sufficient to prevent every kernel crash:
-kernel crashes can come from native-library segfaults, R/Python ABI conflicts,
-or subprocesses being killed by memory pressure. The resource diagnostic plus
-external `Rscript` path makes those cases easier to distinguish.
-
-If the diagnostic shows this pattern, stop:
-
-```text
-hostname: gl-login3.arc-ts.umich.edu
-PROJECT_ROOT: None
-SLURM_JOB_ID: None
-SLURM_JOB_NODELIST: None
-SLURM_CPUS_PER_TASK: None
-SLURM_MEM_PER_NODE: None
-```
-
-What it means:
-
-```text
-The notebook kernel is running on a login node, not on the allocated compute node.
-The notebook kernel also did not inherit PROJECT_ROOT.
-Do not run conversion in this state.
-```
-
-The notebook now raises an error if `hostname` starts with `gl-login` before any
-conversion starts. The converter also refuses to convert on login nodes by
-default.
-
-Fix:
-
-```text
-1. Keep the salloc terminal open.
-2. Use VS Code Remote SSH to connect to the allocated compute node, for example gl3121.
-3. In that compute-node VS Code session, activate mge-organoid-python.
-4. Export PROJECT_ROOT.
-5. Reopen the notebook from that compute-node session.
-6. Select mge-organoid-python (Python 3.11.15).
-7. Rerun the diagnostic cell.
-```
-
-Alternative fix: connect VS Code to a Jupyter server started manually on the
-compute node. From the compute-node terminal:
+If any cached `.h5ad` file is missing, the notebook raises a `FileNotFoundError`
+and tells you to rebuild with:
 
 ```bash
 cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
-conda activate mge-organoid-python
-export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
-jupyter lab --no-browser --ip=0.0.0.0 --port=8899
+cp slurm_templates/08_convert_python_anndata.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/08_convert_python_anndata.sbatch
+sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/08_convert_python_anndata.sbatch
 ```
 
-Keep that terminal open. Jupyter prints a URL like:
-
-```text
-http://127.0.0.1:8899/lab?token=<token>
-```
-
-Do not paste the `127.0.0.1` URL into VS Code when VS Code is connected to a
-login node. `127.0.0.1` means "this same machine", so from the login-node VS
-Code session it points at the login node, not the compute node.
-
-Replace `127.0.0.1` with the allocated compute node hostname. For example, if
-the allocation is on `gl3121`, paste:
-
-```text
-http://gl3121.arc-ts.umich.edu:8899/lab?token=<token>
-```
-
-Use the same token printed by Jupyter.
-
-In VS Code, connect the notebook to that existing server URL. If VS Code prompts
-you to pick a Python environment instead of asking for a Jupyter server URL, you
-are in the kernel/interpreter picker, not the existing-server picker. Cancel
-that prompt.
-
-From the notebook UI, use:
-
-```text
-Select Kernel -> Select Another Kernel -> Existing Jupyter Server -> Enter the URL of the running Jupyter server
-```
-
-Paste the full URL printed by the compute-node `jupyter lab` command.
-
-If `Existing Jupyter Server` is not available in the notebook kernel selector,
-open the command palette and search for one of these commands:
-
-```text
-Jupyter: Specify Jupyter Server for Connections
-Jupyter: Select Jupyter Server
-```
-
-The correct path must ask for a server URL. If it only asks for a Python
-environment, cancel and choose the existing-server path instead.
-
-If a cached `.h5ad` already exists and is newer than the source `.rds`, the
-cell should say it is using the existing cached H5AD instead of converting.
-
-If the notebook was already open before this progress logging was added,
-restart the notebook kernel and rerun the setup/import cells so it reloads the
-updated `mge_organoid_python` module.
-
-If the first notebook cell hangs after a previous kernel crash, the cell itself
-is not doing conversion work. It only resolves the repo path and adds
-`python_notebooks/src` to `sys.path`. A hang there usually means VS Code is
-still attached to a wedged kernel process or has a stale notebook tab after the
-file changed on disk.
-
-The notebook file itself should have no saved running state. You can verify from
-the repo root:
+Monitor the rebuild job with:
 
 ```bash
-python3 - <<'PY'
-import json
-nb = json.load(open("python_notebooks/notebooks/01_seurat_to_anndata.ipynb"))
-for i, cell in enumerate(nb["cells"][:5]):
-    print(i, cell.get("cell_type"), "execution_count=", cell.get("execution_count"), "outputs=", len(cell.get("outputs", [])))
-PY
+squeue -u elcrespo
+tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/08_convert_python_anndata_<jobid>.log
 ```
 
-Expected output for a clean notebook:
+The Slurm job runs the conversion script, skips already-current caches when
+`OVERWRITE=false`, and writes final files under:
 
 ```text
-0 markdown execution_count= None outputs= 0
-1 markdown execution_count= None outputs= 0
-2 code execution_count= None outputs= 0
-3 code execution_count= None outputs= 0
-4 code execution_count= None outputs= 0
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/
 ```
 
-If a cell starts running immediately when you open the notebook, check for stale
-kernel processes:
+After the files exist, return to the notebook and rerun the load-only cells.
 
-```bash
-ps -u "$USER" -f | rg 'jupyter|ipykernel|python.*kernel|ipython' || true
-```
-
-If you see an old `ipykernel_launcher` process for this notebook, shut down the
-kernel from VS Code first. If the UI cannot stop it, terminate that specific
-kernel PID from the terminal with `kill <PID>`, then reopen the notebook and
-select `mge-organoid-python (Python 3.11.15)` again.
-
-Only kill a PID that appears in `ps` from your current compute-node terminal. If
-`kill <PID>` says `No such process`, that PID is not active in that terminal
-context anymore; rerun the `ps` command and use the current PID, if any.
-
-If `ps` prints no Jupyter/kernel process but the first cell appears to start
-running immediately when the notebook opens, VS Code is showing stale notebook UI
-state. The notebook file is not actually running. Use:
+Confirmed cached AnnData outputs for this project:
 
 ```text
-Developer: Reload Window
-```
-
-Then reopen the notebook, select `mge-organoid-python (Python 3.11.15)`, and
-run only the first code cell.
-
-Recovery steps:
-
-```text
-1. Interrupt the notebook cell if it is still running.
-2. Restart Kernel.
-3. Close the notebook tab.
-4. Reopen python_notebooks/notebooks/01_seurat_to_anndata.ipynb.
-5. Select mge-organoid-python (Python 3.11.15).
-6. Run only the first code cell again.
-```
-
-If it still hangs, reload VS Code:
-
-```text
-Developer: Reload Window
-```
-
-Then reconnect to the compute node if needed, reopen the notebook, select the
-same kernel, and run only the first code cell.
-
-Before reopening the notebook, you can confirm the kernel works from the
-compute-node terminal:
-
-```bash
-python - <<'PY'
-import sys
-from pathlib import Path
-print(sys.executable)
-print(Path.cwd().resolve())
-PY
-```
-
-Expected output includes:
-
-```text
-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
-```
-
-After the Shi smoke test succeeds, use the optional Varela cell. It is
-intentionally written with commented lines:
-
-```python
-# varela_div30_path = converter.convert_file(studies_by_id["varela_div30"])
-# print("Varela DIV30 cached at:", varela_div30_path)
-
-# varela_div90_path = converter.convert_file(studies_by_id["varela_div90"])
-# print("Varela DIV90 cached at:", varela_div90_path)
-```
-
-Uncomment and run one Varela conversion at a time. These use `convert_file`,
-which writes `.h5ad` files but does not load the large `.h5ad` outputs back into
-memory. This is safer for large objects.
-
-Expected converted files:
-
-```text
-$PROJECT_ROOT/results/python_anndata/shi_2019_paper_qc.h5ad
-$PROJECT_ROOT/results/python_anndata/varela_div30.h5ad
-$PROJECT_ROOT/results/python_anndata/varela_div90.h5ad
-```
-
-Confirmed Shi smoke-test success for this project:
-
-```text
-[2026-05-15 15:50:35] Study shi_2019_paper_qc: finished Python H5AD write:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/shi_2019_paper_qc.h5ad
-[2026-05-15 15:50:38] Study shi_2019_paper_qc: ready n_obs=56,136 n_vars=21,191 has_umap=True
-Smoke test complete.
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div30.h5ad
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div90.h5ad
 ```
 
-Validated AnnData report:
+Confirmed conversion job:
 
 ```text
-study_id:      shi_2019_paper_qc
-label:         Shi 2019 paper QC
-n_obs:         56,136
-n_vars:        21,191
-has_umap:      True
-n_obs_columns: 14
-n_var_columns: 1
+JobID:   50295259
+State:   COMPLETED
+Exit:    0:0
+Elapsed: 00:54:03
 ```
 
-Confirmed Shi plot check:
+Validated AnnData dimensions:
 
 ```text
-The UMAP preview cell rendered one scatter plot for shi_2019_paper_qc.
+shi_2019_paper_qc: n_obs=56,136 n_vars=21,191 has_umap=True
+varela_div30:      n_obs=90,631 n_vars=18,082 has_umap=True
+varela_div90:      n_obs=22,338 n_vars=18,082 has_umap=True
 ```
 
-Varela DIV30 conversion is larger than Shi. Confirmed start for this project:
+Current file sizes:
 
 ```text
-Study varela_div30
-source: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds
-target: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div30.h5ad
-Loaded Seurat object with 90,631 cells and 18,082 features
-Assay5 detected; joining layers for assay: RNA
-Matrix dimensions features x cells: 18,082 x 90,631
-Writing sparse Matrix Market: .../v.../matrix.mtx
+shi_2019_paper_qc.h5ad: 1009M
+varela_div30.h5ad:      4.5G
+varela_div90.h5ad:      584M
 ```
-
-The `Writing sparse Matrix Market` step should take longer for Varela DIV30 than
-for Shi because Varela DIV30 came from a 16 GB Seurat object and has more cells.
-Continue to monitor rather than interrupting unless the Rscript process exits or
-an error appears.
 
 ## Batch Conversion With Slurm
 
-Use the notebook for smoke tests and AnnData analysis. Use Slurm for large
-one-time conversions such as Varela DIV30 and DIV90.
+Use the notebook for cached AnnData analysis. Use Slurm for one-time cache
+rebuilds when a Seurat source file changes or when a cached `.h5ad` file is
+missing.
 
 The batch entry point is:
 
@@ -1195,8 +911,9 @@ Select the kernel:
 Python (mge-organoid-python)
 ```
 
-Run the notebook from top to bottom. The first cells only validate imports and
-paths; the conversion cell writes `.h5ad` files.
+Run the notebook from top to bottom. The notebook validates imports, checks that
+the cached `.h5ad` files exist, loads them with `backed="r"`, and plots UMAPs.
+It does not convert Seurat objects or remake `.h5ad` files.
 
 ## Quick Relaunch After The Env Exists
 
@@ -1242,8 +959,8 @@ varela_div30.h5ad
 varela_div90.h5ad
 ```
 
-The notebook loads these files back into memory as `AnnData` objects after
-conversion.
+The notebook loads these cached files as `AnnData` objects. By default it uses
+`backed="r"` so the full expression matrix is not loaded into memory.
 
 ## Python Package
 
@@ -1257,12 +974,20 @@ Main API:
 
 ```python
 from mge_organoid_python import (
-    SeuratToAnnDataConverter,
     default_studies,
+    load_cached_anndatas,
+    missing_cached_h5ads,
     resolve_project_root,
 )
 
 project_root = resolve_project_root()
-converter = SeuratToAnnDataConverter(project_root=project_root)
-adatas, reports = converter.convert_many(default_studies())
+studies = default_studies()
+missing = missing_cached_h5ads(studies, project_root=project_root)
+if missing:
+    raise FileNotFoundError(missing)
+
+adatas, reports = load_cached_anndatas(studies, project_root=project_root, backed="r")
 ```
+
+Conversion API still exists for the Slurm batch script, but normal notebooks
+should use the cached loader API above.
