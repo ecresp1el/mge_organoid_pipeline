@@ -10,6 +10,7 @@ dependencies:
   - ipykernel
   - numpy
   - pandas
+  - openpyxl
   - scipy
   - matplotlib
   - anndata
