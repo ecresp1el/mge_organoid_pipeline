@@ -1,122 +1,155 @@
 # Python Notebook Entry Point
 
-This directory adds a Python-first workflow for working with cached AnnData
-`.h5ad` files produced from selected Seurat `.rds` objects, without changing the
-existing R/Slurm pipeline.
+This directory is the Python notebook entry point for working with cached
+AnnData `.h5ad` files made from the project Seurat `.rds` objects.
 
-The normal notebook workflow is now load-only:
+The notebook workflow is load-only:
 
 ```text
 open notebook -> load cached .h5ad files -> inspect/plot/analyze AnnData
 ```
 
 Do not remake `.h5ad` files from the notebook during routine work. If a source
-Seurat object changes and the cache needs to be rebuilt, submit the Slurm batch
-job documented in `Batch Conversion With Slurm`.
+Seurat object changes, rebuild the cache with the Slurm batch job in
+`Rebuild Cached H5AD Files`.
 
-The repo remains code/config only. Runtime data and generated `.h5ad` files stay
-under:
+Runtime data stays outside the git repo under:
 
-```bash
+```text
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 ```
 
-## Resource Model
-
-Use VS Code on the login node only for editing, setup, and light validation.
-Great Lakes login nodes are not the place to convert large Seurat objects or
-run memory-heavy AnnData work.
-
-For real notebook work, request an interactive Slurm allocation, then connect VS
-Code to the allocated compute node. The notebook interface stays in VS Code, but
-the Python kernel runs on the compute node with the RAM/CPU resources requested
-from Slurm.
-
-Current Slurm facts confirmed from the login node:
+## Confirmed Project State
 
 ```text
-Available accounts: louisdan0, parent0
-Default account for this workflow: parent0
-Great Lakes user/account login: elcrespo
-standard partition: roughly 180 GB RAM per node
-largemem partition: roughly 1.5 TB RAM per node
+repo:         /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+conda base:   /home/elcrespo/miniconda3
+env:          mge-organoid-python
+python:       Python 3.11.15
+account:      parent0
+PROJECT_ROOT: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 ```
 
-GPU is not needed for the current Seurat `.rds` to AnnData `.h5ad` conversion or
-for loading cached AnnData. Start with CPU/RAM on `standard`; use `largemem` only
-if a downstream analysis step fails due to memory.
-
-## VS Code On A Compute Node
-
-The standard project helper for requesting notebook resources is:
-
-```bash
-python_notebooks/scripts/start_vscode_compute_job.sh
-```
-
-This uses the project default Slurm account:
+Cached AnnData files were created successfully by Slurm job `50295259`:
 
 ```text
-parent0
+shi_2019_paper_qc.h5ad  n_obs=56,136  n_vars=21,191  has_umap=True
+varela_div30.h5ad       n_obs=90,631  n_vars=18,082  has_umap=True
+varela_div90.h5ad       n_obs=22,338  n_vars=18,082  has_umap=True
 ```
 
-To override the account intentionally:
-
-```bash
-python_notebooks/scripts/start_vscode_compute_job.sh --account louisdan0
-```
-
-Default request:
+Expected cached files:
 
 ```text
-partition: standard
-memory:    128GB
-CPUs:      4
-time:      04:00:00
+$PROJECT_ROOT/results/python_anndata/shi_2019_paper_qc.h5ad
+$PROJECT_ROOT/results/python_anndata/varela_div30.h5ad
+$PROJECT_ROOT/results/python_anndata/varela_div90.h5ad
 ```
 
-For a larger memory test:
+## Fresh Login Setup
 
-```bash
-python_notebooks/scripts/start_vscode_compute_job.sh \
-  --partition largemem \
-  --mem 512GB \
-  --time 04:00:00
-```
+Use these steps from a fresh Great Lakes login-node session.
 
-Keep the terminal running after `salloc` grants the allocation. Note the
-allocated compute node name from the Slurm output. Then connect VS Code to that
-compute node using your Great Lakes SSH jump-host setup. Once VS Code is
-connected to the compute node, use the same `mge-organoid-python` environment
-and notebook kernel there.
-
-## Current Step-By-Step Notebook Test
-
-Use this section when starting from the confirmed state:
-
-```text
-login node: gl-login1
-repo: /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
-conda base: /home/elcrespo/miniconda3
-env: mge-organoid-python
-python: Python 3.11.15
-default Slurm account: parent0
-```
-
-### A. Login-Node Setup Checks
-
-These commands are safe on the login node because they only register the kernel
-and validate paths/imports.
-
-Goal: prove that the login session can see the repo, the conda env, the Jupyter
-kernel, and the source files. This does not perform Seurat conversion.
+### 1. Open The Repo
 
 ```bash
 cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+```
+
+Expected:
+
+```bash
+pwd
+```
+
+prints:
+
+```text
+/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+```
+
+### 2. Confirm Conda
+
+```bash
+conda --version
+type -a conda
+conda info --base
+```
+
+Expected for this project:
+
+```text
+conda 25.3.1
+/home/elcrespo/miniconda3
+```
+
+It is okay if `type -a conda` says `conda is a function`. The important check
+is that `conda info --base` points to:
+
+```text
+/home/elcrespo/miniconda3
+```
+
+If `conda` is not found, stop and fix conda access before continuing.
+
+### 3. Confirm Or Update The Environment
+
+Check whether the environment exists:
+
+```bash
+conda env list
+```
+
+Expected:
+
+```text
+mge-organoid-python    /home/elcrespo/miniconda3/envs/mge-organoid-python
+```
+
+If the env exists, update it:
+
+```bash
+conda env update -n mge-organoid-python -f python_notebooks/environment.yml --prune
+```
+
+Expected:
+
+```text
+Solving environment: done
+```
+
+It is okay if conda prints a warning that a newer conda version exists. Do not
+update base conda for this workflow.
+
+If the env does not exist, create it:
+
+```bash
+conda env create -f python_notebooks/environment.yml
+```
+
+### 4. Activate The Environment
+
+```bash
 conda activate mge-organoid-python
 ```
 
-Register the kernel:
+Validate:
+
+```bash
+echo "$CONDA_DEFAULT_ENV"
+which python
+python --version
+```
+
+Expected:
+
+```text
+mge-organoid-python
+~/miniconda3/envs/mge-organoid-python/bin/python
+Python 3.11.15
+```
+
+### 5. Register The Notebook Kernel
 
 ```bash
 python -m ipykernel install --user \
@@ -124,114 +157,87 @@ python -m ipykernel install --user \
   --display-name "Python (mge-organoid-python)"
 ```
 
-Expected output:
+Expected:
 
 ```text
 Installed kernelspec mge-organoid-python in /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python
 ```
 
-Why this matters: VS Code and Jupyter discover notebook environments through
-kernel specs. Registering this once lets the notebook offer
-`Python (mge-organoid-python)` as a selectable kernel.
-
-Confirmed Great Lakes state for this project:
+This is what lets VS Code show:
 
 ```text
-Installed kernelspec mge-organoid-python in /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python
+Python (mge-organoid-python)
 ```
 
-Set the runtime root:
+### 6. Set PROJECT_ROOT
 
 ```bash
 export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
-```
-
-Confirm it:
-
-```bash
 echo "$PROJECT_ROOT"
 ```
 
-Expected and confirmed value:
+Expected:
 
 ```text
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 ```
 
-Why this matters: repo files live under `/home`, but data/results live under
-`PROJECT_ROOT`. The Python code uses `PROJECT_ROOT` to keep generated `.h5ad`
-files out of the git repo.
-
-Confirm the three source objects:
+### 7. Confirm Cached H5AD Files Exist
 
 ```bash
 ls -lh \
-  "$PROJECT_ROOT/results/shi_2019_paper_qc/shi_2019_seurat.rds" \
-  "$PROJECT_ROOT/results/varela_this_paper/varela_this_paper_seurat.rds" \
-  "/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds"
+  "$PROJECT_ROOT/results/python_anndata/shi_2019_paper_qc.h5ad" \
+  "$PROJECT_ROOT/results/python_anndata/varela_div30.h5ad" \
+  "$PROJECT_ROOT/results/python_anndata/varela_div90.h5ad"
 ```
 
-Expected result: three `.rds` files are listed.
-
-Why this matters: these are the exact Seurat inputs the notebook will convert.
-Checking them before requesting compute resources catches path problems early.
-
-Confirmed Great Lakes state for this project:
+Expected:
 
 ```text
-Shi 2019 paper QC: 607M
-Varela DIV30:      16G
-Varela DIV90:      3.1G
+shi_2019_paper_qc.h5ad
+varela_div30.h5ad
+varela_div90.h5ad
 ```
 
-Because the Varela objects are large, do not run conversion on the login node.
+If any file is missing, go to `Rebuild Cached H5AD Files`.
 
-Confirm the Python package sees the same paths:
+### 8. Confirm Python Can Load The Cached AnnData Files
 
 ```bash
 PYTHONPATH="$PWD/python_notebooks/src" python - <<'PY'
-from mge_organoid_python import default_studies, resolve_project_root, validate_source_paths
+from mge_organoid_python import default_studies, load_cached_anndatas, resolve_project_root
 
-print("PROJECT_ROOT =", resolve_project_root())
-studies = default_studies()
-for study in studies:
-    print(study.study_id, "=>", study.seurat_path)
-
-missing = validate_source_paths(studies)
-if missing:
-    raise SystemExit("Missing inputs: " + repr(missing))
-print("All default Seurat inputs are present.")
+project_root = resolve_project_root()
+adatas, reports = load_cached_anndatas(default_studies(), project_root=project_root, backed="r")
+for report in reports:
+    print(report.study_id, report.n_obs, report.n_vars, report.has_umap)
+for adata in adatas.values():
+    adata.file.close()
 PY
 ```
 
-Stop here if any source object is missing.
-
-Why this matters: this verifies the notebook-facing Python package imports
-correctly and resolves the same canonical inputs that were checked with `ls`.
-
-Confirmed Great Lakes state for this project:
+Expected:
 
 ```text
-PROJECT_ROOT = /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
-shi_2019_paper_qc => /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_2019_paper_qc/shi_2019_seurat.rds
-varela_div30 => /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds
-varela_div90 => /nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds
-All default Seurat inputs are present.
+shi_2019_paper_qc 56136 21191 True
+varela_div30 90631 18082 True
+varela_div90 22338 18082 True
 ```
 
-At this point, login-node setup validation is complete. Continue to resource
-allocation before running notebook conversion.
+If this works, the cached AnnData files are valid.
 
-### B. Request Notebook Resources
+### 9. Request Notebook Resources
+
+Use the login node for setup checks only. For actually working in the notebook,
+request a Slurm compute node so the notebook kernel has allocated RAM/CPUs.
 
 From the login-node VS Code terminal:
 
 ```bash
-cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
 python_notebooks/scripts/start_vscode_compute_job.sh
 ```
 
-This requests the default notebook allocation:
+Default request:
 
 ```text
 account:   parent0
@@ -241,372 +247,187 @@ CPUs:      4
 time:      04:00:00
 ```
 
-Why this matters: the notebook conversion reads 607 MB, 3.1 GB, and 16 GB RDS
-objects. The allocation moves the actual notebook kernel work off `gl-login1`
-and onto a Slurm compute node with requested RAM/CPUs.
-
-When Slurm grants the allocation, keep that terminal open and note the compute
-node name.
-
-Expected Slurm behavior:
+Expected Slurm output:
 
 ```text
 salloc: Granted job allocation <job_id>
 salloc: Nodes <node_name> are ready for job
 ```
 
-Confirmed Great Lakes state for this project:
+Keep this terminal open. The allocation ends if this terminal exits.
 
-```text
-salloc: Pending job allocation 50282695
-salloc: job 50282695 queued and waiting for resources
-salloc: job 50282695 has been allocated resources
-salloc: Granted job allocation 50282695
-salloc: Nodes gl3103 are ready for job
-```
+### 10. Connect VS Code To The Compute Node
 
-In this confirmed example, the compute node is:
+After Slurm grants the allocation, connect VS Code Remote SSH to the allocated
+compute node. The node name is the `<node_name>` from the `salloc` output.
 
-```text
-gl3103
-```
-
-If the job remains queued, wait. If Slurm reports an account, partition, memory,
-or time error, stop and fix the request before continuing.
-
-### C. Connect VS Code To The Compute Node
-
-Use VS Code Remote SSH to connect to the allocated compute node through the
-Great Lakes login node jump host. The notebook must run from this compute-node
-VS Code session, not from the `gl-login1` session.
-
-Why this matters: opening the notebook from the login-node VS Code window would
-start the kernel on `gl-login1`. Connecting VS Code to the allocated compute
-node makes the notebook kernel run where the requested resources exist.
-
-In the compute-node VS Code terminal, run:
+In the compute-node VS Code terminal:
 
 ```bash
-hostname
 cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
 conda activate mge-organoid-python
 export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
-```
-
-`hostname` should show the allocated compute node, not `gl-login1`.
-
-Confirm the env and runtime root on the compute node:
-
-```bash
+hostname
 echo "$CONDA_DEFAULT_ENV"
 which python
 echo "$PROJECT_ROOT"
 ```
 
-Expected output:
+Expected:
 
 ```text
+<compute-node>.arc-ts.umich.edu
 mge-organoid-python
-.../envs/mge-organoid-python/bin/python
+~/miniconda3/envs/mge-organoid-python/bin/python
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 ```
 
-Confirmed Great Lakes state for this project:
+Confirmed example:
 
 ```text
-hostname                  -> gl3103.arc-ts.umich.edu
+hostname                  -> gl3088.arc-ts.umich.edu
 echo "$CONDA_DEFAULT_ENV" -> mge-organoid-python
 which python              -> ~/miniconda3/envs/mge-organoid-python/bin/python
-python --version          -> Python 3.11.15
 echo "$PROJECT_ROOT"      -> /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
 ```
 
-This confirms the terminal is running on the allocated compute node, not on the
-login node. It also confirms the notebook kernel environment and runtime data
-root are available on the compute node.
+If `hostname` starts with `gl-login`, stop. The notebook is still attached to a
+login node, not to your allocated compute node.
 
-Open:
+### 11. Start Jupyter On The Compute Node
+
+In the compute-node terminal, start Jupyter with a URL that VS Code can connect
+to:
+
+```bash
+jupyter lab --no-browser --ip=0.0.0.0 --port=8899
+```
+
+Keep this terminal open. Jupyter will print URLs like:
+
+```text
+http://<compute-node>.arc-ts.umich.edu:8899/lab?token=<token>
+http://127.0.0.1:8899/lab?token=<token>
+```
+
+Use the URL with the compute-node hostname, not the `127.0.0.1` URL. For
+example:
+
+```text
+http://gl3088.arc-ts.umich.edu:8899/lab?token=<token>
+```
+
+### 12. Open The Notebook And Connect It To That Jupyter Server
+
+In VS Code, open the notebook first:
 
 ```text
 python_notebooks/notebooks/01_seurat_to_anndata.ipynb
 ```
 
-Select:
+Then use the notebook kernel picker in the upper right of the notebook.
+
+Click:
+
+```text
+Select Kernel
+```
+
+Then choose:
+
+```text
+Select Another Kernel
+```
+
+Then choose:
+
+```text
+Existing Jupyter Server
+```
+
+Then choose:
+
+```text
+Enter the URL of the running Jupyter Server
+```
+
+Paste the full compute-node URL printed by Jupyter. Use the `gl####` URL, not
+the `127.0.0.1` URL:
+
+```text
+http://gl3088.arc-ts.umich.edu:8899/lab?token=<token>
+```
+
+After you paste the URL, VS Code may show the server host name, for example:
+
+```text
+gl3088.arc-ts.umich.edu
+```
+
+Press Enter to accept it.
+
+Then select the kernel from that server:
 
 ```text
 Python (mge-organoid-python)
 ```
 
-If `Python (mge-organoid-python)` is not visible in VS Code, verify kernel
-registration from the compute-node terminal:
-
-```bash
-hostname
-conda activate mge-organoid-python
-python -m jupyter kernelspec list
-cat /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python/kernel.json
-```
-
-Expected meaning:
+Expected terminal evidence that VS Code reached the compute-node Jupyter server:
 
 ```text
-hostname
+302 GET / (@...)
+302 GET /lab? (@...)
 ```
 
-should show the allocated compute node, not `gl-login1`.
+If VS Code asks you to pick a local Python environment, Conda env, or interpreter
+before asking for a Jupyter server URL, cancel that prompt. You are in the wrong
+picker. Go back to the notebook's `Select Kernel` button and choose:
 
 ```text
-python -m jupyter kernelspec list
+Select Another Kernel -> Existing Jupyter Server -> Enter the URL of the running Jupyter Server
 ```
 
-should include:
+Run the notebook cells in order. The notebook:
 
 ```text
-mge-organoid-python    /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python
+1. adds python_notebooks/src to sys.path
+2. imports the cached AnnData loader
+3. prints runtime diagnostics
+4. checks source and cached output paths
+5. loads cached .h5ad files with backed="r"
+6. displays validation reports
+7. plots UMAPs from adata.obsm["X_umap"]
 ```
 
-The `kernel.json` file should point to:
+The notebook does not convert Seurat objects and does not overwrite `.h5ad`
+files.
 
-```text
-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
-```
+## Login Node Vs Compute Node
 
-Confirmed Great Lakes state for this project:
+Light cached loading with `backed="r"` can work from a login-node notebook, but
+the standard workflow for this project is to request a Slurm compute allocation
+before opening the notebook for real analysis.
 
-```text
-hostname -> gl3103.arc-ts.umich.edu
+Use a Slurm compute node when you plan to do memory-heavy AnnData work, model
+fitting, integration, large in-memory transformations, or anything that will
+load large matrices into memory.
 
-python -m jupyter kernelspec list includes:
-mge-organoid-python    /home/elcrespo/.local/share/jupyter/kernels/mge-organoid-python
+## Rebuild Cached H5AD Files
 
-kernel.json argv includes:
-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+Only do this when a cached `.h5ad` file is missing or a source Seurat `.rds`
+file has changed.
 
-kernel.json display_name:
-Python (mge-organoid-python)
-```
-
-If the kernelspec is missing, rerun:
-
-```bash
-python -m ipykernel install --user \
-  --name mge-organoid-python \
-  --display-name "Python (mge-organoid-python)"
-```
-
-Then close and reopen the notebook tab or use the VS Code command palette:
-
-```text
-Developer: Reload Window
-```
-
-If the kernel picker opens but does not show the env, choose:
-
-```text
-Select Another Kernel -> Python Environments -> Enter interpreter path
-```
-
-Then paste:
-
-```text
-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
-```
-
-If clicking `Select Kernel` does not open anything at all, use the command
-palette instead:
-
-```text
-Notebook: Select Notebook Kernel
-```
-
-If that still does not open a picker, reload the VS Code window and try again:
-
-```text
-Developer: Reload Window
-```
-
-Confirmed VS Code state for this project:
-
-```text
-Notebook kernel selected: mge-organoid-python (Python 3.11.15)
-```
-
-First notebook cell expected output:
-
-```text
-PosixPath('/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline')
-```
-
-Confirmed notebook state for this project:
-
-```text
-PosixPath('/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline')
-```
-
-Second notebook cell expected output:
-
-```text
-PROJECT_ROOT = /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
-shi_2019_paper_qc: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_2019_paper_qc/shi_2019_seurat.rds
-varela_div30: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds
-varela_div90: /nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds
-```
-
-If VS Code shows `Import "mge_organoid_python" could not be resolved` but the
-cell runs and prints the paths above, Python is working correctly. That warning
-comes from the editor language server, not the notebook runtime. The repo has a
-`pyrightconfig.json` file that points VS Code/Pylance at `python_notebooks/src`;
-reload the VS Code window if the warning does not clear.
-
-Plain-language explanation of `pyrightconfig.json`:
-
-```json
-{
-  "include": [
-    "python_notebooks/src",
-    "python_notebooks/notebooks"
-  ],
-  "extraPaths": [
-    "python_notebooks/src"
-  ]
-}
-```
-
-`pyrightconfig.json` is for VS Code/Pylance static checking only. It does not
-run the notebook and it does not change where Python looks at runtime.
-
-`include` tells Pylance which repo folders to analyze. Here, it means:
-
-```text
-python_notebooks/src       -> analyze the custom Python package
-python_notebooks/notebooks -> analyze notebook-side Python code
-```
-
-`extraPaths` tells Pylance where importable local packages live. Here, it means:
-
-```text
-python_notebooks/src
-```
-
-so the editor can understand:
-
-```python
-import mge_organoid_python
-```
-
-The notebook runtime still gets the same path from the first notebook cell,
-which adds `python_notebooks/src` to `sys.path`. In short:
-
-```text
-pyrightconfig.json -> helps VS Code stop showing a false import warning
-first notebook cell -> makes the package importable when the notebook runs
-```
-
-Run notebook cells in order. The current notebook is load-only:
-
-```text
-1. locate repo-local python_notebooks/src
-2. import the cached-loader API
-3. print runtime diagnostics
-4. confirm Seurat sources still exist
-5. confirm cached .h5ad files exist
-6. load cached AnnData with backed="r"
-7. plot UMAPs from adata.obsm["X_umap"]
-```
-
-It does not create or overwrite `.h5ad` files.
-
-The diagnostic cell may show a login-node hostname. That is acceptable for light
-cached-file inspection with `backed="r"`. It is not acceptable for Seurat
-conversion. Seurat conversion should be done only through the Slurm batch job.
-
-If any cached `.h5ad` file is missing, the notebook raises a `FileNotFoundError`
-and tells you to rebuild with:
+Submit the Slurm rebuild job:
 
 ```bash
 cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
 cp slurm_templates/08_convert_python_anndata.sbatch.template \
   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/08_convert_python_anndata.sbatch
-sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/08_convert_python_anndata.sbatch
-```
-
-Monitor the rebuild job with:
-
-```bash
-squeue -u elcrespo
-tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/08_convert_python_anndata_<jobid>.log
-```
-
-The Slurm job runs the conversion script, skips already-current caches when
-`OVERWRITE=false`, and writes final files under:
-
-```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/
-```
-
-After the files exist, return to the notebook and rerun the load-only cells.
-
-Confirmed cached AnnData outputs for this project:
-
-```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/shi_2019_paper_qc.h5ad
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div30.h5ad
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div90.h5ad
-```
-
-Confirmed conversion job:
-
-```text
-JobID:   50295259
-State:   COMPLETED
-Exit:    0:0
-Elapsed: 00:54:03
-```
-
-Validated AnnData dimensions:
-
-```text
-shi_2019_paper_qc: n_obs=56,136 n_vars=21,191 has_umap=True
-varela_div30:      n_obs=90,631 n_vars=18,082 has_umap=True
-varela_div90:      n_obs=22,338 n_vars=18,082 has_umap=True
-```
-
-Current file sizes:
-
-```text
-shi_2019_paper_qc.h5ad: 1009M
-varela_div30.h5ad:      4.5G
-varela_div90.h5ad:      584M
-```
-
-## Batch Conversion With Slurm
-
-Use the notebook for cached AnnData analysis. Use Slurm for one-time cache
-rebuilds when a Seurat source file changes or when a cached `.h5ad` file is
-missing.
-
-The batch entry point is:
-
-```text
-python_notebooks/scripts/convert_seurat_to_anndata.py
-```
-
-The Slurm template is:
-
-```text
-slurm_templates/08_convert_python_anndata.sbatch.template
-```
-
-Submit the default job:
-
-```bash
-cp slurm_templates/08_convert_python_anndata.sbatch.template \
-  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/08_convert_python_anndata.sbatch
 
 sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/08_convert_python_anndata.sbatch
 ```
 
-Default job behavior:
+Default rebuild behavior:
 
 ```text
 account:   parent0
@@ -618,319 +439,25 @@ studies:   all
 overwrite: false
 ```
 
-Because `overwrite=false`, existing current outputs are skipped. Since
-`shi_2019_paper_qc.h5ad` already exists, the batch job should report
-`needs_conversion=False` for Shi and move on to Varela outputs.
+Because `overwrite=false`, existing current `.h5ad` files are skipped.
 
-To submit only Varela DIV30 and DIV90:
+Monitor:
 
 ```bash
-STUDIES="varela_div30 varela_div90" \
-sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/08_convert_python_anndata.sbatch
+squeue -u elcrespo
+tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/08_convert_python_anndata_<jobid>.log
 ```
 
-Logs are written to:
+Successful completion should show:
 
 ```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/08_convert_python_anndata_<jobid>.log
-```
-
-Expected cached outputs:
-
-```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/shi_2019_paper_qc.h5ad
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div30.h5ad
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div90.h5ad
-```
-
-After these files exist, notebooks should load AnnData directly with
-`anndata.read_h5ad(..., backed="r")` instead of rerunning Seurat conversion.
-
-## Fresh Login Test
-
-These instructions are the ground truth for testing the Python entry point from a
-fresh Great Lakes login node session.
-
-### 1. Start From A Clean Login Shell
-
-```bash
-ssh elcrespo@gl-login1.arc-ts.umich.edu
-cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
-```
-
-### 2. Confirm Which Conda Is Available
-
-Do this before creating or updating anything.
-
-```bash
-conda --version
-```
-
-Expected result:
-
-```text
-conda <version>
-```
-
-If you see a conda version, conda is already accessible. On the current Great
-Lakes login node setup, this may come from your home Miniconda install rather
-than from a module.
-
-Confirm exactly which conda is being used:
-
-```bash
-type -a conda
-which conda
-conda info --base
-```
-
-Expected pattern for your current setup:
-
-```text
-/home/elcrespo/miniconda3
-```
-
-It is also okay if `type -a conda` reports that `conda` is a shell function;
-that is normal when conda has been initialized in your shell. The important
-check is that `conda info --base` points to the conda installation you intend to
-use.
-
-Confirmed Great Lakes state for this project:
-
-```text
-conda --version      -> conda 25.3.1
-conda info --base    -> /home/elcrespo/miniconda3
-type -a conda        -> shell function plus /home/elcrespo/miniconda3/condabin/conda
-```
-
-If `conda --version` says `conda: command not found`, then try loading a conda
-module:
-
-```bash
-module purge
-module load Anaconda3
-```
-
-Module names can vary on Great Lakes. If `module load Anaconda3` fails, inspect
-the available modules and load the available Anaconda, Miniconda, or Mambaforge
-module:
-
-```bash
-module avail anaconda
-module avail mamba
-module avail miniconda
-```
-
-After loading any module, rerun:
-
-```bash
-conda --version
-which conda
-conda info --base
-```
-
-Do not continue until those commands work.
-
-### 3. Check Whether The Environment Already Exists
-
-List conda environments:
-
-```bash
-conda env list
-```
-
-Expected result if the env already exists:
-
-```text
-mge-organoid-python    <some path>
-```
-
-Expected result if the env does not exist:
-
-```text
-# conda environments:
-base                  * /home/elcrespo/miniconda3
-...
-```
-
-If `mge-organoid-python` is not listed, create it in step 4A.
-
-If `mge-organoid-python` is listed, update it in step 4B.
-
-Confirmed Great Lakes state for this project:
-
-```text
-mge-organoid-python    /home/elcrespo/miniconda3/envs/mge-organoid-python
-```
-
-Because this env already exists, use step 4B, not step 4A.
-
-### 4A. Create The Conda Environment
-
-Run this only if `conda env list` did not show `mge-organoid-python`:
-
-```bash
-conda env create -f python_notebooks/environment.yml
-```
-
-Expected result:
-
-```text
-done
-#
-# To activate this environment, use
-#
-#     $ conda activate mge-organoid-python
-```
-
-After creation, confirm it exists:
-
-```bash
-conda env list
-```
-
-You should now see `mge-organoid-python`.
-
-### 4B. Update The Conda Environment
-
-Run this only if `conda env list` already showed `mge-organoid-python`:
-
-```bash
-conda env update -n mge-organoid-python -f python_notebooks/environment.yml --prune
-```
-
-Expected result:
-
-```text
-done
-```
-
-It is okay if conda also prints:
-
-```text
-WARNING: A newer version of conda exists.
-```
-
-Do not update base conda for this workflow. Continue to step 5.
-
-### 5. Activate The Conda Environment
-
-```bash
-conda activate mge-organoid-python
-```
-
-Confirm the active environment:
-
-```bash
-echo "$CONDA_DEFAULT_ENV"
-which python
-python --version
-```
-
-Expected result:
-
-```text
-mge-organoid-python
-```
-
-`which python` should point inside the `mge-organoid-python` environment, not to
-system Python.
-
-Confirmed Great Lakes state for this project:
-
-```text
-echo "$CONDA_DEFAULT_ENV" -> mge-organoid-python
-which python              -> ~/miniconda3/envs/mge-organoid-python/bin/python
-python --version          -> Python 3.11.15
-```
-
-### 6. Register The Notebook Kernel
-
-```bash
-python -m ipykernel install --user \
-  --name mge-organoid-python \
-  --display-name "Python (mge-organoid-python)"
-```
-
-### 7. Set Runtime Root
-
-```bash
-export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
-```
-
-### 8. Verify The Three Seurat Inputs
-
-```bash
-ls -lh \
-  "$PROJECT_ROOT/results/shi_2019_paper_qc/shi_2019_seurat.rds" \
-  "$PROJECT_ROOT/results/varela_this_paper/varela_this_paper_seurat.rds" \
-  "/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds"
-```
-
-This should show three existing `.rds` files. Do not continue to conversion if
-one is missing.
-
-### 9. Verify Python Imports And Path Resolution
-
-```bash
-PYTHONPATH="$PWD/python_notebooks/src" python - <<'PY'
-from mge_organoid_python import default_studies, resolve_project_root, validate_source_paths
-
-project_root = resolve_project_root()
-studies = default_studies()
-print("PROJECT_ROOT =", project_root)
-for study in studies:
-    print(study.study_id, "=>", study.seurat_path)
-
-missing = validate_source_paths(studies)
-if missing:
-    raise SystemExit("Missing inputs: " + repr(missing))
-print("All default Seurat inputs are present.")
-PY
-```
-
-### 10. Launch Jupyter
-
-Use the login node for light notebook editing and path checks only. The Seurat
-objects can be large, so full conversion should be done in a GUI/interactive
-compute session when possible.
-
-```bash
-jupyter lab --no-browser
-```
-
-Open:
-
-```text
-python_notebooks/notebooks/01_seurat_to_anndata.ipynb
-```
-
-Select the kernel:
-
-```text
-Python (mge-organoid-python)
-```
-
-Run the notebook from top to bottom. The notebook validates imports, checks that
-the cached `.h5ad` files exist, loads them with `backed="r"`, and plots UMAPs.
-It does not convert Seurat objects or remake `.h5ad` files.
-
-## Quick Relaunch After The Env Exists
-
-For later sessions, after the environment has already been created:
-
-```bash
-ssh elcrespo@gl-login1.arc-ts.umich.edu
-cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
-conda --version
-conda activate mge-organoid-python
-export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
-jupyter lab --no-browser
+All file conversions complete
+shi_2019_paper_qc ... exists=True
+varela_div30 ... exists=True
+varela_div90 ... exists=True
 ```
 
 ## Canonical Inputs
-
-The notebook uses these Seurat objects:
 
 ```text
 Shi 2019 paper QC:
@@ -943,34 +470,7 @@ Varela DIV90:
 /nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds
 ```
 
-## Outputs
-
-Converted AnnData files are cached under:
-
-```text
-$PROJECT_ROOT/results/python_anndata/
-```
-
-Expected files:
-
-```text
-shi_2019_paper_qc.h5ad
-varela_div30.h5ad
-varela_div90.h5ad
-```
-
-The notebook loads these cached files as `AnnData` objects. By default it uses
-`backed="r"` so the full expression matrix is not loaded into memory.
-
-## Python Package
-
-The notebook imports the repo-local package from:
-
-```text
-python_notebooks/src/mge_organoid_python/
-```
-
-Main API:
+## Python API Used By The Notebook
 
 ```python
 from mge_organoid_python import (
@@ -988,6 +488,3 @@ if missing:
 
 adatas, reports = load_cached_anndatas(studies, project_root=project_root, backed="r")
 ```
-
-Conversion API still exists for the Slurm batch script, but normal notebooks
-should use the cached loader API above.
