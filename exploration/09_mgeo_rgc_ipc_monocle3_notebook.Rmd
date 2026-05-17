@@ -80,13 +80,28 @@ safe_save_rds <- function(object, path) {
   )
 }
 
+get_umap_clusters <- function(cds) {
+  tryCatch(
+    clusters(cds, reduction_method = "UMAP"),
+    error = function(e) clusters(cds)
+  )
+}
+
+get_umap_partitions <- function(cds) {
+  tryCatch(
+    partitions(cds, reduction_method = "UMAP"),
+    error = function(e) partitions(cds)
+  )
+}
+
 write_umap_cluster_checkpoint <- function(cds, path) {
   umap <- reducedDims(cds)$UMAP
+  cluster_values <- get_umap_clusters(cds)
   checkpoint <- data.frame(
     cell_id = rownames(umap),
     monocle3_umap_1 = umap[, 1],
     monocle3_umap_2 = umap[, 2],
-    monocle3_cluster = as.character(clusters(cds, reduction_method = "UMAP")),
+    monocle3_cluster = as.character(cluster_values),
     stringsAsFactors = FALSE
   )
   timed_step(paste0("write CSV ", basename(path)), {
@@ -102,7 +117,7 @@ has_umap <- function(cds) {
 
 has_umap_clusters <- function(cds) {
   cluster_values <- tryCatch(
-    clusters(cds, reduction_method = "UMAP"),
+    get_umap_clusters(cds),
     error = function(e) NULL
   )
   !is.null(cluster_values) && length(cluster_values) == ncol(cds)
@@ -260,7 +275,7 @@ if (!has_umap_clusters(cds)) {
 } else {
   log_step("Skipping cluster_cells; UMAP clusters already exist.")
 }
-log_step("Cluster count: ", length(unique(clusters(cds, reduction_method = "UMAP"))))
+log_step("Cluster count: ", length(unique(get_umap_clusters(cds))))
 
 write_umap_cluster_checkpoint(cds, UMAP_CLUSTER_CSV)
 safe_save_rds(cds, CDS_UMAP_CLUSTER_RDS)
@@ -406,8 +421,8 @@ pt_df <- data.frame(
     "monocle3_interactive_use_partition_",
     LEARN_GRAPH_USE_PARTITION
   ),
-  monocle3_partition = as.character(monocle3::partitions(cds_ordered, reduction_method = "UMAP")),
-  monocle3_cluster = as.character(monocle3::clusters(cds_ordered, reduction_method = "UMAP")),
+  monocle3_partition = as.character(get_umap_partitions(cds_ordered)),
+  monocle3_cluster = as.character(get_umap_clusters(cds_ordered)),
   monocle3_root_pr_node = root_nodes$primary,
   stringsAsFactors = FALSE
 )
