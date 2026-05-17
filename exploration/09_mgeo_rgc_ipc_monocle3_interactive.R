@@ -20,7 +20,6 @@ options(expressions = 500000)
 suppressPackageStartupMessages({
   library(Matrix)
   library(monocle3)
-  library(igraph)
 })
 
 PROJECT_ROOT <- Sys.getenv(
@@ -83,17 +82,11 @@ safe_save_rds <- function(object, path) {
 }
 
 get_umap_clusters <- function(cds) {
-  tryCatch(
-    clusters(cds, reduction_method = "UMAP"),
-    error = function(e) clusters(cds)
-  )
+  monocle3::clusters(cds, reduction_method = "UMAP")
 }
 
 get_umap_partitions <- function(cds) {
-  tryCatch(
-    partitions(cds, reduction_method = "UMAP"),
-    error = function(e) partitions(cds)
-  )
+  monocle3::partitions(cds, reduction_method = "UMAP")
 }
 
 write_umap_cluster_checkpoint <- function(cds, path) {
@@ -430,7 +423,7 @@ keep_meta <- intersect(
 pt_df <- cbind(pt_df, cell_metadata[pt_df$cell_id, keep_meta, drop = FALSE])
 
 write.csv(pt_df, PSEUDOTIME_CSV, row.names = FALSE)
-saveRDS(cds_ordered, CDS_ORDERED_RDS)
+safe_save_rds(cds_ordered, CDS_ORDERED_RDS)
 
 PSEUDOTIME_CSV
 CDS_ORDERED_RDS
