@@ -75,11 +75,12 @@ $PROJECT_ROOT/results/mgeo_rgc_ipc_monocle3/mgeo_rgc_ipc_monocle3_cds.rds
 $PROJECT_ROOT/results/mgeo_rgc_ipc_monocle3/mgeo_rgc_ipc_monocle3_summary.tsv
 ```
 
-If `monocle3` is not yet installed in the conda R environment but the compiled
-dependencies are present, submit with:
+The Slurm stage uses conda only for the Python AnnData export, then switches to
+the Great Lakes Monocle3 module for R:
 
-```bash
-INSTALL_MONOCLE3_IF_MISSING=true sbatch "$PROJECT_ROOT/jobs/09_mgeo_rgc_ipc_monocle3.sbatch"
+```text
+module load Bioinformatics
+module load Rmonocle3/1.3.7
 ```
 
 After the job finishes, rerun notebook 02 through section 9. Section 9 loads
