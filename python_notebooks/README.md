@@ -149,6 +149,30 @@ mge-organoid-python
 Python 3.11.15
 ```
 
+### 5. Confirm Monocle3 For Notebook 02
+
+Notebook `02_mgeo_rgc_ipc_progression.ipynb` runs Monocle3 from Python via
+`Rscript`, so Monocle3 must be installed in the same active conda environment:
+
+```bash
+which Rscript
+Rscript -e 'cat(requireNamespace("monocle3", quietly = TRUE), "\n")'
+```
+
+Expected:
+
+```text
+TRUE
+```
+
+If the check prints `FALSE`, install Monocle3 into this environment before
+rerunning the Monocle3 notebook cell:
+
+```bash
+Rscript -e 'install.packages(c("remotes", "BiocManager"), repos = "https://cloud.r-project.org")'
+Rscript -e 'remotes::install_github("cole-trapnell-lab/monocle3")'
+```
+
 ### 5. Register The Notebook Kernel
 
 ```bash

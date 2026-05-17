@@ -19,6 +19,8 @@ dependencies:
   - r-base
   - r-essentials
   - r-matrix
+  - r-remotes
+  - r-biocmanager
   - r-seurat>=5
   - r-seuratobject>=5
   - bioconductor-singlecellexperiment
