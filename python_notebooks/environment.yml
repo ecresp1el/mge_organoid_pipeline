@@ -27,3 +27,7 @@ dependencies:
   - bioconductor-summarizedexperiment
   - bioconductor-s4vectors
   - bioconductor-zellkonverter
+  - bioconductor-hdf5array
+  - r-sf
+  - r-units
+  - r-terra
