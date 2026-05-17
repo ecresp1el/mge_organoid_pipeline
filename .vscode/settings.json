@@ -3,5 +3,6 @@
   "r.rpath.linux": "/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/scripts/r_monocle3_vscode.sh",
   "r.alwaysUseActiveTerminal": true,
   "r.bracketedPaste": true,
-  "r.sessionWatcher": true
+  "r.sessionWatcher": true,
+  "r.plot.useHttpgd": true
 }
