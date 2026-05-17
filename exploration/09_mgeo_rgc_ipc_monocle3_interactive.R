@@ -1,0 +1,246 @@
+#!/usr/bin/env Rscript
+
+# VS Code-friendly interactive Monocle3 workflow for MGEO RGC/IPC pseudotime.
+#
+# Use this on an allocated compute node:
+#   cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+#   module load Bioinformatics
+#   module load Rmonocle3/1.3.7
+#   R
+#
+# Then run sections block-by-block in VS Code's R terminal, or source this file
+# after editing the config below. Section markers use "# %%" for editors that
+# recognize notebook-style cells.
+
+# %% 0. Setup
+
+options(stringsAsFactors = FALSE)
+options(expressions = 500000)
+
+suppressPackageStartupMessages({
+  library(Matrix)
+  library(monocle3)
+  library(igraph)
+})
+
+PROJECT_ROOT <- Sys.getenv(
+  "PROJECT_ROOT",
+  unset = "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+)
+
+RUN_ROOT <- file.path(PROJECT_ROOT, "results/mgeo_rgc_ipc_monocle3")
+INPUT_DIR <- file.path(RUN_ROOT, "inputs")
+INTERACTIVE_DIR <- file.path(RUN_ROOT, "interactive")
+dir.create(INTERACTIVE_DIR, recursive = TRUE, showWarnings = FALSE)
+
+EXPR_MTX_PATH <- file.path(INPUT_DIR, "mgeo_rgc_ipc_expression_genes_by_cells.mtx")
+CELL_METADATA_PATH <- file.path(INPUT_DIR, "mgeo_rgc_ipc_cell_metadata.csv")
+GENE_METADATA_PATH <- file.path(INPUT_DIR, "mgeo_rgc_ipc_gene_metadata.csv")
+
+CDS_PREPROCESS_RDS <- file.path(INTERACTIVE_DIR, "cds_after_preprocess.rds")
+CDS_UMAP_RDS <- file.path(INTERACTIVE_DIR, "cds_after_umap_cluster_graph.rds")
+PSEUDOTIME_CSV <- file.path(INTERACTIVE_DIR, "mgeo_rgc_ipc_monocle3_pseudotime_interactive.csv")
+CDS_ORDERED_RDS <- file.path(INTERACTIVE_DIR, "cds_ordered_interactive.rds")
+
+NUM_DIM <- 50
+
+# For debugging, FALSE often gives one connected graph and fewer Inf pseudotime
+# values. TRUE follows Monocle3 partitions and can leave non-root partitions Inf.
+LEARN_GRAPH_USE_PARTITION <- FALSE
+
+cat("PROJECT_ROOT:", PROJECT_ROOT, "\n")
+cat("INPUT_DIR:", INPUT_DIR, "\n")
+cat("INTERACTIVE_DIR:", INTERACTIVE_DIR, "\n")
+
+# %% 1. Read exported matrix and metadata
+
+stopifnot(file.exists(EXPR_MTX_PATH))
+stopifnot(file.exists(CELL_METADATA_PATH))
+stopifnot(file.exists(GENE_METADATA_PATH))
+
+message("Reading expression matrix...")
+expression_matrix <- Matrix::readMM(EXPR_MTX_PATH)
+if (!inherits(expression_matrix, "dgCMatrix")) {
+  expression_matrix <- as(expression_matrix, "dgCMatrix")
+}
+
+message("Reading cell metadata...")
+cell_metadata <- read.csv(CELL_METADATA_PATH, row.names = 1, check.names = FALSE)
+
+message("Reading gene metadata...")
+gene_metadata <- read.csv(GENE_METADATA_PATH, row.names = 1, check.names = FALSE)
+
+stopifnot(nrow(expression_matrix) == nrow(gene_metadata))
+stopifnot(ncol(expression_matrix) == nrow(cell_metadata))
+
+rownames(expression_matrix) <- rownames(gene_metadata)
+colnames(expression_matrix) <- rownames(cell_metadata)
+
+dim(expression_matrix)
+head(cell_metadata[, c("DIV", "shi_s5_RGC_score", "shi_s5_IPC_score")])
+
+# %% 2. Create CDS and preprocess
+
+cds <- new_cell_data_set(
+  expression_matrix,
+  cell_metadata = cell_metadata,
+  gene_metadata = gene_metadata
+)
+
+set.seed(7)
+cds <- preprocess_cds(cds, num_dim = NUM_DIM, norm_method = "none")
+saveRDS(cds, CDS_PREPROCESS_RDS)
+CDS_PREPROCESS_RDS
+
+# %% 3. UMAP, clusters, graph
+
+set.seed(7)
+cds <- reduce_dimension(cds, reduction_method = "UMAP")
+cds <- cluster_cells(cds, reduction_method = "UMAP")
+cds <- learn_graph(cds, use_partition = LEARN_GRAPH_USE_PARTITION)
+saveRDS(cds, CDS_UMAP_RDS)
+CDS_UMAP_RDS
+
+# Quick visual checkpoint. In VS Code/RStudio this should draw in the plot pane.
+plot_cells(
+  cds,
+  color_cells_by = "DIV",
+  label_groups_by_cluster = FALSE,
+  label_leaves = FALSE,
+  label_branch_points = FALSE
+)
+
+plot_cells(
+  cds,
+  color_cells_by = "shi_s5_RGC_score",
+  label_groups_by_cluster = FALSE,
+  label_leaves = FALSE,
+  label_branch_points = FALSE
+)
+
+plot_cells(
+  cds,
+  color_cells_by = "shi_s5_IPC_score",
+  label_groups_by_cluster = FALSE,
+  label_leaves = FALSE,
+  label_branch_points = FALSE
+)
+
+# %% 4. Inspect root candidates
+
+root_cells <- rownames(cell_metadata)[as.logical(cell_metadata$monocle_root_candidate)]
+root_seed_cell <- rownames(cell_metadata)[as.logical(cell_metadata$monocle_root_seed_cell)]
+
+length(root_cells)
+root_seed_cell
+
+root_summary <- cell_metadata[root_cells, c(
+  "DIV",
+  "shi_s5_RGC_score",
+  "shi_s5_IPC_score",
+  "shi_s5_IPC_minus_RGC_score"
+)]
+summary(root_summary)
+
+root_by_div <- table(root_summary$DIV)
+root_by_div
+
+# %% 5. Convert root cells to principal graph nodes
+
+get_root_pr_nodes <- function(cds, root_cell_ids) {
+  closest_vertex <- cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
+  closest_vertex <- as.matrix(closest_vertex[colnames(cds), , drop = FALSE])
+  available_root_cells <- intersect(root_cell_ids, rownames(closest_vertex))
+  if (length(available_root_cells) == 0) {
+    stop("No root cells represented in principal graph mapping.")
+  }
+  root_vertex_table <- sort(table(closest_vertex[available_root_cells, 1]), decreasing = TRUE)
+  root_vertex_ids <- as.numeric(names(root_vertex_table))
+  graph_node_names <- igraph::V(principal_graph(cds)[["UMAP"]])$name[root_vertex_ids]
+  list(
+    table = root_vertex_table,
+    primary = graph_node_names[[1]],
+    all = graph_node_names
+  )
+}
+
+root_nodes <- get_root_pr_nodes(cds, root_cells)
+root_nodes$table[1:20]
+root_nodes$primary
+
+# %% 6. Order cells
+
+# Try root_cells first. This is easier to reason about interactively than only
+# passing one graph node. If it fails, use root_pr_nodes below.
+cds_ordered <- tryCatch(
+  order_cells(cds, reduction_method = "UMAP", root_cells = root_cells),
+  error = function(e) {
+    message("order_cells(root_cells=...) failed: ", conditionMessage(e))
+    NULL
+  }
+)
+
+if (is.null(cds_ordered)) {
+  cds_ordered <- order_cells(
+    cds,
+    reduction_method = "UMAP",
+    root_pr_nodes = root_nodes$primary
+  )
+}
+
+pt <- monocle3::pseudotime(cds_ordered)
+summary(pt)
+table(is.finite(pt), useNA = "ifany")
+
+# %% 7. Plot ordered cells
+
+plot_cells(
+  cds_ordered,
+  color_cells_by = "pseudotime",
+  label_groups_by_cluster = FALSE,
+  label_leaves = TRUE,
+  label_branch_points = TRUE
+)
+
+plot_cells(
+  cds_ordered,
+  color_cells_by = "DIV",
+  label_groups_by_cluster = FALSE,
+  label_leaves = FALSE,
+  label_branch_points = FALSE
+)
+
+# %% 8. Export pseudotime table for Python
+
+pt_df <- data.frame(
+  cell_id = names(pt),
+  rgc_ipc_pseudotime = as.numeric(pt),
+  rgc_ipc_pseudotime_method = paste0(
+    "monocle3_interactive_use_partition_",
+    LEARN_GRAPH_USE_PARTITION
+  ),
+  monocle3_partition = as.character(monocle3::partitions(cds_ordered, reduction_method = "UMAP")),
+  monocle3_cluster = as.character(monocle3::clusters(cds_ordered, reduction_method = "UMAP")),
+  monocle3_root_pr_node = root_nodes$primary,
+  stringsAsFactors = FALSE
+)
+
+keep_meta <- intersect(
+  c(
+    "DIV",
+    "original_cell_id",
+    "monocle_root_candidate",
+    "monocle_root_seed_cell",
+    "shi_s5_RGC_score",
+    "shi_s5_IPC_score",
+    "shi_s5_IPC_minus_RGC_score"
+  ),
+  colnames(cell_metadata)
+)
+pt_df <- cbind(pt_df, cell_metadata[pt_df$cell_id, keep_meta, drop = FALSE])
+
+write.csv(pt_df, PSEUDOTIME_CSV, row.names = FALSE)
+saveRDS(cds_ordered, CDS_ORDERED_RDS)
+
+PSEUDOTIME_CSV
+CDS_ORDERED_RDS

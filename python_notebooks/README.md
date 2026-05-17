@@ -86,6 +86,23 @@ module load Rmonocle3/1.3.7
 After the job finishes, rerun notebook 02 through section 9. Section 9 loads
 `mgeo_rgc_ipc_monocle3_pseudotime.csv` back into `mgeo.obs`.
 
+For live Monocle3 troubleshooting in VS Code, request an interactive compute
+node with:
+
+```bash
+python_notebooks/scripts/start_vscode_r_monocle_compute_job.sh
+```
+
+After Slurm grants the allocation, connect VS Code to the compute node and run
+the commands printed by the script. Then open:
+
+```text
+exploration/09_mgeo_rgc_ipc_monocle3_interactive.R
+```
+
+That file uses `# %%` sections so you can run the Monocle3 workflow block by
+block, inspect plots, and copy working choices back into the batch script.
+
 ## Fresh Login Setup
 
 Use these steps from a fresh Great Lakes login-node session.
