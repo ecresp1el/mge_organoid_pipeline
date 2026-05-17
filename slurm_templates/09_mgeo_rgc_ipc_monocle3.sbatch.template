@@ -1,0 +1,87 @@
+#!/bin/bash
+# Export focused MGEO RGC/IPC inputs and run Monocle3 pseudotime.
+#
+# Submit:
+#   cp slurm_templates/09_mgeo_rgc_ipc_monocle3.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/09_mgeo_rgc_ipc_monocle3.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/09_mgeo_rgc_ipc_monocle3.sbatch
+
+#SBATCH --job-name=mgeo_mono3
+#SBATCH --time=24:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=240G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/09_mgeo_rgc_ipc_monocle3_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/09_mgeo_rgc_ipc_monocle3_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+set -euo pipefail
+set -x
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+CONDA_BASE="/home/elcrespo/miniconda3"
+CONDA_ENV="${CONDA_ENV:-mge-organoid-python}"
+RUN_ROOT="${PROJECT_ROOT}/results/mgeo_rgc_ipc_monocle3"
+INPUT_DIR="${RUN_ROOT}/inputs"
+ACTIVITY_QUANTILE="${ACTIVITY_QUANTILE:-0.30}"
+FORCE_EXPORT="${FORCE_EXPORT:-false}"
+INSTALL_MONOCLE3_IF_MISSING="${INSTALL_MONOCLE3_IF_MISSING:-false}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${RUN_ROOT}" "${INPUT_DIR}"
+
+echo "=== MGEO RGC/IPC Monocle3 Slurm context ==="
+date
+hostname
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "SLURM_JOB_NAME=${SLURM_JOB_NAME:-}"
+echo "SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-}"
+echo "SLURM_MEM_PER_NODE=${SLURM_MEM_PER_NODE:-}"
+echo "PROJECT_ROOT=${PROJECT_ROOT}"
+echo "REPO_ROOT=${REPO_ROOT}"
+echo "CONDA_ENV=${CONDA_ENV}"
+echo "RUN_ROOT=${RUN_ROOT}"
+echo "ACTIVITY_QUANTILE=${ACTIVITY_QUANTILE}"
+echo "FORCE_EXPORT=${FORCE_EXPORT}"
+echo "INSTALL_MONOCLE3_IF_MISSING=${INSTALL_MONOCLE3_IF_MISSING}"
+
+source "${CONDA_BASE}/etc/profile.d/conda.sh"
+conda activate "${CONDA_ENV}"
+
+export PROJECT_ROOT
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+python --version
+which python
+Rscript --version
+which Rscript
+
+Rscript -e 'cat("monocle3 available: ", requireNamespace("monocle3", quietly = TRUE), "\n")'
+if ! Rscript -e 'quit(status = ifelse(requireNamespace("monocle3", quietly = TRUE), 0, 1))'; then
+  if [[ "${INSTALL_MONOCLE3_IF_MISSING}" == "true" ]]; then
+    Rscript -e 'remotes::install_github("cole-trapnell-lab/monocle3", dependencies = FALSE)'
+  else
+    echo "ERROR: monocle3 is not installed in ${CONDA_ENV}."
+    echo "Install it first, or submit with: INSTALL_MONOCLE3_IF_MISSING=true sbatch <job>"
+    exit 1
+  fi
+fi
+
+python_args=(
+  "${REPO_ROOT}/python_notebooks/scripts/export_mgeo_rgc_ipc_monocle_inputs.py"
+  --project-root "${PROJECT_ROOT}"
+  --repo-root "${REPO_ROOT}"
+  --outdir "${INPUT_DIR}"
+  --activity-quantile "${ACTIVITY_QUANTILE}"
+)
+if [[ "${FORCE_EXPORT}" == "true" ]]; then
+  python_args+=(--force)
+fi
+
+python "${python_args[@]}"
+
+Rscript "${REPO_ROOT}/scripts/09_mgeo_rgc_ipc_monocle3.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --input-dir "${INPUT_DIR}" \
+  --outdir "${RUN_ROOT}" \
+  --num-dim 50

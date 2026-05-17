@@ -46,6 +46,45 @@ $PROJECT_ROOT/results/python_anndata/varela_div30.h5ad
 $PROJECT_ROOT/results/python_anndata/varela_div90.h5ad
 ```
 
+## Notebook 02 Monocle3 Batch Stage
+
+Notebook `02_mgeo_rgc_ipc_progression.ipynb` expects Monocle3 pseudotime from
+the Slurm stage below. The batch job exports the focused MGEO RGC/IPC subset,
+runs Monocle3 in R, and writes outputs to:
+
+```text
+$PROJECT_ROOT/results/mgeo_rgc_ipc_monocle3/
+```
+
+Submit:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+mkdir -p "$PROJECT_ROOT/jobs" "$PROJECT_ROOT/logs"
+cp slurm_templates/09_mgeo_rgc_ipc_monocle3.sbatch.template \
+  "$PROJECT_ROOT/jobs/09_mgeo_rgc_ipc_monocle3.sbatch"
+sbatch "$PROJECT_ROOT/jobs/09_mgeo_rgc_ipc_monocle3.sbatch"
+```
+
+Key outputs:
+
+```text
+$PROJECT_ROOT/results/mgeo_rgc_ipc_monocle3/inputs/mgeo_rgc_ipc_input_manifest.tsv
+$PROJECT_ROOT/results/mgeo_rgc_ipc_monocle3/mgeo_rgc_ipc_monocle3_pseudotime.csv
+$PROJECT_ROOT/results/mgeo_rgc_ipc_monocle3/mgeo_rgc_ipc_monocle3_cds.rds
+$PROJECT_ROOT/results/mgeo_rgc_ipc_monocle3/mgeo_rgc_ipc_monocle3_summary.tsv
+```
+
+If `monocle3` is not yet installed in the conda R environment but the compiled
+dependencies are present, submit with:
+
+```bash
+INSTALL_MONOCLE3_IF_MISSING=true sbatch "$PROJECT_ROOT/jobs/09_mgeo_rgc_ipc_monocle3.sbatch"
+```
+
+After the job finishes, rerun notebook 02 through section 9. Section 9 loads
+`mgeo_rgc_ipc_monocle3_pseudotime.csv` back into `mgeo.obs`.
+
 ## Fresh Login Setup
 
 Use these steps from a fresh Great Lakes login-node session.
