@@ -132,6 +132,13 @@ scale_to_unit <- function(x) {
   pmin(pmax((x - lo) / (hi - lo), 0), 1)
 }
 
+scale_to_limit <- function(x, upper) {
+  if (!is.finite(upper) || upper <= 0) {
+    return(rep(0, length(x)))
+  }
+  pmin(pmax(x / upper, 0), 1)
+}
+
 get_principal_graph_edges <- function(cds) {
   graph <- principal_graph(cds)[["UMAP"]]
   coords <- cds@principal_graph_aux[["UMAP"]]$dp_mst
@@ -194,70 +201,149 @@ save_marker_validation_figures <- function(cds_ordered) {
   if (inherits(expr_mat, "sparseMatrix")) {
     expr_mat <- as.matrix(expr_mat)
   }
-
-  umap_panel_df <- data.frame(
-    cell_id = umap_df$cell_id,
-    UMAP_1 = umap_df$UMAP_1,
-    UMAP_2 = umap_df$UMAP_2,
-    panel = "pseudotime",
-    value = umap_df$pseudotime,
-    value_scaled = scale_to_unit(umap_df$pseudotime),
-    stringsAsFactors = FALSE
-  )
-
-  for (gene in available_marker_genes) {
-    expr_values <- as.numeric(expr_mat[gene, ])
-    umap_panel_df <- rbind(
-      umap_panel_df,
-      data.frame(
-        cell_id = umap_df$cell_id,
-        UMAP_1 = umap_df$UMAP_1,
-        UMAP_2 = umap_df$UMAP_2,
-        panel = gene,
-        value = expr_values,
-        value_scaled = scale_to_unit(expr_values),
-        stringsAsFactors = FALSE
-      )
-    )
-  }
-
-  panel_levels <- c("pseudotime", marker_genes[marker_genes %in% available_marker_genes])
-  umap_panel_df$panel <- factor(umap_panel_df$panel, levels = panel_levels)
   graph_edges <- get_principal_graph_edges(cds_ordered)
 
-  umap_grid <- ggplot(umap_panel_df, aes(UMAP_1, UMAP_2)) +
-    geom_point(aes(color = value_scaled, alpha = value_scaled), size = 0.08, stroke = 0) +
+  expression_cap <- function(x, q = 0.99) {
+    finite_x <- pmax(x[is.finite(x)], 0)
+    if (length(finite_x) == 0) return(1)
+    cap <- stats::quantile(finite_x, q, na.rm = TRUE, names = FALSE)
+    if (!is.finite(cap) || cap <= 0) {
+      cap <- max(finite_x, na.rm = TRUE)
+    }
+    max(ceiling(cap), 1)
+  }
+
+  developmental_colors <- c("grey92", "gold", "orange", "firebrick")
+
+  base_umap_theme <- function() {
+    theme_void(base_size = 12) +
+      theme(
+        plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+        legend.position = "right",
+        legend.title = element_text(size = 9),
+        legend.text = element_text(size = 8),
+        plot.margin = margin(3, 3, 3, 3)
+      )
+  }
+
+  pseudotime_cap <- max(ceiling(stats::quantile(
+    umap_df$pseudotime[is.finite(umap_df$pseudotime)],
+    0.99,
+    na.rm = TRUE,
+    names = FALSE
+  )), 1)
+  pseudotime_plot_df <- transform(
+    umap_df,
+    plot_value = pmin(pmax(pseudotime, 0), pseudotime_cap),
+    alpha_value = ifelse(is.finite(pseudotime), 0.85, 0.03)
+  )
+  pseudotime_umap_plot <- ggplot(pseudotime_plot_df, aes(UMAP_1, UMAP_2)) +
+    geom_point(aes(color = plot_value, alpha = alpha_value), size = 0.09, stroke = 0) +
     geom_segment(
       data = graph_edges,
       aes(x = x, y = y, xend = xend, yend = yend),
       inherit.aes = FALSE,
-      color = "grey25",
-      linewidth = 0.18,
-      alpha = 0.45
+      color = "grey30",
+      linewidth = 0.11,
+      alpha = 0.38
     ) +
-    facet_wrap(~panel, ncol = 4) +
     scale_color_gradientn(
-      colors = c("grey92", "gold", "orange", "firebrick"),
-      limits = c(0, 1),
+      colors = developmental_colors,
+      limits = c(0, pseudotime_cap),
+      breaks = seq(0, pseudotime_cap, by = max(1, ceiling(pseudotime_cap / 4))),
       na.value = "grey92",
-      name = "scaled value"
+      name = "pseudotime"
     ) +
-    scale_alpha(range = c(0.08, 0.95), limits = c(0, 1), guide = "none") +
+    scale_alpha(range = c(0.025, 0.95), limits = c(0, 1), guide = "none") +
     coord_equal() +
-    labs(x = NULL, y = NULL) +
-    theme_void(base_size = 10) +
-    theme(
-      strip.text = element_text(face = "bold", size = 11),
-      legend.position = "right",
-      panel.spacing = unit(0.6, "lines")
+    labs(title = "pseudotime", x = NULL, y = NULL) +
+    base_umap_theme()
+
+  gene_umap_plots <- list()
+  gene_umap_df <- data.frame()
+  for (gene in available_marker_genes) {
+    expr_values <- as.numeric(expr_mat[gene, ])
+    gene_cap <- expression_cap(expr_values, q = 0.99)
+    gene_df <- data.frame(
+      cell_id = umap_df$cell_id,
+      UMAP_1 = umap_df$UMAP_1,
+      UMAP_2 = umap_df$UMAP_2,
+      panel = gene,
+      value = expr_values,
+      plot_value = pmin(pmax(expr_values, 0), gene_cap),
+      alpha_value = scale_to_limit(expr_values, gene_cap),
+      stringsAsFactors = FALSE
     )
+    gene_umap_df <- rbind(gene_umap_df, gene_df)
+    gene_umap_plots[[gene]] <- ggplot(gene_df, aes(UMAP_1, UMAP_2)) +
+      geom_point(aes(color = plot_value, alpha = alpha_value), size = 0.09, stroke = 0) +
+      geom_segment(
+        data = graph_edges,
+        aes(x = x, y = y, xend = xend, yend = yend),
+        inherit.aes = FALSE,
+        color = "grey30",
+        linewidth = 0.11,
+        alpha = 0.38
+      ) +
+      scale_color_gradientn(
+        colors = developmental_colors,
+        limits = c(0, gene_cap),
+        breaks = seq(0, gene_cap, by = 1),
+        na.value = "grey92",
+        name = "log expr"
+      ) +
+      scale_alpha(range = c(0.025, 0.95), limits = c(0, 1), guide = "none") +
+      coord_equal() +
+      labs(title = gene, x = NULL, y = NULL) +
+      base_umap_theme()
+  }
+
+  umap_grid <- gridExtra::arrangeGrob(
+    grobs = c(list(pseudotime_umap_plot), gene_umap_plots),
+    ncol = 3
+  )
+
+  gene_umap_grid <- gridExtra::arrangeGrob(
+    grobs = gene_umap_plots,
+    ncol = 3
+  )
+
+  # The UMAP gene panels use each gene's actual log-normalized expression,
+  # clipped at the gene-specific 99th percentile to prevent outlier saturation.
+  gene_clip_summary <- data.frame(
+    gene = available_marker_genes,
+    clip_quantile = 0.99,
+    clip_limit_log_expr = vapply(
+      available_marker_genes,
+      function(gene) expression_cap(as.numeric(expr_mat[gene, ]), q = 0.99),
+      numeric(1)
+    ),
+    stringsAsFactors = FALSE
+  )
+  gene_clip_summary_path <- file.path(
+    INTERACTIVE_DIR,
+    with_partition_suffix("mgeo_rgc_ipc_marker_gene_color_limits", ".csv")
+  )
+  write.csv(gene_clip_summary, gene_clip_summary_path, row.names = FALSE)
 
   umap_png <- file.path(PLOT_DIR, with_partition_suffix("monocle3_marker_umap_grid", ".png"))
   umap_pdf <- file.path(PLOT_DIR, with_partition_suffix("monocle3_marker_umap_grid", ".pdf"))
   timed_step("save marker UMAP PNG/PDF", {
-    ggsave(umap_png, umap_grid, width = 12, height = 10, dpi = 220)
-    ggsave(umap_pdf, umap_grid, width = 12, height = 10, device = cairo_pdf)
+    ggsave(umap_png, umap_grid, width = 15, height = 18, dpi = 240)
+    ggsave(umap_pdf, umap_grid, width = 15, height = 18, device = cairo_pdf)
   })
+
+  gene_umap_png <- file.path(PLOT_DIR, with_partition_suffix("monocle3_marker_gene_umap_grid", ".png"))
+  gene_umap_pdf <- file.path(PLOT_DIR, with_partition_suffix("monocle3_marker_gene_umap_grid", ".pdf"))
+  timed_step("save marker gene-only UMAP PNG/PDF", {
+    ggsave(gene_umap_png, gene_umap_grid, width = 15, height = 16, dpi = 240)
+    ggsave(gene_umap_pdf, gene_umap_grid, width = 15, height = 16, device = cairo_pdf)
+  })
+
+  gene_umap_df$panel <- factor(
+    gene_umap_df$panel,
+    levels = marker_genes[marker_genes %in% available_marker_genes]
+  )
 
   finite_pt <- is.finite(umap_df$pseudotime)
   pseudotime_gene_df <- data.frame()
@@ -279,20 +365,20 @@ save_marker_validation_figures <- function(cds_ordered) {
   )
 
   pseudotime_grid <- ggplot(pseudotime_gene_df, aes(pseudotime, expression)) +
-    geom_point(color = "grey72", alpha = 0.06, size = 0.08, stroke = 0) +
+    geom_point(color = "grey75", alpha = 0.045, size = 0.08, stroke = 0) +
     geom_smooth(
       method = "gam",
       formula = y ~ s(x, k = 10),
-      color = "#1f78b4",
-      fill = "#a6cee3",
-      linewidth = 0.55,
+      color = "firebrick",
+      fill = "gold",
+      linewidth = 0.65,
       se = TRUE
     ) +
-    facet_wrap(~gene, ncol = 4, scales = "free_y") +
+    facet_wrap(~gene, ncol = 3, scales = "free_y") +
     labs(x = "Monocle3 pseudotime", y = "log-normalized expression") +
-    theme_bw(base_size = 10) +
+    theme_bw(base_size = 12) +
     theme(
-      strip.text = element_text(face = "bold", size = 11),
+      strip.text = element_text(face = "bold", size = 13),
       panel.grid.minor = element_blank(),
       panel.grid.major = element_line(color = "grey90", linewidth = 0.2)
     )
@@ -300,14 +386,17 @@ save_marker_validation_figures <- function(cds_ordered) {
   pseudotime_png <- file.path(PLOT_DIR, with_partition_suffix("monocle3_marker_pseudotime_grid", ".png"))
   pseudotime_pdf <- file.path(PLOT_DIR, with_partition_suffix("monocle3_marker_pseudotime_grid", ".pdf"))
   timed_step("save marker pseudotime PNG/PDF", {
-    ggsave(pseudotime_png, pseudotime_grid, width = 12, height = 9, dpi = 220)
-    ggsave(pseudotime_pdf, pseudotime_grid, width = 12, height = 9, device = cairo_pdf)
+    ggsave(pseudotime_png, pseudotime_grid, width = 15, height = 12, dpi = 240)
+    ggsave(pseudotime_pdf, pseudotime_grid, width = 15, height = 12, device = cairo_pdf)
   })
 
   log_step("Marker UMAP PNG: ", umap_png)
   log_step("Marker UMAP PDF: ", umap_pdf)
+  log_step("Marker gene-only UMAP PNG: ", gene_umap_png)
+  log_step("Marker gene-only UMAP PDF: ", gene_umap_pdf)
   log_step("Marker pseudotime PNG: ", pseudotime_png)
   log_step("Marker pseudotime PDF: ", pseudotime_pdf)
+  log_step("Marker gene color limits CSV: ", gene_clip_summary_path)
 }
 
 get_root_pr_nodes <- function(cds, root_cell_ids) {
