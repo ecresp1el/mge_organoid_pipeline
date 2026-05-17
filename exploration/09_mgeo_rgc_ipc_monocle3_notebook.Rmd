@@ -40,6 +40,7 @@ GENE_METADATA_PATH <- file.path(INPUT_DIR, "mgeo_rgc_ipc_gene_metadata.csv")
 
 CDS_PREPROCESS_RDS <- file.path(INTERACTIVE_DIR, "cds_after_preprocess.rds")
 CDS_UMAP_CLUSTER_RDS <- file.path(INTERACTIVE_DIR, "cds_after_umap_cluster_no_graph.rds")
+UMAP_CLUSTER_CSV <- file.path(INTERACTIVE_DIR, "mgeo_rgc_ipc_monocle3_umap_clusters.csv")
 CDS_UMAP_RDS <- file.path(INTERACTIVE_DIR, "cds_after_umap_cluster_graph.rds")
 PSEUDOTIME_CSV <- file.path(INTERACTIVE_DIR, "mgeo_rgc_ipc_monocle3_pseudotime_interactive.csv")
 CDS_ORDERED_RDS <- file.path(INTERACTIVE_DIR, "cds_ordered_interactive.rds")
@@ -59,6 +60,38 @@ timed_step <- function(label, expr) {
   elapsed_min <- (proc.time()[["elapsed"]] - start_time) / 60
   log_step("DONE ", label, " (", round(elapsed_min, 2), " min)")
   result
+}
+
+safe_save_rds <- function(object, path) {
+  tryCatch(
+    timed_step(paste0("save RDS ", basename(path)), {
+      saveRDS(object, path, compress = FALSE)
+    }),
+    error = function(e) {
+      warning(
+        "Could not save RDS checkpoint to ",
+        path,
+        ": ",
+        conditionMessage(e),
+        immediate. = TRUE
+      )
+      invisible(FALSE)
+    }
+  )
+}
+
+write_umap_cluster_checkpoint <- function(cds, path) {
+  umap <- reducedDims(cds)$UMAP
+  checkpoint <- data.frame(
+    cell_id = rownames(umap),
+    monocle3_umap_1 = umap[, 1],
+    monocle3_umap_2 = umap[, 2],
+    monocle3_cluster = as.character(clusters(cds, reduction_method = "UMAP")),
+    stringsAsFactors = FALSE
+  )
+  timed_step(paste0("write CSV ", basename(path)), {
+    write.csv(checkpoint, path, row.names = FALSE)
+  })
 }
 
 has_umap <- function(cds) {
@@ -202,9 +235,7 @@ set.seed(7)
 cds <- timed_step(paste0("preprocess_cds num_dim=", NUM_DIM), {
   preprocess_cds(cds, num_dim = NUM_DIM, norm_method = "none")
 })
-timed_step("save preprocessed CDS RDS", {
-  saveRDS(cds, CDS_PREPROCESS_RDS)
-})
+safe_save_rds(cds, CDS_PREPROCESS_RDS)
 CDS_PREPROCESS_RDS
 ```
 
@@ -217,9 +248,6 @@ if (!has_umap(cds)) {
   cds <- timed_step("reduce_dimension UMAP", {
     reduce_dimension(cds, reduction_method = "UMAP")
   })
-  timed_step("save UMAP checkpoint", {
-    saveRDS(cds, CDS_UMAP_CLUSTER_RDS)
-  })
 } else {
   log_step("Skipping reduce_dimension; UMAP already exists.")
 }
@@ -229,27 +257,24 @@ if (!has_umap_clusters(cds)) {
   cds <- timed_step("cluster_cells UMAP", {
     cluster_cells(cds, reduction_method = "UMAP")
   })
-  timed_step("save UMAP + cluster checkpoint", {
-    saveRDS(cds, CDS_UMAP_CLUSTER_RDS)
-  })
 } else {
   log_step("Skipping cluster_cells; UMAP clusters already exist.")
 }
 log_step("Cluster count: ", length(unique(clusters(cds, reduction_method = "UMAP"))))
 
-timed_step("save UMAP + cluster checkpoint before learn_graph", {
-  saveRDS(cds, CDS_UMAP_CLUSTER_RDS)
-})
+write_umap_cluster_checkpoint(cds, UMAP_CLUSTER_CSV)
+safe_save_rds(cds, CDS_UMAP_CLUSTER_RDS)
 
 cds <- tryCatch(
   timed_step(paste0("learn_graph use_partition=", LEARN_GRAPH_USE_PARTITION), {
     learn_graph(cds, use_partition = LEARN_GRAPH_USE_PARTITION)
   }),
   error = function(e) {
-    saveRDS(cds, CDS_UMAP_CLUSTER_RDS)
+    write_umap_cluster_checkpoint(cds, UMAP_CLUSTER_CSV)
+    safe_save_rds(cds, CDS_UMAP_CLUSTER_RDS)
     stop(
       "learn_graph failed after saving the UMAP/cluster checkpoint to ",
-      CDS_UMAP_CLUSTER_RDS,
+      UMAP_CLUSTER_CSV,
       ". Error: ",
       conditionMessage(e),
       call. = FALSE
@@ -259,9 +284,7 @@ cds <- tryCatch(
 log_step("Principal graph nodes: ", length(igraph::V(principal_graph(cds)[["UMAP"]])))
 log_step("Principal graph edges: ", length(igraph::E(principal_graph(cds)[["UMAP"]])))
 
-timed_step("save UMAP/cluster/graph CDS RDS", {
-  saveRDS(cds, CDS_UMAP_RDS)
-})
+safe_save_rds(cds, CDS_UMAP_RDS)
 CDS_UMAP_RDS
 ```
 
