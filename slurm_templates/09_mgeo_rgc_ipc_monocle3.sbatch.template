@@ -8,7 +8,7 @@
 #SBATCH --job-name=mgeo_mono3
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=240G
+#SBATCH --mem=160G
 #SBATCH --nodes=1
 #SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/09_mgeo_rgc_ipc_monocle3_%j.log
 #SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/09_mgeo_rgc_ipc_monocle3_%j.log
