@@ -51,6 +51,63 @@ INPUT_DIR
 INTERACTIVE_DIR
 ```
 
+## Runtime Diagnostics
+
+Run this chunk before doing any heavy work. It confirms that the notebook is
+running on the allocated compute node, using the Monocle3 module R, and seeing
+the expected project paths.
+
+```{r runtime-diagnostics}
+cat("=== Host / Slurm ===\n")
+cat("hostname:", Sys.info()[["nodename"]], "\n")
+cat("user:", Sys.info()[["user"]], "\n")
+cat("SLURM_JOB_ID:", Sys.getenv("SLURM_JOB_ID", unset = "<unset>"), "\n")
+cat("SLURM_JOB_NAME:", Sys.getenv("SLURM_JOB_NAME", unset = "<unset>"), "\n")
+cat("SLURM_CPUS_PER_TASK:", Sys.getenv("SLURM_CPUS_PER_TASK", unset = "<unset>"), "\n")
+cat("SLURM_MEM_PER_NODE:", Sys.getenv("SLURM_MEM_PER_NODE", unset = "<unset>"), "\n")
+cat("SLURM_JOB_NODELIST:", Sys.getenv("SLURM_JOB_NODELIST", unset = "<unset>"), "\n")
+
+cat("\n=== R ===\n")
+cat("R.home():", R.home(), "\n")
+cat("R.version:", R.version.string, "\n")
+cat("R executable from shell:", system("which R", intern = TRUE), "\n")
+cat("Rscript executable from shell:", system("which Rscript", intern = TRUE), "\n")
+cat(".libPaths():\n")
+print(.libPaths())
+
+cat("\n=== Modules ===\n")
+module_list <- tryCatch(
+  system("module list 2>&1", intern = TRUE),
+  error = function(e) paste("module list failed:", conditionMessage(e))
+)
+cat(paste(module_list, collapse = "\n"), "\n")
+
+cat("\n=== Package Availability ===\n")
+pkgs <- c("monocle3", "Matrix", "igraph", "HDF5Array", "sf", "spdep")
+print(data.frame(package = pkgs, installed = sapply(pkgs, requireNamespace, quietly = TRUE)), row.names = FALSE)
+
+cat("\n=== Parallel / Memory Hints ===\n")
+cat("parallel::detectCores():", parallel::detectCores(), "\n")
+meminfo <- tryCatch(readLines("/proc/meminfo", n = 3), error = function(e) character(0))
+cat(paste(meminfo, collapse = "\n"), "\n")
+
+cat("\n=== Paths ===\n")
+cat("getwd():", getwd(), "\n")
+cat("PROJECT_ROOT:", PROJECT_ROOT, "\n")
+cat("INPUT_DIR:", INPUT_DIR, "\n")
+cat("INTERACTIVE_DIR:", INTERACTIVE_DIR, "\n")
+cat("Expression matrix exists:", file.exists(EXPR_MTX_PATH), "\n")
+cat("Cell metadata exists:", file.exists(CELL_METADATA_PATH), "\n")
+cat("Gene metadata exists:", file.exists(GENE_METADATA_PATH), "\n")
+if (file.exists(EXPR_MTX_PATH)) {
+  cat("Expression matrix GB:", round(file.info(EXPR_MTX_PATH)$size / 1e9, 3), "\n")
+}
+
+stopifnot(Sys.getenv("SLURM_JOB_ID", unset = "") != "")
+stopifnot(requireNamespace("monocle3", quietly = TRUE))
+stopifnot(grepl("^gl[0-9]+", Sys.info()[["nodename"]]))
+```
+
 ## Read Inputs
 
 ```{r read-inputs}
