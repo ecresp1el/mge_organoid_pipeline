@@ -99,9 +99,17 @@ if (file.exists(EXPR_MTX_PATH)) {
   cat("Expression matrix GB:", round(file.info(EXPR_MTX_PATH)$size / 1e9, 3), "\n")
 }
 
-stopifnot(Sys.getenv("SLURM_JOB_ID", unset = "") != "")
 stopifnot(requireNamespace("monocle3", quietly = TRUE))
 stopifnot(grepl("^gl[0-9]+", Sys.info()[["nodename"]]))
+
+if (Sys.getenv("SLURM_JOB_ID", unset = "") == "") {
+  warning(
+    "SLURM_JOB_ID is unset. This can happen when VS Code launches a fresh ",
+    "R process on a compute node instead of using the R terminal that ",
+    "inherited salloc. Hostname is still a compute node: ",
+    Sys.info()[["nodename"]]
+  )
+}
 
 # %% 1. Read exported matrix and metadata
 
