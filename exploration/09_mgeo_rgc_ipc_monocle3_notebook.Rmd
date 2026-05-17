@@ -247,6 +247,26 @@ safe_save_rds(cds, CDS_PREPROCESS_RDS)
 CDS_PREPROCESS_RDS
 ```
 
+## Resume From Preprocess Checkpoint
+
+Use this chunk after restarting R or moving to a new compute node. It lets you
+skip rereading the matrix and rerunning `preprocess_cds()` if
+`cds_after_preprocess.rds` exists.
+
+```{r resume-preprocess}
+stopifnot(file.exists(CDS_PREPROCESS_RDS))
+
+cds <- timed_step("read preprocessed CDS RDS", {
+  readRDS(CDS_PREPROCESS_RDS)
+})
+
+cell_metadata <- as.data.frame(colData(cds))
+gene_metadata <- as.data.frame(rowData(cds))
+
+log_step("Loaded preprocessed CDS: ", nrow(cds), " genes x ", ncol(cds), " cells")
+dim(cds)
+```
+
 ## UMAP, Clusters, Graph
 
 ```{r graph}
