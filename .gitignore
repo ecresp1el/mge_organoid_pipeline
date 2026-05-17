@@ -12,3 +12,4 @@ ${PROJECT_ROOT}/
 __pycache__/
 .ipynb_checkpoints/
 python_notebooks/**/*.h5ad
+python_notebooks/outputs/
