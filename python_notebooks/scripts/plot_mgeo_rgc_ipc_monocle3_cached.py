@@ -53,6 +53,10 @@ GENES_TO_PLOT = [
 # plotting style used in 01_seurat_to_anndata.ipynb.
 FEATURE_VMIN_EXPRESSION = float(os.environ.get("FEATURE_VMIN_EXPRESSION", "2.0"))
 VMAX_PERCENTILE = float(os.environ.get("VMAX_PERCENTILE", "99"))
+DIV_OVERLAYS = [
+    ("DIV30", "#e69f00"),
+    ("DIV90", "#b2182b"),
+]
 
 
 def rounded_vmax(values: np.ndarray, percentile: float = 99, minimum: float = 1) -> float:
@@ -284,6 +288,44 @@ def plot_pseudotime_panel(
     )
 
 
+def plot_category_overlay_panel(
+    ax: plt.Axes,
+    umap: np.ndarray,
+    category_values: np.ndarray,
+    category: str,
+    color: str,
+    *,
+    background_color: str = "#d9d9d9",
+    point_size_background: float = 0.8,
+    point_size_overlay: float = 1.0,
+    background_alpha: float = 0.35,
+    overlay_alpha: float = 0.9,
+) -> None:
+    draw_umap_background(
+        ax,
+        umap,
+        background_color,
+        point_size_background,
+        background_alpha,
+    )
+
+    selected = category_values.astype(str) == category
+    if selected.any():
+        ax.scatter(
+            umap[selected, 0],
+            umap[selected, 1],
+            s=point_size_overlay,
+            c=color,
+            alpha=overlay_alpha,
+            linewidths=0,
+            edgecolors="none",
+            rasterized=True,
+        )
+
+    ax.set_title(category, fontweight="normal", fontsize=11, pad=4)
+    clean_axis(ax)
+
+
 def load_partition_frame(partition_label: str) -> pd.DataFrame:
     plot_ready_path = CACHE_DIR / f"mgeo_rgc_ipc_monocle3_plot_ready_partition_{partition_label}.csv"
     expression_path = CACHE_DIR / "mgeo_rgc_ipc_marker_expression_log_normalized.csv"
@@ -304,10 +346,11 @@ def make_umap_grid(
     output_prefix: Path,
     *,
     include_pseudotime: bool,
+    include_div_overlays: bool = False,
     ncols: int = 3,
     figsize_per_panel: tuple[float, float] = (3.0, 2.8),
 ) -> None:
-    panel_count = len(genes) + int(include_pseudotime)
+    panel_count = len(genes) + int(include_pseudotime) + (len(DIV_OVERLAYS) if include_div_overlays else 0)
     nrows = int(math.ceil(panel_count / ncols))
     fig, axes = plt.subplots(
         nrows=nrows,
@@ -333,6 +376,20 @@ def make_umap_grid(
             vmax_percentile=VMAX_PERCENTILE,
         )
         axis_index += 1
+
+    if include_div_overlays:
+        if "DIV" not in plot_df.columns:
+            raise KeyError("DIV not found in cached plot-ready table")
+        div_values = plot_df["DIV"].to_numpy(dtype=str)
+        for div_label, div_color in DIV_OVERLAYS:
+            plot_category_overlay_panel(
+                axes[axis_index],
+                umap,
+                div_values,
+                div_label,
+                div_color,
+            )
+            axis_index += 1
 
     for gene in genes:
         if gene not in plot_df.columns:
@@ -437,18 +494,28 @@ def main() -> None:
             available_genes,
             PLOT_DIR / f"monocle3_marker_umap_grid_python_style_partition_{partition_label}",
             include_pseudotime=True,
+            include_div_overlays=True,
         )
         make_umap_grid(
             plot_df,
             available_genes,
             PLOT_DIR / f"monocle3_marker_gene_umap_grid_python_style_partition_{partition_label}",
             include_pseudotime=False,
+            include_div_overlays=False,
         )
         make_umap_grid(
             plot_df,
             [],
             PLOT_DIR / f"monocle3_pseudotime_umap_python_style_partition_{partition_label}",
             include_pseudotime=True,
+            include_div_overlays=False,
+        )
+        make_umap_grid(
+            plot_df,
+            [],
+            PLOT_DIR / f"monocle3_div_umap_grid_python_style_partition_{partition_label}",
+            include_pseudotime=False,
+            include_div_overlays=True,
         )
         make_pseudotime_expression_grid(
             plot_df,
