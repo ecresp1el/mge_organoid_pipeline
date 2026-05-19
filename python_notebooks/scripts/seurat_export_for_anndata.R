@@ -30,13 +30,7 @@ parse_args <- function(args) {
   out
 }
 
-get_assay_matrix <- function(obj, assay, expression_layer) {
-  if (expression_layer == "data") {
-    layer_candidates <- c("data", "logcounts", "counts")
-  } else {
-    layer_candidates <- c(expression_layer, "data", "counts")
-  }
-
+get_assay_matrix <- function(obj, assay, layer_candidates, matrix_label = "matrix") {
   last_error <- NULL
   for (layer in unique(layer_candidates)) {
     mat <- tryCatch(
@@ -50,7 +44,13 @@ get_assay_matrix <- function(obj, assay, expression_layer) {
       return(list(matrix = mat, layer = layer))
     }
   }
-  stop("Unable to extract assay matrix. Last error: ", conditionMessage(last_error), call. = FALSE)
+  stop(
+    "Unable to extract ",
+    matrix_label,
+    " assay matrix. Last error: ",
+    conditionMessage(last_error),
+    call. = FALSE
+  )
 }
 
 safe_tsv_value <- function(x) {
@@ -92,14 +92,41 @@ if (
   obj <- SeuratObject::JoinLayers(obj, assay = opt$assay)
 }
 
-log_msg("Extracting assay matrix for layer preference: ", opt$expression_layer)
-mat_res <- get_assay_matrix(obj, opt$assay, opt$expression_layer)
-mat <- mat_res$matrix
-layer_used <- mat_res$layer
-if (!inherits(mat, "sparseMatrix")) mat <- Matrix::Matrix(mat, sparse = TRUE)
-log_msg("Using layer: ", layer_used)
-log_msg("Matrix dimensions features x cells: ", nrow(mat), " x ", ncol(mat))
+log_msg("Extracting Seurat counts layer")
+counts_res <- get_assay_matrix(obj, opt$assay, c("counts"), matrix_label = "counts")
+mat_counts <- counts_res$matrix
+layer_used_counts <- counts_res$layer
+if (!inherits(mat_counts, "sparseMatrix")) mat_counts <- Matrix::Matrix(mat_counts, sparse = TRUE)
 
+log_msg("Extracting Seurat data-like layer with preference: ", opt$expression_layer)
+if (opt$expression_layer == "data") {
+  data_layer_candidates <- c("data", "logcounts", "counts")
+} else {
+  data_layer_candidates <- c(opt$expression_layer, "data", "logcounts", "counts")
+}
+data_res <- get_assay_matrix(
+  obj,
+  opt$assay,
+  data_layer_candidates,
+  matrix_label = "data"
+)
+mat_data <- data_res$matrix
+layer_used_data <- data_res$layer
+if (!inherits(mat_data, "sparseMatrix")) mat_data <- Matrix::Matrix(mat_data, sparse = TRUE)
+
+if (!identical(rownames(mat_data), rownames(mat_counts))) {
+  stop("Feature names do not match between data and counts matrices.", call. = FALSE)
+}
+if (!identical(colnames(mat_data), colnames(mat_counts))) {
+  stop("Cell IDs do not match between data and counts matrices.", call. = FALSE)
+}
+
+log_msg("Using data layer: ", layer_used_data)
+log_msg("Using counts layer: ", layer_used_counts)
+log_msg("Matrix dimensions features x cells: ", nrow(mat_data), " x ", ncol(mat_data))
+
+matrix_data_path <- file.path(opt$outdir, "matrix_data.mtx")
+matrix_counts_path <- file.path(opt$outdir, "matrix_counts.mtx")
 matrix_path <- file.path(opt$outdir, "matrix.mtx")
 features_path <- file.path(opt$outdir, "features.tsv")
 barcodes_path <- file.path(opt$outdir, "barcodes.tsv")
@@ -107,12 +134,18 @@ obs_path <- file.path(opt$outdir, "obs.tsv")
 umap_path <- file.path(opt$outdir, "umap.tsv")
 manifest_path <- file.path(opt$outdir, "manifest.tsv")
 
-log_msg("Writing sparse Matrix Market: ", matrix_path)
-Matrix::writeMM(mat, matrix_path)
+log_msg("Writing data Matrix Market: ", matrix_data_path)
+Matrix::writeMM(mat_data, matrix_data_path)
+
+log_msg("Writing counts Matrix Market: ", matrix_counts_path)
+Matrix::writeMM(mat_counts, matrix_counts_path)
+
+log_msg("Writing legacy Matrix Market alias for compatibility: ", matrix_path)
+Matrix::writeMM(mat_data, matrix_path)
 
 log_msg("Writing feature names: ", features_path)
 write.table(
-  data.frame(feature_id = rownames(mat), stringsAsFactors = FALSE),
+  data.frame(feature_id = rownames(mat_data), stringsAsFactors = FALSE),
   features_path,
   sep = "\t",
   quote = FALSE,
@@ -121,7 +154,7 @@ write.table(
 
 log_msg("Writing cell barcodes: ", barcodes_path)
 write.table(
-  data.frame(cell_id = colnames(mat), stringsAsFactors = FALSE),
+  data.frame(cell_id = colnames(mat_data), stringsAsFactors = FALSE),
   barcodes_path,
   sep = "\t",
   quote = FALSE,
@@ -129,7 +162,7 @@ write.table(
 )
 
 log_msg("Writing cell metadata: ", obs_path)
-cell_ids <- colnames(mat)
+cell_ids <- colnames(mat_data)
 obs <- obj@meta.data[cell_ids, , drop = FALSE]
 obs <- as.data.frame(lapply(obs, safe_tsv_value), stringsAsFactors = FALSE)
 obs <- data.frame(cell_id = cell_ids, obs, check.names = FALSE, stringsAsFactors = FALSE)
@@ -137,11 +170,11 @@ write.table(obs, obs_path, sep = "\t", quote = FALSE, row.names = FALSE, na = ""
 
 log_msg("Writing UMAP coordinates: ", umap_path)
 emb <- Seurat::Embeddings(obj, reduction = opt$reduction)
-missing_emb <- setdiff(colnames(mat), rownames(emb))
+missing_emb <- setdiff(colnames(mat_data), rownames(emb))
 if (length(missing_emb) > 0) {
   stop("Reduction '", opt$reduction, "' is missing embeddings for ", length(missing_emb), " cells.", call. = FALSE)
 }
-emb <- emb[colnames(mat), seq_len(2), drop = FALSE]
+emb <- emb[colnames(mat_data), seq_len(2), drop = FALSE]
 umap <- data.frame(
   cell_id = rownames(emb),
   UMAP_1 = emb[, 1],
@@ -153,8 +186,24 @@ write.table(umap, umap_path, sep = "\t", quote = FALSE, row.names = FALSE)
 
 log_msg("Writing manifest: ", manifest_path)
 manifest <- data.frame(
-  key = c("assay", "layer_used", "reduction", "n_features", "n_cells"),
-  value = c(opt$assay, layer_used, opt$reduction, as.character(nrow(mat)), as.character(ncol(mat))),
+  key = c(
+    "assay",
+    "expression_layer_requested",
+    "layer_used_data",
+    "layer_used_counts",
+    "reduction",
+    "n_features",
+    "n_cells"
+  ),
+  value = c(
+    opt$assay,
+    opt$expression_layer,
+    layer_used_data,
+    layer_used_counts,
+    opt$reduction,
+    as.character(nrow(mat_data)),
+    as.character(ncol(mat_data))
+  ),
   stringsAsFactors = FALSE
 )
 write.table(manifest, manifest_path, sep = "\t", quote = FALSE, row.names = FALSE)

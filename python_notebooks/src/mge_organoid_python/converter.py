@@ -198,6 +198,8 @@ class SeuratToAnnDataConverter:
                 "Missing Python packages for H5AD writing. Need anndata, pandas, and scipy."
             ) from exc
 
+        matrix_data_path = export_dir / "matrix_data.mtx"
+        matrix_counts_path = export_dir / "matrix_counts.mtx"
         matrix_path = export_dir / "matrix.mtx"
         features_path = export_dir / "features.tsv"
         barcodes_path = export_dir / "barcodes.tsv"
@@ -205,7 +207,43 @@ class SeuratToAnnDataConverter:
         umap_path = export_dir / "umap.tsv"
         manifest_path = export_dir / "manifest.tsv"
 
-        x = scipy_io.mmread(matrix_path).tocsr().transpose().tocsr()
+        if matrix_data_path.exists():
+            x_data = scipy_io.mmread(matrix_data_path).tocsr().transpose().tocsr()
+        elif matrix_path.exists():
+            self.log(
+                "Study {}: matrix_data.mtx not found; falling back to legacy matrix.mtx".format(
+                    study.study_id
+                )
+            )
+            x_data = scipy_io.mmread(matrix_path).tocsr().transpose().tocsr()
+        else:
+            raise FileNotFoundError(
+                "Missing exported expression matrix for {}. Expected {} or {}".format(
+                    study.study_id,
+                    matrix_data_path,
+                    matrix_path,
+                )
+            )
+
+        if matrix_counts_path.exists():
+            x_counts = scipy_io.mmread(matrix_counts_path).tocsr().transpose().tocsr()
+        else:
+            self.log(
+                "Study {}: matrix_counts.mtx not found; using expression matrix for counts layer".format(
+                    study.study_id
+                )
+            )
+            x_counts = x_data.copy()
+
+        if x_data.shape != x_counts.shape:
+            raise ValueError(
+                "Study {}: data matrix shape {} does not match counts matrix shape {}".format(
+                    study.study_id,
+                    x_data.shape,
+                    x_counts.shape,
+                )
+            )
+
         features = pd.read_csv(features_path, sep="\t")
         barcodes = pd.read_csv(barcodes_path, sep="\t")
         obs = pd.read_csv(obs_path, sep="\t", dtype=str)
@@ -230,8 +268,11 @@ class SeuratToAnnDataConverter:
             obs = obs.loc[barcodes_list]
         umap = umap.set_index("cell_id").loc[obs.index]
 
-        adata = ad.AnnData(X=x, obs=obs, var=var)
-        adata.obsm["X_umap"] = umap[["UMAP_1", "UMAP_2"]].to_numpy()
+        adata = ad.AnnData(X=x_data, obs=obs, var=var)
+        adata.layers["counts"] = x_counts
+        adata.obsm["X_umap_seurat"] = umap[["UMAP_1", "UMAP_2"]].to_numpy()
+        # Keep legacy key for downstream notebooks that still reference X_umap.
+        adata.obsm["X_umap"] = adata.obsm["X_umap_seurat"]
         adata.uns["source_seurat_path"] = str(study.seurat_path)
         adata.uns["seurat_assay"] = study.assay
         adata.uns["seurat_reduction"] = study.reduction
