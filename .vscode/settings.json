@@ -4,5 +4,6 @@
   "r.alwaysUseActiveTerminal": true,
   "r.bracketedPaste": true,
   "r.sessionWatcher": true,
-  "r.plot.useHttpgd": true
+  "r.plot.useHttpgd": true,
+  "python.terminal.activateEnvironment": false
 }
