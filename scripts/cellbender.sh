@@ -23,6 +23,12 @@ Environment alternatives:
   INPUT_DIR   Directory of input .h5/.h5ad files for Slurm array mode.
               Default: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/raw_adata
   INPUT_H5    Single input file if --input is not supplied.
+  INCLUDE_DUPLICATE_BASENAMES
+              Set to 1 to include files with "__" in the basename.
+              Default: 0 (skip duplicate-suffixed files)
+  TOTAL_DROPLETS_INCLUDED
+              Optional override for CellBender --total-droplets-included.
+              Default: unset (let CellBender use its internal default)
 
 Outputs:
   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/clean_adata/<input_basename>_cellbender_denoised.<input_extension>
@@ -67,6 +73,10 @@ if [[ -z "${input_h5}" ]]; then
   fi
 
   mapfile -t input_files < <(find "${input_dir}" -maxdepth 1 -type f \( -name '*.h5' -o -name '*.h5ad' -o -name '*.hdf5' \) | sort)
+
+  if [[ "${INCLUDE_DUPLICATE_BASENAMES:-0}" != "1" ]]; then
+    mapfile -t input_files < <(printf '%s\n' "${input_files[@]}" | grep -v '/[^/]*__[^/]*\.[^.]*$' || true)
+  fi
 
   if [[ "${#input_files[@]}" -eq 0 ]]; then
     echo "Error: no .h5/.h5ad/.hdf5 files found in ${input_dir}" >&2
@@ -134,17 +144,26 @@ fi
 nvidia-smi
 
 output_h5="${output_dir}/${sample_name}_cellbender_denoised.${output_extension}"
+total_droplets_included="${TOTAL_DROPLETS_INCLUDED:-}"
 
 if [[ -e "${output_h5}" ]]; then
   echo "Error: output already exists and will not be overwritten: ${output_h5}" >&2
   exit 1
 fi
 
-cellbender remove-background \
-  --input "${input_h5}" \
-  --output "${output_h5}" \
-  --total-droplets-included 500000 \
+cellbender_cmd=(
+  cellbender remove-background
+  --input "${input_h5}"
+  --output "${output_h5}"
   --cuda
+)
+
+if [[ -n "${total_droplets_included}" ]]; then
+  cellbender_cmd+=(--total-droplets-included "${total_droplets_included}")
+fi
+
+echo "Command: ${cellbender_cmd[*]}"
+"${cellbender_cmd[@]}"
 
 echo "Job finished: $(date)"
 echo "Wrote: ${output_h5}"
