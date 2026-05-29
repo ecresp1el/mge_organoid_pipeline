@@ -6,10 +6,60 @@ Primary files discussed so far:
 
 - `python_notebooks/notebooks/00_load_div30_div90_raw_to_anndata.ipynb`
 - `scripts/cellbender.sh`
+- `python_notebooks/src/mge_organoid_python/data_sources.py`
+- `python_notebooks/src/mge_organoid_python/notebook00_workflow.py`
+- `python_notebooks/src/mge_organoid_python/notebook00_plots.py`
+- `slurm_templates/13_execute_notebook00_source.sbatch.template`
+
+## Current State For Next Chat
+
+The branch now has a modular Notebook 00 driver and supporting Python modules.
+The notebook has been executed on Great Lakes through Slurm for three source
+modes:
+
+```text
+cellranger_filtered: full matrix load, QC, filtering, preprocess, UMAP, plots
+cellranger_raw:      source availability only, no raw-droplet-scale analysis
+cellbender_denoised: source availability only, missing-aware, no full analysis yet
+```
+
+The proof scripts are useful validation scaffolding. The core notebook runtime is:
+
+```text
+python_notebooks/notebooks/00_load_div30_div90_raw_to_anndata.ipynb
+python_notebooks/src/mge_organoid_python/data_sources.py
+python_notebooks/src/mge_organoid_python/notebook00_workflow.py
+python_notebooks/src/mge_organoid_python/notebook00_plots.py
+slurm_templates/13_execute_notebook00_source.sbatch.template
+```
+
+The current notebook should be continued as the user-facing driver. Most edits
+should go into the three Python modules unless the change is specifically about
+which source, samples, toggles, or plots a user wants to run.
+
+Completed in this branch:
+
+```text
+filtered full analysis through the modular notebook
+raw source availability through the same notebook driver
+CellBender source availability through the same notebook driver
+missing-source logging/plotting using 9853-MW-6 as the test case
+run-specific table and plot directories under results/notebook00/<RUN_LABEL>
+```
+
+Not completed yet:
+
+```text
+full CellBender matrix loading for all samples
+full CellBender-backed QC/preprocess/UMAP run
+raw export manifest cleanup
+cross-run comparison section in the notebook
+```
 
 ## Why This Exists
 
-Notebook 00 currently mixes several different responsibilities in one long, stateful workflow:
+The original Notebook 00 mixed several different responsibilities in one long,
+stateful workflow:
 
 1. find the project checkout
 2. read sample metadata
@@ -20,11 +70,15 @@ Notebook 00 currently mixes several different responsibilities in one long, stat
 7. concatenate samples
 8. preprocess, embed, integrate, cluster, and plot
 
-That is workable for an early teaching notebook, but it is hard to scale because changing the input data source also changes the mental model of the rest of the notebook. The next version should make the active data source explicit and make each analysis stage callable on demand.
+That was workable for an early teaching notebook, but it was hard to scale
+because changing the input data source also changed the mental model of the rest
+of the notebook. The current branch addresses this by making the active data
+source explicit and making each analysis stage callable on demand.
 
-## Current Data Flow
+## Original Data Flow Found During Investigation
 
-The notebook and the Slurm script do not currently use one single "project folder" concept.
+The original notebook and Slurm script did not use one single "project folder"
+concept.
 
 ### Notebook project root
 
@@ -71,9 +125,9 @@ The actual per-cell matrix read is:
 sc.read_10x_mtx(matrix_dir, var_names="gene_symbols", make_unique=True)
 ```
 
-### Current active notebook analysis source
+### Original active notebook analysis source
 
-The current builder is instantiated with:
+The original builder was instantiated with:
 
 ```python
 matrix_source="filtered"
@@ -85,7 +139,9 @@ Therefore this call:
 adata_names, adata_list = anndata_builder.per_sample_anndata_list()
 ```
 
-loads Cell Ranger filtered 10x matrix directories. The QC plots, QC filtering, preprocessing, PCA, UMAP, Harmony, Leiden, and comparison plots currently operate on that filtered Cell Ranger data.
+loaded Cell Ranger filtered 10x matrix directories. The QC plots, QC filtering,
+preprocessing, PCA, UMAP, Harmony, Leiden, and comparison plots operated on that
+filtered Cell Ranger data.
 
 ### Raw export for CellBender
 
@@ -136,11 +192,12 @@ It also writes logs and work files under:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/cellbender_work
 ```
 
-### Critical current gap
+### Original critical gap
 
-CellBender output is produced by `scripts/cellbender.sh`, but Notebook 00 does not currently read those CellBender outputs back into the analysis flow.
+CellBender output is produced by `scripts/cellbender.sh`, but the original
+Notebook 00 did not read those CellBender outputs back into the analysis flow.
 
-Current state:
+Original state:
 
 - raw Cell Ranger data can be exported for CellBender
 - CellBender can produce denoised `.h5` outputs
@@ -312,23 +369,48 @@ The first pass should focus on structure, naming, path clarity, and source switc
 - Large data should stay under `DATA_ROOT`, not inside the GitHub checkout.
 - Any code that rewrites `.obs["run_sample_id"]` from `batch` should be checked carefully so sample identity is preserved.
 
-## Proposed Next Step
+## Implementation Direction Used
 
-Before changing the notebook cells, create or identify a small Python module for reusable workflow code, likely under:
+The refactor followed this direction: move reusable workflow code under:
 
 ```text
 python_notebooks/src/mge_organoid_python/
 ```
 
-Then keep Notebook 00 as the readable driver:
+Then keep Notebook 00 as the readable driver. The actual current imports use
+the Notebook 00 modules:
 
 ```python
-from mge_organoid_python.data_sources import load_dataset, export_raw_for_cellbender
-from mge_organoid_python.qc import PerSampleMADQC, filter_qc_pass
-from mge_organoid_python.plots import plot_qc_sample, plot_embedding, compare_embeddings
+from mge_organoid_python.data_sources import Notebook00SourceConfig, load_dataset_result
+from mge_organoid_python.notebook00_workflow import (
+    PreprocessSettings,
+    calculate_qc_metrics,
+    concat_samples,
+    filter_qc_pass_samples,
+    preprocess_basic,
+    run_neighbors_umap,
+)
+from mge_organoid_python.notebook00_plots import (
+    PlotConfig,
+    plot_embedding,
+    plot_marker_panel,
+    plot_qc_scatter,
+    plot_qc_violin,
+    plot_sample_counts,
+    plot_source_availability,
+)
 ```
 
-This keeps the notebook editable while moving fragile path and analysis mechanics into testable code.
+The current branch now has that split:
+
+```text
+data_sources.py       path/source resolution, missing-aware loading, source tables
+notebook00_workflow.py QC annotation, filtering, concatenation, preprocess, UMAP
+notebook00_plots.py    saved/inline plotting helpers
+```
+
+This keeps the notebook editable while moving fragile path and analysis
+mechanics into testable code.
 
 ## Initial Raw vs Filtered Proof
 
@@ -704,8 +786,9 @@ Plot helpers save PNGs and display inline through:
 plot_config = PlotConfig.from_root(DATA_ROOT, run_label=RUN_LABEL, show=True, save=True)
 ```
 
-The notebook JSON validates and every code cell parses, but the full notebook
-has not yet been executed end-to-end on a compute node after the refactor.
+The notebook JSON validates, every code cell parses, and the refactored
+notebook has executed successfully on Great Lakes through Slurm with the
+`cellranger_filtered` source as a full analysis run.
 
 ### Notebook User Inputs
 
@@ -738,6 +821,34 @@ NOTEBOOK00_SHOW_PLOTS
 NOTEBOOK00_SAVE_PLOTS
 ```
 
+Environment/root handling:
+
+```text
+REPO_ROOT=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+CONDA_ENV_BIN=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin
+```
+
+Important naming note:
+
+```text
+REPO_ROOT    = GitHub checkout with notebooks, source modules, metadata, Slurm templates
+PROJECT_ROOT = large HPC project/data root with raw_adata, clean_adata, logs, results
+```
+
+Inside the Python notebook, `PROJECT_ROOT` is still used as the data root
+because existing scripts and templates already use that shell variable. The
+handoff's conceptual distinction remains: repo files live under `REPO_ROOT`;
+large data and results live under `PROJECT_ROOT`.
+
+The Slurm runner executes the notebook with:
+
+```text
+kernel: mge-organoid-python
+jupyter: /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/jupyter
+output: $PROJECT_ROOT/results/notebook00/executed/<notebook>.<RUN_LABEL>.executed.ipynb
+```
+
 Reusable Slurm runner:
 
 ```text
@@ -752,6 +863,29 @@ sbatch \
   --export=ALL,NOTEBOOK00_ACTIVE_SOURCE=cellbender_denoised,NOTEBOOK00_RUN_LABEL=cellbender_denoised_div30_core_samples_source_only,NOTEBOOK00_LOAD_MATRICES=0,NOTEBOOK00_RUN_PREPROCESS=0,NOTEBOOK00_RUN_UMAP=0,NOTEBOOK00_STRICT_MISSING_SOURCES=0 \
   slurm_templates/13_execute_notebook00_source.sbatch.template
 ```
+
+Known-good Slurm commands from this branch:
+
+```bash
+sbatch \
+  --job-name=exec-nb00-filtered \
+  --export=ALL,NOTEBOOK00_ACTIVE_SOURCE=cellranger_filtered,NOTEBOOK00_RUN_LABEL=cellranger_filtered_div30_core_samples,NOTEBOOK00_LOAD_MATRICES=1,NOTEBOOK00_RUN_PREPROCESS=1,NOTEBOOK00_RUN_UMAP=1,NOTEBOOK00_STRICT_MISSING_SOURCES=0 \
+  slurm_templates/13_execute_notebook00_source.sbatch.template
+
+sbatch \
+  --job-name=exec-nb00-raw \
+  --export=ALL,NOTEBOOK00_ACTIVE_SOURCE=cellranger_raw,NOTEBOOK00_RUN_LABEL=cellranger_raw_div30_core_samples_source_only,NOTEBOOK00_LOAD_MATRICES=0,NOTEBOOK00_RUN_PREPROCESS=0,NOTEBOOK00_RUN_UMAP=0,NOTEBOOK00_STRICT_MISSING_SOURCES=0 \
+  slurm_templates/13_execute_notebook00_source.sbatch.template
+
+sbatch \
+  --job-name=exec-nb00-cellbender \
+  --export=ALL,NOTEBOOK00_ACTIVE_SOURCE=cellbender_denoised,NOTEBOOK00_RUN_LABEL=cellbender_denoised_div30_core_samples_source_only,NOTEBOOK00_LOAD_MATRICES=0,NOTEBOOK00_RUN_PREPROCESS=0,NOTEBOOK00_RUN_UMAP=0,NOTEBOOK00_STRICT_MISSING_SOURCES=0 \
+  slurm_templates/13_execute_notebook00_source.sbatch.template
+```
+
+Run full matrix work only through Slurm/compute nodes. Source-only reports are
+lightweight, but keeping the same Slurm path avoids environment drift between
+interactive inspection and batch execution.
 
 ### Three-Source Notebook Execution
 
@@ -815,32 +949,86 @@ cellranger_raw:      available=6
 cellbender_denoised: available=5, missing_source=1
 ```
 
+Targeted outputs to inspect:
+
+```text
+Filtered full run:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_div30_core_samples/tables/source_table.tsv
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_div30_core_samples/tables/qc_filter_summary.tsv
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_div30_core_samples/tables/embedding_report.tsv
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_div30_core_samples/plots/source_availability.png
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_div30_core_samples/plots/qc_violin_by_sample.png
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_div30_core_samples/plots/qc_scatter_total_counts_pct_counts_mt.png
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_div30_core_samples/plots/umap_sample_cellline_qc.png
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_div30_core_samples/plots/umap_marker_panel.png
+
+Raw source-only run:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_raw_div30_core_samples_source_only/tables/source_table.tsv
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_raw_div30_core_samples_source_only/tables/source_summary.tsv
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_raw_div30_core_samples_source_only/plots/source_availability.png
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_raw_div30_core_samples_source_only/plots/loaded_vs_skipped_counts.png
+
+CellBender source-only run:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellbender_denoised_div30_core_samples_source_only/tables/source_table.tsv
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellbender_denoised_div30_core_samples_source_only/tables/source_summary.tsv
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellbender_denoised_div30_core_samples_source_only/plots/source_availability.png
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellbender_denoised_div30_core_samples_source_only/plots/loaded_vs_skipped_counts.png
+```
+
+The raw and CellBender source-only runs intentionally have empty downstream
+analysis tables such as `qc_filter_summary.tsv` and `loaded_sample_shapes.tsv`
+because `NOTEBOOK00_LOAD_MATRICES=0`. Their useful outputs are the source
+tables, source summaries, and availability plots.
+
+To inspect in VS Code, open the absolute paths above from the Explorer or use
+the command palette action "File: Open File..." and paste the path.
+
+Notebook execution logs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook00-exec-nb00-filtered-51112887.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook00-exec-nb00-raw-51112888.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook00-exec-nb00-cellbender-51112889.out
+```
+
 ## Recommended Next Steps
 
-1. Keep the missing-aware reporting behavior in Notebook 00 even after
-   `9853-MW-6` finishes.
+1. Review the targeted outputs above.
 
-   Missing files, failed jobs, or intentionally omitted samples should be
-   visible in `source_table` rather than hidden by downstream plots.
+   The most useful first checks are the filtered UMAP/QC plots and the
+   CellBender `source_table.tsv`, because those prove the current notebook can
+   do a full filtered run and can explicitly identify the missing CellBender
+   sample.
 
-2. Wait for `51106991_5` to finish.
+2. Keep the missing-aware reporting behavior in Notebook 00.
 
-   Check:
+   Missing files, failed jobs, or intentionally omitted samples should remain
+   visible in `source_table` rather than hidden by downstream plots. This should
+   stay true even after `9853-MW-6` finishes.
+
+3. Recheck the running `9853-MW-6` CellBender task before any full CellBender
+   notebook run.
+
+   Last checked during this handoff update:
+
+   ```text
+   job_id: 51106991_5
+   state: RUNNING
+   elapsed: 02:05:06
+   node: gl1008
+   final_h5_present: no
+   posterior_h5_present: yes
+   ```
+
+   Check again with:
 
    ```bash
    squeue -j 51106991_5 -o '%.18i %.9T %.20M %.10D %.30R'
-   ```
-
-3. Once it leaves the queue, verify the final `9853-MW-6` output.
-
-   Check:
-
-   ```bash
    ls -lh /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/clean_adata/9853-MW-6_cellbender_denoised.h5
    sacct -j 51106991_5 --format=JobID,JobName%20,State,ExitCode,Elapsed,NodeList%30 -P
    ```
 
-4. Rerun the CellBender location proof.
+4. Once `9853-MW-6` finishes, rerun the CellBender location proof.
 
    ```bash
    sbatch slurm_templates/11_prove_00_cellbender_locations.sbatch.template
@@ -866,35 +1054,34 @@ cellbender_denoised: available=5, missing_source=1
    EXPECT_MISSING_SAMPLE= sbatch slurm_templates/12_prove_00_missing_aware_downstream.sbatch.template
    ```
 
-   This should prove the same reporting path works when every sample is
+   This proves the same reporting path works when every requested sample is
    available.
 
-6. Add CellBender loading support only after all six outputs exist and pass HDF5 inspection.
+6. Prove actual CellBender matrix loading on a compute node before enabling a
+   full CellBender notebook run.
 
-   The next code milestone is:
-
-   ```python
-   ACTIVE_SOURCE = "cellbender_denoised"
-   adata_names, adata_list, source_table = load_dataset(config)
-   ```
-
-   `data_sources.py` now has a CellBender reader path, but loading all
-   denoised outputs into AnnData has not yet been proven. The next proof should
-   run on a compute node after all six final `.h5` files exist.
-
-7. Execute the refactored Notebook 00 on a compute node with
-   `ACTIVE_SOURCE = "cellranger_filtered"`.
-
-   This is the first end-to-end proof that the thin notebook reproduces the
-   intended raw workflow shape while saving plots/tables to the new run
-   directory.
-
-8. After `9853-MW-6` CellBender finishes and all six outputs pass location
-   proof, execute Notebook 00 with:
+   `data_sources.py` has a CellBender reader path, but the safe proven mode so
+   far is source availability only. The next code/proof milestone should be:
 
    ```python
-   ACTIVE_SOURCE = "cellbender_denoised"
-   STRICT_MISSING_SOURCES = True
+   config = Notebook00SourceConfig(active_source="cellbender_denoised")
+   result = load_dataset_result(config, load_matrices=True)
    ```
 
-   This should be the first full CellBender-backed notebook proof.
+   Start with one sample or a small target sample set before loading all six
+   raw-droplet-scale outputs.
+
+7. Continue notebook polish in the driver, not by rebuilding a large class in
+   the notebook.
+
+   Good next notebook-facing improvements:
+
+   ```text
+   add a small comparison section for two run labels
+   add a plot selector cell that saves only requested plots
+   add clearer printed summaries for active source, loaded samples, skipped samples
+   keep all generated outputs under results/notebook00/<RUN_LABEL>
+   ```
+
+8. Decide whether the proof scripts should stay as active validation utilities
+   or move under an archive/validation area after the notebook is stable.
