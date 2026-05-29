@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=prove-00-missing
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16G
+#SBATCH --time=00:20:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prove-00-missing-aware-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prove-00-missing-aware-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_BIN="${CONDA_BIN:-/home/elcrespo/miniconda3/bin/conda}"
+DATA_SOURCE="${DATA_SOURCE:-cellbender_denoised}"
+EXPECT_MISSING_SAMPLE="${EXPECT_MISSING_SAMPLE-9853-MW-6}"
+REPORT_DIR="${REPORT_DIR:-${PROJECT_ROOT}/results/notebook00}"
+REPORT_TSV="${REPORT_TSV:-${REPORT_DIR}/prove_00_missing_aware_source_status.tsv}"
+SUMMARY_TSV="${SUMMARY_TSV:-${REPORT_DIR}/prove_00_missing_aware_summary.tsv}"
+PLOT_PNG="${PLOT_PNG:-${REPORT_DIR}/prove_00_missing_aware_source_status.png}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${REPORT_DIR}"
+
+cd "${REPO_ROOT}"
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Data source: ${DATA_SOURCE}"
+echo "Expected missing sample: ${EXPECT_MISSING_SAMPLE:-none}"
+echo "Report TSV: ${REPORT_TSV}"
+echo "Summary TSV: ${SUMMARY_TSV}"
+echo "Plot PNG: ${PLOT_PNG}"
+echo "Conda: ${CONDA_BIN}"
+
+expected_missing_args=()
+if [[ -n "${EXPECT_MISSING_SAMPLE}" ]]; then
+  expected_missing_args+=(--expect-missing-sample "${EXPECT_MISSING_SAMPLE}")
+fi
+
+"${CONDA_BIN}" run -n mge-organoid-python python \
+  python_notebooks/scripts/prove_00_missing_aware_downstream.py \
+  --data-root "${PROJECT_ROOT}" \
+  --data-source "${DATA_SOURCE}" \
+  --report-tsv "${REPORT_TSV}" \
+  --summary-tsv "${SUMMARY_TSV}" \
+  --plot-png "${PLOT_PNG}" \
+  "${expected_missing_args[@]}"
+
+echo "Job finished: $(date)"

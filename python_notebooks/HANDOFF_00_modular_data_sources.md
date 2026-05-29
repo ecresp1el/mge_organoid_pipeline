@@ -465,3 +465,253 @@ Observed matrix shapes:
 9853-MW-4: 37143x627418
 9853-MW-5: 37143x712267
 ```
+
+## Current Status Snapshot
+
+Last checked from the login node:
+
+```text
+date: 2026-05-29
+branch: codex/modular-00-data-sources
+login_node: gl-login2.arc-ts.umich.edu
+```
+
+What has been done:
+
+- Created the isolated branch `codex/modular-00-data-sources`.
+- Added this handoff file to explain the path problem, target architecture, and success criteria.
+- Added `python_notebooks/src/mge_organoid_python/data_sources.py` for Notebook 00 source/path handling.
+- Exposed the new Notebook 00 source helpers from `python_notebooks/src/mge_organoid_python/__init__.py`.
+- Added a compute-node raw-vs-filtered proof script and Slurm template.
+- Proved raw vs filtered source switching on Great Lakes with job `51109221`.
+- Added a compute-node CellBender location proof script and Slurm template.
+- Proved the expected CellBender path model with job `51109820`.
+- Confirmed existing CellBender outputs for `9853-MW-1` through `9853-MW-5` are HDF5-readable.
+- Added missing-aware source reporting for downstream analysis/plotting.
+- Proved that missing-aware reporting identifies available and skipped CellBender samples with job `51111674`.
+
+Raw vs filtered proof result:
+
+```text
+job_id: 51109221
+compute_node: gl3064.arc-ts.umich.edu
+result: PASS
+sample: 9853-MW-1
+raw_n_obs: 675447
+filtered_n_obs: 18047
+raw_n_vars: 37143
+filtered_n_vars: 18082
+filtered_vars_missing_from_raw: 0
+```
+
+CellBender status for `9853-MW-6`:
+
+```text
+current_job: 51106991_5
+state: RUNNING
+compute_node: gl1008.arc-ts.umich.edu
+input: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/raw_adata/9853-MW-6.h5ad
+target_output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/clean_adata/9853-MW-6_cellbender_denoised.h5
+```
+
+The final primary `.h5` output for `9853-MW-6` had not appeared at the last
+check. Existing sidecar/partial outputs:
+
+```text
+9853-MW-6_cellbender_denoised_posterior.h5
+9853-MW-6_cellbender_denoised.pdf
+9853-MW-6_cellbender_denoised_cell_barcodes.csv
+9853-MW-6_cellbender_denoised.log
+```
+
+The current `9853-MW-6` run has passed posterior generation and is computing
+denoised counts using the MCKP estimator. The log showed:
+
+```text
+Computing denoised counts using mckp estimator
+Working on chunk (1/7)
+[10.86 mins per chunk]
+```
+
+An older `9853-MW-6` CellBender job failed:
+
+```text
+job_id: 50803829_5
+state: FAILED
+failure: ValueError: Workflow hash does not match that of checkpoint.
+```
+
+This earlier failure explains why the final output was missing before the
+current rerun.
+
+## Missing-Aware Downstream Proof
+
+The missing `9853-MW-6` CellBender output was used as a deliberate test case
+for downstream flexibility. The source layer now records availability before
+matrix loading, so notebooks can show exactly which samples are usable and which
+were skipped.
+
+Added:
+
+```text
+python_notebooks/scripts/prove_00_missing_aware_downstream.py
+slurm_templates/12_prove_00_missing_aware_downstream.sbatch.template
+```
+
+Relevant source-layer fields:
+
+```text
+source_path
+source_exists
+load_status
+skip_reason
+loaded_in_memory
+```
+
+Relevant helper:
+
+```python
+result = load_dataset_result(config, load_matrices=False)
+source_table = result.source_table
+summary_df = result.availability_summary()
+```
+
+Observed proof run:
+
+```text
+job_id: 51111674
+compute_node: gl3180.arc-ts.umich.edu
+result: PASS
+```
+
+Observed CellBender availability:
+
+```text
+available_samples:
+  9853-MW-1
+  9853-MW-2
+  9853-MW-3
+  9853-MW-4
+  9853-MW-5
+
+skipped_samples:
+  9853-MW-6
+
+skip_reason:
+  missing_cellbender_output_h5
+```
+
+Proof outputs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prove-00-missing-aware-51111674.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/prove_00_missing_aware_source_status.tsv
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/prove_00_missing_aware_summary.tsv
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/prove_00_missing_aware_source_status.png
+```
+
+This is the downstream behavior the notebook should use:
+
+1. Build `source_table`.
+2. Display/log available and skipped samples.
+3. Plot source availability.
+4. Load only available samples when strict mode is disabled.
+5. Preserve skipped-sample reporting alongside every downstream analysis result.
+
+## Recommended Next Steps
+
+1. Keep the missing-aware reporting behavior in Notebook 00 even after
+   `9853-MW-6` finishes.
+
+   Missing files, failed jobs, or intentionally omitted samples should be
+   visible in `source_table` rather than hidden by downstream plots.
+
+2. Wait for `51106991_5` to finish.
+
+   Check:
+
+   ```bash
+   squeue -j 51106991_5 -o '%.18i %.9T %.20M %.10D %.30R'
+   ```
+
+3. Once it leaves the queue, verify the final `9853-MW-6` output.
+
+   Check:
+
+   ```bash
+   ls -lh /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/clean_adata/9853-MW-6_cellbender_denoised.h5
+   sacct -j 51106991_5 --format=JobID,JobName%20,State,ExitCode,Elapsed,NodeList%30 -P
+   ```
+
+4. Rerun the CellBender location proof.
+
+   ```bash
+   sbatch slurm_templates/11_prove_00_cellbender_locations.sbatch.template
+   ```
+
+   Success should change from:
+
+   ```text
+   cellbender_outputs_found: 5
+   cellbender_outputs_missing: 1
+   ```
+
+   to:
+
+   ```text
+   cellbender_outputs_found: 6
+   cellbender_outputs_missing: 0
+   ```
+
+5. Rerun the missing-aware proof without expecting `9853-MW-6` to be missing.
+
+   ```bash
+   EXPECT_MISSING_SAMPLE= sbatch slurm_templates/12_prove_00_missing_aware_downstream.sbatch.template
+   ```
+
+   This should prove the same reporting path works when every sample is
+   available.
+
+6. Add CellBender loading support only after all six outputs exist and pass HDF5 inspection.
+
+   The next code milestone is:
+
+   ```python
+   ACTIVE_SOURCE = "cellbender_denoised"
+   adata_names, adata_list, source_table = load_dataset(config)
+   ```
+
+   `data_sources.py` now has a CellBender reader path, but loading all
+   denoised outputs into AnnData has not yet been proven. The next proof should
+   run on a compute node after all six final `.h5` files exist.
+
+7. Refactor Notebook 00 as a driver notebook.
+
+   The first notebook edit should replace the in-notebook builder setup with:
+
+   ```python
+   from mge_organoid_python.data_sources import Notebook00SourceConfig, load_dataset
+
+   ACTIVE_SOURCE = "cellranger_filtered"
+   TARGET_RUN_SAMPLE_IDS = (
+       "9853-MW-1",
+       "9853-MW-2",
+       "9853-MW-3",
+       "9853-MW-4",
+       "9853-MW-5",
+       "9853-MW-6",
+   )
+
+   config = Notebook00SourceConfig.from_defaults(
+       data_source=ACTIVE_SOURCE,
+       target_divs=("DIV30",),
+       target_run_sample_ids=TARGET_RUN_SAMPLE_IDS,
+   )
+
+   adata_names, adata_list, source_table = load_dataset(config)
+   display(source_table)
+   ```
+
+   After that, QC annotation, QC filtering, concatenation, preprocessing, and
+   plotting should operate on `adata_names` and `adata_list` from the selected
+   source instead of rebuilding hidden path logic inside the notebook.

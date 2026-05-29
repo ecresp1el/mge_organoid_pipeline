@@ -150,6 +150,39 @@ class Notebook00SourceConfig:
         return CELLRANGER_DATA_SOURCES[data_source]
 
 
+@dataclass
+class DatasetLoadResult:
+    """Loaded AnnData objects plus a source table that records skipped samples."""
+
+    data_source: str
+    adata_names: list[str]
+    adata_list: list[ad.AnnData]
+    source_table: pd.DataFrame
+
+    @property
+    def available_samples(self) -> list[str]:
+        if "load_status" not in self.source_table.columns:
+            return []
+        return self.source_table.loc[self.source_table["load_status"] == "available", "run_sample_id"].tolist()
+
+    @property
+    def skipped_samples(self) -> list[str]:
+        if "load_status" not in self.source_table.columns:
+            return []
+        return self.source_table.loc[self.source_table["load_status"] != "available", "run_sample_id"].tolist()
+
+    @property
+    def loaded_samples(self) -> list[str]:
+        return list(self.adata_names)
+
+    @property
+    def has_skipped_samples(self) -> bool:
+        return bool(self.skipped_samples)
+
+    def availability_summary(self) -> pd.DataFrame:
+        return summarize_source_availability(self.source_table)
+
+
 def sample_table(config: Notebook00SourceConfig) -> pd.DataFrame:
     """Return selected samples with resolved raw/filtered matrix directories."""
     if normalize_data_source(config.data_source) not in CELLRANGER_DATA_SOURCES:
@@ -286,6 +319,46 @@ def cellbender_output_table(config: Notebook00SourceConfig) -> pd.DataFrame:
     ]
 
 
+def source_availability_table(config: Notebook00SourceConfig) -> pd.DataFrame:
+    """Return one row per requested sample with source availability status."""
+    data_source = normalize_data_source(config.data_source)
+
+    if data_source in CELLRANGER_DATA_SOURCES:
+        table = sample_table(config).copy()
+        table["source_path"] = table["matrix_dir"]
+        table["source_exists"] = table["matrix_exists"]
+        missing_reason = f"missing_{data_source}_matrix_dir"
+    elif data_source == CELLBENDER_DATA_SOURCE:
+        table = cellbender_output_table(config).copy()
+        table["source_path"] = table["cellbender_output_h5"]
+        table["source_exists"] = table["cellbender_output_exists"]
+        missing_reason = "missing_cellbender_output_h5"
+    else:
+        raise ValueError(f"Unsupported data_source: {data_source!r}")
+
+    table["load_status"] = table["source_exists"].map(lambda exists: "available" if bool(exists) else "missing_source")
+    table["skip_reason"] = table["source_exists"].map(lambda exists: "" if bool(exists) else missing_reason)
+    table["loaded_in_memory"] = False
+    return table
+
+
+def summarize_source_availability(source_table: pd.DataFrame) -> pd.DataFrame:
+    """Summarize source availability for notebook logging and downstream plots."""
+    required = {"data_source", "load_status"}
+    missing = required.difference(source_table.columns)
+    if missing:
+        raise ValueError(f"source_table is missing required columns: {sorted(missing)}")
+
+    return (
+        source_table.groupby(["data_source", "load_status"], dropna=False)
+        .size()
+        .rename("n_samples")
+        .reset_index()
+        .sort_values(["data_source", "load_status"])
+        .reset_index(drop=True)
+    )
+
+
 def read_cellranger_sample(row: pd.Series) -> ad.AnnData:
     """Read one resolved Cell Ranger sample row into AnnData with stable obs metadata."""
     matrix_dir = Path(row["matrix_dir"])
@@ -308,23 +381,75 @@ def read_cellranger_sample(row: pd.Series) -> ad.AnnData:
     return one_sample_adata
 
 
-def load_dataset(config: Notebook00SourceConfig) -> tuple[list[str], list[ad.AnnData], pd.DataFrame]:
-    """Load all selected samples for a Notebook 00 raw/filtered data source."""
-    selected_samples_df = sample_table(config)
-    missing = selected_samples_df.loc[~selected_samples_df["matrix_exists"], "matrix_dir"].tolist()
-    if missing and config.strict_missing_matrix_dirs:
-        message = "Missing per-sample 10x matrix directories:\n" + "\n".join(f" - {path}" for path in missing)
+def read_cellbender_sample(row: pd.Series) -> ad.AnnData:
+    """Read one CellBender denoised H5 sample with stable obs metadata."""
+    output_h5 = Path(row["cellbender_output_h5"])
+    run_sample_id = str(row["run_sample_id"])
+    if not output_h5.exists():
+        raise FileNotFoundError(f"Missing CellBender output for {run_sample_id}: {output_h5}")
+
+    one_sample_adata = sc.read_10x_h5(output_h5)
+    one_sample_adata.var_names_make_unique()
+    one_sample_adata.obs_names = [f"{run_sample_id}:{barcode}" for barcode in one_sample_adata.obs_names]
+    one_sample_adata.obs["DIV"] = str(row["DIV"])
+    one_sample_adata.obs["run_sample_id"] = run_sample_id
+    one_sample_adata.obs["biological_label"] = str(row["biological_label"])
+    one_sample_adata.obs["cell_line"] = str(row["cell_line"])
+    one_sample_adata.obs["data_source"] = CELLBENDER_DATA_SOURCE
+    one_sample_adata.obs["matrix_source"] = CELLBENDER_DATA_SOURCE
+    one_sample_adata.obs["source_path"] = str(output_h5)
+    one_sample_adata.obs["cellbender_output_h5"] = str(output_h5)
+    one_sample_adata.uns["data_source"] = CELLBENDER_DATA_SOURCE
+    one_sample_adata.uns["matrix_source"] = CELLBENDER_DATA_SOURCE
+    one_sample_adata.uns["source_path"] = str(output_h5)
+    one_sample_adata.uns["cellbender_output_h5"] = str(output_h5)
+    return one_sample_adata
+
+
+def load_dataset_result(config: Notebook00SourceConfig, load_matrices: bool = True) -> DatasetLoadResult:
+    """Load available samples and keep a report of skipped/missing samples."""
+    data_source = normalize_data_source(config.data_source)
+    source_table = source_availability_table(config)
+    missing_rows = source_table.loc[source_table["load_status"] != "available"]
+
+    if not missing_rows.empty and config.strict_missing_matrix_dirs:
+        message = "Missing requested source files:\n" + "\n".join(
+            f" - {row.run_sample_id}: {row.source_path} ({row.skip_reason})"
+            for row in missing_rows.itertuples(index=False)
+        )
         raise FileNotFoundError(message)
 
-    adata_names = []
-    adata_list = []
-    for _, row in selected_samples_df.iterrows():
-        if not bool(row["matrix_exists"]):
-            continue
-        adata_names.append(str(row["run_sample_id"]))
-        adata_list.append(read_cellranger_sample(row))
+    adata_names: list[str] = []
+    adata_list: list[ad.AnnData] = []
 
-    if not adata_list:
-        raise FileNotFoundError("No selected matrix directories were found.")
+    if load_matrices:
+        available_rows = source_table.loc[source_table["load_status"] == "available"]
+        for _, row in available_rows.iterrows():
+            run_sample_id = str(row["run_sample_id"])
+            if data_source in CELLRANGER_DATA_SOURCES:
+                one_sample_adata = read_cellranger_sample(row)
+            elif data_source == CELLBENDER_DATA_SOURCE:
+                one_sample_adata = read_cellbender_sample(row)
+            else:
+                raise ValueError(f"Unsupported data_source: {data_source!r}")
 
-    return adata_names, adata_list, selected_samples_df
+            adata_names.append(run_sample_id)
+            adata_list.append(one_sample_adata)
+
+        if not adata_list:
+            raise FileNotFoundError("No requested source files were available to load.")
+
+    source_table = source_table.copy()
+    source_table["loaded_in_memory"] = source_table["run_sample_id"].isin(adata_names)
+    return DatasetLoadResult(
+        data_source=data_source,
+        adata_names=adata_names,
+        adata_list=adata_list,
+        source_table=source_table,
+    )
+
+
+def load_dataset(config: Notebook00SourceConfig) -> tuple[list[str], list[ad.AnnData], pd.DataFrame]:
+    """Load selected samples and return the legacy `(names, adatas, table)` tuple."""
+    result = load_dataset_result(config, load_matrices=True)
+    return result.adata_names, result.adata_list, result.source_table

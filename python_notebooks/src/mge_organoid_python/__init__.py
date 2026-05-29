@@ -2,12 +2,16 @@
 
 from .converter import SeuratToAnnDataConverter
 from .data_sources import (
+    DatasetLoadResult,
     Notebook00SourceConfig,
     cellbender_output_table,
     expected_cellbender_output_h5,
     expected_raw_h5ad_path,
     load_dataset,
+    load_dataset_result,
     sample_table,
+    source_availability_table,
+    summarize_source_availability,
 )
 from .loader import cached_h5ad_path, load_cached_anndata, load_cached_anndatas, missing_cached_h5ads
 from .paths import DEFAULT_PROJECT_ROOT, resolve_project_root
@@ -17,6 +21,7 @@ from .validation import AnnDataReport, validate_anndata, validate_source_paths
 __all__ = [
     "AnnDataReport",
     "DEFAULT_PROJECT_ROOT",
+    "DatasetLoadResult",
     "Notebook00SourceConfig",
     "SeuratToAnnDataConverter",
     "StudySpec",
@@ -26,11 +31,14 @@ __all__ = [
     "expected_cellbender_output_h5",
     "expected_raw_h5ad_path",
     "load_dataset",
+    "load_dataset_result",
     "load_cached_anndata",
     "load_cached_anndatas",
     "missing_cached_h5ads",
     "resolve_project_root",
     "sample_table",
+    "source_availability_table",
+    "summarize_source_availability",
     "validate_anndata",
     "validate_source_paths",
 ]
