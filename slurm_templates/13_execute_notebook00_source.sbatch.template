@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=exec-nb00-source
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=160G
+#SBATCH --time=03:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook00-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook00-%x-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+NOTEBOOK00_ACTIVE_SOURCE="${NOTEBOOK00_ACTIVE_SOURCE:-cellranger_filtered}"
+NOTEBOOK00_TARGET_DIVS="${NOTEBOOK00_TARGET_DIVS:-DIV30}"
+NOTEBOOK00_TARGET_RUN_SAMPLE_IDS="${NOTEBOOK00_TARGET_RUN_SAMPLE_IDS:-9853-MW-1,9853-MW-2,9853-MW-3,9853-MW-4,9853-MW-5,9853-MW-6}"
+NOTEBOOK00_STRICT_MISSING_SOURCES="${NOTEBOOK00_STRICT_MISSING_SOURCES:-0}"
+NOTEBOOK00_LOAD_MATRICES="${NOTEBOOK00_LOAD_MATRICES:-1}"
+NOTEBOOK00_RUN_PREPROCESS="${NOTEBOOK00_RUN_PREPROCESS:-1}"
+NOTEBOOK00_RUN_UMAP="${NOTEBOOK00_RUN_UMAP:-1}"
+NOTEBOOK00_APPLY_QC_FILTER="${NOTEBOOK00_APPLY_QC_FILTER:-1}"
+NOTEBOOK00_SHOW_PLOTS="${NOTEBOOK00_SHOW_PLOTS:-1}"
+NOTEBOOK00_SAVE_PLOTS="${NOTEBOOK00_SAVE_PLOTS:-1}"
+NOTEBOOK00_RUN_LABEL="${NOTEBOOK00_RUN_LABEL:-${NOTEBOOK00_ACTIVE_SOURCE}_$(echo "${NOTEBOOK00_TARGET_DIVS}" | tr ',' '_' | tr '[:upper:]' '[:lower:]')_core_samples}"
+
+executed_dir="${PROJECT_ROOT}/results/notebook00/executed"
+executed_name="00_load_div30_div90_raw_to_anndata.${NOTEBOOK00_RUN_LABEL}.executed.ipynb"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${executed_dir}"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export NOTEBOOK00_ACTIVE_SOURCE
+export NOTEBOOK00_TARGET_DIVS
+export NOTEBOOK00_TARGET_RUN_SAMPLE_IDS
+export NOTEBOOK00_STRICT_MISSING_SOURCES
+export NOTEBOOK00_LOAD_MATRICES
+export NOTEBOOK00_RUN_PREPROCESS
+export NOTEBOOK00_RUN_UMAP
+export NOTEBOOK00_APPLY_QC_FILTER
+export NOTEBOOK00_SHOW_PLOTS
+export NOTEBOOK00_SAVE_PLOTS
+export NOTEBOOK00_RUN_LABEL
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Active source: ${NOTEBOOK00_ACTIVE_SOURCE}"
+echo "Run label: ${NOTEBOOK00_RUN_LABEL}"
+echo "Load matrices: ${NOTEBOOK00_LOAD_MATRICES}"
+echo "Run preprocess: ${NOTEBOOK00_RUN_PREPROCESS}"
+echo "Run UMAP: ${NOTEBOOK00_RUN_UMAP}"
+echo "Strict missing: ${NOTEBOOK00_STRICT_MISSING_SOURCES}"
+echo "Executed notebook: ${executed_dir}/${executed_name}"
+
+"${CONDA_ENV_BIN}/jupyter" nbconvert \
+  --to notebook \
+  --execute python_notebooks/notebooks/00_load_div30_div90_raw_to_anndata.ipynb \
+  --output-dir "${executed_dir}" \
+  --output "${executed_name}" \
+  --ExecutePreprocessor.kernel_name=mge-organoid-python \
+  --ExecutePreprocessor.timeout=-1
+
+echo "Job finished: $(date)"
