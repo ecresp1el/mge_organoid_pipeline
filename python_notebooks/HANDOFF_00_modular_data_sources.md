@@ -618,6 +618,95 @@ This is the downstream behavior the notebook should use:
 4. Load only available samples when strict mode is disabled.
 5. Preserve skipped-sample reporting alongside every downstream analysis result.
 
+## Notebook 00 Driver Refactor
+
+Notebook 00 has been rewritten as a thin driver notebook:
+
+```text
+python_notebooks/notebooks/00_load_div30_div90_raw_to_anndata.ipynb
+```
+
+The old in-notebook builder class, QC class, raw export utility, Harmony block,
+and long plot sequence were removed from the notebook body. Reusable behavior now
+lives in:
+
+```text
+python_notebooks/src/mge_organoid_python/data_sources.py
+python_notebooks/src/mge_organoid_python/notebook00_workflow.py
+python_notebooks/src/mge_organoid_python/notebook00_plots.py
+```
+
+The notebook now has 19 cells and follows this flow:
+
+1. imports
+2. configuration
+3. source availability report, without loading matrices
+4. load available samples
+5. QC annotation
+6. QC filtering and concatenation
+7. preprocessing and UMAP
+8. saved/displayed plots
+9. marker panel
+10. generated object summary
+
+Default source:
+
+```python
+ACTIVE_SOURCE = "cellranger_filtered"
+```
+
+The notebook can switch to:
+
+```python
+ACTIVE_SOURCE = "cellranger_raw"
+ACTIVE_SOURCE = "cellbender_denoised"
+```
+
+Missing-source behavior is controlled by:
+
+```python
+STRICT_MISSING_SOURCES = False
+```
+
+With strict mode disabled, missing samples are logged in `source_table` and
+skipped before matrix loading. This is the intended behavior for incomplete
+CellBender batches or deliberately omitted samples.
+
+The notebook now only uses objects created in the current run:
+
+```text
+source_table
+adata_names
+adata_list
+analysis_names
+analysis_list
+combined_adata
+```
+
+Plot/table output locations are deterministic and run-specific:
+
+```text
+RUN_DIR = DATA_ROOT/results/notebook00/<RUN_LABEL>
+TABLE_DIR = RUN_DIR/tables
+PLOT_DIR = RUN_DIR/plots
+```
+
+With the default source, this resolves to:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_div30_core_samples/tables
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_div30_core_samples/plots
+```
+
+Plot helpers save PNGs and display inline through:
+
+```python
+plot_config = PlotConfig.from_root(DATA_ROOT, run_label=RUN_LABEL, show=True, save=True)
+```
+
+The notebook JSON validates and every code cell parses, but the full notebook
+has not yet been executed end-to-end on a compute node after the refactor.
+
 ## Recommended Next Steps
 
 1. Keep the missing-aware reporting behavior in Notebook 00 even after
@@ -685,33 +774,19 @@ This is the downstream behavior the notebook should use:
    denoised outputs into AnnData has not yet been proven. The next proof should
    run on a compute node after all six final `.h5` files exist.
 
-7. Refactor Notebook 00 as a driver notebook.
+7. Execute the refactored Notebook 00 on a compute node with
+   `ACTIVE_SOURCE = "cellranger_filtered"`.
 
-   The first notebook edit should replace the in-notebook builder setup with:
+   This is the first end-to-end proof that the thin notebook reproduces the
+   intended raw workflow shape while saving plots/tables to the new run
+   directory.
+
+8. After `9853-MW-6` CellBender finishes and all six outputs pass location
+   proof, execute Notebook 00 with:
 
    ```python
-   from mge_organoid_python.data_sources import Notebook00SourceConfig, load_dataset
-
-   ACTIVE_SOURCE = "cellranger_filtered"
-   TARGET_RUN_SAMPLE_IDS = (
-       "9853-MW-1",
-       "9853-MW-2",
-       "9853-MW-3",
-       "9853-MW-4",
-       "9853-MW-5",
-       "9853-MW-6",
-   )
-
-   config = Notebook00SourceConfig.from_defaults(
-       data_source=ACTIVE_SOURCE,
-       target_divs=("DIV30",),
-       target_run_sample_ids=TARGET_RUN_SAMPLE_IDS,
-   )
-
-   adata_names, adata_list, source_table = load_dataset(config)
-   display(source_table)
+   ACTIVE_SOURCE = "cellbender_denoised"
+   STRICT_MISSING_SOURCES = True
    ```
 
-   After that, QC annotation, QC filtering, concatenation, preprocessing, and
-   plotting should operate on `adata_names` and `adata_list` from the selected
-   source instead of rebuilding hidden path logic inside the notebook.
+   This should be the first full CellBender-backed notebook proof.
