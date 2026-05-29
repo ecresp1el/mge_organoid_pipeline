@@ -707,6 +707,114 @@ plot_config = PlotConfig.from_root(DATA_ROOT, run_label=RUN_LABEL, show=True, sa
 The notebook JSON validates and every code cell parses, but the full notebook
 has not yet been executed end-to-end on a compute node after the refactor.
 
+### Notebook User Inputs
+
+Interactive users can edit the configuration cell directly. Batch users can set
+the same inputs with environment variables.
+
+Core inputs:
+
+```text
+NOTEBOOK00_ACTIVE_SOURCE
+NOTEBOOK00_TARGET_DIVS
+NOTEBOOK00_TARGET_RUN_SAMPLE_IDS
+NOTEBOOK00_STRICT_MISSING_SOURCES
+NOTEBOOK00_LOAD_MATRICES
+NOTEBOOK00_RUN_LABEL
+```
+
+Analysis toggles:
+
+```text
+NOTEBOOK00_APPLY_QC_FILTER
+NOTEBOOK00_RUN_PREPROCESS
+NOTEBOOK00_RUN_UMAP
+```
+
+Plot toggles:
+
+```text
+NOTEBOOK00_SHOW_PLOTS
+NOTEBOOK00_SAVE_PLOTS
+```
+
+Reusable Slurm runner:
+
+```text
+slurm_templates/13_execute_notebook00_source.sbatch.template
+```
+
+Example source-only CellBender run:
+
+```bash
+sbatch \
+  --job-name=exec-nb00-cellbender \
+  --export=ALL,NOTEBOOK00_ACTIVE_SOURCE=cellbender_denoised,NOTEBOOK00_RUN_LABEL=cellbender_denoised_div30_core_samples_source_only,NOTEBOOK00_LOAD_MATRICES=0,NOTEBOOK00_RUN_PREPROCESS=0,NOTEBOOK00_RUN_UMAP=0,NOTEBOOK00_STRICT_MISSING_SOURCES=0 \
+  slurm_templates/13_execute_notebook00_source.sbatch.template
+```
+
+### Three-Source Notebook Execution
+
+Three source modes were executed through the refactored notebook:
+
+```text
+cellranger_filtered
+cellranger_raw
+cellbender_denoised
+```
+
+Observed jobs:
+
+```text
+cellranger_filtered: 51112887, COMPLETED, 0:0, gl3078, 00:05:23
+cellranger_raw:      51112888, COMPLETED, 0:0, gl3251, 00:00:16
+cellbender_denoised: 51112889, COMPLETED, 0:0, gl3285, 00:00:16
+```
+
+The filtered source was run as a full analysis:
+
+```text
+NOTEBOOK00_LOAD_MATRICES=1
+NOTEBOOK00_RUN_PREPROCESS=1
+NOTEBOOK00_RUN_UMAP=1
+```
+
+The raw and CellBender sources were run in source-report-only mode:
+
+```text
+NOTEBOOK00_LOAD_MATRICES=0
+NOTEBOOK00_RUN_PREPROCESS=0
+NOTEBOOK00_RUN_UMAP=0
+```
+
+Reason: raw and current CellBender outputs are raw-droplet-scale matrices.
+Running full concat/preprocess/UMAP on all raw droplets is not a sensible default
+for interactive review.
+
+Executed notebooks:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.cellranger_filtered_div30_core_samples.executed.ipynb
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.cellranger_raw_div30_core_samples_source_only.executed.ipynb
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.cellbender_denoised_div30_core_samples_source_only.executed.ipynb
+```
+
+Run output folders:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_div30_core_samples
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_raw_div30_core_samples_source_only
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellbender_denoised_div30_core_samples_source_only
+```
+
+Source summaries:
+
+```text
+cellranger_filtered: available=6
+cellranger_raw:      available=6
+cellbender_denoised: available=5, missing_source=1
+```
+
 ## Recommended Next Steps
 
 1. Keep the missing-aware reporting behavior in Notebook 00 even after
