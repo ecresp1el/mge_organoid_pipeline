@@ -1,4 +1,4 @@
-"""Data-source helpers for Notebook 00 raw/filtered 10x workflows."""
+"""Data-source helpers for Notebook 00 raw/filtered and CellBender workflows."""
 
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ CELLRANGER_DATA_SOURCES = {
     "cellranger_raw": "raw",
     "cellranger_filtered": "filtered",
 }
+CELLBENDER_DATA_SOURCE = "cellbender_denoised"
+SUPPORTED_DATA_SOURCES = tuple([*CELLRANGER_DATA_SOURCES.keys(), CELLBENDER_DATA_SOURCE])
 
 
 def find_repo_root(start: Path | str | None = None) -> Path:
@@ -40,8 +42,8 @@ def resolve_data_root(data_root: Path | str | None = None) -> Path:
 def normalize_data_source(data_source: str) -> str:
     """Normalize and validate a supported Notebook 00 data source name."""
     normalized = str(data_source).strip().lower()
-    if normalized not in CELLRANGER_DATA_SOURCES:
-        valid = sorted(CELLRANGER_DATA_SOURCES)
+    if normalized not in SUPPORTED_DATA_SOURCES:
+        valid = sorted(SUPPORTED_DATA_SOURCES)
         raise ValueError(f"data_source must be one of {valid}; got {data_source!r}")
     return normalized
 
@@ -88,6 +90,22 @@ def _cell_line_from_biological_label(label: object) -> Optional[str]:
     return match.group(1) if match else None
 
 
+def safe_sample_filename_stem(run_sample_id: object) -> str:
+    """Return the raw `.h5ad` basename stem used by Notebook 00 raw export."""
+    return str(run_sample_id).replace(" ", "_")
+
+
+def expected_raw_h5ad_path(data_root: Path | str, run_sample_id: object) -> Path:
+    """Return the primary raw AnnData path used as CellBender input."""
+    return Path(data_root).expanduser().resolve() / "raw_adata" / f"{safe_sample_filename_stem(run_sample_id)}.h5ad"
+
+
+def expected_cellbender_output_h5(data_root: Path | str, run_sample_id: object) -> Path:
+    """Return the primary CellBender denoised H5 path from `scripts/cellbender.sh`."""
+    stem = safe_sample_filename_stem(run_sample_id)
+    return Path(data_root).expanduser().resolve() / "clean_adata" / f"{stem}_cellbender_denoised.h5"
+
+
 @dataclass(frozen=True)
 class Notebook00SourceConfig:
     """Configuration for loading Notebook 00 Cell Ranger raw/filtered sources."""
@@ -126,11 +144,17 @@ class Notebook00SourceConfig:
 
     @property
     def matrix_source(self) -> str:
-        return CELLRANGER_DATA_SOURCES[normalize_data_source(self.data_source)]
+        data_source = normalize_data_source(self.data_source)
+        if data_source not in CELLRANGER_DATA_SOURCES:
+            raise ValueError(f"{data_source!r} does not have a Cell Ranger matrix_source.")
+        return CELLRANGER_DATA_SOURCES[data_source]
 
 
 def sample_table(config: Notebook00SourceConfig) -> pd.DataFrame:
     """Return selected samples with resolved raw/filtered matrix directories."""
+    if normalize_data_source(config.data_source) not in CELLRANGER_DATA_SOURCES:
+        raise ValueError("sample_table() is only for Cell Ranger raw/filtered sources. Use cellbender_output_table().")
+
     sample_metadata_df = pd.read_csv(config.sample_map_tsv, sep="\t")
     required = {"DIV", "run_sample_id", "biological_label", "per_sample_metrics_csv"}
     missing = required.difference(sample_metadata_df.columns)
@@ -184,6 +208,80 @@ def sample_table(config: Notebook00SourceConfig) -> pd.DataFrame:
             "matrix_source",
             "matrix_dir",
             "matrix_exists",
+        ]
+    ]
+
+
+def selected_sample_metadata(config: Notebook00SourceConfig) -> pd.DataFrame:
+    """Return selected sample metadata shared by raw/filtered and CellBender tables."""
+    sample_metadata_df = pd.read_csv(config.sample_map_tsv, sep="\t")
+    required = {"DIV", "run_sample_id", "biological_label", "per_sample_metrics_csv"}
+    missing = required.difference(sample_metadata_df.columns)
+    if missing:
+        raise ValueError(f"Sample map is missing required columns: {sorted(missing)}")
+
+    sample_metadata_df = sample_metadata_df[sample_metadata_df["DIV"].isin(config.target_divs)].copy()
+
+    if config.target_run_sample_ids is not None:
+        sample_metadata_df = sample_metadata_df[
+            sample_metadata_df["run_sample_id"].isin(config.target_run_sample_ids)
+        ].copy()
+        found = set(sample_metadata_df["run_sample_id"].astype(str))
+        missing_ids = [sid for sid in config.target_run_sample_ids if sid not in found]
+        if missing_ids:
+            raise ValueError(f"Missing requested run_sample_id values in sample map: {missing_ids}")
+
+    if sample_metadata_df.empty:
+        raise ValueError("No samples matched target_divs/target_run_sample_ids.")
+
+    sample_metadata_df["cell_line"] = sample_metadata_df["biological_label"].map(_cell_line_from_biological_label)
+    invalid_rows = sample_metadata_df[sample_metadata_df["cell_line"].isna()][["run_sample_id", "biological_label"]]
+    if not invalid_rows.empty:
+        examples = invalid_rows.head(10).to_dict(orient="records")
+        raise ValueError(f"Could not map biological_label values to cell_line prefixes. Examples: {examples}")
+
+    sample_metadata_df["DIV"] = pd.Categorical(sample_metadata_df["DIV"], categories=config.target_divs, ordered=True)
+    if config.target_run_sample_ids is not None:
+        sample_metadata_df["run_sample_id"] = pd.Categorical(
+            sample_metadata_df["run_sample_id"],
+            categories=config.target_run_sample_ids,
+            ordered=True,
+        )
+
+    sample_metadata_df = sample_metadata_df.sort_values(["DIV", "run_sample_id"]).reset_index(drop=True)
+    sample_metadata_df["run_sample_id"] = sample_metadata_df["run_sample_id"].astype(str)
+    return sample_metadata_df[["DIV", "run_sample_id", "biological_label", "cell_line", "per_sample_metrics_csv"]]
+
+
+def cellbender_output_table(config: Notebook00SourceConfig) -> pd.DataFrame:
+    """Return expected CellBender input/output paths and existence status per sample."""
+    sample_metadata_df = selected_sample_metadata(config)
+    sample_metadata_df["data_source"] = CELLBENDER_DATA_SOURCE
+    sample_metadata_df["raw_h5ad_path"] = sample_metadata_df["run_sample_id"].map(
+        lambda run_sample_id: str(expected_raw_h5ad_path(config.data_root, run_sample_id))
+    )
+    sample_metadata_df["cellbender_output_h5"] = sample_metadata_df["run_sample_id"].map(
+        lambda run_sample_id: str(expected_cellbender_output_h5(config.data_root, run_sample_id))
+    )
+    sample_metadata_df["raw_h5ad_exists"] = sample_metadata_df["raw_h5ad_path"].map(lambda path: Path(path).exists())
+    sample_metadata_df["cellbender_output_exists"] = sample_metadata_df["cellbender_output_h5"].map(
+        lambda path: Path(path).exists()
+    )
+    sample_metadata_df["cellbender_output_size_bytes"] = sample_metadata_df["cellbender_output_h5"].map(
+        lambda path: Path(path).stat().st_size if Path(path).exists() else 0
+    )
+    return sample_metadata_df[
+        [
+            "DIV",
+            "run_sample_id",
+            "biological_label",
+            "cell_line",
+            "data_source",
+            "raw_h5ad_path",
+            "raw_h5ad_exists",
+            "cellbender_output_h5",
+            "cellbender_output_exists",
+            "cellbender_output_size_bytes",
         ]
     ]
 

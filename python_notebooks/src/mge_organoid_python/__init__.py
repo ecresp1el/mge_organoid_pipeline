@@ -1,7 +1,14 @@
 """Python entry points for notebook-based MGE organoid analysis."""
 
 from .converter import SeuratToAnnDataConverter
-from .data_sources import Notebook00SourceConfig, load_dataset, sample_table
+from .data_sources import (
+    Notebook00SourceConfig,
+    cellbender_output_table,
+    expected_cellbender_output_h5,
+    expected_raw_h5ad_path,
+    load_dataset,
+    sample_table,
+)
 from .loader import cached_h5ad_path, load_cached_anndata, load_cached_anndatas, missing_cached_h5ads
 from .paths import DEFAULT_PROJECT_ROOT, resolve_project_root
 from .studies import StudySpec, default_studies
@@ -14,7 +21,10 @@ __all__ = [
     "SeuratToAnnDataConverter",
     "StudySpec",
     "cached_h5ad_path",
+    "cellbender_output_table",
     "default_studies",
+    "expected_cellbender_output_h5",
+    "expected_raw_h5ad_path",
     "load_dataset",
     "load_cached_anndata",
     "load_cached_anndatas",

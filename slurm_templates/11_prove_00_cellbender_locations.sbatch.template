@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=prove-00-cb
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16G
+#SBATCH --time=00:20:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prove-00-cellbender-locations-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prove-00-cellbender-locations-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_BIN="${CONDA_BIN:-/home/elcrespo/miniconda3/bin/conda}"
+REPORT_TSV="${REPORT_TSV:-${PROJECT_ROOT}/results/notebook00/prove_00_cellbender_locations.tsv}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "$(dirname "${REPORT_TSV}")"
+
+cd "${REPO_ROOT}"
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Report TSV: ${REPORT_TSV}"
+echo "Conda: ${CONDA_BIN}"
+
+"${CONDA_BIN}" run -n mge-organoid-python python \
+  python_notebooks/scripts/prove_00_cellbender_locations.py \
+  --data-root "${PROJECT_ROOT}" \
+  --require-any-existing \
+  --report-tsv "${REPORT_TSV}"
+
+echo "Job finished: $(date)"

@@ -369,3 +369,99 @@ Default proof output:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prove-00-raw-filtered-<job_id>.out
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/prove_00_raw_filtered_sources.tsv
 ```
+
+## Initial CellBender Location Proof
+
+The CellBender proof builds on the same source/path module and adds:
+
+```text
+python_notebooks/scripts/prove_00_cellbender_locations.py
+slurm_templates/11_prove_00_cellbender_locations.sbatch.template
+```
+
+Submit it with:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+sbatch slurm_templates/11_prove_00_cellbender_locations.sbatch.template
+```
+
+Default sample set:
+
+```text
+9853-MW-1
+9853-MW-2
+9853-MW-3
+9853-MW-4
+9853-MW-5
+9853-MW-6
+```
+
+For each sample, it derives:
+
+```text
+DATA_ROOT/raw_adata/<run_sample_id>.h5ad
+DATA_ROOT/clean_adata/<run_sample_id>_cellbender_denoised.h5
+```
+
+This matches the naming behavior in `scripts/cellbender.sh`, where CellBender
+outputs are named from the input basename.
+
+The proof reports:
+
+- expected raw `.h5ad` input path
+- whether that raw input exists
+- expected CellBender denoised `.h5` output path
+- whether that CellBender output exists
+- output file size for existing outputs
+- whether existing outputs can be opened as HDF5
+- top-level HDF5 keys and matrix shape when available
+
+This proof does not require every sample to exist. The Slurm template currently
+uses `--require-any-existing`, meaning it fails only if no requested CellBender
+outputs exist at all or if an existing output cannot be opened as HDF5.
+
+Default proof output:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prove-00-cellbender-locations-<job_id>.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/prove_00_cellbender_locations.tsv
+```
+
+Observed proof run:
+
+```text
+job_id: 51109820
+compute_node: gl3028.arc-ts.umich.edu
+log: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prove-00-cellbender-locations-51109820.out
+report: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/prove_00_cellbender_locations.tsv
+```
+
+Observed result:
+
+```text
+raw_h5ad_found: 6
+cellbender_outputs_found: 5
+cellbender_outputs_missing: 1
+missing_output: 9853-MW-6
+```
+
+Existing CellBender outputs for `9853-MW-1` through `9853-MW-5` opened as
+HDF5 and had top-level keys:
+
+```text
+droplet_latents
+global_latents
+matrix
+metadata
+```
+
+Observed matrix shapes:
+
+```text
+9853-MW-1: 37143x675447
+9853-MW-2: 37143x514516
+9853-MW-3: 37143x690463
+9853-MW-4: 37143x627418
+9853-MW-5: 37143x712267
+```
