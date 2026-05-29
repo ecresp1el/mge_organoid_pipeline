@@ -329,3 +329,43 @@ from mge_organoid_python.plots import plot_qc_sample, plot_embedding, compare_em
 ```
 
 This keeps the notebook editable while moving fragile path and analysis mechanics into testable code.
+
+## Initial Raw vs Filtered Proof
+
+The first implementation pass added:
+
+```text
+python_notebooks/src/mge_organoid_python/data_sources.py
+python_notebooks/scripts/prove_00_raw_filtered_sources.py
+slurm_templates/10_prove_00_raw_filtered_sources.sbatch.template
+```
+
+The proof must run on a Great Lakes compute node, not on the login node, because it loads real 10x matrices. Submit it with:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+sbatch slurm_templates/10_prove_00_raw_filtered_sources.sbatch.template
+```
+
+It loads the same sample through both supported sources:
+
+```text
+cellranger_raw
+cellranger_filtered
+```
+
+The proof passes only if:
+
+- raw and filtered matrix directories both exist
+- raw and filtered resolve to different directories
+- both sources load through Scanpy
+- raw has at least as many cell barcodes as filtered
+- filtered genes are present in the raw source, even if raw has additional features/genes
+- loaded `.obs` contains stable sample metadata such as `run_sample_id` and `cell_line`
+
+Default proof output:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prove-00-raw-filtered-<job_id>.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/prove_00_raw_filtered_sources.tsv
+```

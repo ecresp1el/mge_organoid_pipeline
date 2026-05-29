@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=prove-00-rf
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=128G
+#SBATCH --time=01:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prove-00-raw-filtered-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prove-00-raw-filtered-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_BIN="${CONDA_BIN:-/home/elcrespo/miniconda3/bin/conda}"
+SAMPLE_ID="${SAMPLE_ID:-9853-MW-1}"
+REPORT_TSV="${REPORT_TSV:-${PROJECT_ROOT}/results/notebook00/prove_00_raw_filtered_sources.tsv}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "$(dirname "${REPORT_TSV}")"
+
+cd "${REPO_ROOT}"
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Sample ID: ${SAMPLE_ID}"
+echo "Report TSV: ${REPORT_TSV}"
+echo "Conda: ${CONDA_BIN}"
+
+"${CONDA_BIN}" run -n mge-organoid-python python \
+  python_notebooks/scripts/prove_00_raw_filtered_sources.py \
+  --data-root "${PROJECT_ROOT}" \
+  --sample-id "${SAMPLE_ID}" \
+  --report-tsv "${REPORT_TSV}"
+
+echo "Job finished: $(date)"
