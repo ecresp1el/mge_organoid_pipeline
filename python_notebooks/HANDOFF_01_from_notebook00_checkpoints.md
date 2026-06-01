@@ -117,7 +117,7 @@ Notebook 01 begins the post-filtering analysis choices:
 Seurat-v3 HVG selection from counts
 cell-cycle scoring
 CC.Difference creation
-regression
+regression comparison
 scaling
 PCA
 neighbors
@@ -151,13 +151,14 @@ Practical guidance to encode in Notebook 01:
 
 - Cell-cycle scoring must use explicit S and G2M gene lists stored in tables and
   in `.uns`.
-- Score cell cycle before deciding which branch to regress.
-- Track both branches:
-  `cc_not_regressed` and `cc_regressed`.
+- First regression comparison should not regress cell cycle yet. Use:
+  `sc.pp.regress_out(adata, ["total_counts", "pct_counts_mt"])`.
+- Track both first-pass branches:
+  `not_regressed` and `regressed_qc`.
 - Track the matrix state used by every operation because Scanpy functions
   usually mutate `.X`.
 - Treat `CC.Difference = S_score - G2M_score` as a named covariate that can be
-  used for regression variants.
+  added to the regression list later, after cell-cycle scoring is implemented.
 - Compare downstream PCA/UMAP/clustering from the regressed and non-regressed
   branches rather than silently replacing one with the other.
 
@@ -185,14 +186,46 @@ results/notebook00/<NOTEBOOK00_RUN_LABEL>/h5ad/per_sample/<run_sample_id>.manual
 The same branch labels should be available in both scopes:
 
 ```text
-combined.cc_not_regressed
-combined.cc_regressed
-per_sample.<run_sample_id>.cc_not_regressed
-per_sample.<run_sample_id>.cc_regressed
+combined.not_regressed
+combined.regressed_qc
+per_sample.<run_sample_id>.not_regressed
+per_sample.<run_sample_id>.regressed_qc
 ```
 
 Each branch should write its own tables, plots, and optional `.h5ad` output so
-we can compare what changes when cell-cycle covariates are regressed.
+we can compare what changes when the selected covariates are regressed.
+
+Initial regression branch:
+
+```python
+sc.pp.regress_out(adata, ["total_counts", "pct_counts_mt"])
+```
+
+Later cell-cycle-aware branch, after scoring creates `CC.Difference`:
+
+```python
+sc.pp.regress_out(adata, ["total_counts", "pct_counts_mt", "CC.Difference"])
+```
+
+First-pass visible branch plan for the current six-sample DIV30 checkpoint:
+
+```text
+scope       run_sample_id  branch          regress_keys
+combined                  not_regressed
+combined                  regressed_qc    total_counts,pct_counts_mt
+per_sample  9853-MW-1      not_regressed
+per_sample  9853-MW-1      regressed_qc    total_counts,pct_counts_mt
+per_sample  9853-MW-2      not_regressed
+per_sample  9853-MW-2      regressed_qc    total_counts,pct_counts_mt
+per_sample  9853-MW-3      not_regressed
+per_sample  9853-MW-3      regressed_qc    total_counts,pct_counts_mt
+per_sample  9853-MW-4      not_regressed
+per_sample  9853-MW-4      regressed_qc    total_counts,pct_counts_mt
+per_sample  9853-MW-5      not_regressed
+per_sample  9853-MW-5      regressed_qc    total_counts,pct_counts_mt
+per_sample  9853-MW-6      not_regressed
+per_sample  9853-MW-6      regressed_qc    total_counts,pct_counts_mt
+```
 
 ## Matching Python Modules
 
@@ -231,8 +264,8 @@ ad hoc notebook-only cells.
    expose Seurat lists implicitly.
 
 5. Regression variables:
-   at minimum confirm whether to regress `CC.Difference`, total counts, percent
-   mitochondrial counts, or any batch/source covariates.
+   first pass is `total_counts` and `pct_counts_mt`. Later add `CC.Difference`
+   after cell-cycle scoring is implemented.
 
 6. Clustering parameters:
    PCA dimensions, neighbor settings, clustering algorithm, and resolution grid.
@@ -248,7 +281,7 @@ ad hoc notebook-only cells.
   neighbors, UMAP, and clustering.
 - Run combined and per-sample analyses separately; do not let per-sample output
   overwrite combined output or vice versa.
-- Run and record both cell-cycle branches unless the user explicitly narrows the
+- Run and record both regression branches unless the user explicitly narrows the
   comparison.
 
 ## First Implementation Step
@@ -262,4 +295,4 @@ Create or update the Notebook 01 driver so it:
 5. Writes a Notebook 01 input validation table before running downstream
    analysis.
 6. Builds a planned analysis table with `combined` and `per_sample` scopes and
-   both `cc_not_regressed` and `cc_regressed` variants.
+   both `not_regressed` and `regressed_qc` variants.

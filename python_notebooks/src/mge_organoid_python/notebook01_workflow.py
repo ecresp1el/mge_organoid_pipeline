@@ -16,7 +16,8 @@ import pandas as pd
 
 
 NOTEBOOK01_SUPPORTED_SCOPES = ("combined", "per_sample")
-NOTEBOOK01_CELL_CYCLE_BRANCHES = ("cc_not_regressed", "cc_regressed")
+NOTEBOOK01_REGRESSION_BRANCHES = ("not_regressed", "regressed_qc")
+NOTEBOOK01_DEFAULT_REGRESS_KEYS = ("total_counts", "pct_counts_mt")
 
 
 @dataclass(frozen=True)
@@ -38,39 +39,52 @@ class Notebook01RunSettings:
     run_label: str
     notebook01_results_dirname: str = "notebook01"
     scopes: tuple[str, ...] = NOTEBOOK01_SUPPORTED_SCOPES
-    cell_cycle_branches: tuple[str, ...] = NOTEBOOK01_CELL_CYCLE_BRANCHES
+    regression_branches: tuple[str, ...] = NOTEBOOK01_REGRESSION_BRANCHES
 
 
 @dataclass(frozen=True)
 class Notebook01RegressionVariant:
-    """One branch of a Notebook 01 cell-cycle regression comparison."""
+    """One branch of a Notebook 01 regression comparison."""
 
     branch: str
-    regress_cell_cycle: bool
     regress_keys: tuple[str, ...] = ()
+    regress_cell_cycle: bool = False
     description: str = ""
 
     @classmethod
     def not_regressed(cls) -> "Notebook01RegressionVariant":
         """Return the non-regressed comparison branch."""
         return cls(
-            branch="cc_not_regressed",
-            regress_cell_cycle=False,
+            branch="not_regressed",
             regress_keys=(),
-            description="Cell-cycle scores are calculated and retained, but not regressed from .X.",
+            regress_cell_cycle=False,
+            description="No covariates are regressed from .X before scaling/PCA.",
         )
 
     @classmethod
-    def cell_cycle_regressed(
+    def qc_regressed(
         cls,
-        regress_keys: Sequence[str] = ("CC.Difference",),
+        regress_keys: Sequence[str] = NOTEBOOK01_DEFAULT_REGRESS_KEYS,
     ) -> "Notebook01RegressionVariant":
-        """Return the cell-cycle-regressed comparison branch."""
+        """Return the initial QC-covariate regressed comparison branch."""
         return cls(
-            branch="cc_regressed",
-            regress_cell_cycle=True,
+            branch="regressed_qc",
             regress_keys=tuple(regress_keys),
-            description="Cell-cycle covariates are regressed from .X before scaling/PCA.",
+            regress_cell_cycle=False,
+            description="QC covariates are regressed from .X before scaling/PCA.",
+        )
+
+    @classmethod
+    def qc_and_cell_cycle_regressed(
+        cls,
+        regress_keys: Sequence[str] = (*NOTEBOOK01_DEFAULT_REGRESS_KEYS, "CC.Difference"),
+    ) -> "Notebook01RegressionVariant":
+        """Return the planned later branch after cell-cycle scoring is added."""
+        return cls(
+            branch="regressed_qc_cc",
+            regress_keys=tuple(regress_keys),
+            regress_cell_cycle=True,
+            description="QC and cell-cycle covariates are regressed from .X before scaling/PCA.",
         )
 
 
@@ -184,12 +198,12 @@ def settings_to_frame(settings: object, method: str) -> pd.DataFrame:
 
 
 def default_regression_variants(
-    regress_keys: Sequence[str] = ("CC.Difference",),
+    regress_keys: Sequence[str] = NOTEBOOK01_DEFAULT_REGRESS_KEYS,
 ) -> tuple[Notebook01RegressionVariant, ...]:
-    """Return the default regressed and non-regressed cell-cycle branches."""
+    """Return the default non-regressed and QC-regressed branches."""
     return (
         Notebook01RegressionVariant.not_regressed(),
-        Notebook01RegressionVariant.cell_cycle_regressed(regress_keys=regress_keys),
+        Notebook01RegressionVariant.qc_regressed(regress_keys=regress_keys),
     )
 
 

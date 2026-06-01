@@ -21,6 +21,8 @@ from .notebook00_workflow import (
     validate_manual_ec_checkpoint_pair,
 )
 from .notebook01_workflow import (
+    NOTEBOOK01_DEFAULT_REGRESS_KEYS,
+    NOTEBOOK01_REGRESSION_BRANCHES,
     Notebook01InputPaths,
     Notebook01InputSettings,
     Notebook01OutputPaths,
@@ -47,6 +49,8 @@ __all__ = [
     "Notebook01OutputPaths",
     "Notebook01RegressionVariant",
     "Notebook01RunSettings",
+    "NOTEBOOK01_DEFAULT_REGRESS_KEYS",
+    "NOTEBOOK01_REGRESSION_BRANCHES",
     "Notebook00SourceConfig",
     "PlotConfig",
     "SeuratToAnnDataConverter",
