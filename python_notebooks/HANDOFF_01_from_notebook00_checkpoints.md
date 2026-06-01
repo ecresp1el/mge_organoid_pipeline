@@ -350,10 +350,10 @@ sc.pp.regress_out(adata, ["total_counts", "pct_counts_mt", "CCDifference"])
 
 ### Standalone Gene-List Validation Step
 
-Before integrating cell-cycle scoring into the main Notebook 01 workflow, create
-an importable standalone Python module and a one-time Slurm validation runner.
+Before integrating cell-cycle scoring into the main Notebook 01 workflow, use
+the importable standalone Python module and one-time Slurm validation runner.
 
-Proposed importable module:
+Implemented importable module:
 
 ```text
 python_notebooks/src/mge_organoid_python/cell_cycle.py
@@ -368,13 +368,13 @@ That module should own:
 - a helper that runs `sc.tl.score_genes_cell_cycle`
 - creation of `adata.obs["CCDifference"]`
 
-Proposed one-time validation script:
+Implemented one-time validation script:
 
 ```text
 python_notebooks/scripts/prepare_notebook01_cell_cycle_genes.py
 ```
 
-Proposed Slurm runner:
+Implemented Slurm runner:
 
 ```text
 slurm_templates/15_prepare_notebook01_cell_cycle_genes.sbatch.template
@@ -449,7 +449,7 @@ CCDifference
 run_sample_id    # combined only
 ```
 
-Proposed plot directories:
+Implemented plot directories:
 
 ```text
 PROJECT_ROOT/results/notebook01/<RUN_LABEL>/plots/cell_cycle_pca/combined/before_ccdifference_regression/
@@ -458,7 +458,7 @@ PROJECT_ROOT/results/notebook01/<RUN_LABEL>/plots/cell_cycle_pca/per_sample/<run
 PROJECT_ROOT/results/notebook01/<RUN_LABEL>/plots/cell_cycle_pca/per_sample/<run_sample_id>/after_ccdifference_regression/
 ```
 
-Proposed diagnostic tables:
+Implemented diagnostic tables:
 
 ```text
 PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/cell_cycle_score_summary.tsv
@@ -475,11 +475,11 @@ validation and scoring behavior are confirmed.
 Cell-cycle gene-list validation completed through Slurm:
 
 ```text
-Job ID: 51248184
+Job ID: 51248139
 State: COMPLETED
 ExitCode: 0:0
-Elapsed: 00:00:14
-MaxRSS: 3298064K
+Elapsed: 00:00:23
+MaxRSS: 3495288K
 ```
 
 Validation run label:
@@ -515,11 +515,11 @@ PROJECT_ROOT/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples
 CCDifference before/after PCA diagnostic completed through Slurm:
 
 ```text
-Job ID: 51248686
+Job ID: 51248836
 State: COMPLETED
 ExitCode: 0:0
 Elapsed: 00:02:27
-MaxRSS: 14121504K
+MaxRSS: 14175348K
 ```
 
 Diagnostic implementation files:
