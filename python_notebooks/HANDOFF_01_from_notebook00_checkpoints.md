@@ -9,6 +9,48 @@ notebook. Notebook 01 should start from the `.h5ad` checkpoints written by
 Notebook 00 and should not rerun matrix loading, source comparison setup, or
 manual_ec filtering.
 
+## Operating Rules For Notebook 01 Execution
+
+Notebook 01 real matrix-scale runs must execute on Great Lakes through Slurm,
+not directly on the login node. This follows the same operational rule as
+Notebook 00.
+
+Use this conda/Jupyter environment:
+
+```text
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin
+```
+
+Use this repo and data root unless the user explicitly says otherwise:
+
+```text
+REPO_ROOT=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+```
+
+Allowed:
+
+- Load Notebook 00 `.h5ad` checkpoints from
+  `PROJECT_ROOT/results/notebook00/<NOTEBOOK00_RUN_LABEL>/h5ad/`.
+- Write Notebook 01 outputs under
+  `PROJECT_ROOT/results/notebook01/<RUN_LABEL>/`.
+- Submit real Notebook 01 execution through a Slurm template.
+- Monitor Slurm jobs with `squeue` and `sacct`.
+- Inspect Slurm logs under
+  `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/`.
+- Inspect executed notebooks under
+  `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/executed/`.
+
+Not allowed unless the user explicitly requests it:
+
+- Do not rerun Notebook 00 loading/filtering from Notebook 01.
+- Do not rerun CellBender denoising.
+- Do not write large `.h5ad` outputs inside the GitHub checkout.
+- Do not overwrite the repo notebook with an executed notebook unless the user
+  asks for inline outputs in the repo notebook.
+- Do not treat Reddit or issue-thread advice as authoritative without checking
+  against the official Scanpy behavior and the actual object states.
+
 ## Verified Notebook 00 Inputs
 
 Primary Cell Ranger filtered checkpoint run:
@@ -93,6 +135,85 @@ results/notebook01/<RUN_LABEL>/plots/
 results/notebook01/<RUN_LABEL>/h5ad/
 ```
 
+## References For Cell-Cycle Regression Decisions
+
+Use these as guidance, not as hard-coded policy:
+
+- Official Scanpy cell-cycle scoring/regression how-to:
+  https://scanpy.readthedocs.io/en/latest/how-to/cell-cycle.html
+- theislab/single-cell-tutorial issue on `regress_out` ordering:
+  https://github.com/theislab/single-cell-tutorial/issues/35
+- Reddit discussion showing common `.X`/layer confusion around Scanpy
+  `regress_out`:
+  https://www.reddit.com/r/bioinformatics/comments/1ke0uwj/scanpy_regress_out_question/
+
+Practical guidance to encode in Notebook 01:
+
+- Cell-cycle scoring must use explicit S and G2M gene lists stored in tables and
+  in `.uns`.
+- Score cell cycle before deciding which branch to regress.
+- Track both branches:
+  `cc_not_regressed` and `cc_regressed`.
+- Track the matrix state used by every operation because Scanpy functions
+  usually mutate `.X`.
+- Treat `CC.Difference = S_score - G2M_score` as a named covariate that can be
+  used for regression variants.
+- Compare downstream PCA/UMAP/clustering from the regressed and non-regressed
+  branches rather than silently replacing one with the other.
+
+## Required Analysis Scopes
+
+Notebook 01 must support two scopes separately:
+
+```text
+combined
+per_sample
+```
+
+The combined scope uses:
+
+```text
+results/notebook00/<NOTEBOOK00_RUN_LABEL>/h5ad/manual_ec_filtered_normalized_log1p.h5ad
+```
+
+The per-sample scope uses:
+
+```text
+results/notebook00/<NOTEBOOK00_RUN_LABEL>/h5ad/per_sample/<run_sample_id>.manual_ec_filtered_normalized_log1p.h5ad
+```
+
+The same branch labels should be available in both scopes:
+
+```text
+combined.cc_not_regressed
+combined.cc_regressed
+per_sample.<run_sample_id>.cc_not_regressed
+per_sample.<run_sample_id>.cc_regressed
+```
+
+Each branch should write its own tables, plots, and optional `.h5ad` output so
+we can compare what changes when cell-cycle covariates are regressed.
+
+## Matching Python Modules
+
+Notebook 01 should follow the same pattern as Notebook 00:
+
+```text
+python_notebooks/src/mge_organoid_python/notebook01_workflow.py
+```
+
+That module should own:
+
+- path classes for Notebook 00 inputs and Notebook 01 outputs
+- input validation tables
+- branch/scope settings
+- regression variant records
+- analysis summary tables
+- helper functions used by the Notebook 01 driver
+
+The notebook should be a driver. It should not hide major state transitions in
+ad hoc notebook-only cells.
+
 ## Decisions To Confirm Before Implementation
 
 1. Which Notebook 00 checkpoint should be the primary Notebook 01 input:
@@ -125,6 +246,10 @@ results/notebook01/<RUN_LABEL>/h5ad/
 - Keep raw counts available in `.layers["counts"]` for downstream auditability.
 - Write parameter tables for HVG, cell-cycle scoring, regression, PCA,
   neighbors, UMAP, and clustering.
+- Run combined and per-sample analyses separately; do not let per-sample output
+  overwrite combined output or vice versa.
+- Run and record both cell-cycle branches unless the user explicitly narrows the
+  comparison.
 
 ## First Implementation Step
 
@@ -136,3 +261,5 @@ Create or update the Notebook 01 driver so it:
 4. Confirms `.layers["counts"]` exists and matches expected dimensions.
 5. Writes a Notebook 01 input validation table before running downstream
    analysis.
+6. Builds a planned analysis table with `combined` and `per_sample` scopes and
+   both `cc_not_regressed` and `cc_regressed` variants.
