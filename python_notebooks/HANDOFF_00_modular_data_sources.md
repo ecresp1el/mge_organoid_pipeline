@@ -1049,6 +1049,122 @@ Notebook execution logs:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook00-exec-nb00-cellbender-51112889.out
 ```
 
+## Pre-Cleanup Confirmation Runs
+
+Submitted from `gl-login6.arc-ts.umich.edu` on 2026-05-31 before deleting the
+historical MAD/custom filtering code.
+
+Important: do not rerun CellBender denoising. The CellBender job below is a
+Notebook 00 source-availability check against existing
+`clean_adata/*_cellbender_denoised.h5` files only. It does not call
+`scripts/cellbender.sh`, does not run CellBender, and does not create new
+denoised `.h5` outputs.
+
+Submitted jobs:
+
+```text
+51189298  exec-nb00-filtered-precleanup    cellranger_filtered full current notebook run
+51189299  exec-nb00-cellbender-precleanup  cellbender_denoised source-only notebook run
+```
+
+Submission commands:
+
+```bash
+sbatch \
+  --job-name=exec-nb00-filtered-precleanup \
+  --export=ALL,NOTEBOOK00_ACTIVE_SOURCE=cellranger_filtered,NOTEBOOK00_RUN_LABEL=precleanup_cellranger_filtered_div30_core_samples,NOTEBOOK00_LOAD_MATRICES=1,NOTEBOOK00_RUN_PREPROCESS=1,NOTEBOOK00_RUN_UMAP=1,NOTEBOOK00_APPLY_QC_FILTER=1,NOTEBOOK00_STRICT_MISSING_SOURCES=0 \
+  slurm_templates/13_execute_notebook00_source.sbatch.template
+
+sbatch \
+  --job-name=exec-nb00-cellbender-precleanup \
+  --export=ALL,NOTEBOOK00_ACTIVE_SOURCE=cellbender_denoised,NOTEBOOK00_RUN_LABEL=precleanup_cellbender_denoised_div30_core_samples_source_only,NOTEBOOK00_LOAD_MATRICES=0,NOTEBOOK00_RUN_PREPROCESS=0,NOTEBOOK00_RUN_UMAP=0,NOTEBOOK00_APPLY_QC_FILTER=0,NOTEBOOK00_STRICT_MISSING_SOURCES=0 \
+  slurm_templates/13_execute_notebook00_source.sbatch.template
+```
+
+Observed final status:
+
+```text
+51189298  COMPLETED  0:0  00:06:15  gl3138
+51189299  COMPLETED  0:0  00:01:06  gl3065
+```
+
+Observed source availability:
+
+```text
+cellranger_filtered: available=6
+cellbender_denoised: available=6
+```
+
+This supersedes the earlier missing-`9853-MW-6` CellBender status in this
+handoff. The final CellBender denoised H5 now appears to be present for all six
+requested DIV30 samples. Do not rerun CellBender; use these existing H5 outputs.
+
+Pre-cleanup filtered MAD/custom retention summary, for historical confirmation
+only:
+
+```text
+9853-MW-1: 18047 -> 13998 retained
+9853-MW-2:  6060 ->  4086 retained
+9853-MW-3: 17928 -> 15903 retained
+9853-MW-4: 13047 ->  9280 retained
+9853-MW-5: 26408 -> 20590 retained
+9853-MW-6: 25530 -> 20399 retained
+```
+
+Expected executed notebooks:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.precleanup_cellranger_filtered_div30_core_samples.executed.ipynb
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.precleanup_cellbender_denoised_div30_core_samples_source_only.executed.ipynb
+```
+
+Expected run directories:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/precleanup_cellranger_filtered_div30_core_samples
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/precleanup_cellbender_denoised_div30_core_samples_source_only
+```
+
+Key confirmation outputs:
+
+```text
+Filtered historical run:
+  tables/source_summary.tsv
+  tables/source_table.tsv
+  tables/qc_filter_summary.tsv
+  tables/qc_mad_thresholds.tsv
+  tables/preprocess_report.tsv
+  tables/embedding_report.tsv
+  plots/qc_violin_by_sample.png
+  plots/qc_scatter_total_counts_pct_counts_mt.png
+  plots/umap_sample_cellline_qc.png
+  plots/umap_marker_panel.png
+
+CellBender existing-file source check:
+  tables/source_summary.tsv
+  tables/source_table.tsv
+  plots/source_availability.png
+  plots/loaded_vs_skipped_counts.png
+```
+
+Expected logs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook00-exec-nb00-filtered-precleanup-51189298.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook00-exec-nb00-filtered-precleanup-51189298.err
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook00-exec-nb00-cellbender-precleanup-51189299.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook00-exec-nb00-cellbender-precleanup-51189299.err
+```
+
+For future work, CellBender should be treated as a fixed existing input source:
+
+```text
+Do not submit scripts/cellbender.sh.
+Do not rerun CellBender remove-background.
+Do not create new CellBender denoised H5 files unless the user explicitly asks.
+Use existing DATA_ROOT/clean_adata/*_cellbender_denoised.h5 outputs for comparison.
+```
+
 ## Pending Direction: `manual_ec` Scanpy Path
 
 Status: handoff direction only. Do not implement code until the user approves the
@@ -1305,9 +1421,9 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
 
 4. Apply the same `manual_ec` checkpoint to CellBender-denoised inputs.
 
-   Start with available common samples. If one CellBender output is still
-   missing, record it in `source_table` and compare the samples that exist in
-   both sources.
+   The pre-cleanup source check found all six requested CellBender denoised H5
+   files available. Use those existing H5 files as fixed inputs. Do not rerun
+   CellBender denoising.
 
 5. Add the retained comparison outputs.
 
@@ -1321,64 +1437,13 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
    visible in `source_table`. This is source bookkeeping, not the old filtering
    approach.
 
-7. Recheck the running `9853-MW-6` CellBender task before an all-sample
-   CellBender comparison run.
-
-   A partial CellBender comparison can use available common samples first.
-
-   Last checked during this handoff update:
-
-   ```text
-   job_id: 51106991_5
-   state: RUNNING
-   elapsed: 02:05:06
-   node: gl1008
-   final_h5_present: no
-   posterior_h5_present: yes
-   ```
-
-   Check again with:
-
-   ```bash
-   squeue -j 51106991_5 -o '%.18i %.9T %.20M %.10D %.30R'
-   ls -lh /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/clean_adata/9853-MW-6_cellbender_denoised.h5
-   sacct -j 51106991_5 --format=JobID,JobName%20,State,ExitCode,Elapsed,NodeList%30 -P
-   ```
-
-8. Once `9853-MW-6` finishes, rerun the CellBender location proof.
-
-   ```bash
-   sbatch slurm_templates/11_prove_00_cellbender_locations.sbatch.template
-   ```
-
-   Success should change from:
-
-   ```text
-   cellbender_outputs_found: 5
-   cellbender_outputs_missing: 1
-   ```
-
-   to:
-
-   ```text
-   cellbender_outputs_found: 6
-   cellbender_outputs_missing: 0
-   ```
-
-9. Rerun the missing-aware proof without expecting `9853-MW-6` to be missing.
-
-   ```bash
-   EXPECT_MISSING_SAMPLE= sbatch slurm_templates/12_prove_00_missing_aware_downstream.sbatch.template
-   ```
-
-   This proves the same reporting path works when every requested sample is
-   available.
-
-10. Prove actual CellBender matrix loading on a compute node before enabling a
-    full all-sample CellBender comparison run.
+7. Prove actual existing-CellBender-H5 loading on a compute node before enabling
+   a full all-sample comparison run.
 
    `data_sources.py` has a CellBender reader path, but the safe proven mode so
-   far is source availability only. The next code/proof milestone should be:
+   far is source availability only. This is a loading smoke test for existing
+   files, not a CellBender denoising run. The next code/proof milestone should
+   be:
 
    ```python
    config = Notebook00SourceConfig(active_source="cellbender_denoised")
@@ -1388,5 +1453,5 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
    Start with one sample or a small target sample set before loading all six
    raw-droplet-scale outputs.
 
-11. Decide whether the proof scripts should stay as active validation utilities
+8. Decide whether the proof scripts should stay as active validation utilities
    or move under an archive/validation area after the notebook is stable.
