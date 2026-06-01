@@ -11,6 +11,99 @@ Primary files discussed so far:
 - `python_notebooks/src/mge_organoid_python/notebook00_plots.py`
 - `slurm_templates/13_execute_notebook00_source.sbatch.template`
 
+## Operating Rules For Notebook 00 Execution
+
+Notebook 00 real matrix-loading runs must execute on Great Lakes through Slurm,
+not directly on the login node. The active execution path is the notebook plus
+the Python modules in this repo:
+
+```text
+python_notebooks/notebooks/00_load_div30_div90_raw_to_anndata.ipynb
+python_notebooks/src/mge_organoid_python/data_sources.py
+python_notebooks/src/mge_organoid_python/notebook00_workflow.py
+python_notebooks/src/mge_organoid_python/notebook00_plots.py
+slurm_templates/13_execute_notebook00_source.sbatch.template
+```
+
+Use this conda/Jupyter environment:
+
+```text
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin
+```
+
+Use this repo and data root unless the user explicitly says otherwise:
+
+```text
+REPO_ROOT=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+```
+
+Default Slurm execution command:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+
+sbatch --export=ALL,NOTEBOOK00_LOAD_MATRICES=1,NOTEBOOK00_SAVE_PLOTS=1,NOTEBOOK00_SHOW_PLOTS=0 \
+  slurm_templates/13_execute_notebook00_source.sbatch.template
+```
+
+Use `NOTEBOOK00_SHOW_PLOTS=0` for normal runs that save PNGs but keep the
+executed notebook smaller. Use `NOTEBOOK00_SHOW_PLOTS=1` only when the user
+wants the executed notebook, or the repo notebook copied from it, to show
+inline plots.
+
+Allowed:
+
+- Submit Notebook 00 runs through `slurm_templates/13_execute_notebook00_source.sbatch.template`.
+- Monitor Slurm jobs with `squeue` and `sacct`.
+- Inspect Slurm logs under `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/`.
+- Check executed notebooks under `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/`.
+- Check run outputs under `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/<RUN_LABEL>/`.
+
+Not allowed unless the user explicitly requests it:
+
+- Do not run real matrix-loading Notebook 00 execution directly on the login node.
+- Do not rerun CellBender denoising.
+- Do not write large data outputs inside the GitHub checkout.
+- Do not overwrite the repo notebook with an executed notebook unless the user asks for inline outputs in the repo notebook.
+- Do not switch away from the supported Notebook 00 sources without user approval.
+
+Supported Notebook 00 sources:
+
+```text
+cellranger_filtered
+cellbender_denoised
+```
+
+Common source-specific runs:
+
+```bash
+# Cell Ranger filtered primary manual_ec run
+sbatch --export=ALL,NOTEBOOK00_ACTIVE_SOURCE=cellranger_filtered,NOTEBOOK00_LOAD_MATRICES=1,NOTEBOOK00_SAVE_PLOTS=1,NOTEBOOK00_SHOW_PLOTS=0 \
+  slurm_templates/13_execute_notebook00_source.sbatch.template
+
+# Existing CellBender-denoised comparison run
+sbatch --export=ALL,NOTEBOOK00_ACTIVE_SOURCE=cellbender_denoised,NOTEBOOK00_LOAD_MATRICES=1,NOTEBOOK00_SAVE_PLOTS=1,NOTEBOOK00_SHOW_PLOTS=0 \
+  slurm_templates/13_execute_notebook00_source.sbatch.template
+```
+
+If the user asks for the repo notebook to show plots inline, rerun with:
+
+```bash
+sbatch --export=ALL,NOTEBOOK00_LOAD_MATRICES=1,NOTEBOOK00_SAVE_PLOTS=1,NOTEBOOK00_SHOW_PLOTS=1 \
+  slurm_templates/13_execute_notebook00_source.sbatch.template
+```
+
+After that job completes and the executed notebook has no error outputs, copy
+the executed notebook back to:
+
+```text
+python_notebooks/notebooks/00_load_div30_div90_raw_to_anndata.ipynb
+```
+
+Only do this copy-back when the user explicitly wants inline outputs in the repo
+notebook.
+
 ## Current State For Next Chat
 
 The branch now has a focused Notebook 00 `manual_ec` driver and supporting
