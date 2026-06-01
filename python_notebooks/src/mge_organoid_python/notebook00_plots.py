@@ -118,6 +118,133 @@ def plot_manual_ec_qc_scatter(
     return save_current_figure(plot_config, name or f"manual_ec_scatter_{x}_{y}")
 
 
+def _sample_grid(
+    adata_names: Sequence[str],
+    adata_list: Sequence[ad.AnnData],
+    width_per_sample: float,
+    height: float,
+    sharex: bool = False,
+    sharey: bool = False,
+):
+    """Create a 1xN subplot grid for per-sample Scanpy plots."""
+    names = [str(name) for name in adata_names]
+    sample_adatas = list(adata_list)
+    if len(names) != len(sample_adatas):
+        raise ValueError(
+            f"adata_names has {len(names)} entries but adata_list has {len(sample_adatas)} entries."
+        )
+    if not sample_adatas:
+        return names, sample_adatas, None, []
+
+    fig_width = max(6.5, width_per_sample * len(sample_adatas))
+    fig, axes = plt.subplots(
+        1,
+        len(sample_adatas),
+        figsize=(fig_width, height),
+        squeeze=False,
+        sharex=sharex,
+        sharey=sharey,
+    )
+    return names, sample_adatas, fig, axes.ravel().tolist()
+
+
+def plot_manual_ec_per_sample_highest_expr_genes(
+    adata_names: Sequence[str],
+    adata_list: Sequence[ad.AnnData],
+    plot_config: PlotConfig,
+    n_top: int = 20,
+    name: str = "manual_ec_per_sample_highest_expr_genes_top20",
+):
+    """Plot Scanpy highest-expressed genes as a 1xN per-sample grid."""
+    sample_names, sample_adatas, fig, axes = _sample_grid(
+        adata_names,
+        adata_list,
+        width_per_sample=4.2,
+        height=4.8,
+    )
+    if fig is None:
+        return None
+
+    for sample_name, sample_adata, ax in zip(sample_names, sample_adatas, axes):
+        sc.pl.highest_expr_genes(sample_adata, n_top=n_top, show=False, ax=ax)
+        ax.set_title(sample_name, fontsize=10)
+
+    fig.tight_layout()
+    return save_current_figure(plot_config, name)
+
+
+def plot_manual_ec_per_sample_qc_violins(
+    adata_names: Sequence[str],
+    adata_list: Sequence[ad.AnnData],
+    plot_config: PlotConfig,
+    keys: Sequence[str] = ("n_genes_by_counts", "total_counts", "pct_counts_mt"),
+    name_prefix: str = "manual_ec_per_sample_qc_violin",
+):
+    """Plot each requested QC violin metric as a 1xN per-sample grid."""
+    saved_paths = {}
+    for key in keys:
+        sample_names, sample_adatas, fig, axes = _sample_grid(
+            adata_names,
+            adata_list,
+            width_per_sample=3.4,
+            height=4.2,
+            sharey=True,
+        )
+        if fig is None:
+            saved_paths[str(key)] = None
+            continue
+
+        for sample_name, sample_adata, ax in zip(sample_names, sample_adatas, axes):
+            sc.pl.violin(
+                sample_adata,
+                keys=[key],
+                jitter=0.4,
+                show=False,
+                ax=ax,
+            )
+            ax.set_title(sample_name, fontsize=10)
+            ax.set_xlabel("")
+
+        fig.tight_layout()
+        saved_paths[str(key)] = save_current_figure(plot_config, f"{name_prefix}_{key}")
+
+    return saved_paths
+
+
+def plot_manual_ec_per_sample_qc_scatter(
+    adata_names: Sequence[str],
+    adata_list: Sequence[ad.AnnData],
+    plot_config: PlotConfig,
+    x: str = "total_counts",
+    y: str = "pct_counts_mt",
+    name: str | None = None,
+):
+    """Plot one Scanpy QC scatter as a 1xN per-sample grid."""
+    sample_names, sample_adatas, fig, axes = _sample_grid(
+        adata_names,
+        adata_list,
+        width_per_sample=3.8,
+        height=4.0,
+        sharex=True,
+        sharey=True,
+    )
+    if fig is None:
+        return None
+
+    for sample_name, sample_adata, ax in zip(sample_names, sample_adatas, axes):
+        sc.pl.scatter(
+            sample_adata,
+            x=x,
+            y=y,
+            title=sample_name,
+            show=False,
+            ax=ax,
+        )
+
+    fig.tight_layout()
+    return save_current_figure(plot_config, name or f"manual_ec_per_sample_scatter_{x}_{y}")
+
+
 def plot_manual_ec_highly_variable_genes(
     adata: ad.AnnData,
     plot_config: PlotConfig,

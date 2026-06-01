@@ -64,6 +64,7 @@ full post-cleanup Notebook 00 rerun through Slurm
 run-specific table and plot directories under results/notebook00/<RUN_LABEL>
 executed notebooks under results/notebook00/executed
 Slurm-safe comparison-label parsing using ":" or ";" separators
+per-sample manual_ec QC plot grids saved as 1xN sample panels
 ```
 
 Not completed yet:
@@ -1487,6 +1488,20 @@ manual_ec_scatter_total_counts_pct_counts_mt.png
 manual_ec_scatter_total_counts_n_genes_by_counts.png
 ```
 
+The notebook now has a separate `manual_ec Per-Sample QC Plot Grids` cell after
+the combined manual_ec checkpoint. It loops through `adata_names`/`adata_list`,
+recomputes Scanpy QC metrics on each sample object, and saves per-sample 1xN
+Scanpy grids:
+
+```text
+manual_ec_per_sample_highest_expr_genes_top20.png
+manual_ec_per_sample_qc_violin_n_genes_by_counts.png
+manual_ec_per_sample_qc_violin_total_counts.png
+manual_ec_per_sample_qc_violin_pct_counts_mt.png
+manual_ec_per_sample_scatter_total_counts_pct_counts_mt.png
+manual_ec_per_sample_scatter_total_counts_n_genes_by_counts.png
+```
+
 ### Implemented `manual_ec` Filtering
 
 The requested manual cutoff is implemented as a named, documented filter:
@@ -1594,6 +1609,12 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
    manual_ec_qc_violin.png
    manual_ec_scatter_total_counts_pct_counts_mt.png
    manual_ec_scatter_total_counts_n_genes_by_counts.png
+   manual_ec_per_sample_highest_expr_genes_top20.png
+   manual_ec_per_sample_qc_violin_n_genes_by_counts.png
+   manual_ec_per_sample_qc_violin_total_counts.png
+   manual_ec_per_sample_qc_violin_pct_counts_mt.png
+   manual_ec_per_sample_scatter_total_counts_pct_counts_mt.png
+   manual_ec_per_sample_scatter_total_counts_n_genes_by_counts.png
    manual_ec_highly_variable_genes.png
    manual_ec_filter_summary.tsv
    manual_ec_filter_parameters.tsv
