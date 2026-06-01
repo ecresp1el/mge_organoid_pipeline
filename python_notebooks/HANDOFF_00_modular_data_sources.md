@@ -60,6 +60,7 @@ manual_ec filtered Cell Ranger run for the six DIV30 core samples
 manual_ec existing-CellBender-H5 run for the same six DIV30 core samples
 manual_ec Cell Ranger filtered vs CellBender-denoised comparison
 Notebook 00 source-layer cleanup after manual_ec validation
+full post-cleanup Notebook 00 rerun through Slurm
 run-specific table and plot directories under results/notebook00/<RUN_LABEL>
 executed notebooks under results/notebook00/executed
 Slurm-safe comparison-label parsing using ":" or ";" separators
@@ -116,6 +117,63 @@ git diff --check passed
 ```
 
 No CellBender denoising was run during cleanup.
+
+## Latest Post-Cleanup Slurm Rerun
+
+The full Notebook 00 was rerun after source-layer cleanup. These are the current
+outputs to review tomorrow.
+
+```text
+51191663 nb00-manualec-filtered-postclean    COMPLETED 0:0  00:03:38
+51191664 nb00-manualec-cellbender-postclean  COMPLETED 0:0  00:08:03
+51191665 nb00-manualec-compare-postclean     COMPLETED 0:0  00:00:16
+```
+
+Filtered Cell Ranger post-cleanup run:
+
+```text
+RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples_postcleanup
+output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples_postcleanup
+executed=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.cellranger_filtered_manual_ec_div30_core_samples_postcleanup.executed.ipynb
+manual_ec retained cells=97,658
+final genes=17,486
+highly variable genes=2,235
+```
+
+Existing CellBender-denoised H5 post-cleanup run:
+
+```text
+RUN_LABEL=cellbender_denoised_manual_ec_div30_core_samples_postcleanup
+output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellbender_denoised_manual_ec_div30_core_samples_postcleanup
+executed=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.cellbender_denoised_manual_ec_div30_core_samples_postcleanup.executed.ipynb
+manual_ec retained cells=100,674
+final genes=18,549
+highly variable genes=2,345
+```
+
+Post-cleanup comparison run:
+
+```text
+RUN_LABEL=manual_ec_cellranger_filtered_vs_cellbender_denoised_div30_postcleanup
+output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/manual_ec_cellranger_filtered_vs_cellbender_denoised_div30_postcleanup
+executed=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.manual_ec_cellranger_filtered_vs_cellbender_denoised_div30_postcleanup.executed.ipynb
+manual_ec_source_comparison_summary.tsv rows=12 data rows
+manual_ec_hvg_overlap.tsv Jaccard=0.933305192064162
+```
+
+Plots confirmed in both full post-cleanup source runs:
+
+```text
+highest_expr_genes_top20.png
+manual_ec_qc_violin.png
+manual_ec_scatter_total_counts_pct_counts_mt.png
+manual_ec_scatter_total_counts_n_genes_by_counts.png
+manual_ec_highly_variable_genes.png
+```
+
+No CellBender denoising was run during the post-cleanup rerun. The
+CellBender-labeled job only read existing `clean_adata/*_cellbender_denoised.h5`
+files.
 
 Sections below that discuss the original raw/filtered proof, raw export,
 pre-cleanup runs, or old MAD/custom filtering are retained as historical context
