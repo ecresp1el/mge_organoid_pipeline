@@ -13,7 +13,13 @@ from .data_sources import (
 )
 from .loader import cached_h5ad_path, load_cached_anndata, load_cached_anndatas, missing_cached_h5ads
 from .notebook00_plots import PlotConfig
-from .notebook00_workflow import ManualECFilterSettings, ManualECPreprocessSettings
+from .notebook00_workflow import (
+    ManualECCheckpointPaths,
+    ManualECCheckpointSettings,
+    ManualECFilterSettings,
+    save_manual_ec_checkpoints,
+    validate_manual_ec_checkpoint_pair,
+)
 from .paths import DEFAULT_PROJECT_ROOT, resolve_project_root
 from .studies import StudySpec, default_studies
 from .validation import AnnDataReport, validate_anndata, validate_source_paths
@@ -22,8 +28,9 @@ __all__ = [
     "AnnDataReport",
     "DEFAULT_PROJECT_ROOT",
     "DatasetLoadResult",
+    "ManualECCheckpointPaths",
+    "ManualECCheckpointSettings",
     "ManualECFilterSettings",
-    "ManualECPreprocessSettings",
     "Notebook00SourceConfig",
     "PlotConfig",
     "SeuratToAnnDataConverter",
@@ -38,8 +45,10 @@ __all__ = [
     "missing_cached_h5ads",
     "resolve_project_root",
     "sample_table",
+    "save_manual_ec_checkpoints",
     "source_availability_table",
     "summarize_source_availability",
     "validate_anndata",
+    "validate_manual_ec_checkpoint_pair",
     "validate_source_paths",
 ]

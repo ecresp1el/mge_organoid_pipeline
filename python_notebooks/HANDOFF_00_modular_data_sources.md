@@ -158,13 +158,15 @@ run-specific table and plot directories under results/notebook00/<RUN_LABEL>
 executed notebooks under results/notebook00/executed
 Slurm-safe comparison-label parsing using ":" or ";" separators
 per-sample manual_ec QC plot grids saved as 1xN sample panels
+Notebook 00 freeze as a QC/filter/checkpoint-only notebook
+combined and per-sample .h5ad checkpoint writing
+checkpoint validation helper classes and tables
 ```
 
 Not completed yet:
 
 ```text
-Notebook 00 freeze as a QC/filter/checkpoint-only notebook
-combined and per-sample .h5ad checkpoint writing
+Slurm validation of the frozen Notebook 00 checkpoint outputs
 collaborator review of manual_ec outputs/plots
 raw export manifest cleanup, if no longer needed
 physical deletion/archive of remaining historical notes and old MAD/custom filtering scaffolding outside the forward path
@@ -218,7 +220,7 @@ No CellBender denoising was run during cleanup.
 The full Notebook 00 was rerun after source-layer cleanup. These are pre-freeze
 outputs from the currently checked-in notebook. The next confirmed direction is
 to remove Notebook 00 HVG/preprocess work and replace it with checkpoint
-writing, as described in `Pending Notebook 00 Freeze Contract`.
+writing, as described in `Implemented Notebook 00 Freeze Contract`.
 
 ```text
 51191663 nb00-manualec-filtered-postclean    COMPLETED 0:0  00:03:38
@@ -274,23 +276,7 @@ files.
 
 ## Current Checked-In Bioinformatics Checkpoint
 
-The checked-in Notebook 00 currently reaches the early single-cell
-QC/preprocessing checkpoint:
-
-```text
-matrix loading
-sample metadata annotation
-QC metric calculation
-QC visualization
-manual_ec cell filtering
-total-count normalization
-log1p transform
-highly variable gene selection
-Cell Ranger filtered vs existing CellBender-denoised source comparison
-```
-
-This is the state to change next. After the freeze update, Notebook 00 should
-stop earlier:
+The checked-in Notebook 00 is now frozen as a QC/filter/checkpoint notebook:
 
 ```text
 matrix loading
@@ -299,6 +285,8 @@ QC metric calculation
 QC visualization
 manual_ec cell filtering
 combined and per-sample .h5ad checkpoint creation
+checkpoint validation tables
+optional Cell Ranger filtered vs existing CellBender-denoised source comparison
 ```
 
 Notebook 00 should not include these biological analysis stages:
@@ -663,7 +651,8 @@ The refactor is successful when all of these are true:
 - CellBender output locations are represented in code and missing outputs remain visible in `source_table`.
 - The forward `manual_ec` path can run without depending on the historical MAD annotation/filtering path.
 - The same `manual_ec` checkpoint can run on `cellranger_filtered` and `cellbender_denoised`.
-- The user can compare CellBender-denoised vs Cell Ranger filtered outputs by `run_sample_id`, `cell_line`, cell counts, QC metrics, retained cells, and HVG results.
+- The user can compare CellBender-denoised vs Cell Ranger filtered outputs by `run_sample_id`, `cell_line`, cell counts, QC metrics, and retained cells.
+- The notebook writes combined and per-sample `.h5ad` checkpoints with validation tables that confirm `.X`, `.layers["counts"]`, obs/var axes, and file existence assumptions.
 - The notebook still preserves key `.obs` metadata fields needed for the two-source comparison.
 - Historical UMAP, clustering, Harmony, marker panel, MAD filtering, and raw source analysis code is either removed from the forward path or clearly flagged for deletion.
 
@@ -692,9 +681,9 @@ Keep these stable unless explicitly changed:
 - CellBender command-line behavior
 - existing CellBender output naming convention
 
-The next pass should focus on reproducing the requested Scanpy QC/preprocess
-checkpoint cleanly, with exact parameters and run-specific outputs, then applying
-that same checkpoint to CellBender-denoised inputs for comparison.
+The next validation pass should run the frozen Scanpy QC/filter/checkpoint path
+cleanly, with exact parameters and run-specific outputs, then apply that same
+checkpoint to CellBender-denoised inputs for comparison.
 
 ## Strip/Delete Candidates
 
@@ -1661,9 +1650,9 @@ manual_ec biological/QC cutoffs
 historical MAD/custom filtering path, if still present in old outputs
 ```
 
-### Current Checked-In `manual_ec` Preprocessing To Remove
+### Removed Notebook 00 `manual_ec` Preprocessing
 
-The checked-in notebook currently performs this after `manual_ec` filtering:
+The pre-freeze notebook performed this after `manual_ec` filtering:
 
 ```python
 sc.pp.normalize_total(adata, target_sum=1e4)
@@ -1677,20 +1666,20 @@ sc.pp.highly_variable_genes(
 sc.pl.highly_variable_genes(adata)
 ```
 
-These outputs exist in the pre-freeze implementation but should be removed from
-the active Notebook 00 path during the freeze update:
+These outputs existed in the pre-freeze implementation and are no longer part
+of the active Notebook 00 path:
 
 ```text
 plots/manual_ec_highly_variable_genes.png
 tables/manual_ec_preprocess_parameters.tsv
 ```
 
-### Pending Notebook 00 Freeze Contract
+### Implemented Notebook 00 Freeze Contract
 
-Status: documentation-only planning note. Do not implement until the user gives
-explicit confirmation.
+Status: implemented in the checked-in notebook and helper module; pending Slurm
+execution validation.
 
-The next Notebook 00 edit should freeze the notebook as a checkpoint notebook:
+Notebook 00 is frozen as a checkpoint notebook:
 
 ```text
 load selected source matrices
@@ -1719,7 +1708,7 @@ marker analysis
 integration
 ```
 
-The older Notebook 00 HVG artifacts should be removed from the active path:
+The older Notebook 00 HVG artifacts have been removed from the active path:
 
 ```text
 plots/manual_ec_highly_variable_genes.png
@@ -1793,14 +1782,7 @@ clustering
 
 ## Recommended Next Steps
 
-1. After user confirmation, implement the Notebook 00 freeze contract above.
-
-   The implementation should remove HVG selection from Notebook 00, write the
-   combined and per-sample `.h5ad` checkpoints under
-   `results/notebook00/<RUN_LABEL>/h5ad/`, and stop after QC/filtering/checkpoint
-   creation.
-
-2. Run the updated Notebook 00 through Slurm and verify the checkpoint outputs.
+1. Run the updated Notebook 00 through Slurm and verify the checkpoint outputs.
 
    Confirm that the manual cutoffs, QC plots, tables, and `.h5ad` files match
    the intended frozen checkpoint:
@@ -1818,28 +1800,30 @@ clustering
    manual_ec_per_sample_scatter_total_counts_n_genes_by_counts.png
    manual_ec_filter_summary.tsv
    manual_ec_filter_parameters.tsv
+   manual_ec_checkpoint_summary.tsv
+   manual_ec_checkpoint_validation.tsv
    manual_ec_filtered_counts.h5ad
    manual_ec_filtered_normalized_log1p.h5ad
    per-sample manual_ec_filtered_counts.h5ad files
    per-sample manual_ec_filtered_normalized_log1p.h5ad files
    ```
 
-3. After Notebook 00 is verified, create a new Notebook 01 planning markdown.
+2. After Notebook 00 is verified, create a new Notebook 01 planning markdown.
 
    That planning document should be created after the Notebook 00 branch is
    ready, not mixed into the Notebook 00 freeze implementation.
 
-4. Merge the Notebook 00 branch into `main` only after verification.
+3. Merge the Notebook 00 branch into `main` only after verification.
 
    Then create a fresh branch from updated `main` for Notebook 01 work.
 
-5. Run any next notebook update through Slurm, not on the login node.
+4. Run any next notebook update through Slurm, not on the login node.
 
    Use the same `13_execute_notebook00_source.sbatch.template` path. Do not
    submit `scripts/cellbender.sh`; the CellBender denoised H5 files remain fixed
    inputs.
 
-6. After user confirmation, archive or delete remaining historical workflow
+5. After user confirmation, archive or delete remaining historical workflow
    pieces outside the active Notebook 00 path.
 
    The forward Notebook 00 path no longer needs historical MAD/custom filtering,
@@ -1847,7 +1831,7 @@ clustering
    source loading and missing-aware reporting because they are still needed for
    Cell Ranger filtered vs existing CellBender-H5 comparison.
 
-7. Keep CellBender denoising frozen unless the user explicitly asks otherwise.
+6. Keep CellBender denoising frozen unless the user explicitly asks otherwise.
 
    Future runs should reuse the existing `clean_adata/*_cellbender_denoised.h5`
    files. Notebook 00 can compare those fixed files against Cell Ranger filtered

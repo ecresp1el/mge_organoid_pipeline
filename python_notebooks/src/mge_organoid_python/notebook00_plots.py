@@ -245,16 +245,6 @@ def plot_manual_ec_per_sample_qc_scatter(
     return save_current_figure(plot_config, name or f"manual_ec_per_sample_scatter_{x}_{y}")
 
 
-def plot_manual_ec_highly_variable_genes(
-    adata: ad.AnnData,
-    plot_config: PlotConfig,
-    name: str = "manual_ec_highly_variable_genes",
-):
-    """Plot Scanpy highly variable gene selection."""
-    sc.pl.highly_variable_genes(adata, show=False)
-    return save_current_figure(plot_config, name)
-
-
 def plot_manual_ec_source_comparison_cell_counts(
     comparison_df: pd.DataFrame,
     plot_config: PlotConfig,

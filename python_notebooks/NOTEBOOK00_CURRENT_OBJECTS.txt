@@ -4,9 +4,8 @@ Notebook 00 Current Object State
 File described:
 python_notebooks/notebooks/00_load_div30_div90_raw_to_anndata.ipynb
 
-This note describes the checked-in Notebook 00 state after the manual_ec run.
-If additional cells were added in a live VS Code/Jupyter kernel but not saved,
-those live-only variables are not reflected here.
+This note describes the checked-in frozen Notebook 00 state. Notebook 00 is now
+intended to stop after loading, QC, filtering, and checkpoint creation.
 
 
 High-Level Pipeline
@@ -18,10 +17,20 @@ Notebook 00 currently does this:
 2. Load each sample as its own AnnData object.
 3. Concatenate loaded samples into one combined AnnData object.
 4. Calculate QC metrics.
-5. Apply manual_ec QC filtering.
-6. Normalize, log1p-transform, and annotate highly variable genes.
-7. Save QC/filter/preprocess tables.
-8. Save combined QC plots and per-sample QC plot grids.
+5. Save combined and per-sample QC plots.
+6. Apply preliminary Scanpy filters:
+
+       sc.pp.filter_cells(min_genes=20)
+       sc.pp.filter_genes(min_cells=3)
+
+7. Apply manual_ec biological/QC cutoffs.
+8. Save combined filtered counts and normalized/log1p checkpoints.
+9. Save matching per-sample filtered counts and normalized/log1p checkpoints.
+10. Validate checkpoint assumptions and write validation tables.
+
+Notebook 00 does not perform HVG selection, cell-cycle scoring,
+CC.Difference creation, regression, scaling, PCA, neighbors, UMAP, clustering,
+marker analysis, or integration.
 
 
 Main Data Objects
@@ -39,7 +48,7 @@ sample_adata_list
 
     Important:
     These are the original loaded per-sample objects from the selected source.
-    They are not the manual_ec-filtered objects.
+    They are not the manual_ec-filtered checkpoint objects.
     They are used for per-sample source/QC inspection before concatenation.
 
 
@@ -62,145 +71,145 @@ combined_adata
     - combined across samples
     - QC metrics calculated
     - not yet manual_ec-filtered at the time it is created
-    - not yet normalized/log1p at the time it is created
+    - not normalized/log1p
 
     Combined QC plots use this object.
 
 
-manual_ec_adata
-    One combined AnnData object after manual_ec filtering and preprocessing.
+manual_ec_filtered_counts_adata
+    One combined AnnData object after preliminary Scanpy filtering and
+    manual_ec biological/QC filtering.
 
     Status:
     - combined across samples
-    - manual_ec QC-filtered
-    - normalized with sc.pp.normalize_total(target_sum=1e4)
-    - log1p-transformed with sc.pp.log1p
-    - annotated with highly variable genes in:
+    - QC/manual_ec-filtered
+    - .X contains filtered raw counts
+    - not normalized/log1p
+    - no HVG annotation is created in Notebook 00
 
-      manual_ec_adata.var["highly_variable"]
+    This object is written to:
 
-    This is the main object to use for downstream analysis.
+        results/notebook00/<RUN_LABEL>/h5ad/manual_ec_filtered_counts.h5ad
 
 
+manual_ec_filtered_normalized_log1p_adata
+    One combined AnnData object derived from manual_ec_filtered_counts_adata.
+
+    Status:
+    - same cells and genes as manual_ec_filtered_counts_adata
+    - .X contains normalized/log1p expression
+    - .layers["counts"] contains the filtered raw counts copied before
+      normalization/log1p
+    - no HVG annotation is created in Notebook 00
+
+    This object is written to:
+
+        results/notebook00/<RUN_LABEL>/h5ad/manual_ec_filtered_normalized_log1p.h5ad
+
+
+manual_ec_adata
 adata
-    Convenience alias:
+    Backward-compatible aliases for:
 
-    adata = manual_ec_adata
+        manual_ec_adata = manual_ec_filtered_counts_adata
+        adata = manual_ec_filtered_counts_adata
 
-    This exists so interactive downstream Scanpy code can use the common
-    variable name adata.
+    In frozen Notebook 00 these aliases point to the filtered counts state, not
+    the normalized/log1p state.
 
 
-Important HVG Distinction
+Combined Checkpoint Files
 -------------------------
 
-manual_ec_adata has HVGs already, but they were computed globally on the
-combined filtered object.
+All checkpoint files are saved under the dynamic run label:
 
-So:
+    results/notebook00/<RUN_LABEL>/h5ad/
 
-manual_ec_adata.var["highly_variable"]
-    Global HVG annotation across all filtered cells/samples.
+Combined files:
 
-If you split manual_ec_adata back into per-sample objects, each split object
-will carry the same global HVG annotation.
+    manual_ec_filtered_counts.h5ad
+    manual_ec_filtered_normalized_log1p.h5ad
 
-That is useful if you want to inspect each sample using the same global HVG set.
+The counts file stores:
 
-If you want HVGs computed independently per sample, you must recompute HVGs on
-each split per-sample object.
+    .X = QC/manual_ec-filtered raw counts
+
+The normalized/log1p file stores:
+
+    .X = normalized/log1p expression
+    .layers["counts"] = QC/manual_ec-filtered raw counts
 
 
-Filtered Per-Sample Objects
+Per-Sample Checkpoint Files
 ---------------------------
 
-The notebook does not create a filtered per-sample list by default.
+Per-sample checkpoint files are saved under:
 
-The default per-sample list is:
+    results/notebook00/<RUN_LABEL>/h5ad/per_sample/
 
-sample_adata_list
+For each run_sample_id:
 
-and that list is not manual_ec-filtered.
+    <run_sample_id>.manual_ec_filtered_counts.h5ad
+    <run_sample_id>.manual_ec_filtered_normalized_log1p.h5ad
 
-To create filtered per-sample objects, split manual_ec_adata by run_sample_id:
+Each per-sample counts file is a one-sample slice of the combined filtered
+counts checkpoint.
 
-    manual_ec_filtered_sample_names, manual_ec_filtered_sample_list = split_adata_by_sample(
-        manual_ec_adata,
-        sample_column="run_sample_id",
-    )
+Each per-sample normalized/log1p file is the matching one-sample slice of the
+combined normalized/log1p checkpoint.
 
-Then:
-
-manual_ec_filtered_sample_list
-    List of filtered per-sample AnnData objects.
-    These are sliced from manual_ec_adata.
-    They are already normalized/log1p-transformed.
-    They carry the global HVG annotation from manual_ec_adata.
+The .X and .layers["counts"] meanings are identical to the combined checkpoint
+pair.
 
 
-Recommended Split Helper
-------------------------
+Validation Tables
+-----------------
 
-Use this if you need filtered per-sample objects:
+manual_ec_checkpoint_summary_df
+    One row for the combined checkpoint pair and one row per sample.
+    Records file paths, object dimensions, target_sum, and the intended matrix
+    state for .X and .layers["counts"].
 
-    def split_adata_by_sample(
-        adata,
-        sample_column="run_sample_id",
-        sample_names=None,
-        copy=True,
-    ):
-        """
-        Split one combined AnnData object into a list of per-sample AnnData objects.
+    Written to:
 
-        Assumptions:
-        - adata is one combined AnnData object, for example manual_ec_adata.
-        - adata.obs[sample_column] identifies the sample for each cell.
-        - This function does not modify adata.
-        - This function does not overwrite notebook variables by itself.
-          Variables are only created or overwritten by the names used on the
-          left side of the assignment when calling it.
-        """
+        results/notebook00/<RUN_LABEL>/tables/manual_ec_checkpoint_summary.tsv
 
-        if sample_column not in adata.obs.columns:
-            raise KeyError(f"{sample_column!r} not found in adata.obs")
 
-        sample_series = adata.obs[sample_column].astype(str)
+manual_ec_checkpoint_validation_df
+    One row for the combined checkpoint pair and one row per sample.
+    Checks the checkpoint assumptions:
 
-        if sample_names is None:
-            split_sample_names = list(sample_series.drop_duplicates())
-        else:
-            split_sample_names = [str(sample_name) for sample_name in sample_names]
+    - counts and normalized/log1p objects have matching obs names
+    - counts and normalized/log1p objects have matching var names
+    - counts .X is nonnegative
+    - normalized/log1p .X is nonnegative
+    - normalized/log1p object contains .layers["counts"]
+    - .layers["counts"] matches the counts object's .X
+    - checkpoint metadata records the expected .X state
+    - expected .h5ad files exist
 
-        split_sample_adata_list = []
+    The notebook raises an AssertionError if any
+    checkpoint_validation_passed value is False.
 
-        for sample_name in split_sample_names:
-            sample_mask = sample_series == sample_name
-            one_sample_adata = adata[sample_mask]
+    Written to:
 
-            if copy:
-                one_sample_adata = one_sample_adata.copy()
-
-            split_sample_adata_list.append(one_sample_adata)
-
-        return split_sample_names, split_sample_adata_list
+        results/notebook00/<RUN_LABEL>/tables/manual_ec_checkpoint_validation.tsv
 
 
 Recommended Downstream Starting Points
 --------------------------------------
 
-Use manual_ec_adata or adata when:
-    You want to continue the main combined analysis.
-    Examples: cell-cycle scoring, scaling, PCA, neighbors, UMAP, clustering.
+Use manual_ec_filtered_counts_adata or the counts checkpoint files when:
+    You need raw counts after QC/manual_ec filtering.
+    Notebook 01 should start Seurat-v3 HVG selection from this count state.
+
+Use manual_ec_filtered_normalized_log1p_adata or the normalized/log1p
+checkpoint files when:
+    You need normalized/log1p expression and still want raw counts available in
+    .layers["counts"].
 
 Use sample_adata_list when:
     You want to inspect the original loaded samples before manual_ec filtering.
-
-Use manual_ec_filtered_sample_list after splitting manual_ec_adata when:
-    You want filtered per-sample objects for per-sample plotting or regression.
-
-Use per-sample HVG recomputation when:
-    You specifically want variable features selected independently within each
-    sample instead of globally across the combined dataset.
 
 
 Current Bioinformatics Stopping Point
@@ -209,60 +218,50 @@ Current Bioinformatics Stopping Point
 Notebook 00 currently stops after:
 
 manual_ec filtering
-normalize_total
-log1p
-highly_variable_genes
+combined counts checkpoint writing
+combined normalized/log1p checkpoint writing
+per-sample counts checkpoint writing
+per-sample normalized/log1p checkpoint writing
+checkpoint validation
 
-It has not yet performed:
+Notebook 00 has not performed:
 
+HVG selection
+cell-cycle scoring
+CC.Difference creation
+regression
 scaling
 PCA
 neighbors
 UMAP
 Leiden clustering
-cell-cycle scoring
-cell-cycle regression
 marker-based annotation
+integration
 
 
 Output Locations
 ----------------
 
-Run label used for the latest cellranger_filtered manual_ec run:
+Default run label pattern:
 
-cellranger_filtered_manual_ec_div30_core_samples
+<ACTIVE_SOURCE>_manual_ec_<target_divs>_core_samples
 
 Run output directory:
 
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/<RUN_LABEL>/
 
 Tables:
 
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples/tables/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/<RUN_LABEL>/tables/
 
 Plots:
 
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples/plots/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/<RUN_LABEL>/plots/
 
-Executed notebook:
+H5AD checkpoints:
 
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.cellranger_filtered_manual_ec_div30_core_samples.executed.ipynb
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/<RUN_LABEL>/h5ad/
 
+Per-sample H5AD checkpoints:
 
-Important Disk Checkpoint Note
-------------------------------
-
-The notebook currently creates manual_ec_adata in memory.
-
-It saves tables and plots, but it does not currently save manual_ec_adata as an
-.h5ad checkpoint by default.
-
-If a reusable disk checkpoint is needed, add a notebook cell such as:
-
-    manual_ec_adata.write_h5ad(RUN_DIR / "manual_ec_adata.h5ad")
-
-Then reload later with:
-
-    manual_ec_adata = sc.read_h5ad(RUN_DIR / "manual_ec_adata.h5ad")
-    adata = manual_ec_adata
-
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/<RUN_LABEL>/h5ad/per_sample/
