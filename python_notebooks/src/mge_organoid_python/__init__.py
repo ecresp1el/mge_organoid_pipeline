@@ -1,5 +1,17 @@
 """Python entry points for notebook-based MGE organoid analysis."""
 
+from .cell_cycle import (
+    CCDIFFERENCE_KEY,
+    CELL_CYCLE_GENE_SOURCE,
+    G2M_PHASE_GENES,
+    S_PHASE_GENES,
+    CellCycleGeneSelection,
+    cell_cycle_gene_summary,
+    cell_cycle_gene_table,
+    cell_cycle_score_summary,
+    score_cell_cycle_and_ccdifference,
+    select_cell_cycle_genes,
+)
 from .converter import SeuratToAnnDataConverter
 from .data_sources import (
     DatasetLoadResult,
@@ -49,8 +61,12 @@ from .validation import AnnDataReport, validate_anndata, validate_source_paths
 
 __all__ = [
     "AnnDataReport",
+    "CCDIFFERENCE_KEY",
+    "CELL_CYCLE_GENE_SOURCE",
+    "CellCycleGeneSelection",
     "DEFAULT_PROJECT_ROOT",
     "DatasetLoadResult",
+    "G2M_PHASE_GENES",
     "ManualECCheckpointPaths",
     "ManualECCheckpointSettings",
     "ManualECFilterSettings",
@@ -67,8 +83,12 @@ __all__ = [
     "Notebook00SourceConfig",
     "PlotConfig",
     "SeuratToAnnDataConverter",
+    "S_PHASE_GENES",
     "StudySpec",
     "cached_h5ad_path",
+    "cell_cycle_gene_summary",
+    "cell_cycle_gene_table",
+    "cell_cycle_score_summary",
     "cellbender_output_table",
     "branch_operation_order",
     "default_studies",
@@ -86,6 +106,8 @@ __all__ = [
     "run_hvg_selection",
     "run_regression_embedding_branch",
     "sample_table",
+    "score_cell_cycle_and_ccdifference",
+    "select_cell_cycle_genes",
     "save_pca_variance_plot",
     "save_manual_ec_checkpoints",
     "save_umap_plot",
