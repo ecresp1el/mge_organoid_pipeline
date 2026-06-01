@@ -316,7 +316,7 @@ Notebook 00 should not include these biological analysis stages:
 ```text
 HVG selection
 cell-cycle scoring
-CC.Difference creation
+CCDifference creation
 scaling/regression
 PCA
 neighbors
@@ -330,7 +330,7 @@ integration/batch correction
 ```
 
 Notebook 01 should start from the Notebook 00 checkpoints with Seurat-v3 HVG
-selection from counts, cell-cycle scoring, `CC.Difference`, regression, scaling,
+selection from counts, cell-cycle scoring, `CCDifference`, regression, scaling,
 PCA, neighbors, UMAP, and clustering.
 
 ## Freeze Slurm Validation
@@ -1777,7 +1777,7 @@ Notebook 00 should not perform:
 ```text
 HVG selection
 cell-cycle scoring
-CC.Difference creation
+CCDifference creation
 regression
 scaling
 PCA
@@ -1851,7 +1851,7 @@ post-filtering analysis decisions:
 ```text
 Seurat-v3 HVG selection from counts
 cell-cycle scoring
-CC.Difference creation
+CCDifference creation
 regression
 scaling
 PCA

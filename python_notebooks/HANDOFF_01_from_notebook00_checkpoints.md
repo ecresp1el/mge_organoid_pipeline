@@ -212,7 +212,7 @@ Notebook 01 begins the post-filtering analysis choices:
 ```text
 Seurat-v3 HVG selection from counts
 cell-cycle scoring
-CC.Difference creation
+CCDifference creation
 regression comparison
 scaling
 PCA
@@ -298,10 +298,177 @@ Practical guidance to encode in Notebook 01:
   `not_regressed` and `regressed_qc`.
 - Track the matrix state used by every operation because Scanpy functions
   usually mutate `.X`.
-- Treat `CC.Difference = S_score - G2M_score` as a named covariate that can be
-  added to the regression list later, after cell-cycle scoring is implemented.
+- Treat `CCDifference = S_score - G2M_score` as the named cell-cycle covariate
+  that can be added to the regression list later, after cell-cycle scoring is
+  implemented.
 - Compare downstream PCA/UMAP/clustering from the regressed and non-regressed
   branches rather than silently replacing one with the other.
+
+## Next Goal: Cell-Cycle CCDifference Regression
+
+Use the official Scanpy cell-cycle scoring/regression how-to as the procedural
+reference:
+
+```text
+https://scanpy.readthedocs.io/en/latest/how-to/cell-cycle.html
+```
+
+Important deviation from the Scanpy example:
+
+```text
+Scanpy demo regression covariates: S_score, G2M_score
+This project's planned regression covariate: CCDifference
+```
+
+The scoring setup should follow the Scanpy pattern:
+
+```python
+s_genes = [gene for gene in source_s_genes if gene in adata.var_names]
+g2m_genes = [gene for gene in source_g2m_genes if gene in adata.var_names]
+cell_cycle_genes = [*s_genes, *g2m_genes]
+
+sc.tl.score_genes_cell_cycle(
+    adata,
+    s_genes=s_genes,
+    g2m_genes=g2m_genes,
+)
+
+adata.obs["CCDifference"] = adata.obs["S_score"] - adata.obs["G2M_score"]
+```
+
+The cell-cycle regression branch should ultimately use:
+
+```python
+sc.pp.regress_out(adata, ["CCDifference"])
+```
+
+QC plus cell-cycle regression can be tested later as a separate branch:
+
+```python
+sc.pp.regress_out(adata, ["total_counts", "pct_counts_mt", "CCDifference"])
+```
+
+### Standalone Gene-List Validation Step
+
+Before integrating cell-cycle scoring into the main Notebook 01 workflow, create
+an importable standalone Python module and a one-time Slurm validation runner.
+
+Proposed importable module:
+
+```text
+python_notebooks/src/mge_organoid_python/cell_cycle.py
+```
+
+That module should own:
+
+- source S-phase and G2M gene lists
+- filtering those lists to `adata.var_names`
+- creation of `cell_cycle_genes = [*s_genes, *g2m_genes]`
+- table generation for present/missing genes
+- a helper that runs `sc.tl.score_genes_cell_cycle`
+- creation of `adata.obs["CCDifference"]`
+
+Proposed one-time validation script:
+
+```text
+python_notebooks/scripts/prepare_notebook01_cell_cycle_genes.py
+```
+
+Proposed Slurm runner:
+
+```text
+slurm_templates/15_prepare_notebook01_cell_cycle_genes.sbatch.template
+```
+
+The validation job should run once against the actual Notebook 00 checkpoint
+genes and write tables under a run-specific Notebook 01 output directory:
+
+```text
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/cell_cycle_gene_source.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/cell_cycle_genes_present.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/cell_cycle_genes_missing.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/cell_cycle_gene_summary.tsv
+```
+
+Minimum validation fields:
+
+```text
+phase
+gene
+present_in_adata
+source
+n_source_s_genes
+n_source_g2m_genes
+n_present_s_genes
+n_present_g2m_genes
+n_missing_s_genes
+n_missing_g2m_genes
+```
+
+### PCA Before/After CCDifference Regression
+
+Add a focused diagnostic that proves the cell-cycle regression step changed the
+cell-cycle signal in PCA space.
+
+Run this diagnostic separately for:
+
+```text
+combined
+per_sample
+```
+
+For each scope/sample:
+
+```text
+1. Load the normalized/log1p checkpoint
+2. Score cell cycle using Scanpy's score_genes_cell_cycle
+3. Create CCDifference
+4. Create a before-regression PCA object using cell_cycle_genes
+5. Plot the top three PC pairings before regression
+6. Regress CCDifference from .X
+7. Create an after-regression PCA object using cell_cycle_genes
+8. Plot the top three PC pairings after regression
+9. Save tables summarizing phase/score distributions before and after
+```
+
+Required PCA pairings:
+
+```text
+PC1 vs PC2
+PC1 vs PC3
+PC2 vs PC3
+```
+
+Required colors for before/after PCA diagnostics:
+
+```text
+phase
+S_score
+G2M_score
+CCDifference
+run_sample_id    # combined only
+```
+
+Proposed plot directories:
+
+```text
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/plots/cell_cycle_pca/combined/before_ccdifference_regression/
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/plots/cell_cycle_pca/combined/after_ccdifference_regression/
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/plots/cell_cycle_pca/per_sample/<run_sample_id>/before_ccdifference_regression/
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/plots/cell_cycle_pca/per_sample/<run_sample_id>/after_ccdifference_regression/
+```
+
+Proposed diagnostic tables:
+
+```text
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/cell_cycle_score_summary.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/cell_cycle_pca_diagnostic_summary.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/cell_cycle_pca_plot_manifest.tsv
+```
+
+The before/after PCA diagnostic is a visualization and validation step. It
+should not replace the full Notebook 01 branch comparison until the gene-list
+validation and scoring behavior are confirmed.
 
 ## Required Analysis Scopes
 
@@ -342,10 +509,10 @@ Initial regression branch:
 sc.pp.regress_out(adata, ["total_counts", "pct_counts_mt"])
 ```
 
-Later cell-cycle-aware branch, after scoring creates `CC.Difference`:
+Later cell-cycle-aware branch, after scoring creates `CCDifference`:
 
 ```python
-sc.pp.regress_out(adata, ["total_counts", "pct_counts_mt", "CC.Difference"])
+sc.pp.regress_out(adata, ["total_counts", "pct_counts_mt", "CCDifference"])
 ```
 
 First-pass visible branch plan for the current six-sample DIV30 checkpoint:
@@ -452,7 +619,7 @@ random_state=0
    expose Seurat lists implicitly.
 
 5. Regression variables:
-   first pass is `total_counts` and `pct_counts_mt`. Later add `CC.Difference`
+   first pass is `total_counts` and `pct_counts_mt`. Later add `CCDifference`
    after cell-cycle scoring is implemented.
 
 6. Clustering parameters:
