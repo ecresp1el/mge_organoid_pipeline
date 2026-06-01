@@ -25,6 +25,28 @@ python_notebooks/src/mge_organoid_python/notebook00_plots.py
 slurm_templates/13_execute_notebook00_source.sbatch.template
 ```
 
+Notebook 00 is frozen as the loading, QC, filtering, and checkpoint-creation
+notebook. It should not run HVG selection, regression, scaling, PCA, neighbors,
+UMAP, clustering, marker analysis, or integration. Those post-checkpoint
+analysis decisions begin in Notebook 01.
+
+Notebook 00 writes the object states that Notebook 01 consumes:
+
+```text
+manual_ec_filtered_counts.h5ad
+  .X = QC/manual_ec-filtered raw counts
+
+manual_ec_filtered_normalized_log1p.h5ad
+  .X = normalized/log1p expression
+  .layers["counts"] = QC/manual_ec-filtered raw counts
+```
+
+For Notebook 01 order-of-operations and variable-flow documentation, use:
+
+```text
+python_notebooks/HANDOFF_01_from_notebook00_checkpoints.md
+```
+
 Use this conda/Jupyter environment:
 
 ```text

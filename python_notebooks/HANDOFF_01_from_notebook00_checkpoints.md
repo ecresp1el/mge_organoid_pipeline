@@ -109,6 +109,102 @@ manual_ec_filtered_normalized_log1p.h5ad
 
 Notebook 01 should preserve this count layer contract in downstream outputs.
 
+## Order Of Operations And Variable Flow
+
+Notebook 01 starts from the normalized/log1p Notebook 00 checkpoint, not the
+counts-only checkpoint:
+
+```text
+manual_ec_filtered_normalized_log1p.h5ad
+```
+
+At load time:
+
+```text
+adata.X = normalized/log1p expression
+adata.layers["counts"] = raw QC/manual_ec-filtered counts
+adata.obs = per-cell metadata and QC covariates
+adata.var = per-gene metadata
+```
+
+The current run uses the following per-cell `.obs` covariates for QC
+regression:
+
+```text
+total_counts
+pct_counts_mt
+```
+
+These covariates are read from `adata.obs`. They are not expression matrices
+and they are not stored in `.X`.
+
+The first-pass operation order is:
+
+```text
+1. Load Notebook 00 normalized/log1p checkpoint
+2. Validate that .layers["counts"] exists and matches .X dimensions
+3. Infer run_sample_id values from adata.obs["run_sample_id"]
+4. Run Seurat-v3 HVG selection from adata.layers["counts"]
+5. For each scope and branch, copy adata[:, hvg_mask]
+6. If branch has regress_keys, run sc.pp.regress_out on branch_adata.X
+7. Scale branch_adata.X
+8. Run PCA from scaled branch_adata.X
+9. Build neighbors from PCA
+10. Run UMAP from neighbors
+11. Run Leiden clustering from neighbors
+12. Save tables and plots for that scope/branch
+```
+
+Important matrix-state detail:
+
+```text
+HVG selection reads .layers["counts"]
+Regression modifies branch_adata.X only
+Scaling modifies branch_adata.X again
+PCA/neighbors/UMAP/Leiden consume the branch-specific state
+The original loaded adata object is not used as the final branch object
+```
+
+Current branch behavior:
+
+```text
+not_regressed
+  branch_adata.X starts as normalized/log1p HVG expression
+  regression is skipped
+  scaling/PCA/neighbors/UMAP/Leiden run from non-regressed .X
+
+regressed_qc
+  branch_adata.X starts as normalized/log1p HVG expression
+  sc.pp.regress_out(branch_adata, ["total_counts", "pct_counts_mt"]) runs
+  branch_adata.X becomes regression residuals
+  scaling/PCA/neighbors/UMAP/Leiden run from regressed .X
+```
+
+In other words, regression does not delete counts and does not change the
+Notebook 00 checkpoint. It changes `.X` inside the temporary branch object used
+for PCA/UMAP/clustering. Raw counts remain available in `.layers["counts"]` for
+auditability and future methods that need counts.
+
+The code records this sequence in:
+
+```text
+python_notebooks/src/mge_organoid_python/notebook01_workflow.py
+```
+
+Specifically:
+
+```text
+branch_operation_order()
+run_regression_embedding_branch()
+```
+
+Future runs write the order and `.X` state transitions into:
+
+```text
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/notebook01_branch_summary.tsv
+branch_adata.uns["notebook01_branch"]
+```
+
 ## Notebook 01 Scope
 
 Notebook 01 begins the post-filtering analysis choices:

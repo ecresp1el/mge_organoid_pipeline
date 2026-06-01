@@ -21,6 +21,7 @@ from .notebook00_workflow import (
     validate_manual_ec_checkpoint_pair,
 )
 from .notebook01_workflow import (
+    NOTEBOOK01_BASE_OPERATION_ORDER,
     NOTEBOOK01_DEFAULT_REGRESS_KEYS,
     NOTEBOOK01_REGRESSION_BRANCHES,
     Notebook01EmbeddingSettings,
@@ -30,6 +31,7 @@ from .notebook01_workflow import (
     Notebook01OutputPaths,
     Notebook01RegressionVariant,
     Notebook01RunSettings,
+    branch_operation_order,
     default_regression_variants,
     embedding_table,
     infer_run_sample_ids,
@@ -57,6 +59,7 @@ __all__ = [
     "Notebook01OutputPaths",
     "Notebook01RegressionVariant",
     "Notebook01RunSettings",
+    "NOTEBOOK01_BASE_OPERATION_ORDER",
     "NOTEBOOK01_DEFAULT_REGRESS_KEYS",
     "NOTEBOOK01_REGRESSION_BRANCHES",
     "Notebook01EmbeddingSettings",
@@ -67,6 +70,7 @@ __all__ = [
     "StudySpec",
     "cached_h5ad_path",
     "cellbender_output_table",
+    "branch_operation_order",
     "default_studies",
     "default_regression_variants",
     "embedding_table",

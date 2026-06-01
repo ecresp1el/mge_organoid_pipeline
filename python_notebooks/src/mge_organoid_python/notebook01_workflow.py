@@ -22,6 +22,15 @@ import scanpy as sc
 NOTEBOOK01_SUPPORTED_SCOPES = ("combined", "per_sample")
 NOTEBOOK01_REGRESSION_BRANCHES = ("not_regressed", "regressed_qc")
 NOTEBOOK01_DEFAULT_REGRESS_KEYS = ("total_counts", "pct_counts_mt")
+NOTEBOOK01_BASE_OPERATION_ORDER = (
+    "subset_to_hvgs_selected_from_counts_layer",
+    "optional_regress_out_obs_covariates_from_x",
+    "scale_x",
+    "pca_from_scaled_x",
+    "neighbors_from_pca",
+    "umap_from_neighbors",
+    "leiden_from_neighbors",
+)
 
 
 @dataclass(frozen=True)
@@ -233,6 +242,24 @@ def default_regression_variants(
     )
 
 
+def branch_operation_order(variant: Notebook01RegressionVariant) -> tuple[str, ...]:
+    """Return the concrete operation order for one regression branch."""
+    regression_step = (
+        "regress_out_obs_covariates_from_x"
+        if variant.regress_keys
+        else "skip_regress_out_keep_normalized_log1p_x"
+    )
+    return (
+        "subset_to_hvgs_selected_from_counts_layer",
+        regression_step,
+        "scale_x",
+        "pca_from_scaled_x",
+        "neighbors_from_pca",
+        "umap_from_neighbors",
+        "leiden_from_neighbors",
+    )
+
+
 def parse_csv(value: str | Sequence[str] | None, default: Sequence[str] = ()) -> tuple[str, ...]:
     """Parse comma/semicolon/colon-delimited env-style strings."""
     if value is None:
@@ -367,8 +394,21 @@ def run_regression_embedding_branch(
     scope: str = "combined",
     run_sample_id: object | None = None,
 ) -> tuple[ad.AnnData, dict]:
-    """Run one HVG-subset regression/PCA/UMAP/clustering branch."""
+    """Run one HVG-subset regression/PCA/UMAP/clustering branch.
+
+    Input `adata.X` is expected to be normalized/log1p expression from the
+    Notebook 00 normalized checkpoint. HVG selection was already calculated from
+    `adata.layers["counts"]`, but this branch works on `.X` after subsetting to
+    those HVGs. If `variant.regress_keys` is nonempty, `sc.pp.regress_out`
+    replaces `.X` with residuals after modeling each gene against the named
+    `.obs` covariates. Scaling, PCA, neighbors, UMAP, and Leiden then consume
+    that branch-specific `.X` state.
+    """
     started_at = time.perf_counter()
+    operation_order = branch_operation_order(variant)
+    regression_covariate_source = (
+        ",".join(f".obs[{key}]" for key in variant.regress_keys) if variant.regress_keys else ""
+    )
     branch_adata = adata[:, hvg_mask].copy()
     missing_regress_keys = [key for key in variant.regress_keys if key not in branch_adata.obs.columns]
     if missing_regress_keys:
@@ -399,7 +439,12 @@ def run_regression_embedding_branch(
         "run_sample_id": "" if run_sample_id is None else str(run_sample_id),
         "branch": variant.branch,
         "regress_keys": list(variant.regress_keys),
+        "regression_covariate_source": regression_covariate_source,
         "regress_cell_cycle": variant.regress_cell_cycle,
+        "operation_order": list(operation_order),
+        "x_state_at_branch_start": "normalized_log1p_hvg_subset",
+        "x_state_after_regression_step": "regressed_residuals" if variant.regress_keys else "normalized_log1p_hvg_subset",
+        "x_state_after_scale": "scaled",
         "hvg_n_genes": int(hvg_mask.sum()),
         **asdict(settings),
     }
@@ -409,6 +454,11 @@ def run_regression_embedding_branch(
         "run_sample_id": "" if run_sample_id is None else str(run_sample_id),
         "branch": variant.branch,
         "regress_keys": ",".join(variant.regress_keys),
+        "regression_covariate_source": regression_covariate_source,
+        "operation_order": " -> ".join(operation_order),
+        "x_state_at_branch_start": "normalized_log1p_hvg_subset",
+        "x_state_after_regression_step": "regressed_residuals" if variant.regress_keys else "normalized_log1p_hvg_subset",
+        "x_state_after_scale": "scaled",
         "n_cells": int(branch_adata.n_obs),
         "n_hvg_genes": int(branch_adata.n_vars),
         "n_pcs": int(n_comps),
