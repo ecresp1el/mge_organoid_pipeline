@@ -163,7 +163,8 @@ per-sample manual_ec QC plot grids saved as 1xN sample panels
 Not completed yet:
 
 ```text
-Seurat-equivalent S/G2M cell-cycle gene list storage and scoring
+Notebook 00 freeze as a QC/filter/checkpoint-only notebook
+combined and per-sample .h5ad checkpoint writing
 collaborator review of manual_ec outputs/plots
 raw export manifest cleanup, if no longer needed
 physical deletion/archive of remaining historical notes and old MAD/custom filtering scaffolding outside the forward path
@@ -214,8 +215,10 @@ No CellBender denoising was run during cleanup.
 
 ## Latest Post-Cleanup Slurm Rerun
 
-The full Notebook 00 was rerun after source-layer cleanup. These are the current
-outputs to review tomorrow.
+The full Notebook 00 was rerun after source-layer cleanup. These are pre-freeze
+outputs from the currently checked-in notebook. The next confirmed direction is
+to remove Notebook 00 HVG/preprocess work and replace it with checkpoint
+writing, as described in `Pending Notebook 00 Freeze Contract`.
 
 ```text
 51191663 nb00-manualec-filtered-postclean    COMPLETED 0:0  00:03:38
@@ -269,10 +272,10 @@ No CellBender denoising was run during the post-cleanup rerun. The
 CellBender-labeled job only read existing `clean_adata/*_cellbender_denoised.h5`
 files.
 
-## Current Bioinformatics Checkpoint
+## Current Checked-In Bioinformatics Checkpoint
 
-Notebook 00 is now complete through the early single-cell QC/preprocessing
-checkpoint:
+The checked-in Notebook 00 currently reaches the early single-cell
+QC/preprocessing checkpoint:
 
 ```text
 matrix loading
@@ -286,10 +289,24 @@ highly variable gene selection
 Cell Ranger filtered vs existing CellBender-denoised source comparison
 ```
 
-Notebook 00 has not yet moved into the next biological analysis stages:
+This is the state to change next. After the freeze update, Notebook 00 should
+stop earlier:
 
 ```text
+matrix loading
+sample metadata annotation
+QC metric calculation
+QC visualization
+manual_ec cell filtering
+combined and per-sample .h5ad checkpoint creation
+```
+
+Notebook 00 should not include these biological analysis stages:
+
+```text
+HVG selection
 cell-cycle scoring
+CC.Difference creation
 scaling/regression
 PCA
 neighbors
@@ -302,9 +319,9 @@ trajectory/pseudotime
 integration/batch correction
 ```
 
-The next work session should start specifically with the next biological
-analysis step. The user has more details about this and will provide them
-tomorrow before implementation.
+Notebook 01 should start from the Notebook 00 checkpoints with Seurat-v3 HVG
+selection from counts, cell-cycle scoring, `CC.Difference`, regression, scaling,
+PCA, neighbors, UMAP, and clustering.
 
 Sections below that discuss the original raw/filtered proof, raw export,
 pre-cleanup runs, or old MAD/custom filtering are retained as historical context
@@ -1644,9 +1661,9 @@ manual_ec biological/QC cutoffs
 historical MAD/custom filtering path, if still present in old outputs
 ```
 
-### Implemented `manual_ec` Preprocessing
+### Current Checked-In `manual_ec` Preprocessing To Remove
 
-After `manual_ec` filtering, the requested preprocessing checkpoint is:
+The checked-in notebook currently performs this after `manual_ec` filtering:
 
 ```python
 sc.pp.normalize_total(adata, target_sum=1e4)
@@ -1660,50 +1677,133 @@ sc.pp.highly_variable_genes(
 sc.pl.highly_variable_genes(adata)
 ```
 
-Save the HVG plot and parameters:
+These outputs exist in the pre-freeze implementation but should be removed from
+the active Notebook 00 path during the freeze update:
 
 ```text
 plots/manual_ec_highly_variable_genes.png
 tables/manual_ec_preprocess_parameters.tsv
 ```
 
-### Seurat-Equivalent Cell-Cycle Requirement
+### Pending Notebook 00 Freeze Contract
 
-This is the next part of the controlled conversion request now that the
-`manual_ec` QC/preprocess checkpoint is working.
+Status: documentation-only planning note. Do not implement until the user gives
+explicit confirmation.
 
-The conversion should preserve Heyoon's biological parameters and use Rich et
-al. only to choose the closest Seurat-like Scanpy implementation. For cell-cycle
-scoring:
-
-- use Seurat-equivalent S and G2M gene lists
-- do not rely on Scanpy implicitly exposing Seurat's `cc.genes`
-- explicitly store the exact S and G2M gene lists used for scoring in the output
-
-Proposed output locations:
+The next Notebook 00 edit should freeze the notebook as a checkpoint notebook:
 
 ```text
-tables/manual_ec_cell_cycle_s_genes.tsv
-tables/manual_ec_cell_cycle_g2m_genes.tsv
-tables/manual_ec_cell_cycle_score_parameters.tsv
+load selected source matrices
+annotate sample metadata
+calculate QC metrics
+save QC plots and QC/filter tables
+apply preliminary Scanpy filters
+apply manual_ec biological/QC cutoffs
+write combined and per-sample .h5ad checkpoints
+stop
 ```
 
-The corresponding AnnData object should also store these lists in `.uns`, for
-example:
+Notebook 00 should not perform:
+
+```text
+HVG selection
+cell-cycle scoring
+CC.Difference creation
+regression
+scaling
+PCA
+neighbors
+UMAP
+clustering
+marker analysis
+integration
+```
+
+The older Notebook 00 HVG artifacts should be removed from the active path:
+
+```text
+plots/manual_ec_highly_variable_genes.png
+tables/manual_ec_hvg_genes.tsv
+tables/manual_ec_hvg_overlap.tsv
+HVG-count fields in Notebook 00 comparison tables
+per-sample HVG recomputation cells
+```
+
+The run-specific output root remains dynamic and must stay based on
+`RUN_LABEL`:
 
 ```python
-adata.uns["manual_ec_cell_cycle_s_genes"] = s_genes
-adata.uns["manual_ec_cell_cycle_g2m_genes"] = g2m_genes
-adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for Scanpy score_genes_cell_cycle."
+RUN_DIR = DATA_ROOT / "results" / "notebook00" / RUN_LABEL
+TABLE_DIR = RUN_DIR / "tables"
+PLOT_DIR = RUN_DIR / "plots"
+H5AD_DIR = RUN_DIR / "h5ad"
+PER_SAMPLE_H5AD_DIR = H5AD_DIR / "per_sample"
+```
+
+Required combined checkpoints:
+
+```text
+h5ad/manual_ec_filtered_counts.h5ad
+h5ad/manual_ec_filtered_normalized_log1p.h5ad
+```
+
+`manual_ec_filtered_counts.h5ad` should contain the combined QC/manual_ec
+filtered AnnData object. In that object:
+
+```text
+.X = filtered raw counts
+layers = no required new expression layer
+```
+
+`manual_ec_filtered_normalized_log1p.h5ad` should be derived from the filtered
+counts object. In that object:
+
+```text
+.X = normalized/log1p expression
+.layers["counts"] = filtered raw counts copied before normalization/log1p
+```
+
+Required per-sample checkpoints:
+
+```text
+h5ad/per_sample/<run_sample_id>.manual_ec_filtered_counts.h5ad
+h5ad/per_sample/<run_sample_id>.manual_ec_filtered_normalized_log1p.h5ad
+```
+
+Each per-sample counts file should be a slice of the combined filtered counts
+checkpoint for exactly one `run_sample_id`. Each per-sample normalized/log1p
+file should be the matching per-sample slice of the combined normalized/log1p
+checkpoint. The `.X` and `.layers["counts"]` meaning must match the combined
+checkpoint pair.
+
+Notebook 01 should start from the Notebook 00 checkpoints and perform the
+post-filtering analysis decisions:
+
+```text
+Seurat-v3 HVG selection from counts
+cell-cycle scoring
+CC.Difference creation
+regression
+scaling
+PCA
+neighbors
+UMAP
+clustering
 ```
 
 ## Recommended Next Steps
 
-1. Tomorrow, review the executed notebooks and plots from the post-cleanup
-   Slurm rerun.
+1. After user confirmation, implement the Notebook 00 freeze contract above.
 
-   Confirm that the manual cutoffs and plots match the intended controlled
-   conversion checkpoint:
+   The implementation should remove HVG selection from Notebook 00, write the
+   combined and per-sample `.h5ad` checkpoints under
+   `results/notebook00/<RUN_LABEL>/h5ad/`, and stop after QC/filtering/checkpoint
+   creation.
+
+2. Run the updated Notebook 00 through Slurm and verify the checkpoint outputs.
+
+   Confirm that the manual cutoffs, QC plots, tables, and `.h5ad` files match
+   the intended frozen checkpoint:
 
    ```text
    highest_expr_genes_top20.png
@@ -1716,36 +1816,30 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
    manual_ec_per_sample_qc_violin_pct_counts_mt.png
    manual_ec_per_sample_scatter_total_counts_pct_counts_mt.png
    manual_ec_per_sample_scatter_total_counts_n_genes_by_counts.png
-   manual_ec_highly_variable_genes.png
    manual_ec_filter_summary.tsv
    manual_ec_filter_parameters.tsv
-   manual_ec_preprocess_parameters.tsv
-   manual_ec_source_comparison_summary.tsv
-   manual_ec_hvg_overlap.tsv
+   manual_ec_filtered_counts.h5ad
+   manual_ec_filtered_normalized_log1p.h5ad
+   per-sample manual_ec_filtered_counts.h5ad files
+   per-sample manual_ec_filtered_normalized_log1p.h5ad files
    ```
 
-2. Wait for the user's additional details before implementing the next
-   biological analysis step.
+3. After Notebook 00 is verified, create a new Notebook 01 planning markdown.
 
-   The next session should start specifically here. Do not assume the exact
-   implementation beyond the completed QC/preprocess checkpoint until the user
-   provides the additional details.
+   That planning document should be created after the Notebook 00 branch is
+   ready, not mixed into the Notebook 00 freeze implementation.
 
-3. If the provided details confirm cell-cycle scoring as the next step, add
-   Seurat-equivalent cell-cycle scoring.
+4. Merge the Notebook 00 branch into `main` only after verification.
 
-   Scanpy does not expose Seurat's `cc.genes` automatically. The conversion
-   should explicitly version/store the S and G2M gene lists used for scoring in
-   tables and in `adata.uns`, then run the closest Scanpy implementation to
-   Heyoon's Seurat workflow.
+   Then create a fresh branch from updated `main` for Notebook 01 work.
 
-4. Run any next notebook update through Slurm, not on the login node.
+5. Run any next notebook update through Slurm, not on the login node.
 
    Use the same `13_execute_notebook00_source.sbatch.template` path. Do not
    submit `scripts/cellbender.sh`; the CellBender denoised H5 files remain fixed
    inputs.
 
-5. After user confirmation, archive or delete remaining historical workflow
+6. After user confirmation, archive or delete remaining historical workflow
    pieces outside the active Notebook 00 path.
 
    The forward Notebook 00 path no longer needs historical MAD/custom filtering,
@@ -1753,7 +1847,7 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
    source loading and missing-aware reporting because they are still needed for
    Cell Ranger filtered vs existing CellBender-H5 comparison.
 
-6. Keep CellBender denoising frozen unless the user explicitly asks otherwise.
+7. Keep CellBender denoising frozen unless the user explicitly asks otherwise.
 
    Future runs should reuse the existing `clean_adata/*_cellbender_denoised.h5`
    files. Notebook 00 can compare those fixed files against Cell Ranger filtered
