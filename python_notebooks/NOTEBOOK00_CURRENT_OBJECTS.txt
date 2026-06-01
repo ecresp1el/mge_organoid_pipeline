@@ -1,0 +1,268 @@
+Notebook 00 Current Object State
+================================
+
+File described:
+python_notebooks/notebooks/00_load_div30_div90_raw_to_anndata.ipynb
+
+This note describes the checked-in Notebook 00 state after the manual_ec run.
+If additional cells were added in a live VS Code/Jupyter kernel but not saved,
+those live-only variables are not reflected here.
+
+
+High-Level Pipeline
+-------------------
+
+Notebook 00 currently does this:
+
+1. Resolve selected sample/source paths.
+2. Load each sample as its own AnnData object.
+3. Concatenate loaded samples into one combined AnnData object.
+4. Calculate QC metrics.
+5. Apply manual_ec QC filtering.
+6. Normalize, log1p-transform, and annotate highly variable genes.
+7. Save QC/filter/preprocess tables.
+8. Save combined QC plots and per-sample QC plot grids.
+
+
+Main Data Objects
+-----------------
+
+sample_adata_names
+    List of loaded sample names.
+
+    Example meaning:
+    ["9853-MW-1", "9853-MW-2", ...]
+
+
+sample_adata_list
+    List of AnnData objects, one object per loaded sample.
+
+    Important:
+    These are the original loaded per-sample objects from the selected source.
+    They are not the manual_ec-filtered objects.
+    They are used for per-sample source/QC inspection before concatenation.
+
+
+adata_names
+adata_list
+    Backward-compatible aliases for:
+
+    adata_names = sample_adata_names
+    adata_list = sample_adata_list
+
+    Prefer using sample_adata_names and sample_adata_list in new notebook cells
+    because those names are more explicit.
+
+
+combined_adata
+    One combined AnnData object made by concatenating all objects in
+    sample_adata_list.
+
+    Status:
+    - combined across samples
+    - QC metrics calculated
+    - not yet manual_ec-filtered at the time it is created
+    - not yet normalized/log1p at the time it is created
+
+    Combined QC plots use this object.
+
+
+manual_ec_adata
+    One combined AnnData object after manual_ec filtering and preprocessing.
+
+    Status:
+    - combined across samples
+    - manual_ec QC-filtered
+    - normalized with sc.pp.normalize_total(target_sum=1e4)
+    - log1p-transformed with sc.pp.log1p
+    - annotated with highly variable genes in:
+
+      manual_ec_adata.var["highly_variable"]
+
+    This is the main object to use for downstream analysis.
+
+
+adata
+    Convenience alias:
+
+    adata = manual_ec_adata
+
+    This exists so interactive downstream Scanpy code can use the common
+    variable name adata.
+
+
+Important HVG Distinction
+-------------------------
+
+manual_ec_adata has HVGs already, but they were computed globally on the
+combined filtered object.
+
+So:
+
+manual_ec_adata.var["highly_variable"]
+    Global HVG annotation across all filtered cells/samples.
+
+If you split manual_ec_adata back into per-sample objects, each split object
+will carry the same global HVG annotation.
+
+That is useful if you want to inspect each sample using the same global HVG set.
+
+If you want HVGs computed independently per sample, you must recompute HVGs on
+each split per-sample object.
+
+
+Filtered Per-Sample Objects
+---------------------------
+
+The notebook does not create a filtered per-sample list by default.
+
+The default per-sample list is:
+
+sample_adata_list
+
+and that list is not manual_ec-filtered.
+
+To create filtered per-sample objects, split manual_ec_adata by run_sample_id:
+
+    manual_ec_filtered_sample_names, manual_ec_filtered_sample_list = split_adata_by_sample(
+        manual_ec_adata,
+        sample_column="run_sample_id",
+    )
+
+Then:
+
+manual_ec_filtered_sample_list
+    List of filtered per-sample AnnData objects.
+    These are sliced from manual_ec_adata.
+    They are already normalized/log1p-transformed.
+    They carry the global HVG annotation from manual_ec_adata.
+
+
+Recommended Split Helper
+------------------------
+
+Use this if you need filtered per-sample objects:
+
+    def split_adata_by_sample(
+        adata,
+        sample_column="run_sample_id",
+        sample_names=None,
+        copy=True,
+    ):
+        """
+        Split one combined AnnData object into a list of per-sample AnnData objects.
+
+        Assumptions:
+        - adata is one combined AnnData object, for example manual_ec_adata.
+        - adata.obs[sample_column] identifies the sample for each cell.
+        - This function does not modify adata.
+        - This function does not overwrite notebook variables by itself.
+          Variables are only created or overwritten by the names used on the
+          left side of the assignment when calling it.
+        """
+
+        if sample_column not in adata.obs.columns:
+            raise KeyError(f"{sample_column!r} not found in adata.obs")
+
+        sample_series = adata.obs[sample_column].astype(str)
+
+        if sample_names is None:
+            split_sample_names = list(sample_series.drop_duplicates())
+        else:
+            split_sample_names = [str(sample_name) for sample_name in sample_names]
+
+        split_sample_adata_list = []
+
+        for sample_name in split_sample_names:
+            sample_mask = sample_series == sample_name
+            one_sample_adata = adata[sample_mask]
+
+            if copy:
+                one_sample_adata = one_sample_adata.copy()
+
+            split_sample_adata_list.append(one_sample_adata)
+
+        return split_sample_names, split_sample_adata_list
+
+
+Recommended Downstream Starting Points
+--------------------------------------
+
+Use manual_ec_adata or adata when:
+    You want to continue the main combined analysis.
+    Examples: cell-cycle scoring, scaling, PCA, neighbors, UMAP, clustering.
+
+Use sample_adata_list when:
+    You want to inspect the original loaded samples before manual_ec filtering.
+
+Use manual_ec_filtered_sample_list after splitting manual_ec_adata when:
+    You want filtered per-sample objects for per-sample plotting or regression.
+
+Use per-sample HVG recomputation when:
+    You specifically want variable features selected independently within each
+    sample instead of globally across the combined dataset.
+
+
+Current Bioinformatics Stopping Point
+-------------------------------------
+
+Notebook 00 currently stops after:
+
+manual_ec filtering
+normalize_total
+log1p
+highly_variable_genes
+
+It has not yet performed:
+
+scaling
+PCA
+neighbors
+UMAP
+Leiden clustering
+cell-cycle scoring
+cell-cycle regression
+marker-based annotation
+
+
+Output Locations
+----------------
+
+Run label used for the latest cellranger_filtered manual_ec run:
+
+cellranger_filtered_manual_ec_div30_core_samples
+
+Run output directory:
+
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples/
+
+Tables:
+
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples/tables/
+
+Plots:
+
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples/plots/
+
+Executed notebook:
+
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.cellranger_filtered_manual_ec_div30_core_samples.executed.ipynb
+
+
+Important Disk Checkpoint Note
+------------------------------
+
+The notebook currently creates manual_ec_adata in memory.
+
+It saves tables and plots, but it does not currently save manual_ec_adata as an
+.h5ad checkpoint by default.
+
+If a reusable disk checkpoint is needed, add a notebook cell such as:
+
+    manual_ec_adata.write_h5ad(RUN_DIR / "manual_ec_adata.h5ad")
+
+Then reload later with:
+
+    manual_ec_adata = sc.read_h5ad(RUN_DIR / "manual_ec_adata.h5ad")
+    adata = manual_ec_adata
+
