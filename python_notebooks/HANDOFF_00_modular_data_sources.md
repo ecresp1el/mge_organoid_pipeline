@@ -175,6 +175,43 @@ No CellBender denoising was run during the post-cleanup rerun. The
 CellBender-labeled job only read existing `clean_adata/*_cellbender_denoised.h5`
 files.
 
+## Current Bioinformatics Checkpoint
+
+Notebook 00 is now complete through the early single-cell QC/preprocessing
+checkpoint:
+
+```text
+matrix loading
+sample metadata annotation
+QC metric calculation
+QC visualization
+manual_ec cell filtering
+total-count normalization
+log1p transform
+highly variable gene selection
+Cell Ranger filtered vs existing CellBender-denoised source comparison
+```
+
+Notebook 00 has not yet moved into the next biological analysis stages:
+
+```text
+cell-cycle scoring
+scaling/regression
+PCA
+neighbors
+UMAP
+clustering
+marker analysis
+cell type annotation
+differential expression
+trajectory/pseudotime
+integration/batch correction
+```
+
+The next work session should start specifically with the next biological
+analysis step. The user has more details about this and will provide them
+tomorrow before implementation.
+
 Sections below that discuss the original raw/filtered proof, raw export,
 pre-cleanup runs, or old MAD/custom filtering are retained as historical context
 only. They are not the active Notebook 00 workflow and should not be used as
@@ -1565,21 +1602,28 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
    manual_ec_hvg_overlap.tsv
    ```
 
-2. If the plots/tables look acceptable, add Seurat-equivalent cell-cycle
-   scoring.
+2. Wait for the user's additional details before implementing the next
+   biological analysis step.
+
+   The next session should start specifically here. Do not assume the exact
+   implementation beyond the completed QC/preprocess checkpoint until the user
+   provides the additional details.
+
+3. If the provided details confirm cell-cycle scoring as the next step, add
+   Seurat-equivalent cell-cycle scoring.
 
    Scanpy does not expose Seurat's `cc.genes` automatically. The conversion
    should explicitly version/store the S and G2M gene lists used for scoring in
    tables and in `adata.uns`, then run the closest Scanpy implementation to
    Heyoon's Seurat workflow.
 
-3. Run the cell-cycle update through Slurm, not on the login node.
+4. Run any next notebook update through Slurm, not on the login node.
 
    Use the same `13_execute_notebook00_source.sbatch.template` path. Do not
    submit `scripts/cellbender.sh`; the CellBender denoised H5 files remain fixed
    inputs.
 
-4. After user confirmation, archive or delete remaining historical workflow
+5. After user confirmation, archive or delete remaining historical workflow
    pieces outside the active Notebook 00 path.
 
    The forward Notebook 00 path no longer needs historical MAD/custom filtering,
@@ -1587,7 +1631,7 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
    source loading and missing-aware reporting because they are still needed for
    Cell Ranger filtered vs existing CellBender-H5 comparison.
 
-5. Keep CellBender denoising frozen unless the user explicitly asks otherwise.
+6. Keep CellBender denoising frozen unless the user explicitly asks otherwise.
 
    Future runs should reuse the existing `clean_adata/*_cellbender_denoised.h5`
    files. Notebook 00 can compare those fixed files against Cell Ranger filtered
