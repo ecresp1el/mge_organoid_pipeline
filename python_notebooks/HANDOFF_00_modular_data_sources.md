@@ -1546,8 +1546,8 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
 
 ## Recommended Next Steps
 
-1. Tomorrow, review the executed notebooks and plots from the validated Slurm
-   runs.
+1. Tomorrow, review the executed notebooks and plots from the post-cleanup
+   Slurm rerun.
 
    Confirm that the manual cutoffs and plots match the intended controlled
    conversion checkpoint:
