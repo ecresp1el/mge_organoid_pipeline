@@ -1011,12 +1011,19 @@ The notebook now only uses objects created in the current run:
 
 ```text
 source_table
+sample_adata_names
+sample_adata_list
 adata_names
 adata_list
-analysis_names
-analysis_list
 combined_adata
+manual_ec_adata
 ```
+
+`sample_adata_names` and `sample_adata_list` are the explicit per-sample
+objects. `adata_names` and `adata_list` remain backward-compatible aliases for
+older notebook snippets. `combined_adata` is the concatenated loaded object
+before manual_ec filtering; `manual_ec_adata` is the filtered and preprocessed
+working object.
 
 Plot/table output locations are deterministic and run-specific:
 
@@ -1489,7 +1496,8 @@ manual_ec_scatter_total_counts_n_genes_by_counts.png
 ```
 
 The notebook now has a separate `manual_ec Per-Sample QC Plot Grids` cell after
-the combined manual_ec checkpoint. It loops through `adata_names`/`adata_list`,
+the combined manual_ec checkpoint. It loops through
+`sample_adata_names`/`sample_adata_list`,
 recomputes Scanpy QC metrics on each sample object, and saves per-sample 1xN
 Scanpy grids:
 
