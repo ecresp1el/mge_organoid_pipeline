@@ -9,6 +9,151 @@ notebook. Notebook 01 should start from the `.h5ad` checkpoints written by
 Notebook 00 and should not rerun matrix loading, source comparison setup, or
 manual_ec filtering.
 
+## Current Handoff For Pickup On 2026-06-02
+
+Use this section first. Older sections below include planning notes from before
+the CCDifference run was completed; where they mention `regressed_qc` as the
+current first-pass branch, treat that as historical context.
+
+Current completed run:
+
+```text
+NOTEBOOK00_RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples_freeze
+RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1
+RUN_DIR=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1
+```
+
+Source notebook updated:
+
+```text
+/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/python_notebooks/notebooks/01_notebook00_checkpoint_regression_comparison.ipynb
+```
+
+Executed notebook saved:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/executed/01_notebook00_checkpoint_regression_comparison.cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1.executed.ipynb
+```
+
+What was done:
+
+1. Started from the frozen Notebook 00 normalized/log1p checkpoints for
+   `cellranger_filtered_manual_ec_div30_core_samples_freeze`.
+2. Used the already validated Regev/Tirosh S and G2M cell-cycle gene lists.
+3. Scored `S_score`, `G2M_score`, and `phase` on the normalized/log1p object.
+4. Created `CCDifference = S_score - G2M_score`.
+5. Ran Notebook 01 branch analysis for `combined` plus all six per-sample
+   checkpoints.
+6. Compared two branches in every scope:
+   `not_regressed` and `regressed_ccdifference`.
+7. For `regressed_ccdifference`, ran
+   `sc.pp.regress_out(..., keys=["CCDifference"])`.
+8. Saved final `.h5ad` outputs only for `regressed_ccdifference`.
+
+Exact operation order for the completed Notebook 01 run:
+
+```text
+1. Resolve DATA_ROOT and RUN_LABEL
+2. Load Notebook 00 normalized/log1p checkpoint
+3. Validate .X, .layers["counts"], obs names, and var names
+4. Infer run_sample_id values
+5. Score cell cycle on the in-memory normalized/log1p object
+6. Add S_score, G2M_score, phase, and CCDifference to .obs
+7. Save cell-cycle gene and score summary tables
+8. Select 2,000 HVGs from .layers["counts"] using Seurat-v3 HVG selection
+9. Run not_regressed from normalized/log1p HVG .X
+10. Run regressed_ccdifference by regressing .obs["CCDifference"] from HVG .X
+11. Scale, PCA, neighbors, UMAP, and Leiden inside each branch
+12. Save plots for both branches
+13. Save .h5ad only for regressed_ccdifference
+14. Write Notebook 01 tables and executed notebook copy
+```
+
+Important state detail:
+
+```text
+Regression happens only on branch-specific copies after HVG subsetting.
+Notebook 00 checkpoints are read-only inputs.
+Raw counts remain available in .layers["counts"].
+```
+
+Key plots to reopen first:
+
+```text
+RUN_DIR/plots/combined/not_regressed/umap_CCDifference.png
+RUN_DIR/plots/combined/regressed_ccdifference/umap_CCDifference.png
+RUN_DIR/plots/combined/regressed_ccdifference/umap_phase.png
+RUN_DIR/plots/combined/regressed_ccdifference/umap_leiden.png
+```
+
+Earlier focused CCDifference PCA diagnostic plots remain here:
+
+```text
+RUN_DIR/plots/cell_cycle_pca/combined/before_ccdifference_regression/
+RUN_DIR/plots/cell_cycle_pca/combined/after_ccdifference_regression/
+RUN_DIR/plots/cell_cycle_pca/per_sample/<run_sample_id>/before_ccdifference_regression/
+RUN_DIR/plots/cell_cycle_pca/per_sample/<run_sample_id>/after_ccdifference_regression/
+```
+
+Main Notebook 01 tables saved:
+
+```text
+RUN_DIR/tables/notebook01_run_parameters.tsv
+RUN_DIR/tables/notebook01_input_validation.tsv
+RUN_DIR/tables/notebook01_analysis_plan.tsv
+RUN_DIR/tables/notebook01_hvg_genes.tsv
+RUN_DIR/tables/notebook01_hvg_parameters.tsv
+RUN_DIR/tables/notebook01_cell_cycle_gene_source.tsv
+RUN_DIR/tables/notebook01_cell_cycle_gene_summary.tsv
+RUN_DIR/tables/notebook01_cell_cycle_score_summary.tsv
+RUN_DIR/tables/notebook01_branch_summary.tsv
+RUN_DIR/tables/notebook01_plot_manifest.tsv
+RUN_DIR/tables/notebook01_umap_coordinates.tsv
+```
+
+Earlier CCDifference diagnostic tables saved:
+
+```text
+RUN_DIR/tables/cell_cycle_gene_source.tsv
+RUN_DIR/tables/cell_cycle_gene_summary.tsv
+RUN_DIR/tables/cell_cycle_genes_present.tsv
+RUN_DIR/tables/cell_cycle_genes_missing.tsv
+RUN_DIR/tables/cell_cycle_score_summary.tsv
+RUN_DIR/tables/cell_cycle_input_validation.tsv
+RUN_DIR/tables/cell_cycle_pca_diagnostic_summary.tsv
+RUN_DIR/tables/cell_cycle_pca_plot_manifest.tsv
+```
+
+Final `.h5ad` outputs saved for carry-forward:
+
+```text
+RUN_DIR/h5ad/combined/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-1/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-2/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-3/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-4/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-5/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-6/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+```
+
+Completion check already verified:
+
+```text
+notebook01_branch_summary.tsv has 14 branch rows:
+  combined + six samples
+  each has not_regressed and regressed_ccdifference
+
+The 7 regressed_ccdifference rows all have non-empty h5ad_path values.
+```
+
+Operational note:
+
+```text
+The combined h5ad read was killed when attempted outside the Slurm allocation.
+The successful run used the active 128 GB Slurm allocation on gl3168.
+Do real Notebook 01 reruns through Slurm, not from the login/VS Code side.
+```
+
 ## Operating Rules For Notebook 01 Execution
 
 Notebook 01 real matrix-scale runs must execute on Great Lakes through Slurm,
