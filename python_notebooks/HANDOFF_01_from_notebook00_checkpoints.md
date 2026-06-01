@@ -135,6 +135,51 @@ results/notebook01/<RUN_LABEL>/plots/
 results/notebook01/<RUN_LABEL>/h5ad/
 ```
 
+Current driver notebook:
+
+```text
+python_notebooks/notebooks/01_notebook00_checkpoint_regression_comparison.ipynb
+```
+
+Current Slurm runner:
+
+```text
+slurm_templates/14_execute_notebook01_regression.sbatch.template
+```
+
+Executed notebooks are written outside the Git checkout:
+
+```text
+PROJECT_ROOT/results/notebook01/executed/01_notebook00_checkpoint_regression_comparison.<RUN_LABEL>.executed.ipynb
+```
+
+First-pass output tables:
+
+```text
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/notebook01_run_parameters.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/notebook01_input_validation.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/notebook01_analysis_plan.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/notebook01_hvg_genes.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/notebook01_hvg_parameters.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/notebook01_branch_summary.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/notebook01_plot_manifest.tsv
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/tables/notebook01_umap_coordinates.tsv
+```
+
+First-pass plots:
+
+```text
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/plots/combined/<branch>/
+PROJECT_ROOT/results/notebook01/<RUN_LABEL>/plots/per_sample/<run_sample_id>/<branch>/
+```
+
+Branch `.h5ad` outputs are optional and default to off for the first visual
+comparison run:
+
+```text
+NOTEBOOK01_WRITE_BRANCH_H5AD=0
+```
+
 ## References For Cell-Cycle Regression Decisions
 
 Use these as guidance, not as hard-coded policy:
@@ -247,13 +292,60 @@ That module should own:
 The notebook should be a driver. It should not hide major state transitions in
 ad hoc notebook-only cells.
 
-## Decisions To Confirm Before Implementation
+## Current First-Pass Implementation
+
+Confirmed current input:
+
+```text
+NOTEBOOK01_NOTEBOOK00_RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples_freeze
+```
+
+Confirmed current scopes:
+
+```text
+NOTEBOOK01_SCOPES=combined:per_sample
+```
+
+Confirmed current branches:
+
+```text
+not_regressed
+regressed_qc
+```
+
+Confirmed current regression covariates:
+
+```text
+NOTEBOOK01_REGRESS_KEYS=total_counts:pct_counts_mt
+```
+
+Confirmed current HVG settings:
+
+```text
+flavor=seurat_v3
+n_top_genes=2000
+layer=counts
+batch_key=None
+```
+
+Confirmed current embedding/clustering settings:
+
+```text
+n_pcs=50
+n_neighbors=15
+leiden_resolution=0.5
+random_state=0
+```
+
+## Open Decisions After First Run
 
 1. Which Notebook 00 checkpoint should be the primary Notebook 01 input:
-   `cellranger_filtered` or `cellbender_denoised`.
+   current first pass uses `cellranger_filtered`; later we can repeat against
+   `cellbender_denoised`.
 
 2. Whether Notebook 01 should operate on the combined checkpoint only first, or
-   also process per-sample checkpoints in parallel.
+   also process per-sample checkpoints in parallel. Current first pass runs
+   both.
 
 3. Exact Seurat-v3 HVG parameters:
    expected number of HVGs, batch key if any, and whether HVG should be selected
@@ -284,9 +376,9 @@ ad hoc notebook-only cells.
 - Run and record both regression branches unless the user explicitly narrows the
   comparison.
 
-## First Implementation Step
+## Current Execution Verification Step
 
-Create or update the Notebook 01 driver so it:
+Run the Notebook 01 driver through Slurm and confirm it:
 
 1. Resolves `DATA_ROOT`.
 2. Accepts a Notebook 00 `RUN_LABEL` as input.
@@ -296,3 +388,6 @@ Create or update the Notebook 01 driver so it:
    analysis.
 6. Builds a planned analysis table with `combined` and `per_sample` scopes and
    both `not_regressed` and `regressed_qc` variants.
+7. Saves UMAP/PCA plots for each branch under the Notebook 01 run directory.
+8. Writes an executed notebook with visible plots under
+   `PROJECT_ROOT/results/notebook01/executed/`.

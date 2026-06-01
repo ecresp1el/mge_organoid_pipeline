@@ -7,12 +7,16 @@ cells so combined and per-sample runs can be compared reproducibly.
 
 from __future__ import annotations
 
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
 import anndata as ad
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import scanpy as sc
 
 
 NOTEBOOK01_SUPPORTED_SCOPES = ("combined", "per_sample")
@@ -40,6 +44,28 @@ class Notebook01RunSettings:
     notebook01_results_dirname: str = "notebook01"
     scopes: tuple[str, ...] = NOTEBOOK01_SUPPORTED_SCOPES
     regression_branches: tuple[str, ...] = NOTEBOOK01_REGRESSION_BRANCHES
+
+
+@dataclass(frozen=True)
+class Notebook01HVGSettings:
+    """Seurat-v3 HVG settings for Notebook 01."""
+
+    n_top_genes: int = 2000
+    flavor: str = "seurat_v3"
+    layer: str = "counts"
+    batch_key: str | None = None
+
+
+@dataclass(frozen=True)
+class Notebook01EmbeddingSettings:
+    """PCA/neighbors/UMAP/clustering settings for Notebook 01 branches."""
+
+    n_pcs: int = 50
+    n_neighbors: int = 15
+    leiden_resolution: float = 0.5
+    random_state: int = 0
+    scale_max_value: float = 10.0
+    regress_n_jobs: int = 8
 
 
 @dataclass(frozen=True)
@@ -207,6 +233,18 @@ def default_regression_variants(
     )
 
 
+def parse_csv(value: str | Sequence[str] | None, default: Sequence[str] = ()) -> tuple[str, ...]:
+    """Parse comma/semicolon/colon-delimited env-style strings."""
+    if value is None:
+        return tuple(default)
+    if isinstance(value, str):
+        if not value.strip():
+            return tuple(default)
+        normalized = value.replace(";", ",").replace(":", ",")
+        return tuple(part.strip() for part in normalized.split(",") if part.strip())
+    return tuple(str(part).strip() for part in value if str(part).strip())
+
+
 def validate_notebook01_input(
     adata: ad.AnnData,
     *,
@@ -280,3 +318,166 @@ def planned_analysis_table(
                     }
                 )
     return pd.DataFrame(records)
+
+
+def run_hvg_selection(
+    adata: ad.AnnData,
+    *,
+    settings: Notebook01HVGSettings = Notebook01HVGSettings(),
+    scope: str = "combined",
+    run_sample_id: object | None = None,
+) -> tuple[np.ndarray, pd.DataFrame, pd.DataFrame]:
+    """Select HVGs from counts and return mask, gene table, and parameter table."""
+    started_at = time.perf_counter()
+    if settings.layer not in adata.layers:
+        raise KeyError(f"Missing counts layer {settings.layer!r} for HVG selection.")
+
+    sc.pp.highly_variable_genes(
+        adata,
+        n_top_genes=settings.n_top_genes,
+        flavor=settings.flavor,
+        layer=settings.layer,
+        batch_key=settings.batch_key,
+        subset=False,
+    )
+
+    hvg_mask = adata.var["highly_variable"].fillna(False).to_numpy(dtype=bool)
+    hvg_table = adata.var.loc[hvg_mask].copy()
+    hvg_table.insert(0, "gene", hvg_table.index.astype(str))
+    hvg_table.insert(0, "run_sample_id", "" if run_sample_id is None else str(run_sample_id))
+    hvg_table.insert(0, "scope", scope)
+    hvg_table = hvg_table.reset_index(drop=True)
+
+    parameter_df = settings_to_frame(settings, method="notebook01_hvg")
+    parameter_df.insert(0, "run_sample_id", "" if run_sample_id is None else str(run_sample_id))
+    parameter_df.insert(0, "scope", scope)
+    parameter_df["n_cells"] = int(adata.n_obs)
+    parameter_df["n_genes"] = int(adata.n_vars)
+    parameter_df["n_highly_variable_genes"] = int(hvg_mask.sum())
+    parameter_df["elapsed_seconds"] = time.perf_counter() - started_at
+    return hvg_mask, hvg_table, parameter_df
+
+
+def run_regression_embedding_branch(
+    adata: ad.AnnData,
+    *,
+    hvg_mask: np.ndarray,
+    variant: Notebook01RegressionVariant,
+    settings: Notebook01EmbeddingSettings = Notebook01EmbeddingSettings(),
+    scope: str = "combined",
+    run_sample_id: object | None = None,
+) -> tuple[ad.AnnData, dict]:
+    """Run one HVG-subset regression/PCA/UMAP/clustering branch."""
+    started_at = time.perf_counter()
+    branch_adata = adata[:, hvg_mask].copy()
+    missing_regress_keys = [key for key in variant.regress_keys if key not in branch_adata.obs.columns]
+    if missing_regress_keys:
+        raise KeyError(f"Missing regression covariates in adata.obs: {missing_regress_keys}")
+
+    if variant.regress_keys:
+        sc.pp.regress_out(branch_adata, keys=list(variant.regress_keys), n_jobs=settings.regress_n_jobs)
+
+    sc.pp.scale(branch_adata, max_value=settings.scale_max_value)
+    n_comps = min(settings.n_pcs, max(1, branch_adata.n_vars - 1), max(1, branch_adata.n_obs - 1))
+    sc.pp.pca(branch_adata, n_comps=n_comps, svd_solver="arpack", random_state=settings.random_state)
+    sc.pp.neighbors(
+        branch_adata,
+        n_neighbors=settings.n_neighbors,
+        n_pcs=n_comps,
+        random_state=settings.random_state,
+    )
+    sc.tl.umap(branch_adata, random_state=settings.random_state)
+    sc.tl.leiden(
+        branch_adata,
+        resolution=settings.leiden_resolution,
+        key_added="leiden",
+        random_state=settings.random_state,
+    )
+
+    branch_adata.uns["notebook01_branch"] = {
+        "scope": scope,
+        "run_sample_id": "" if run_sample_id is None else str(run_sample_id),
+        "branch": variant.branch,
+        "regress_keys": list(variant.regress_keys),
+        "regress_cell_cycle": variant.regress_cell_cycle,
+        "hvg_n_genes": int(hvg_mask.sum()),
+        **asdict(settings),
+    }
+
+    record = {
+        "scope": scope,
+        "run_sample_id": "" if run_sample_id is None else str(run_sample_id),
+        "branch": variant.branch,
+        "regress_keys": ",".join(variant.regress_keys),
+        "n_cells": int(branch_adata.n_obs),
+        "n_hvg_genes": int(branch_adata.n_vars),
+        "n_pcs": int(n_comps),
+        "n_neighbors": settings.n_neighbors,
+        "leiden_resolution": settings.leiden_resolution,
+        "n_leiden_clusters": int(branch_adata.obs["leiden"].nunique()),
+        "elapsed_seconds": time.perf_counter() - started_at,
+    }
+    return branch_adata, record
+
+
+def embedding_table(
+    adata: ad.AnnData,
+    *,
+    scope: str,
+    branch: str,
+    run_sample_id: object | None = None,
+) -> pd.DataFrame:
+    """Return UMAP coordinates and selected metadata for one branch."""
+    if "X_umap" not in adata.obsm:
+        raise KeyError("Missing adata.obsm['X_umap']; run UMAP first.")
+    coords = pd.DataFrame(adata.obsm["X_umap"], index=adata.obs_names, columns=["UMAP1", "UMAP2"])
+    coords.insert(0, "cell_id", coords.index.astype(str))
+    coords.insert(0, "branch", branch)
+    coords.insert(0, "run_sample_id", "" if run_sample_id is None else str(run_sample_id))
+    coords.insert(0, "scope", scope)
+    for column in ["data_source", "run_sample_id", "cell_line", "total_counts", "pct_counts_mt", "n_genes_by_counts", "leiden"]:
+        if column in adata.obs.columns and column not in coords.columns:
+            coords[column] = adata.obs[column].to_numpy()
+    return coords.reset_index(drop=True)
+
+
+def save_umap_plot(
+    adata: ad.AnnData,
+    *,
+    color: str,
+    output_path: Path | str,
+    title: str,
+    show: bool = False,
+    dpi: int = 160,
+) -> Path:
+    """Save one UMAP plot for a Notebook 01 branch."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    sc.pl.umap(adata, color=color, title=title, show=False)
+    fig = plt.gcf()
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
+    if show:
+        plt.show()
+    plt.close(fig)
+    return output_path
+
+
+def save_pca_variance_plot(
+    adata: ad.AnnData,
+    *,
+    output_path: Path | str,
+    title: str,
+    show: bool = False,
+    dpi: int = 160,
+) -> Path:
+    """Save one PCA variance-ratio plot for a Notebook 01 branch."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    sc.pl.pca_variance_ratio(adata, n_pcs=min(50, adata.uns["pca"]["variance_ratio"].shape[0]), show=False)
+    fig = plt.gcf()
+    fig.suptitle(title)
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
+    if show:
+        plt.show()
+    plt.close(fig)
+    return output_path
