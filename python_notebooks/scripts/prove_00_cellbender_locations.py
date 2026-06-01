@@ -125,7 +125,6 @@ def main() -> int:
     print("repo_root:", config.repo_root)
     print("data_root:", config.data_root)
     print("clean_adata_dir:", config.data_root / "clean_adata")
-    print("raw_adata_dir:", config.data_root / "raw_adata")
     print("sample_ids:", list(config.target_run_sample_ids or []))
     print("target_divs:", list(config.target_divs))
 
@@ -135,13 +134,11 @@ def main() -> int:
 
     found_n = int(proof_df["cellbender_output_exists"].sum())
     missing_n = int((~proof_df["cellbender_output_exists"]).sum())
-    raw_input_found_n = int(proof_df["raw_h5ad_exists"].sum())
 
     print("\nCellBender expected path summary:")
     print(proof_df.to_string(index=False))
 
     print("\nCounts:")
-    print("raw_h5ad_found:", raw_input_found_n)
     print("cellbender_outputs_found:", found_n)
     print("cellbender_outputs_missing:", missing_n)
 

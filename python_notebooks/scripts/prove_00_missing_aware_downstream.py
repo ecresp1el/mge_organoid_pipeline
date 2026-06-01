@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-source",
         default="cellbender_denoised",
-        choices=["cellranger_raw", "cellranger_filtered", "cellbender_denoised"],
+        choices=["cellranger_filtered", "cellbender_denoised"],
         help="Source to check. Default: cellbender_denoised.",
     )
     parser.add_argument(
@@ -127,7 +127,7 @@ def main() -> int:
     print("repo_root:", config.repo_root)
     print("data_root:", config.data_root)
     print("data_source:", result.data_source)
-    print("available_samples:", result.available_samples)
+    print("available_samples:", source_table.loc[source_table["load_status"] == "available", "run_sample_id"].tolist())
     print("skipped_samples:", result.skipped_samples)
 
     print("\nSource table:")

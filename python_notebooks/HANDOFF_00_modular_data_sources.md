@@ -59,6 +59,7 @@ Completed in this branch:
 manual_ec filtered Cell Ranger run for the six DIV30 core samples
 manual_ec existing-CellBender-H5 run for the same six DIV30 core samples
 manual_ec Cell Ranger filtered vs CellBender-denoised comparison
+Notebook 00 source-layer cleanup after manual_ec validation
 run-specific table and plot directories under results/notebook00/<RUN_LABEL>
 executed notebooks under results/notebook00/executed
 Slurm-safe comparison-label parsing using ":" or ";" separators
@@ -70,8 +71,56 @@ Not completed yet:
 Seurat-equivalent S/G2M cell-cycle gene list storage and scoring
 collaborator review of manual_ec outputs/plots
 raw export manifest cleanup, if no longer needed
-physical deletion/archive of historical proof scripts and old MAD/custom filtering scaffolding outside the forward path
+physical deletion/archive of remaining historical notes and old MAD/custom filtering scaffolding outside the forward path
 ```
+
+## Notebook 00 Cleanup Confirmed
+
+The active Notebook 00 code path now supports only the two sources used by the
+validated `manual_ec` runs:
+
+```text
+cellranger_filtered
+cellbender_denoised
+```
+
+Cleanup performed after the successful Slurm runs:
+
+```text
+removed cellranger_raw from the active Notebook 00 source layer
+removed raw Cell Ranger matrix-source resolver support
+removed expected_raw_h5ad_path and raw_h5ad reporting from CellBender source tables
+removed the legacy load_dataset() tuple wrapper
+removed unused DatasetLoadResult.available_samples and DatasetLoadResult.has_skipped_samples properties
+deleted python_notebooks/scripts/prove_00_raw_filtered_sources.py
+updated remaining Notebook 00 proof scripts so they only refer to active sources
+```
+
+The current helper modules required by the active notebook are:
+
+```text
+python_notebooks/src/mge_organoid_python/data_sources.py
+python_notebooks/src/mge_organoid_python/notebook00_workflow.py
+python_notebooks/src/mge_organoid_python/notebook00_plots.py
+```
+
+Validation after cleanup used the `mge-organoid-python` conda env:
+
+```text
+python -m compileall -q python_notebooks/src/mge_organoid_python python_notebooks/scripts
+notebook JSON load passed
+source availability passed for cellranger_filtered: 6 available samples
+source availability passed for cellbender_denoised: 6 available samples
+cellranger_raw is rejected by normalize_data_source()
+git diff --check passed
+```
+
+No CellBender denoising was run during cleanup.
+
+Sections below that discuss the original raw/filtered proof, raw export,
+pre-cleanup runs, or old MAD/custom filtering are retained as historical context
+only. They are not the active Notebook 00 workflow and should not be used as
+tomorrow's run instructions.
 
 ## Verified Slurm Runs
 
@@ -1439,7 +1488,8 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
 
 ## Recommended Next Steps
 
-1. Review the executed notebooks and plots with the collaborator/user.
+1. Tomorrow, review the executed notebooks and plots from the validated Slurm
+   runs.
 
    Confirm that the manual cutoffs and plots match the intended controlled
    conversion checkpoint:
@@ -1457,26 +1507,31 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
    manual_ec_hvg_overlap.tsv
    ```
 
-2. Add Seurat-equivalent cell-cycle scoring.
+2. If the plots/tables look acceptable, add Seurat-equivalent cell-cycle
+   scoring.
 
    Scanpy does not expose Seurat's `cc.genes` automatically. The conversion
    should explicitly version/store the S and G2M gene lists used for scoring in
    tables and in `adata.uns`, then run the closest Scanpy implementation to
    Heyoon's Seurat workflow.
 
-3. After user confirmation, archive or delete old workflow pieces.
+3. Run the cell-cycle update through Slurm, not on the login node.
+
+   Use the same `13_execute_notebook00_source.sbatch.template` path. Do not
+   submit `scripts/cellbender.sh`; the CellBender denoised H5 files remain fixed
+   inputs.
+
+4. After user confirmation, archive or delete remaining historical workflow
+   pieces outside the active Notebook 00 path.
 
    The forward Notebook 00 path no longer needs historical MAD/custom filtering,
    basic UMAP/clustering, Harmony, marker panels, or raw full-analysis code. Keep
    source loading and missing-aware reporting because they are still needed for
    Cell Ranger filtered vs existing CellBender-H5 comparison.
 
-4. Keep CellBender denoising frozen unless the user explicitly asks otherwise.
+5. Keep CellBender denoising frozen unless the user explicitly asks otherwise.
 
    Future runs should reuse the existing `clean_adata/*_cellbender_denoised.h5`
    files. Notebook 00 can compare those fixed files against Cell Ranger filtered
    matrices, but `scripts/cellbender.sh` should not be submitted again for this
    checkpoint.
-
-5. Decide whether the proof scripts should stay as active validation utilities
-   or move under an archive/validation area after the notebook is stable.

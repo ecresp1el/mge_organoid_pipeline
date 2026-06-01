@@ -1,4 +1,4 @@
-"""Data-source helpers for Notebook 00 raw/filtered and CellBender workflows."""
+"""Data-source helpers for the Notebook 00 manual_ec workflow."""
 
 from __future__ import annotations
 
@@ -16,12 +16,9 @@ import scanpy as sc
 SAMPLE_MAP_NAME = "metadata/div30_div90_sample_id_to_biolabel_map.tsv"
 DEFAULT_DATA_ROOT = Path("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder")
 
-CELLRANGER_DATA_SOURCES = {
-    "cellranger_raw": "raw",
-    "cellranger_filtered": "filtered",
-}
+CELLRANGER_FILTERED_SOURCE = "cellranger_filtered"
 CELLBENDER_DATA_SOURCE = "cellbender_denoised"
-SUPPORTED_DATA_SOURCES = tuple([*CELLRANGER_DATA_SOURCES.keys(), CELLBENDER_DATA_SOURCE])
+SUPPORTED_DATA_SOURCES = (CELLRANGER_FILTERED_SOURCE, CELLBENDER_DATA_SOURCE)
 
 
 def find_repo_root(start: Path | str | None = None) -> Path:
@@ -48,41 +45,19 @@ def normalize_data_source(data_source: str) -> str:
     return normalized
 
 
-def normalize_matrix_source(matrix_source: str) -> str:
-    """Normalize and validate a Cell Ranger matrix source."""
-    normalized = str(matrix_source).strip().lower()
-    valid_sources = {"raw", "filtered", "auto"}
-    if normalized not in valid_sources:
-        raise ValueError(f"matrix_source must be one of {sorted(valid_sources)}; got {matrix_source!r}")
-    return normalized
-
-
-def resolve_matrix_dir(per_sample_metrics_csv: str | Path, matrix_source: str) -> Path:
-    """Resolve a per-sample Cell Ranger raw or filtered 10x matrix directory."""
+def resolve_filtered_matrix_dir(per_sample_metrics_csv: str | Path) -> Path:
+    """Resolve a per-sample Cell Ranger filtered 10x matrix directory."""
     count_dir = Path(per_sample_metrics_csv).parent / "count"
-    resolved_source = normalize_matrix_source(matrix_source)
-
-    raw_candidates = [
-        count_dir / "sample_raw_feature_bc_matrix",
-        count_dir / "raw_feature_bc_matrix",
-    ]
     filtered_candidates = [
         count_dir / "sample_filtered_feature_bc_matrix",
         count_dir / "filtered_feature_bc_matrix",
     ]
 
-    if resolved_source == "raw":
-        candidates = raw_candidates + filtered_candidates
-    elif resolved_source == "filtered":
-        candidates = filtered_candidates + raw_candidates
-    else:
-        candidates = raw_candidates + filtered_candidates
-
-    for candidate in candidates:
+    for candidate in filtered_candidates:
         if candidate.exists():
             return candidate
 
-    return candidates[0]
+    return filtered_candidates[0]
 
 
 def _cell_line_from_biological_label(label: object) -> Optional[str]:
@@ -90,25 +65,19 @@ def _cell_line_from_biological_label(label: object) -> Optional[str]:
     return match.group(1) if match else None
 
 
-def safe_sample_filename_stem(run_sample_id: object) -> str:
-    """Return the raw `.h5ad` basename stem used by Notebook 00 raw export."""
+def _safe_sample_filename_stem(run_sample_id: object) -> str:
     return str(run_sample_id).replace(" ", "_")
-
-
-def expected_raw_h5ad_path(data_root: Path | str, run_sample_id: object) -> Path:
-    """Return the primary raw AnnData path used as CellBender input."""
-    return Path(data_root).expanduser().resolve() / "raw_adata" / f"{safe_sample_filename_stem(run_sample_id)}.h5ad"
 
 
 def expected_cellbender_output_h5(data_root: Path | str, run_sample_id: object) -> Path:
     """Return the primary CellBender denoised H5 path from `scripts/cellbender.sh`."""
-    stem = safe_sample_filename_stem(run_sample_id)
+    stem = _safe_sample_filename_stem(run_sample_id)
     return Path(data_root).expanduser().resolve() / "clean_adata" / f"{stem}_cellbender_denoised.h5"
 
 
 @dataclass(frozen=True)
 class Notebook00SourceConfig:
-    """Configuration for loading Notebook 00 Cell Ranger raw/filtered sources."""
+    """Configuration for loading Notebook 00 manual_ec sources."""
 
     repo_root: Path
     data_root: Path
@@ -142,13 +111,6 @@ class Notebook00SourceConfig:
     def sample_map_tsv(self) -> Path:
         return self.repo_root / self.sample_map_name
 
-    @property
-    def matrix_source(self) -> str:
-        data_source = normalize_data_source(self.data_source)
-        if data_source not in CELLRANGER_DATA_SOURCES:
-            raise ValueError(f"{data_source!r} does not have a Cell Ranger matrix_source.")
-        return CELLRANGER_DATA_SOURCES[data_source]
-
 
 @dataclass
 class DatasetLoadResult:
@@ -160,12 +122,6 @@ class DatasetLoadResult:
     source_table: pd.DataFrame
 
     @property
-    def available_samples(self) -> list[str]:
-        if "load_status" not in self.source_table.columns:
-            return []
-        return self.source_table.loc[self.source_table["load_status"] == "available", "run_sample_id"].tolist()
-
-    @property
     def skipped_samples(self) -> list[str]:
         if "load_status" not in self.source_table.columns:
             return []
@@ -175,18 +131,14 @@ class DatasetLoadResult:
     def loaded_samples(self) -> list[str]:
         return list(self.adata_names)
 
-    @property
-    def has_skipped_samples(self) -> bool:
-        return bool(self.skipped_samples)
-
     def availability_summary(self) -> pd.DataFrame:
         return summarize_source_availability(self.source_table)
 
 
 def sample_table(config: Notebook00SourceConfig) -> pd.DataFrame:
-    """Return selected samples with resolved raw/filtered matrix directories."""
-    if normalize_data_source(config.data_source) not in CELLRANGER_DATA_SOURCES:
-        raise ValueError("sample_table() is only for Cell Ranger raw/filtered sources. Use cellbender_output_table().")
+    """Return selected samples with resolved filtered Cell Ranger matrix directories."""
+    if normalize_data_source(config.data_source) != CELLRANGER_FILTERED_SOURCE:
+        raise ValueError("sample_table() is only for Cell Ranger filtered sources.")
 
     sample_metadata_df = pd.read_csv(config.sample_map_tsv, sep="\t")
     required = {"DIV", "run_sample_id", "biological_label", "per_sample_metrics_csv"}
@@ -225,9 +177,9 @@ def sample_table(config: Notebook00SourceConfig) -> pd.DataFrame:
     sample_metadata_df = sample_metadata_df.sort_values(["DIV", "run_sample_id"]).reset_index(drop=True)
     sample_metadata_df["run_sample_id"] = sample_metadata_df["run_sample_id"].astype(str)
     sample_metadata_df["data_source"] = normalize_data_source(config.data_source)
-    sample_metadata_df["matrix_source"] = config.matrix_source
+    sample_metadata_df["matrix_source"] = "filtered"
     sample_metadata_df["matrix_dir"] = sample_metadata_df["per_sample_metrics_csv"].map(
-        lambda p: str(resolve_matrix_dir(p, matrix_source=config.matrix_source))
+        lambda p: str(resolve_filtered_matrix_dir(p))
     )
     sample_metadata_df["matrix_exists"] = sample_metadata_df["matrix_dir"].map(lambda p: Path(p).exists())
 
@@ -246,7 +198,7 @@ def sample_table(config: Notebook00SourceConfig) -> pd.DataFrame:
 
 
 def selected_sample_metadata(config: Notebook00SourceConfig) -> pd.DataFrame:
-    """Return selected sample metadata shared by raw/filtered and CellBender tables."""
+    """Return selected sample metadata shared by filtered and CellBender tables."""
     sample_metadata_df = pd.read_csv(config.sample_map_tsv, sep="\t")
     required = {"DIV", "run_sample_id", "biological_label", "per_sample_metrics_csv"}
     missing = required.difference(sample_metadata_df.columns)
@@ -287,16 +239,12 @@ def selected_sample_metadata(config: Notebook00SourceConfig) -> pd.DataFrame:
 
 
 def cellbender_output_table(config: Notebook00SourceConfig) -> pd.DataFrame:
-    """Return expected CellBender input/output paths and existence status per sample."""
+    """Return expected CellBender denoised H5 paths and existence status per sample."""
     sample_metadata_df = selected_sample_metadata(config)
     sample_metadata_df["data_source"] = CELLBENDER_DATA_SOURCE
-    sample_metadata_df["raw_h5ad_path"] = sample_metadata_df["run_sample_id"].map(
-        lambda run_sample_id: str(expected_raw_h5ad_path(config.data_root, run_sample_id))
-    )
     sample_metadata_df["cellbender_output_h5"] = sample_metadata_df["run_sample_id"].map(
         lambda run_sample_id: str(expected_cellbender_output_h5(config.data_root, run_sample_id))
     )
-    sample_metadata_df["raw_h5ad_exists"] = sample_metadata_df["raw_h5ad_path"].map(lambda path: Path(path).exists())
     sample_metadata_df["cellbender_output_exists"] = sample_metadata_df["cellbender_output_h5"].map(
         lambda path: Path(path).exists()
     )
@@ -310,8 +258,6 @@ def cellbender_output_table(config: Notebook00SourceConfig) -> pd.DataFrame:
             "biological_label",
             "cell_line",
             "data_source",
-            "raw_h5ad_path",
-            "raw_h5ad_exists",
             "cellbender_output_h5",
             "cellbender_output_exists",
             "cellbender_output_size_bytes",
@@ -323,7 +269,7 @@ def source_availability_table(config: Notebook00SourceConfig) -> pd.DataFrame:
     """Return one row per requested sample with source availability status."""
     data_source = normalize_data_source(config.data_source)
 
-    if data_source in CELLRANGER_DATA_SOURCES:
+    if data_source == CELLRANGER_FILTERED_SOURCE:
         table = sample_table(config).copy()
         table["source_path"] = table["matrix_dir"]
         table["source_exists"] = table["matrix_exists"]
@@ -426,7 +372,7 @@ def load_dataset_result(config: Notebook00SourceConfig, load_matrices: bool = Tr
         available_rows = source_table.loc[source_table["load_status"] == "available"]
         for _, row in available_rows.iterrows():
             run_sample_id = str(row["run_sample_id"])
-            if data_source in CELLRANGER_DATA_SOURCES:
+            if data_source == CELLRANGER_FILTERED_SOURCE:
                 one_sample_adata = read_cellranger_sample(row)
             elif data_source == CELLBENDER_DATA_SOURCE:
                 one_sample_adata = read_cellbender_sample(row)
@@ -447,9 +393,3 @@ def load_dataset_result(config: Notebook00SourceConfig, load_matrices: bool = Tr
         adata_list=adata_list,
         source_table=source_table,
     )
-
-
-def load_dataset(config: Notebook00SourceConfig) -> tuple[list[str], list[ad.AnnData], pd.DataFrame]:
-    """Load selected samples and return the legacy `(names, adatas, table)` tuple."""
-    result = load_dataset_result(config, load_matrices=True)
-    return result.adata_names, result.adata_list, result.source_table
