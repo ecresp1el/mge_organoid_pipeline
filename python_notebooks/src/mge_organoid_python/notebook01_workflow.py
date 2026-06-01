@@ -112,7 +112,7 @@ class Notebook01RegressionVariant:
     @classmethod
     def qc_and_cell_cycle_regressed(
         cls,
-        regress_keys: Sequence[str] = (*NOTEBOOK01_DEFAULT_REGRESS_KEYS, "CC.Difference"),
+        regress_keys: Sequence[str] = (*NOTEBOOK01_DEFAULT_REGRESS_KEYS, "CCDifference"),
     ) -> "Notebook01RegressionVariant":
         """Return the planned later branch after cell-cycle scoring is added."""
         return cls(
@@ -120,6 +120,19 @@ class Notebook01RegressionVariant:
             regress_keys=tuple(regress_keys),
             regress_cell_cycle=True,
             description="QC and cell-cycle covariates are regressed from .X before scaling/PCA.",
+        )
+
+    @classmethod
+    def ccdifference_regressed(
+        cls,
+        regress_keys: Sequence[str] = ("CCDifference",),
+    ) -> "Notebook01RegressionVariant":
+        """Return the CCDifference-regressed comparison branch."""
+        return cls(
+            branch="regressed_ccdifference",
+            regress_keys=tuple(regress_keys),
+            regress_cell_cycle=True,
+            description="CCDifference is regressed from .X before scaling/PCA.",
         )
 
 
