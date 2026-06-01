@@ -311,6 +311,64 @@ Notebook 01 should start from the Notebook 00 checkpoints with Seurat-v3 HVG
 selection from counts, cell-cycle scoring, `CC.Difference`, regression, scaling,
 PCA, neighbors, UMAP, and clustering.
 
+## Freeze Slurm Validation
+
+The frozen Notebook 00 checkpoint path was validated through Slurm on both
+supported sources and through a comparison-only run.
+
+Cell Ranger filtered freeze run:
+
+```text
+JOBID=51232546
+STATE=COMPLETED
+ExitCode=0:0
+Elapsed=00:05:56
+MaxRSS=45073248K
+RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples_freeze
+executed=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.cellranger_filtered_manual_ec_div30_core_samples_freeze.executed.ipynb
+combined checkpoint n_cells=97,658
+combined checkpoint n_genes=17,486
+manual_ec_checkpoint_summary.tsv rows=7
+manual_ec_checkpoint_validation.tsv rows=7
+all checkpoint_validation_passed=True
+combined h5ad files=2
+per-sample h5ad files=12
+```
+
+CellBender-denoised freeze run:
+
+```text
+JOBID=51234007
+STATE=COMPLETED
+ExitCode=0:0
+Elapsed=00:15:00
+MaxRSS=71602396K
+RUN_LABEL=cellbender_denoised_manual_ec_div30_core_samples_freeze
+executed=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.cellbender_denoised_manual_ec_div30_core_samples_freeze.executed.ipynb
+combined checkpoint n_cells=100,674
+combined checkpoint n_genes=18,549
+manual_ec_checkpoint_summary.tsv rows=7
+manual_ec_checkpoint_validation.tsv rows=7
+all checkpoint_validation_passed=True
+combined h5ad files=2
+per-sample h5ad files=12
+```
+
+Comparison-only freeze run:
+
+```text
+JOBID=51234424
+STATE=COMPLETED
+ExitCode=0:0
+Elapsed=00:00:17
+RUN_LABEL=manual_ec_cellranger_filtered_vs_cellbender_denoised_div30_freeze
+NOTEBOOK00_LOAD_MATRICES=0
+NOTEBOOK00_COMPARE_RUN_LABELS=cellranger_filtered_manual_ec_div30_core_samples_freeze:cellbender_denoised_manual_ec_div30_core_samples_freeze
+manual_ec_source_comparison_summary.tsv rows=12
+manual_ec_qc_metric_comparison_by_sample.tsv rows=12
+manual_ec_hvg_overlap.tsv not written
+```
+
 Sections below that discuss the original raw/filtered proof, raw export,
 pre-cleanup runs, or old MAD/custom filtering are retained as historical context
 only. They are not the active Notebook 00 workflow and should not be used as
@@ -1676,8 +1734,8 @@ tables/manual_ec_preprocess_parameters.tsv
 
 ### Implemented Notebook 00 Freeze Contract
 
-Status: implemented in the checked-in notebook and helper module; pending Slurm
-execution validation.
+Status: implemented in the checked-in notebook and helper module; Slurm
+validated for both supported sources and the comparison-only path.
 
 Notebook 00 is frozen as a checkpoint notebook:
 
@@ -1782,40 +1840,17 @@ clustering
 
 ## Recommended Next Steps
 
-1. Run the updated Notebook 00 through Slurm and verify the checkpoint outputs.
+1. After user review, merge the verified Notebook 00 branch into `main`.
 
-   Confirm that the manual cutoffs, QC plots, tables, and `.h5ad` files match
-   the intended frozen checkpoint:
+   The frozen checkpoint path has completed Slurm validation for
+   `cellranger_filtered`, `cellbender_denoised`, and the comparison-only run.
 
-   ```text
-   highest_expr_genes_top20.png
-   manual_ec_qc_violin.png
-   manual_ec_scatter_total_counts_pct_counts_mt.png
-   manual_ec_scatter_total_counts_n_genes_by_counts.png
-   manual_ec_per_sample_highest_expr_genes_top20.png
-   manual_ec_per_sample_qc_violin_n_genes_by_counts.png
-   manual_ec_per_sample_qc_violin_total_counts.png
-   manual_ec_per_sample_qc_violin_pct_counts_mt.png
-   manual_ec_per_sample_scatter_total_counts_pct_counts_mt.png
-   manual_ec_per_sample_scatter_total_counts_n_genes_by_counts.png
-   manual_ec_filter_summary.tsv
-   manual_ec_filter_parameters.tsv
-   manual_ec_checkpoint_summary.tsv
-   manual_ec_checkpoint_validation.tsv
-   manual_ec_filtered_counts.h5ad
-   manual_ec_filtered_normalized_log1p.h5ad
-   per-sample manual_ec_filtered_counts.h5ad files
-   per-sample manual_ec_filtered_normalized_log1p.h5ad files
-   ```
+2. Create a fresh branch from updated `main` for Notebook 01 work.
 
-2. After Notebook 00 is verified, create a new Notebook 01 planning markdown.
+3. Create a new Notebook 01 planning markdown.
 
    That planning document should be created after the Notebook 00 branch is
    ready, not mixed into the Notebook 00 freeze implementation.
-
-3. Merge the Notebook 00 branch into `main` only after verification.
-
-   Then create a fresh branch from updated `main` for Notebook 01 work.
 
 4. Run any next notebook update through Slurm, not on the login node.
 
