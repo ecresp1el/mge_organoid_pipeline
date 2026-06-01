@@ -470,6 +470,105 @@ The before/after PCA diagnostic is a visualization and validation step. It
 should not replace the full Notebook 01 branch comparison until the gene-list
 validation and scoring behavior are confirmed.
 
+### CCDifference Validation Completed
+
+Cell-cycle gene-list validation completed through Slurm:
+
+```text
+Job ID: 51248184
+State: COMPLETED
+ExitCode: 0:0
+Elapsed: 00:00:14
+MaxRSS: 3298064K
+```
+
+Validation run label:
+
+```text
+RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1
+```
+
+Validated source gene counts:
+
+```text
+S phase:  42 present / 43 source genes
+G2M:      52 present / 54 source genes
+Total:    94 present / 97 source genes
+```
+
+Missing genes:
+
+```text
+S:   MLF1IP
+G2M: FAM64A, HN1
+```
+
+Gene validation tables:
+
+```text
+PROJECT_ROOT/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1/tables/cell_cycle_gene_source.tsv
+PROJECT_ROOT/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1/tables/cell_cycle_genes_present.tsv
+PROJECT_ROOT/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1/tables/cell_cycle_genes_missing.tsv
+PROJECT_ROOT/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1/tables/cell_cycle_gene_summary.tsv
+```
+
+CCDifference before/after PCA diagnostic completed through Slurm:
+
+```text
+Job ID: 51248686
+State: COMPLETED
+ExitCode: 0:0
+Elapsed: 00:02:27
+MaxRSS: 14121504K
+```
+
+Diagnostic implementation files:
+
+```text
+python_notebooks/src/mge_organoid_python/cell_cycle.py
+python_notebooks/scripts/prepare_notebook01_cell_cycle_genes.py
+python_notebooks/scripts/run_notebook01_ccdifference_pca_diagnostic.py
+slurm_templates/15_prepare_notebook01_cell_cycle_genes.sbatch.template
+slurm_templates/16_execute_notebook01_ccdifference_pca.sbatch.template
+```
+
+Diagnostic outputs:
+
+```text
+PROJECT_ROOT/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1/tables/cell_cycle_input_validation.tsv
+PROJECT_ROOT/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1/tables/cell_cycle_score_summary.tsv
+PROJECT_ROOT/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1/tables/cell_cycle_pca_diagnostic_summary.tsv
+PROJECT_ROOT/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1/tables/cell_cycle_pca_plot_manifest.tsv
+PROJECT_ROOT/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_v1/plots/cell_cycle_pca/
+```
+
+Diagnostic verification:
+
+```text
+input validation rows: 7, all passed
+score summary rows: 21
+PCA summary rows: 14
+plot manifest rows: 174
+missing plot paths: 0
+empty plot paths: 0
+```
+
+The diagnostic runs PCA on the present cell-cycle gene subset before and after
+regressing `CCDifference`. Regression is applied to the diagnostic
+cell-cycle-gene subset only, which is enough to validate the effect on
+cell-cycle PCA space. Full Notebook 01 branch correction can later regress
+`CCDifference` on the selected downstream feature matrix.
+
+Combined-object PCA variance changed as follows:
+
+```text
+before CCDifference regression: PC1=0.336687, PC2=0.101825, PC3=0.025132
+after  CCDifference regression: PC1=0.325503, PC2=0.029885, PC3=0.017473
+```
+
+Per-sample diagnostics showed the same pattern: PC2 variance dropped after
+`CCDifference` regression in all six samples.
+
 ## Required Analysis Scopes
 
 Notebook 01 must support two scopes separately:
