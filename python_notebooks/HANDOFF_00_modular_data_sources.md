@@ -13,32 +13,33 @@ Primary files discussed so far:
 
 ## Current State For Next Chat
 
-The branch now has a modular Notebook 00 driver and supporting Python modules.
-The notebook has been executed on Great Lakes through Slurm for three source
-modes:
+The branch now has a focused Notebook 00 `manual_ec` driver and supporting
+Python modules. The forward path no longer builds on the previous custom/MAD
+filtering approach, PCA/UMAP/clustering, Harmony, or marker-panel workflow.
+
+The current supported Notebook 00 sources are:
 
 ```text
-cellranger_filtered: full matrix load, historical QC/filtering/preprocess/UMAP/plots
-cellranger_raw:      source availability only, no raw-droplet-scale analysis
-cellbender_denoised: source availability only, missing-aware, no full analysis yet
+cellranger_filtered: primary manual_ec run from Cell Ranger filtered matrices
+cellbender_denoised: comparison manual_ec run from existing CellBender H5 files
 ```
 
-Direction change for next work:
+Important: do not rerun CellBender denoising. The CellBender comparison uses the
+existing fixed input files under:
 
 ```text
-Do not continue building on the previous custom/MAD filtering approach.
-Treat it as historical scaffolding from the modularization pass.
-The forward analysis target is a standalone manual_ec Scanpy path that starts
-from Cell Ranger filtered matrices and reaches QC plots, manual cutoffs,
-normalization, log1p, and HVG selection with the requested parameters.
-Also retain the ability to run the same manual_ec checkpoint on CellBender
-denoised files so CellBender can be compared directly against Cell Ranger
-filtered matrices.
-Everything outside this scope should be stripped from the forward notebook path
-or flagged for deletion.
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/clean_adata/*_cellbender_denoised.h5
 ```
 
-The proof scripts are useful validation scaffolding. The core notebook runtime is:
+Execution should stay on Great Lakes through Slurm, using the conda env through
+the notebook template:
+
+```text
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/jupyter
+slurm_templates/13_execute_notebook00_source.sbatch.template
+```
+
+The proof scripts are validation scaffolding only. The core notebook runtime is:
 
 ```text
 python_notebooks/notebooks/00_load_div30_div90_raw_to_anndata.ipynb
@@ -55,22 +56,71 @@ which source, samples, toggles, or plots a user wants to run.
 Completed in this branch:
 
 ```text
-historical filtered full analysis through the modular notebook
-raw source availability through the same notebook driver
-CellBender source availability through the same notebook driver
-missing-source logging/plotting using 9853-MW-6 as the test case
+manual_ec filtered Cell Ranger run for the six DIV30 core samples
+manual_ec existing-CellBender-H5 run for the same six DIV30 core samples
+manual_ec Cell Ranger filtered vs CellBender-denoised comparison
 run-specific table and plot directories under results/notebook00/<RUN_LABEL>
+executed notebooks under results/notebook00/executed
+Slurm-safe comparison-label parsing using ":" or ";" separators
 ```
 
 Not completed yet:
 
 ```text
-full CellBender matrix loading for all samples
-CellBender-backed manual_ec QC/preprocess checkpoint
-CellBender-denoised vs Cell Ranger filtered comparison
-raw export manifest cleanup
-manual_ec filtered-matrix Scanpy checkpoint
-strip/delete historical MAD/custom filtering, UMAP/clustering, Harmony, and marker-panel paths from Notebook 00
+Seurat-equivalent S/G2M cell-cycle gene list storage and scoring
+collaborator review of manual_ec outputs/plots
+raw export manifest cleanup, if no longer needed
+physical deletion/archive of historical proof scripts and old MAD/custom filtering scaffolding outside the forward path
+```
+
+## Verified Slurm Runs
+
+All notebook execution below used Slurm and the `mge-organoid-python` conda env.
+
+```text
+51189568 nb00-manualec-filtered      COMPLETED 0:0
+51189668 nb00-manualec-cellbender    COMPLETED 0:0
+51189820 nb00-manualec-compare-v2    COMPLETED 0:0
+```
+
+Filtered Cell Ranger run:
+
+```text
+RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples
+output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples
+executed=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.cellranger_filtered_manual_ec_div30_core_samples.executed.ipynb
+manual_ec retained cells=97,658
+final genes=17,486
+highly variable genes=2,235
+```
+
+Existing CellBender-denoised H5 run:
+
+```text
+RUN_LABEL=cellbender_denoised_manual_ec_div30_core_samples
+output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellbender_denoised_manual_ec_div30_core_samples
+executed=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.cellbender_denoised_manual_ec_div30_core_samples.executed.ipynb
+manual_ec retained cells=100,674
+final genes=18,549
+highly variable genes=2,345
+```
+
+Comparison run:
+
+```text
+RUN_LABEL=manual_ec_cellranger_filtered_vs_cellbender_denoised_div30
+output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/manual_ec_cellranger_filtered_vs_cellbender_denoised_div30
+executed=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/executed/00_load_div30_div90_raw_to_anndata.manual_ec_cellranger_filtered_vs_cellbender_denoised_div30.executed.ipynb
+manual_ec_source_comparison_summary.tsv rows=12 data rows
+manual_ec_hvg_overlap.tsv Jaccard=0.9333051920641621
+```
+
+When submitting comparison-only runs through `sbatch --export`, use `:` or `;`
+between labels so Slurm does not split the value as separate export tokens:
+
+```text
+NOTEBOOK00_COMPARE_RUN_LABELS=cellranger_filtered_manual_ec_div30_core_samples:cellbender_denoised_manual_ec_div30_core_samples
+NOTEBOOK00_LOAD_MATRICES=0
 ```
 
 ## Why This Exists
@@ -1165,16 +1215,16 @@ Do not create new CellBender denoised H5 files unless the user explicitly asks.
 Use existing DATA_ROOT/clean_adata/*_cellbender_denoised.h5 outputs for comparison.
 ```
 
-## Pending Direction: `manual_ec` Scanpy Path
+## Implemented Direction: `manual_ec` Scanpy Path
 
-Status: handoff direction only. Do not implement code until the user approves the
-actual change set.
+Status: implemented and Slurm-validated for both Cell Ranger filtered matrices
+and existing CellBender-denoised H5 files.
 
 Forget the earlier attempt to make our own Notebook 00 filtering approach. The
 historical MAD/custom path was useful for modularization and smoke testing, but
-it is not the forward scientific workflow. Future work should focus on an
-explicit `manual_ec` Scanpy path for controlled review of Heyoon's collaborator
-workflow choices.
+it is not the forward scientific workflow. Future work should keep focusing on
+the explicit `manual_ec` Scanpy path for controlled review of Heyoon's
+collaborator workflow choices.
 
 Important source rule:
 
@@ -1189,7 +1239,7 @@ Cell Ranger filtered input; the retained comparison target is CellBender-denoise
 input. The data-source layer should remain useful, but `manual_ec` should not
 depend on the historical MAD/custom filtering functions.
 
-Proposed run identities:
+Implemented run identities:
 
 ```text
 NOTEBOOK00_ACTIVE_SOURCE=cellranger_filtered
@@ -1203,7 +1253,7 @@ Do not add more toggles whose purpose is to preserve the older filtering method.
 If old code remains temporarily, treat it as historical/cleanup debt rather than
 an alternate supported path.
 
-The next implementation should remove dependencies from the new path on:
+The new path has been stripped of forward dependencies on:
 
 ```text
 annotate_mad_qc
@@ -1219,23 +1269,22 @@ manual QC/preprocess checkpoint is proven.
 
 ### Retained Source Comparison
 
-Keep a direct comparison between:
+The notebook keeps a direct comparison between:
 
 ```text
 cellranger_filtered manual_ec output
 cellbender_denoised manual_ec output
 ```
 
-This comparison should use common `run_sample_id` values only. If `9853-MW-6` or
-any other CellBender output is missing, the comparison should proceed with the
+This comparison uses common `run_sample_id` values only. If any CellBender
+output is missing in a future run, the comparison should proceed with the
 available common samples and write the missing sample into `source_table`.
 
-Recommended comparison outputs:
+Implemented comparison outputs:
 
 ```text
 tables/manual_ec_source_comparison_summary.tsv
 tables/manual_ec_qc_metric_comparison_by_sample.tsv
-tables/manual_ec_retained_cell_comparison_by_sample.tsv
 tables/manual_ec_hvg_overlap.tsv
 plots/manual_ec_source_comparison_cell_counts.png
 plots/manual_ec_source_comparison_qc_metrics.png
@@ -1257,10 +1306,10 @@ median_pct_counts_mt
 n_highly_variable_genes
 ```
 
-### Proposed `manual_ec` QC/Plot Checkpoint
+### Implemented `manual_ec` QC/Plot Checkpoint
 
-After loading and concatenating either selected source, the notebook should be
-able to get to this Scanpy checkpoint before any UMAP/cluster work:
+After loading and concatenating either selected source, the notebook reaches
+this Scanpy checkpoint before any UMAP/cluster work:
 
 ```python
 sc.pl.highest_expr_genes(adata, n_top=20)
@@ -1284,8 +1333,8 @@ sc.pl.scatter(adata, x="total_counts", y="pct_counts_mt")
 sc.pl.scatter(adata, x="total_counts", y="n_genes_by_counts")
 ```
 
-The plots should be saved under the run-specific Notebook 00 plot directory,
-using stable names such as:
+The plots are saved under the run-specific Notebook 00 plot directory using
+stable names:
 
 ```text
 highest_expr_genes_top20.png
@@ -1294,9 +1343,9 @@ manual_ec_scatter_total_counts_pct_counts_mt.png
 manual_ec_scatter_total_counts_n_genes_by_counts.png
 ```
 
-### Proposed `manual_ec` Filtering
+### Implemented `manual_ec` Filtering
 
-The requested manual cutoff should be implemented as a named, documented filter:
+The requested manual cutoff is implemented as a named, documented filter:
 
 ```python
 adata = adata[
@@ -1308,23 +1357,24 @@ adata = adata[
 ].copy()
 ```
 
-Record this output as `manual_ec`, including a table that reports starting cells,
-retained cells, removed cells, retained percent, and the exact thresholds:
+The notebook records this output as `manual_ec`, including a table that reports
+starting cells, retained cells, removed cells, retained percent, and the exact
+thresholds:
 
 ```text
 tables/manual_ec_filter_summary.tsv
 tables/manual_ec_filter_parameters.tsv
 ```
 
-Also include these Scanpy tutorial-style count filters, either before the manual
-cutoffs or as an explicitly documented preliminary step:
+It also includes these Scanpy tutorial-style count filters before the manual
+cutoffs as an explicitly documented preliminary step:
 
 ```python
 sc.pp.filter_cells(adata, min_genes=20)
 sc.pp.filter_genes(adata, min_cells=3)
 ```
 
-The implementation should preserve enough reporting to distinguish:
+The implementation preserves enough reporting to distinguish:
 
 ```text
 cellranger_filtered source loading
@@ -1334,7 +1384,7 @@ manual_ec biological/QC cutoffs
 historical MAD/custom filtering path, if still present in old outputs
 ```
 
-### Proposed `manual_ec` Preprocessing
+### Implemented `manual_ec` Preprocessing
 
 After `manual_ec` filtering, the requested preprocessing checkpoint is:
 
@@ -1359,8 +1409,8 @@ tables/manual_ec_preprocess_parameters.tsv
 
 ### Seurat-Equivalent Cell-Cycle Requirement
 
-This is also part of the controlled conversion request, but can be implemented
-after the `manual_ec` QC/preprocess checkpoint above is working.
+This is the next part of the controlled conversion request now that the
+`manual_ec` QC/preprocess checkpoint is working.
 
 The conversion should preserve Heyoon's biological parameters and use Rich et
 al. only to choose the closest Seurat-like Scanpy implementation. For cell-cycle
@@ -1389,69 +1439,44 @@ adata.uns["manual_ec_cell_cycle_note"] = "Seurat-equivalent gene lists used for 
 
 ## Recommended Next Steps
 
-1. Get user approval for the `manual_ec` direction above.
+1. Review the executed notebooks and plots with the collaborator/user.
 
-   The next implementation should not preserve or extend the historical
-   custom/MAD filtering path. It should make `manual_ec` the focused path from
-   Cell Ranger filtered matrices to QC plots, manual cutoffs, normalization,
-   log1p, and HVG selection, while retaining a direct comparison against
-   CellBender-denoised inputs.
-
-2. Strip or bypass historical analysis dependencies in the forward notebook path.
-
-   Flag old MAD/custom filtering, basic PCA/UMAP, clustering, Harmony, marker
-   panels, raw full-analysis, and generic comparison scaffolding for deletion.
-   Do not remove source loading or missing-source reporting because those are
-   still needed for the filtered-vs-CellBender comparison.
-
-3. Implement and validate the `manual_ec` Cell Ranger filtered checkpoint.
-
-   The first successful run should produce, at minimum:
+   Confirm that the manual cutoffs and plots match the intended controlled
+   conversion checkpoint:
 
    ```text
-   plots/highest_expr_genes_top20.png
-   plots/manual_ec_qc_violin.png
-   plots/manual_ec_scatter_total_counts_pct_counts_mt.png
-   plots/manual_ec_scatter_total_counts_n_genes_by_counts.png
-   plots/manual_ec_highly_variable_genes.png
-   tables/manual_ec_filter_summary.tsv
-   tables/manual_ec_filter_parameters.tsv
-   tables/manual_ec_preprocess_parameters.tsv
+   highest_expr_genes_top20.png
+   manual_ec_qc_violin.png
+   manual_ec_scatter_total_counts_pct_counts_mt.png
+   manual_ec_scatter_total_counts_n_genes_by_counts.png
+   manual_ec_highly_variable_genes.png
+   manual_ec_filter_summary.tsv
+   manual_ec_filter_parameters.tsv
+   manual_ec_preprocess_parameters.tsv
+   manual_ec_source_comparison_summary.tsv
+   manual_ec_hvg_overlap.tsv
    ```
 
-4. Apply the same `manual_ec` checkpoint to CellBender-denoised inputs.
+2. Add Seurat-equivalent cell-cycle scoring.
 
-   The pre-cleanup source check found all six requested CellBender denoised H5
-   files available. Use those existing H5 files as fixed inputs. Do not rerun
-   CellBender denoising.
+   Scanpy does not expose Seurat's `cc.genes` automatically. The conversion
+   should explicitly version/store the S and G2M gene lists used for scoring in
+   tables and in `adata.uns`, then run the closest Scanpy implementation to
+   Heyoon's Seurat workflow.
 
-5. Add the retained comparison outputs.
+3. After user confirmation, archive or delete old workflow pieces.
 
-   The comparison should summarize CellBender-denoised vs Cell Ranger filtered
-   by sample/cell line, using cell counts, QC metrics, retained cells, and HVG
-   overlap.
+   The forward Notebook 00 path no longer needs historical MAD/custom filtering,
+   basic UMAP/clustering, Harmony, marker panels, or raw full-analysis code. Keep
+   source loading and missing-aware reporting because they are still needed for
+   Cell Ranger filtered vs existing CellBender-H5 comparison.
 
-6. Keep the data-source layer and missing-aware reporting behavior.
+4. Keep CellBender denoising frozen unless the user explicitly asks otherwise.
 
-   Missing files, failed jobs, or intentionally omitted samples should remain
-   visible in `source_table`. This is source bookkeeping, not the old filtering
-   approach.
+   Future runs should reuse the existing `clean_adata/*_cellbender_denoised.h5`
+   files. Notebook 00 can compare those fixed files against Cell Ranger filtered
+   matrices, but `scripts/cellbender.sh` should not be submitted again for this
+   checkpoint.
 
-7. Prove actual existing-CellBender-H5 loading on a compute node before enabling
-   a full all-sample comparison run.
-
-   `data_sources.py` has a CellBender reader path, but the safe proven mode so
-   far is source availability only. This is a loading smoke test for existing
-   files, not a CellBender denoising run. The next code/proof milestone should
-   be:
-
-   ```python
-   config = Notebook00SourceConfig(active_source="cellbender_denoised")
-   result = load_dataset_result(config, load_matrices=True)
-   ```
-
-   Start with one sample or a small target sample set before loading all six
-   raw-droplet-scale outputs.
-
-8. Decide whether the proof scripts should stay as active validation utilities
+5. Decide whether the proof scripts should stay as active validation utilities
    or move under an archive/validation area after the notebook is stable.

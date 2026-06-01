@@ -48,6 +48,17 @@ def save_current_figure(plot_config: PlotConfig, name: str):
     return out_path
 
 
+def plot_highest_expr_genes(
+    adata: ad.AnnData,
+    plot_config: PlotConfig,
+    n_top: int = 20,
+    name: str = "highest_expr_genes_top20",
+):
+    """Plot the highest expressed genes with Scanpy's helper."""
+    sc.pl.highest_expr_genes(adata, n_top=n_top, show=False)
+    return save_current_figure(plot_config, name)
+
+
 def plot_source_availability(source_table: pd.DataFrame, plot_config: PlotConfig, name: str = "source_availability"):
     """Plot requested sample source availability."""
     plot_df = source_table.copy()
@@ -72,94 +83,100 @@ def plot_source_availability(source_table: pd.DataFrame, plot_config: PlotConfig
     return save_current_figure(plot_config, name)
 
 
-def plot_qc_violin(
+def plot_manual_ec_qc_violin(
     adata: ad.AnnData,
     plot_config: PlotConfig,
-    keys: Sequence[str] = ("total_counts", "pct_counts_mt"),
-    groupby: str = "run_sample_id",
-    name: str = "qc_violin_by_sample",
+    keys: Sequence[str] = ("n_genes_by_counts", "total_counts", "pct_counts_mt"),
+    name: str = "manual_ec_qc_violin",
 ):
-    """Plot QC metric violins by sample."""
+    """Plot the requested manual_ec QC metric violins."""
     sc.pl.violin(
         adata,
         keys=list(keys),
-        groupby=groupby,
-        rotation=45,
-        stripplot=False,
+        jitter=0.4,
+        multi_panel=True,
         show=False,
     )
     return save_current_figure(plot_config, name)
 
 
-def plot_qc_scatter(
+def plot_manual_ec_qc_scatter(
     adata: ad.AnnData,
     plot_config: PlotConfig,
     x: str = "total_counts",
     y: str = "pct_counts_mt",
-    color: str = "run_sample_id",
-    name: str = "qc_scatter_total_counts_pct_counts_mt",
+    name: str | None = None,
 ):
-    """Plot a QC scatter plot."""
+    """Plot one requested manual_ec QC scatter plot."""
     sc.pl.scatter(
         adata,
         x=x,
         y=y,
-        color=color,
         title=f"{x} vs {y}",
         show=False,
     )
+    return save_current_figure(plot_config, name or f"manual_ec_scatter_{x}_{y}")
+
+
+def plot_manual_ec_highly_variable_genes(
+    adata: ad.AnnData,
+    plot_config: PlotConfig,
+    name: str = "manual_ec_highly_variable_genes",
+):
+    """Plot Scanpy highly variable gene selection."""
+    sc.pl.highly_variable_genes(adata, show=False)
     return save_current_figure(plot_config, name)
 
 
-def plot_embedding(
-    adata: ad.AnnData,
+def plot_manual_ec_source_comparison_cell_counts(
+    comparison_df: pd.DataFrame,
     plot_config: PlotConfig,
-    basis: str = "umap",
-    color: Sequence[str] | str = ("run_sample_id",),
-    name: str | None = None,
-    **kwargs,
+    name: str = "manual_ec_source_comparison_cell_counts",
 ):
-    """Plot a Scanpy embedding and save/show it."""
-    colors = [color] if isinstance(color, str) else list(color)
-    if basis == "umap":
-        sc.pl.umap(adata, color=colors, show=False, **kwargs)
-    else:
-        sc.pl.embedding(adata, basis=basis, color=colors, show=False, **kwargs)
-    return save_current_figure(plot_config, name or f"{basis}_{'_'.join(map(_safe_name, colors))}")
-
-
-def plot_marker_panel(
-    adata: ad.AnnData,
-    plot_config: PlotConfig,
-    markers: Sequence[str],
-    basis: str = "umap",
-    color_map: str = "magma",
-    ncols: int = 3,
-    name: str = "marker_panel",
-):
-    """Plot markers present in the AnnData object."""
-    markers_present = [gene for gene in markers if gene in adata.var_names]
-    if not markers_present:
-        print("No requested markers were present in adata.var_names.")
+    """Plot retained manual_ec cell counts by sample and source."""
+    required = {"run_label", "run_sample_id", "manual_ec_retained_n_cells"}
+    if comparison_df.empty or required.difference(comparison_df.columns):
         return None
 
-    if basis == "umap":
-        sc.pl.umap(
-            adata,
-            color=markers_present,
-            color_map=color_map,
-            ncols=ncols,
-            show=False,
-        )
-    else:
-        sc.pl.embedding(
-            adata,
-            basis=basis,
-            color=markers_present,
-            color_map=color_map,
-            ncols=ncols,
-            show=False,
-        )
+    pivot_df = comparison_df.pivot_table(
+        index="run_sample_id",
+        columns="run_label",
+        values="manual_ec_retained_n_cells",
+        aggfunc="sum",
+        fill_value=0,
+    )
+    ax = pivot_df.plot(kind="bar", figsize=(max(7, 1.2 * len(pivot_df)), 4.5))
+    ax.set_xlabel("run_sample_id")
+    ax.set_ylabel("manual_ec retained cells")
+    ax.set_title("manual_ec retained cells by source")
+    ax.legend(title="run_label", fontsize=8)
+    plt.tight_layout()
+    return save_current_figure(plot_config, name)
+
+
+def plot_manual_ec_source_comparison_qc_metrics(
+    qc_df: pd.DataFrame,
+    plot_config: PlotConfig,
+    metric: str = "median_n_genes_by_counts",
+    name: str = "manual_ec_source_comparison_qc_metrics",
+):
+    """Plot one manual_ec QC metric by sample and source."""
+    required = {"run_label", "run_sample_id", metric}
+    if qc_df.empty or required.difference(qc_df.columns):
+        return None
+
+    pivot_df = qc_df.pivot_table(
+        index="run_sample_id",
+        columns="run_label",
+        values=metric,
+        aggfunc="median",
+    )
+    ax = pivot_df.plot(kind="bar", figsize=(max(7, 1.2 * len(pivot_df)), 4.5))
+    ax.set_xlabel("run_sample_id")
+    ax.set_ylabel(metric)
+    ax.set_title(f"manual_ec {metric} by source")
+    ax.legend(title="run_label", fontsize=8)
+    plt.tight_layout()
     return save_current_figure(plot_config, name)
 
 

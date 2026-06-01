@@ -15,7 +15,7 @@ from .data_sources import (
 )
 from .loader import cached_h5ad_path, load_cached_anndata, load_cached_anndatas, missing_cached_h5ads
 from .notebook00_plots import PlotConfig
-from .notebook00_workflow import PreprocessSettings
+from .notebook00_workflow import ManualECFilterSettings, ManualECPreprocessSettings
 from .paths import DEFAULT_PROJECT_ROOT, resolve_project_root
 from .studies import StudySpec, default_studies
 from .validation import AnnDataReport, validate_anndata, validate_source_paths
@@ -24,9 +24,10 @@ __all__ = [
     "AnnDataReport",
     "DEFAULT_PROJECT_ROOT",
     "DatasetLoadResult",
+    "ManualECFilterSettings",
+    "ManualECPreprocessSettings",
     "Notebook00SourceConfig",
     "PlotConfig",
-    "PreprocessSettings",
     "SeuratToAnnDataConverter",
     "StudySpec",
     "cached_h5ad_path",
