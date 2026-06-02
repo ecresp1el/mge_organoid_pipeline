@@ -12,10 +12,125 @@ manual_ec filtering.
 ## Current Handoff For Pickup On 2026-06-02
 
 Use this section first. Older sections below include planning notes from before
-the CCDifference run was completed; where they mention `regressed_qc` as the
-current first-pass branch, treat that as historical context.
+the CCDifference run and before the Seurat-ordering correction; where they
+conflict with this section, treat them as historical context.
 
-Current completed run:
+### Source Code Updated For Next Seurat-Aligned Rerun
+
+The source implementation has been updated so the next Notebook 01 run follows
+the intended Jeyoon/Seurat ordering more closely:
+
+```text
+Default next RUN_LABEL:
+cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_v1
+```
+
+```text
+1. Start from Notebook 00 combined normalized/log1p checkpoint
+2. Score S_score, G2M_score, phase, and CCDifference
+3. For each branch, copy the full normalized/log1p gene matrix
+4. For regressed_ccdifference, run sc.pp.regress_out(..., keys=["CCDifference"])
+   on the full branch .X matrix
+5. Use Scanpy's default regress_out n_jobs behavior; no explicit n_jobs is set
+6. Run Seurat-v3 HVG selection after the branch regression step
+7. Select 4,000 HVGs from .layers["counts"] with batch_key=None
+8. Subset the branch to those HVGs
+9. Scale, PCA, neighbors, UMAP, and Leiden from the branch-specific HVG .X
+```
+
+Updated Scanpy HVG command for the next run:
+
+```python
+sc.pp.highly_variable_genes(
+    adata,
+    flavor="seurat_v3",
+    n_top_genes=4000,
+    layer="counts",
+    batch_key=None,
+    subset=False,
+)
+```
+
+Updated CCDifference regression call for the next run:
+
+```python
+sc.pp.regress_out(adata, keys=["CCDifference"])
+```
+
+Reason for removing explicit `n_jobs`:
+
+```text
+The previous explicit n_jobs value was a performance assumption, not a
+correctness or reproducibility requirement. Future Notebook 01 code uses the
+Scanpy default.
+```
+
+Reason for `n_top_genes=4000`:
+
+```text
+Jeyoon's Seurat workflow uses FindVariableFeatures(selection.method="vst",
+nfeatures=4000). Notebook 01 now defaults to 4,000 Seurat-v3 HVGs.
+```
+
+Reason for `batch_key=None`:
+
+```text
+batch_key=None most closely matches the pasted Seurat
+FindVariableFeatures(..., selection.method="vst") call. A batch key such as
+run_sample_id would make Scanpy perform batch-aware HVG selection and is better
+treated as a separate integration-feature-selection experiment, not the direct
+reproduction of that Seurat step.
+```
+
+Seurat-to-Scanpy mapping for the current target implementation:
+
+```text
+Seurat merge(SO1..SO6)
+  -> Notebook 00 combined checkpoint already contains merged cells.
+
+Seurat NormalizeData(SO1_6)
+  -> Notebook 00 normalized/log1p checkpoint is loaded by Notebook 01.
+
+Seurat ScaleData(vars.to.regress="CC.Difference", features=rownames(SO1_6))
+  -> Notebook 01 branch copies the full normalized/log1p matrix, then runs
+     sc.pp.regress_out(..., keys=["CCDifference"]) on full .X.
+  -> Scanpy regression and scaling are separate calls. Notebook 01 scales the
+     HVG subset before PCA; this is downstream-equivalent for selected HVGs
+     because scaling is per gene, but it is not an all-gene scaled checkpoint.
+
+Seurat saveRDS(...cc_regressed.rds)
+  -> Not currently implemented as a separate full all-gene regressed .h5ad.
+     Add this explicitly if an intermediate checkpoint is required.
+
+Seurat FindVariableFeatures(selection.method="vst", nfeatures=4000)
+  -> sc.pp.highly_variable_genes(..., flavor="seurat_v3",
+     n_top_genes=4000, layer="counts", batch_key=None, subset=False)
+     after the branch regression step.
+
+Seurat RunPCA(features=VariableFeatures(SO1_6))
+  -> sc.pp.pca(...) on the scaled 4,000-HVG branch object.
+
+Seurat IntegrateLayers(method=CCAIntegration, orig.reduction="pca",
+new.reduction="integrated.cca")
+  -> Not implemented in current Scanpy Notebook 01. Current Notebook 01 runs
+     neighbors, UMAP, and Leiden from PCA directly.
+
+Seurat saveRDS(...cc_regressed_integrated.rds)
+  -> Not implemented because CCA integration is not yet implemented.
+```
+
+Rerun requirement:
+
+```text
+The completed ccdifference_v1 output below used the older order:
+HVG selection first, 2,000 HVGs, then CCDifference regression on the HVG subset.
+Do not treat that output as the Seurat-order reproduction. A new Slurm rerun is
+required to produce 4,000-HVG, regression-before-HVG outputs.
+```
+
+### Historical Completed Run Before Seurat-Ordering Correction
+
+Historical completed run:
 
 ```text
 NOTEBOOK00_RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples_freeze

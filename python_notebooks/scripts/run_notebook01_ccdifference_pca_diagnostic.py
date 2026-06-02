@@ -78,7 +78,6 @@ def prepare_pca_object(
     regress_key: str | None,
     n_pcs: int,
     random_state: int,
-    regress_n_jobs: int,
 ) -> sc.AnnData:
     """Create a cell-cycle-gene PCA object before or after CCDifference regression."""
     pca_adata = adata[:, list(cell_cycle_genes)].copy()
@@ -98,7 +97,7 @@ def prepare_pca_object(
         "x_state_after_scale": "scaled",
     }
     if regress_key is not None:
-        sc.pp.regress_out(pca_adata, keys=[regress_key], n_jobs=regress_n_jobs)
+        sc.pp.regress_out(pca_adata, keys=[regress_key])
     sc.pp.scale(pca_adata, max_value=10.0)
     sc.tl.pca(
         pca_adata,
@@ -219,7 +218,6 @@ def run_scope(
             regress_key=regress_key,
             n_pcs=3,
             random_state=embedding_settings.random_state,
-            regress_n_jobs=embedding_settings.regress_n_jobs,
         )
         pca_records.append(
             pca_summary_record(
@@ -272,13 +270,12 @@ def main() -> None:
     )
     run_label = os.environ.get(
         "NOTEBOOK01_RUN_LABEL",
-        f"{notebook00_run_label}_ccdifference_v1",
+        f"{notebook00_run_label}_ccdifference_seurat_order_v1",
     )
     scopes = parse_csv(os.environ.get("NOTEBOOK01_SCOPES"), default=("combined", "per_sample"))
     embedding_settings = Notebook01EmbeddingSettings(
         n_pcs=3,
         random_state=env_int("NOTEBOOK01_RANDOM_STATE", 0),
-        regress_n_jobs=env_int("NOTEBOOK01_REGRESS_N_JOBS", 8),
     )
 
     input_settings = Notebook01InputSettings(notebook00_run_label=notebook00_run_label)

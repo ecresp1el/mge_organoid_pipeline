@@ -40,7 +40,7 @@ def main() -> None:
     )
     run_label = os.environ.get(
         "NOTEBOOK01_RUN_LABEL",
-        f"{notebook00_run_label}_ccdifference_v1",
+        f"{notebook00_run_label}_ccdifference_seurat_order_v1",
     )
 
     input_settings = Notebook01InputSettings(notebook00_run_label=notebook00_run_label)

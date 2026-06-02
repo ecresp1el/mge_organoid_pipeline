@@ -20,11 +20,13 @@ import scanpy as sc
 
 
 NOTEBOOK01_SUPPORTED_SCOPES = ("combined", "per_sample")
-NOTEBOOK01_REGRESSION_BRANCHES = ("not_regressed", "regressed_qc")
-NOTEBOOK01_DEFAULT_REGRESS_KEYS = ("total_counts", "pct_counts_mt")
+NOTEBOOK01_REGRESSION_BRANCHES = ("not_regressed", "regressed_ccdifference")
+NOTEBOOK01_DEFAULT_REGRESS_KEYS = ("CCDifference",)
+NOTEBOOK01_DEFAULT_QC_REGRESS_KEYS = ("total_counts", "pct_counts_mt")
 NOTEBOOK01_BASE_OPERATION_ORDER = (
-    "subset_to_hvgs_selected_from_counts_layer",
-    "optional_regress_out_obs_covariates_from_x",
+    "optional_regress_out_obs_covariates_from_full_x",
+    "select_hvgs_from_counts_layer_after_regression_step",
+    "subset_to_hvgs",
     "scale_x",
     "pca_from_scaled_x",
     "neighbors_from_pca",
@@ -59,7 +61,7 @@ class Notebook01RunSettings:
 class Notebook01HVGSettings:
     """Seurat-v3 HVG settings for Notebook 01."""
 
-    n_top_genes: int = 2000
+    n_top_genes: int = 4000
     flavor: str = "seurat_v3"
     layer: str = "counts"
     batch_key: str | None = None
@@ -74,7 +76,6 @@ class Notebook01EmbeddingSettings:
     leiden_resolution: float = 0.5
     random_state: int = 0
     scale_max_value: float = 10.0
-    regress_n_jobs: int = 8
 
 
 @dataclass(frozen=True)
@@ -99,7 +100,7 @@ class Notebook01RegressionVariant:
     @classmethod
     def qc_regressed(
         cls,
-        regress_keys: Sequence[str] = NOTEBOOK01_DEFAULT_REGRESS_KEYS,
+        regress_keys: Sequence[str] = NOTEBOOK01_DEFAULT_QC_REGRESS_KEYS,
     ) -> "Notebook01RegressionVariant":
         """Return the initial QC-covariate regressed comparison branch."""
         return cls(
@@ -112,7 +113,7 @@ class Notebook01RegressionVariant:
     @classmethod
     def qc_and_cell_cycle_regressed(
         cls,
-        regress_keys: Sequence[str] = (*NOTEBOOK01_DEFAULT_REGRESS_KEYS, "CCDifference"),
+        regress_keys: Sequence[str] = (*NOTEBOOK01_DEFAULT_QC_REGRESS_KEYS, "CCDifference"),
     ) -> "Notebook01RegressionVariant":
         """Return the planned later branch after cell-cycle scoring is added."""
         return cls(
@@ -248,23 +249,24 @@ def settings_to_frame(settings: object, method: str) -> pd.DataFrame:
 def default_regression_variants(
     regress_keys: Sequence[str] = NOTEBOOK01_DEFAULT_REGRESS_KEYS,
 ) -> tuple[Notebook01RegressionVariant, ...]:
-    """Return the default non-regressed and QC-regressed branches."""
+    """Return the default non-regressed and CCDifference-regressed branches."""
     return (
         Notebook01RegressionVariant.not_regressed(),
-        Notebook01RegressionVariant.qc_regressed(regress_keys=regress_keys),
+        Notebook01RegressionVariant.ccdifference_regressed(regress_keys=regress_keys),
     )
 
 
 def branch_operation_order(variant: Notebook01RegressionVariant) -> tuple[str, ...]:
     """Return the concrete operation order for one regression branch."""
     regression_step = (
-        "regress_out_obs_covariates_from_x"
+        "regress_out_obs_covariates_from_full_x"
         if variant.regress_keys
-        else "skip_regress_out_keep_normalized_log1p_x"
+        else "skip_regress_out_keep_normalized_log1p_full_x"
     )
     return (
-        "subset_to_hvgs_selected_from_counts_layer",
         regression_step,
+        "select_hvgs_from_counts_layer_after_regression_step",
+        "subset_to_hvgs",
         "scale_x",
         "pca_from_scaled_x",
         "neighbors_from_pca",
@@ -366,8 +368,9 @@ def run_hvg_selection(
     settings: Notebook01HVGSettings = Notebook01HVGSettings(),
     scope: str = "combined",
     run_sample_id: object | None = None,
+    branch: str | None = None,
 ) -> tuple[np.ndarray, pd.DataFrame, pd.DataFrame]:
-    """Select HVGs from counts and return mask, gene table, and parameter table."""
+    """Select HVGs from the configured layer and return mask, gene table, and parameters."""
     started_at = time.perf_counter()
     if settings.layer not in adata.layers:
         raise KeyError(f"Missing counts layer {settings.layer!r} for HVG selection.")
@@ -384,11 +387,15 @@ def run_hvg_selection(
     hvg_mask = adata.var["highly_variable"].fillna(False).to_numpy(dtype=bool)
     hvg_table = adata.var.loc[hvg_mask].copy()
     hvg_table.insert(0, "gene", hvg_table.index.astype(str))
+    if branch is not None:
+        hvg_table.insert(0, "branch", branch)
     hvg_table.insert(0, "run_sample_id", "" if run_sample_id is None else str(run_sample_id))
     hvg_table.insert(0, "scope", scope)
     hvg_table = hvg_table.reset_index(drop=True)
 
     parameter_df = settings_to_frame(settings, method="notebook01_hvg")
+    if branch is not None:
+        parameter_df.insert(0, "branch", branch)
     parameter_df.insert(0, "run_sample_id", "" if run_sample_id is None else str(run_sample_id))
     parameter_df.insert(0, "scope", scope)
     parameter_df["n_cells"] = int(adata.n_obs)
@@ -401,34 +408,43 @@ def run_hvg_selection(
 def run_regression_embedding_branch(
     adata: ad.AnnData,
     *,
-    hvg_mask: np.ndarray,
     variant: Notebook01RegressionVariant,
+    hvg_settings: Notebook01HVGSettings = Notebook01HVGSettings(),
     settings: Notebook01EmbeddingSettings = Notebook01EmbeddingSettings(),
     scope: str = "combined",
     run_sample_id: object | None = None,
-) -> tuple[ad.AnnData, dict]:
-    """Run one HVG-subset regression/PCA/UMAP/clustering branch.
+) -> tuple[ad.AnnData, dict, pd.DataFrame, pd.DataFrame]:
+    """Run one regression/HVG/PCA/UMAP/clustering branch.
 
     Input `adata.X` is expected to be normalized/log1p expression from the
-    Notebook 00 normalized checkpoint. HVG selection was already calculated from
-    `adata.layers["counts"]`, but this branch works on `.X` after subsetting to
-    those HVGs. If `variant.regress_keys` is nonempty, `sc.pp.regress_out`
-    replaces `.X` with residuals after modeling each gene against the named
-    `.obs` covariates. Scaling, PCA, neighbors, UMAP, and Leiden then consume
-    that branch-specific `.X` state.
+    Notebook 00 normalized checkpoint. The branch first works on the full gene
+    matrix. If `variant.regress_keys` is nonempty, `sc.pp.regress_out` replaces
+    full `.X` with residuals after modeling each gene against the named `.obs`
+    covariates. HVG selection is then run on the branch object using the
+    configured layer, followed by HVG subsetting, scaling, PCA, neighbors, UMAP,
+    and Leiden.
     """
     started_at = time.perf_counter()
     operation_order = branch_operation_order(variant)
     regression_covariate_source = (
         ",".join(f".obs[{key}]" for key in variant.regress_keys) if variant.regress_keys else ""
     )
-    branch_adata = adata[:, hvg_mask].copy()
+    branch_adata = adata.copy()
     missing_regress_keys = [key for key in variant.regress_keys if key not in branch_adata.obs.columns]
     if missing_regress_keys:
         raise KeyError(f"Missing regression covariates in adata.obs: {missing_regress_keys}")
 
     if variant.regress_keys:
-        sc.pp.regress_out(branch_adata, keys=list(variant.regress_keys), n_jobs=settings.regress_n_jobs)
+        sc.pp.regress_out(branch_adata, keys=list(variant.regress_keys))
+
+    hvg_mask, hvg_table, hvg_params = run_hvg_selection(
+        branch_adata,
+        settings=hvg_settings,
+        scope=scope,
+        run_sample_id=run_sample_id,
+        branch=variant.branch,
+    )
+    branch_adata = branch_adata[:, hvg_mask].copy()
 
     sc.pp.scale(branch_adata, max_value=settings.scale_max_value)
     n_comps = min(settings.n_pcs, max(1, branch_adata.n_vars - 1), max(1, branch_adata.n_obs - 1))
@@ -455,10 +471,19 @@ def run_regression_embedding_branch(
         "regression_covariate_source": regression_covariate_source,
         "regress_cell_cycle": variant.regress_cell_cycle,
         "operation_order": list(operation_order),
-        "x_state_at_branch_start": "normalized_log1p_hvg_subset",
-        "x_state_after_regression_step": "regressed_residuals" if variant.regress_keys else "normalized_log1p_hvg_subset",
+        "x_state_at_branch_start": "normalized_log1p_full_matrix",
+        "x_state_after_regression_step": (
+            "regressed_residuals_full_matrix" if variant.regress_keys else "normalized_log1p_full_matrix"
+        ),
+        "hvg_selection_layer": hvg_settings.layer,
+        "hvg_selection_after_regression_step": True,
+        "x_state_after_hvg_subset": (
+            "regressed_residuals_hvg_subset" if variant.regress_keys else "normalized_log1p_hvg_subset"
+        ),
         "x_state_after_scale": "scaled",
         "hvg_n_genes": int(hvg_mask.sum()),
+        "hvg_settings": asdict(hvg_settings),
+        "embedding_settings": asdict(settings),
         **asdict(settings),
     }
 
@@ -469,8 +494,15 @@ def run_regression_embedding_branch(
         "regress_keys": ",".join(variant.regress_keys),
         "regression_covariate_source": regression_covariate_source,
         "operation_order": " -> ".join(operation_order),
-        "x_state_at_branch_start": "normalized_log1p_hvg_subset",
-        "x_state_after_regression_step": "regressed_residuals" if variant.regress_keys else "normalized_log1p_hvg_subset",
+        "x_state_at_branch_start": "normalized_log1p_full_matrix",
+        "x_state_after_regression_step": (
+            "regressed_residuals_full_matrix" if variant.regress_keys else "normalized_log1p_full_matrix"
+        ),
+        "hvg_selection_layer": hvg_settings.layer,
+        "hvg_selection_after_regression_step": True,
+        "x_state_after_hvg_subset": (
+            "regressed_residuals_hvg_subset" if variant.regress_keys else "normalized_log1p_hvg_subset"
+        ),
         "x_state_after_scale": "scaled",
         "n_cells": int(branch_adata.n_obs),
         "n_hvg_genes": int(branch_adata.n_vars),
@@ -480,7 +512,7 @@ def run_regression_embedding_branch(
         "n_leiden_clusters": int(branch_adata.obs["leiden"].nunique()),
         "elapsed_seconds": time.perf_counter() - started_at,
     }
-    return branch_adata, record
+    return branch_adata, record, hvg_table, hvg_params
 
 
 def embedding_table(

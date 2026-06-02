@@ -34,6 +34,7 @@ from .notebook00_workflow import (
 )
 from .notebook01_workflow import (
     NOTEBOOK01_BASE_OPERATION_ORDER,
+    NOTEBOOK01_DEFAULT_QC_REGRESS_KEYS,
     NOTEBOOK01_DEFAULT_REGRESS_KEYS,
     NOTEBOOK01_REGRESSION_BRANCHES,
     Notebook01EmbeddingSettings,
@@ -76,6 +77,7 @@ __all__ = [
     "Notebook01RegressionVariant",
     "Notebook01RunSettings",
     "NOTEBOOK01_BASE_OPERATION_ORDER",
+    "NOTEBOOK01_DEFAULT_QC_REGRESS_KEYS",
     "NOTEBOOK01_DEFAULT_REGRESS_KEYS",
     "NOTEBOOK01_REGRESSION_BRANCHES",
     "Notebook01EmbeddingSettings",

@@ -17,7 +17,7 @@ PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projec
 CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
 
 NOTEBOOK01_NOTEBOOK00_RUN_LABEL="${NOTEBOOK01_NOTEBOOK00_RUN_LABEL:-cellranger_filtered_manual_ec_div30_core_samples_freeze}"
-NOTEBOOK01_RUN_LABEL="${NOTEBOOK01_RUN_LABEL:-${NOTEBOOK01_NOTEBOOK00_RUN_LABEL}_ccdifference_v1}"
+NOTEBOOK01_RUN_LABEL="${NOTEBOOK01_RUN_LABEL:-${NOTEBOOK01_NOTEBOOK00_RUN_LABEL}_ccdifference_seurat_order_v1}"
 
 mkdir -p "${PROJECT_ROOT}/logs"
 

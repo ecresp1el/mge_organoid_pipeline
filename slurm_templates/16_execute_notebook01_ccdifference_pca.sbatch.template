@@ -17,10 +17,9 @@ PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projec
 CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
 
 NOTEBOOK01_NOTEBOOK00_RUN_LABEL="${NOTEBOOK01_NOTEBOOK00_RUN_LABEL:-cellranger_filtered_manual_ec_div30_core_samples_freeze}"
-NOTEBOOK01_RUN_LABEL="${NOTEBOOK01_RUN_LABEL:-${NOTEBOOK01_NOTEBOOK00_RUN_LABEL}_ccdifference_v1}"
+NOTEBOOK01_RUN_LABEL="${NOTEBOOK01_RUN_LABEL:-${NOTEBOOK01_NOTEBOOK00_RUN_LABEL}_ccdifference_seurat_order_v1}"
 NOTEBOOK01_SCOPES="${NOTEBOOK01_SCOPES:-combined:per_sample}"
 NOTEBOOK01_RANDOM_STATE="${NOTEBOOK01_RANDOM_STATE:-0}"
-NOTEBOOK01_REGRESS_N_JOBS="${NOTEBOOK01_REGRESS_N_JOBS:-8}"
 
 mkdir -p "${PROJECT_ROOT}/logs"
 
@@ -31,7 +30,6 @@ export NOTEBOOK01_NOTEBOOK00_RUN_LABEL
 export NOTEBOOK01_RUN_LABEL
 export NOTEBOOK01_SCOPES
 export NOTEBOOK01_RANDOM_STATE
-export NOTEBOOK01_REGRESS_N_JOBS
 export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
 
 echo "Job started: $(date)"
@@ -41,7 +39,6 @@ echo "Project/data root: ${PROJECT_ROOT}"
 echo "Notebook 00 input run label: ${NOTEBOOK01_NOTEBOOK00_RUN_LABEL}"
 echo "Notebook 01 run label: ${NOTEBOOK01_RUN_LABEL}"
 echo "Scopes: ${NOTEBOOK01_SCOPES}"
-echo "Regression jobs: ${NOTEBOOK01_REGRESS_N_JOBS}"
 
 "${CONDA_ENV_BIN}/python" python_notebooks/scripts/run_notebook01_ccdifference_pca_diagnostic.py
 
