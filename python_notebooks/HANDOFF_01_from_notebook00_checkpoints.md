@@ -15,6 +15,571 @@ Use this section first. Older sections below include planning notes from before
 the CCDifference run and before the Seurat-ordering correction; where they
 conflict with this section, treat them as historical context.
 
+### Major Current State Summary
+
+This is the current source-of-truth state for Notebook 01 as of June 2, 2026.
+Notebook 01 now starts from the frozen Notebook 00 `.h5ad` checkpoints, scores
+cell cycle, runs the Seurat-order CCDifference regression comparison, saves the
+current carry-forward regressed branch, writes comparison plots, and has a
+separate quick marker-ranking pass for Leiden clusters.
+
+Current git state:
+
+```text
+branch: codex/notebook01-from-nb00-checkpoints
+source code through marker workflow: ade7ebc Add SLURM template and script for Notebook 01 Leiden cluster marker ranking
+handoff status: this markdown section is the current major handoff update
+```
+
+Current preferred run label:
+
+```text
+cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_pcs10_neighbors20_leiden08_v1
+```
+
+Current preferred run directory:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_pcs10_neighbors20_leiden08_v1
+```
+
+Current completed jobs:
+
+```text
+Notebook 01 full run:
+  Job ID: 51282977
+  State: COMPLETED
+  ExitCode: 0:0
+  Elapsed: 00:21:58
+  MaxRSS: 41621508K
+  Node: gl3048
+
+Quick Leiden marker ranking:
+  Job ID: 51285309
+  State: COMPLETED
+  ExitCode: 0:0
+  Elapsed: 00:04:01
+  MaxRSS: 17273588K
+  Node: gl3441
+```
+
+Current Notebook 01 analysis defaults:
+
+```text
+regress_keys=CCDifference
+hvg flavor=seurat_v3
+hvg n_top_genes=4000
+hvg layer=counts
+hvg batch_key=None
+pca n_pcs=10
+neighbors n_neighbors=20
+neighbors n_pcs=10
+neighbors use_rep=X_pca
+leiden resolution=0.8
+random_state=0
+scale max_value=10.0
+```
+
+### Inputs Consumed So Far
+
+Notebook 01 full run primary input:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples_freeze/h5ad/manual_ec_filtered_normalized_log1p.h5ad
+```
+
+State of that input:
+
+```text
+combined cells: 97658
+genes: 17486
+.X: Notebook 00 normalized/log1p expression
+.layers["counts"]: raw filtered counts kept before normalization/log1p
+obs/var names: unique
+```
+
+Per-sample Notebook 01 inputs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples_freeze/h5ad/per_sample/9853-MW-1.manual_ec_filtered_normalized_log1p.h5ad
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples_freeze/h5ad/per_sample/9853-MW-2.manual_ec_filtered_normalized_log1p.h5ad
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples_freeze/h5ad/per_sample/9853-MW-3.manual_ec_filtered_normalized_log1p.h5ad
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples_freeze/h5ad/per_sample/9853-MW-4.manual_ec_filtered_normalized_log1p.h5ad
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples_freeze/h5ad/per_sample/9853-MW-5.manual_ec_filtered_normalized_log1p.h5ad
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples_freeze/h5ad/per_sample/9853-MW-6.manual_ec_filtered_normalized_log1p.h5ad
+```
+
+Raw counts checkpoint paths also exist from Notebook 00 but were not used as the
+primary `.X` input for Notebook 01; raw counts are accessed through
+`.layers["counts"]` inside each normalized/log1p checkpoint.
+
+Cell-cycle gene inputs:
+
+```text
+source: mge_organoid_python.cell_cycle
+S-phase genes: Regev/Tirosh list intersected with checkpoint var_names
+G2M genes: Regev/Tirosh list intersected with checkpoint var_names
+scores written in memory: S_score, G2M_score, phase, CCDifference
+CCDifference definition: S_score - G2M_score
+```
+
+Quick marker-ranking pass inputs:
+
+```text
+expression matrix:
+  Notebook 00 combined normalized/log1p .X
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples_freeze/h5ad/manual_ec_filtered_normalized_log1p.h5ad
+
+cluster labels:
+  final combined regressed_ccdifference branch obs["leiden"]
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_pcs10_neighbors20_leiden08_v1/h5ad/combined/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+```
+
+### Notebook 01 Matrix State And Ordering
+
+For both `combined` and each per-sample input, Notebook 01 follows this ordering:
+
+```text
+1. load Notebook 00 normalized/log1p checkpoint
+2. score S_score, G2M_score, phase, CCDifference on the in-memory object
+3. create branch_adata = adata.copy()
+4. for not_regressed:
+     skip sc.pp.regress_out
+     branch_adata.X remains normalized_log1p_full_matrix
+5. for regressed_ccdifference:
+     sc.pp.regress_out(branch_adata, keys=["CCDifference"])
+     branch_adata.X becomes regressed_residuals_full_matrix
+6. run HVG selection after the branch regression step
+     sc.pp.highly_variable_genes(
+         branch_adata,
+         flavor="seurat_v3",
+         n_top_genes=4000,
+         layer="counts",
+         batch_key=None,
+         subset=False,
+     )
+7. subset branch_adata to 4000 HVGs
+8. sc.pp.scale(branch_adata, max_value=10.0)
+9. sc.pp.pca(branch_adata, n_comps=10, svd_solver="arpack", random_state=0)
+10. sc.pp.neighbors(
+        branch_adata,
+        n_neighbors=20,
+        n_pcs=10,
+        use_rep="X_pca",
+        random_state=0,
+    )
+11. sc.tl.umap(branch_adata, random_state=0)
+12. sc.tl.leiden(branch_adata, resolution=0.8, key_added="leiden", random_state=0)
+13. save tables and plots for both branches
+14. save final h5ad only for regressed_ccdifference by default
+```
+
+Matrix meanings in the final saved `regressed_ccdifference` h5ad:
+
+```text
+.X:
+  scaled CCDifference-regressed residuals for the 4000 selected HVGs
+
+.layers["counts"]:
+  raw counts for the same 4000 HVGs
+  unchanged by normalization, regress_out, scale, PCA, UMAP, or Leiden
+
+.obsm["X_pca"]:
+  PCA coordinates from scaled regressed branch .X, 10 PCs
+
+.varm["PCs"]:
+  PCA loadings for the 4000 HVGs x 10 PCs
+
+.uns["pca"]:
+  Scanpy PCA metadata
+
+.uns["neighbors"], .obsp["distances"], .obsp["connectivities"]:
+  neighbor graph built from .obsm["X_pca"] with n_neighbors=20, n_pcs=10
+
+.obsm["X_umap"]:
+  UMAP coordinates computed from the neighbor graph
+
+.obs["leiden"]:
+  Leiden clusters computed from the neighbor graph at resolution 0.8
+```
+
+### Current Outputs
+
+Current executed notebook:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/executed/01_notebook00_checkpoint_regression_comparison.cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_pcs10_neighbors20_leiden08_v1.executed.ipynb
+```
+
+Full-run Slurm logs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook01-exec-nb01-regression-51282977.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook01-exec-nb01-regression-51282977.err
+```
+
+Main tables:
+
+```text
+RUN_DIR/tables/notebook01_run_parameters.tsv
+RUN_DIR/tables/notebook01_input_validation.tsv
+RUN_DIR/tables/notebook01_analysis_plan.tsv
+RUN_DIR/tables/notebook01_hvg_genes.tsv
+RUN_DIR/tables/notebook01_hvg_parameters.tsv
+RUN_DIR/tables/notebook01_cell_cycle_gene_source.tsv
+RUN_DIR/tables/notebook01_cell_cycle_gene_summary.tsv
+RUN_DIR/tables/notebook01_cell_cycle_score_summary.tsv
+RUN_DIR/tables/notebook01_branch_summary.tsv
+RUN_DIR/tables/notebook01_plot_manifest.tsv
+RUN_DIR/tables/notebook01_umap_coordinates.tsv
+```
+
+Main table validation:
+
+```text
+notebook01_branch_summary.tsv rows: 14
+notebook01_plot_manifest.tsv rows: 167
+notebook01_run_parameters.tsv rows: 20
+not_regressed branches: 7
+regressed_ccdifference branches: 7
+regressed_ccdifference h5ad paths: 7/7 non-empty
+not_regressed h5ad paths: 0/7 by design
+all branches n_hvg_genes=4000
+all branches n_pcs=10
+all branches n_neighbors=20
+all branches neighbors_use_rep=X_pca
+all branches leiden_resolution=0.8
+missing plot files: 0
+matrix-flow validation lines in Slurm .out: 231
+```
+
+Final carry-forward h5ad outputs:
+
+```text
+RUN_DIR/h5ad/combined/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-1/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-2/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-3/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-4/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-5/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-6/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+```
+
+Combined final h5ad validation:
+
+```text
+shape: 97658 cells x 4000 HVGs
+.X shape: 97658 x 4000
+.layers["counts"] shape: 97658 x 4000
+.obsm["X_pca"] shape: 97658 x 10
+.obsm["X_umap"] shape: 97658 x 2
+.varm["PCs"] shape: 4000 x 10
+.uns["neighbors"]: present
+.uns["notebook01_branch"]["n_pcs"]: 10
+.uns["notebook01_branch"]["n_neighbors"]: 20
+.uns["notebook01_branch"]["neighbors_use_rep"]: X_pca
+.uns["notebook01_branch"]["leiden_resolution"]: 0.8
+```
+
+Single-branch plots:
+
+```text
+RUN_DIR/plots/combined/not_regressed/
+RUN_DIR/plots/combined/regressed_ccdifference/
+RUN_DIR/plots/per_sample/<run_sample_id>/not_regressed/
+RUN_DIR/plots/per_sample/<run_sample_id>/regressed_ccdifference/
+```
+
+Side-by-side comparison plots:
+
+```text
+RUN_DIR/plots/combined/comparison/umap_compare_run_sample_id.png
+RUN_DIR/plots/combined/comparison/umap_compare_cell_line.png
+RUN_DIR/plots/combined/comparison/umap_compare_leiden.png
+RUN_DIR/plots/combined/comparison/umap_compare_total_counts.png
+RUN_DIR/plots/combined/comparison/umap_compare_pct_counts_mt.png
+RUN_DIR/plots/combined/comparison/umap_compare_phase.png
+RUN_DIR/plots/combined/comparison/umap_compare_S_score.png
+RUN_DIR/plots/combined/comparison/umap_compare_G2M_score.png
+RUN_DIR/plots/combined/comparison/umap_compare_CCDifference.png
+RUN_DIR/plots/per_sample/<run_sample_id>/comparison/umap_compare_<color>.png
+```
+
+The comparison plots are side-by-side, not overlaid. Each branch has its own
+PCA, neighbor graph, and UMAP coordinate system, so overlaying branch UMAPs
+would imply an alignment that was not computed.
+
+### Quick Leiden Marker Ranking
+
+This is a quick cluster marker ranking, not a final cell-type annotation.
+It did not use a Seurat object and did not use marker scoring. CellTypist was
+checked in the `mge-organoid-python` conda env and was not installed.
+
+Marker command implemented in script:
+
+```python
+sc.tl.rank_genes_groups(
+    expr,
+    groupby="leiden",
+    method="wilcoxon",
+    n_genes=200,
+    use_raw=False,
+)
+sc.pl.rank_genes_groups(expr, n_genes=25, sharey=False)
+```
+
+Marker ranking job:
+
+```text
+Job ID: 51285309
+State: COMPLETED
+ExitCode: 0:0
+Elapsed: 00:04:01
+MaxRSS: 17273588K
+Node: gl3441
+```
+
+Marker-ranking scripts/templates:
+
+```text
+python_notebooks/scripts/run_notebook01_cluster_markers.py
+slurm_templates/16_run_notebook01_cluster_markers.sbatch.template
+```
+
+Marker-ranking Slurm logs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/notebook01-cluster-markers-nb01-markers-51285309.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/notebook01-cluster-markers-nb01-markers-51285309.err
+```
+
+Marker-ranking outputs:
+
+```text
+RUN_DIR/tables/notebook01_combined_leiden_marker_run_summary.tsv
+RUN_DIR/tables/notebook01_combined_leiden_markers_wilcoxon_top25.tsv
+RUN_DIR/tables/notebook01_combined_leiden_markers_wilcoxon_top200.tsv
+RUN_DIR/plots/combined/regressed_ccdifference/rank_genes_groups_leiden_wilcoxon_top25.png
+```
+
+Marker-ranking validation:
+
+```text
+input expression matrix: Notebook 00 combined normalized/log1p .X
+group labels: final combined regressed_ccdifference obs["leiden"]
+n_cells: 97658
+n_genes_ranked: 17486
+n_groups: 23
+method: wilcoxon
+rank_n_genes: 200
+top_n table rows: 575
+restrict_to_branch_hvgs: false
+```
+
+Top 10 genes by Leiden cluster from
+`notebook01_combined_leiden_markers_wilcoxon_top25.tsv`:
+
+```text
+0:  GPC3, PRTG, FZD5, NECTIN3, MAPK15, CELSR1, SIX3, SPARCL1, NHSL2, PTPRB
+1:  ERO1B, GAD1, SST, NXPH1, GALNT14, NRXN3, ERBB4, DCLK2, GRIA4, GRIP2
+2:  GLCE, GAD1, ASIC1, TMEM74B, LRRC7, GOLGA7B, ST6GAL2, GRIN2B, VGF, CHD5
+3:  SAMD5, SPOCK1, CDH23, GRIA1, ZFHX3, LHX8, CDH13, ANK3, ISLR2, SEZ6L
+4:  GRIA2, NRXN1, PCBP4, UCHL1, PTPRN2, ATRNL1, TMEM59L, DPYD, NRG1, SPTAN1
+5:  LMNB1, TYMS, NES, SMC4, VIM, RRM1, TMPO, NUCKS1, CKB, FANCI
+6:  DCLK2, NRXN3, LHX6, LRRC7, GPC2, CCDC88A, CELF3, NLK, BCL11A, GAD1
+7:  SOX4, DLX2, MAP2, DCX, BCL11B, PLS3, MARCKSL1, MLLT11, ARX, DLX5
+8:  SAMD5, ANK3, LHX8, NRP1, ZFHX3, AKAP6, PTPRS, NTRK1, AUTS2, UTRN
+9:  PRTG, FANCA, FANCI, CENPM, XRCC2, FZD5, WDR90, SIX3, CCDC14, RHPN1
+10: CENPM, HELLS, XRCC2, FANCI, ORC6, FANCA, KNTC1, RRM2, RFC3, CHAF1A
+11: NOTCH1, NES, LMO1, QKI, HES5, AASS, SOX5, NR2F1, ZEB2, CCND2
+12: NES, HES5, VIM, NOTCH1, SOX2, PTPRZ1, SOX9, SH3BP4, TTYH1, IGDCC3
+13: PTPRS, ROBO3, ASIC1, GBX1, ECEL1, NTRK1, ENC1, NFASC, INSRR, CACNA1C
+14: SALL3, SAMD5, PLPP3, DACH1, PTPRZ1, NR2F1, NES, ZEB2, VEPH1, FGFR3
+15: TUBB2B, NNAT, MARCKSL1, TMSB4X, ACTG1, VIM, ACTB, MT-CO3, MAP1B, MT-CO2
+16: C1orf61, QKI, TTYH1, FRZB, PTPRZ1, IGFBP5, OBSL1, BCAN, IGFBP2, EPHB3
+17: GPC3, EEF2, ACTG1, MARCKS, SPARC, HIST1H1B, HNRNPA0, MT-ND4, H3F3A, MT-CO3
+18: MAP1B, STMN2, TUBB2B, PEG10, MLLT11, INA, TMSB10, MAPT, TUBA1A, NSG2
+19: GPC3, PRTG, PTPRB, SPARCL1, SIX3, MAPK15, FZD5, SLIT2, NHSL2, CHST7
+20: WHRN, NELL2, SLC6A8, DLL1, ST18, CHD7, OS9, NKX2-1, ZBTB18, HES6
+21: DUSP4, NNAT, MLLT11, SDC3, ENC1, GBX1, INA, MAP2, TUBB2B, TUBA1A
+22: COL3A1, COL1A2, COL1A1, LAMB1, COL6A2, CPED1, CDH11, COL5A1, RBMS3, MMP14
+```
+
+No automatic or final cell-type labels were written. The marker pass exists to
+support manual review and future annotation.
+
+### Notebook 01 Code Inventory
+
+Primary notebook:
+
+```text
+python_notebooks/notebooks/01_notebook00_checkpoint_regression_comparison.ipynb
+```
+
+Primary reusable module:
+
+```text
+python_notebooks/src/mge_organoid_python/notebook01_workflow.py
+```
+
+Notebook 01 constants in `notebook01_workflow.py`:
+
+```text
+NOTEBOOK01_SUPPORTED_SCOPES = ("combined", "per_sample")
+NOTEBOOK01_REGRESSION_BRANCHES = ("not_regressed", "regressed_ccdifference")
+NOTEBOOK01_DEFAULT_REGRESS_KEYS = ("CCDifference",)
+NOTEBOOK01_DEFAULT_QC_REGRESS_KEYS = ("total_counts", "pct_counts_mt")
+NOTEBOOK01_BASE_OPERATION_ORDER
+```
+
+Notebook 01 dataclasses in `notebook01_workflow.py`:
+
+```text
+Notebook01InputSettings
+  Notebook 00 checkpoint naming, counts layer, per-sample directory names.
+
+Notebook01RunSettings
+  Notebook 01 run label, output dirname, selected scopes and branch names.
+
+Notebook01HVGSettings
+  Seurat-v3 HVG parameters: 4000 genes, counts layer, batch_key=None.
+
+Notebook01EmbeddingSettings
+  PCA/neighbors/UMAP/Leiden defaults: 10 PCs, 20 neighbors, use_rep=X_pca,
+  Leiden resolution 0.8, random_state 0, scale max_value 10.
+
+Notebook01RegressionVariant
+  Branch definitions. Current default uses not_regressed and
+  ccdifference_regressed. Older qc_regressed helpers remain available but are
+  not part of the current default run.
+
+Notebook01InputPaths
+  Resolves combined and per-sample Notebook 00 input paths.
+
+Notebook01OutputPaths
+  Resolves Notebook 01 run directories, tables, plots, h5ad, executed notebook,
+  and branch-specific h5ad directories.
+```
+
+Notebook 01 helper functions in `notebook01_workflow.py`:
+
+```text
+settings_to_frame
+default_regression_variants
+branch_operation_order
+parse_csv
+validate_notebook01_input
+infer_run_sample_ids
+planned_analysis_table
+run_hvg_selection
+run_regression_embedding_branch
+embedding_table
+save_umap_plot
+umap_comparison_payload
+save_umap_branch_comparison_plot
+save_pca_variance_plot
+```
+
+Notebook 01 cell-cycle dependency:
+
+```text
+python_notebooks/src/mge_organoid_python/cell_cycle.py
+  CCDIFFERENCE_KEY
+  select_cell_cycle_genes
+  score_cell_cycle_and_ccdifference
+  cell_cycle_score_summary
+```
+
+Notebook 01 path/data dependencies:
+
+```text
+python_notebooks/src/mge_organoid_python/data_sources.py
+  resolve_data_root
+  find_repo_root
+```
+
+Notebook 01 command-line scripts:
+
+```text
+python_notebooks/scripts/prepare_notebook01_cell_cycle_genes.py
+  Validates Regev/Tirosh S/G2M genes against Notebook 00 checkpoint var_names.
+
+python_notebooks/scripts/run_notebook01_ccdifference_pca_diagnostic.py
+  Historical/diagnostic CCDifference PCA before/after regression check.
+
+python_notebooks/scripts/run_notebook01_cluster_markers.py
+  Quick Leiden cluster marker ranking using normalized/log1p expression and
+  final Notebook 01 Leiden labels.
+```
+
+Notebook 01 Slurm templates:
+
+```text
+slurm_templates/14_execute_notebook01_regression.sbatch.template
+  Full Notebook 01 execution. Current defaults produce the preferred run label
+  with 4000 HVGs, 10 PCs, 20 neighbors, use_rep=X_pca, Leiden 0.8.
+
+slurm_templates/15_prepare_notebook01_cell_cycle_genes.sbatch.template
+  Cell-cycle gene validation helper.
+
+slurm_templates/16_run_notebook01_cluster_markers.sbatch.template
+  Quick Leiden marker-ranking helper.
+```
+
+Notebook 01 plain-text order reference:
+
+```text
+python_notebooks/NOTEBOOK01_COMBINED_MATRIX_ORDER.txt
+```
+
+Exported package entry points updated in:
+
+```text
+python_notebooks/src/mge_organoid_python/__init__.py
+```
+
+### Commands And Sync References
+
+Full Notebook 01 rerun command used:
+
+```bash
+sbatch slurm_templates/14_execute_notebook01_regression.sbatch.template
+```
+
+Marker-ranking command used:
+
+```bash
+sbatch slurm_templates/16_run_notebook01_cluster_markers.sbatch.template
+```
+
+Rsync command for latest combined plots:
+
+```bash
+rsync -avh --progress \
+  elcrespo@greatlakes.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_pcs10_neighbors20_leiden08_v1/plots/combined/ \
+  /Users/ecrespo/Downloads/notebook01_combined_plots_pcs10_neighbors20_leiden08_v1/
+```
+
+### Not Done Or Still Provisional
+
+The current output does not implement Seurat `IntegrateLayers` or Scanpy
+integration. UMAP and Leiden are from PCA directly.
+
+No separate all-gene regressed checkpoint is saved immediately after
+`regress_out`. The saved carry-forward h5ad is the 4000-HVG, scaled,
+PCA/UMAP/Leiden branch object.
+
+No CellTypist run has been performed. `celltypist` is not installed in the
+current `mge-organoid-python` environment.
+
+No automatic cell-type annotation has been written. The marker ranking is a
+review aid for manual annotation.
+
+The previous run
+`cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_v1`
+is still useful as historical context, but the preferred run is now
+`cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_pcs10_neighbors20_leiden08_v1`.
+
 ### Current Preferred CCDifference Rerun Completed
 
 Completed run:
