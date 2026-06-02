@@ -53,7 +53,9 @@ from .notebook01_workflow import (
     run_hvg_selection,
     run_regression_embedding_branch,
     save_pca_variance_plot,
+    save_umap_branch_comparison_plot,
     save_umap_plot,
+    umap_comparison_payload,
     validate_notebook01_input,
 )
 from .paths import DEFAULT_PROJECT_ROOT, resolve_project_root
@@ -111,10 +113,12 @@ __all__ = [
     "score_cell_cycle_and_ccdifference",
     "select_cell_cycle_genes",
     "save_pca_variance_plot",
+    "save_umap_branch_comparison_plot",
     "save_manual_ec_checkpoints",
     "save_umap_plot",
     "source_availability_table",
     "summarize_source_availability",
+    "umap_comparison_payload",
     "validate_anndata",
     "validate_manual_ec_checkpoint_pair",
     "validate_notebook01_input",

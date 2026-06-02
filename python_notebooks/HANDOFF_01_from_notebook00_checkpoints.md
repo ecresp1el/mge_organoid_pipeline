@@ -107,6 +107,62 @@ cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_orde
 9. Scale, PCA, neighbors, UMAP, and Leiden from the branch-specific HVG .X
 ```
 
+### Source Defaults Updated After Completed Run
+
+As of 2026-06-02, the source defaults for the next Notebook 01 run are:
+
+```text
+n_pcs=10
+n_neighbors=20
+neighbors_use_rep=X_pca
+leiden_resolution=0.8
+```
+
+The completed Slurm job `51278701` above was run before this default update;
+treat that output as the completed Seurat-order 4,000-HVG run, but not as a
+Leiden-resolution-0.8 rerun unless the notebook is executed again.
+
+The next run uses this explicit neighbors call:
+
+```python
+sc.pp.neighbors(
+    branch_adata,
+    n_neighbors=20,
+    n_pcs=10,
+    use_rep="X_pca",
+    random_state=0,
+)
+```
+
+and this Leiden call:
+
+```python
+sc.tl.leiden(
+    branch_adata,
+    resolution=0.8,
+    key_added="leiden",
+    random_state=0,
+)
+```
+
+The next run also keeps all existing single-branch UMAP/PCA plots and adds
+side-by-side branch comparison UMAPs:
+
+```text
+plots/combined/comparison/umap_compare_<color>.png
+plots/per_sample/<run_sample_id>/comparison/umap_compare_<color>.png
+```
+
+These comparison figures place `not_regressed` on the left and
+`regressed_ccdifference` on the right. They are side-by-side, not overlaid,
+because each branch has its own PCA, neighbor graph, and UMAP coordinate system.
+
+The exact combined-data matrix order and commands are also documented in:
+
+```text
+python_notebooks/NOTEBOOK01_COMBINED_MATRIX_ORDER.txt
+```
+
 The run emits explicit matrix-flow validation lines to stdout and the executed
 notebook. Search the Slurm `.out` log for:
 
@@ -119,7 +175,7 @@ Those lines confirm:
 ```text
 PCA input:       scaled branch_adata.X
 PCA saved in:    branch_adata.obsm["X_pca"], branch_adata.varm["PCs"], branch_adata.uns["pca"]
-Neighbors input: branch_adata.obsm["X_pca"]
+Neighbors input: branch_adata.obsm["X_pca"] with use_rep="X_pca"
 Neighbors saved: branch_adata.uns["neighbors"] plus Scanpy obsp graph matrices
 UMAP input:      neighbors graph
 UMAP saved in:   branch_adata.obsm["X_umap"]
@@ -1044,7 +1100,7 @@ layer=counts
 batch_key=None
 ```
 
-Confirmed current embedding/clustering settings:
+Historical first-pass embedding/clustering settings:
 
 ```text
 n_pcs=50

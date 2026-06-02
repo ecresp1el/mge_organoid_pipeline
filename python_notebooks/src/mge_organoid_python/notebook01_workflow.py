@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scanpy as sc
+from matplotlib.lines import Line2D
+from pandas.api.types import is_numeric_dtype
 
 
 NOTEBOOK01_SUPPORTED_SCOPES = ("combined", "per_sample")
@@ -71,9 +73,10 @@ class Notebook01HVGSettings:
 class Notebook01EmbeddingSettings:
     """PCA/neighbors/UMAP/clustering settings for Notebook 01 branches."""
 
-    n_pcs: int = 50
-    n_neighbors: int = 15
-    leiden_resolution: float = 0.5
+    n_pcs: int = 10
+    n_neighbors: int = 20
+    neighbors_use_rep: str = "X_pca"
+    leiden_resolution: float = 0.8
     random_state: int = 0
     scale_max_value: float = 10.0
 
@@ -552,12 +555,17 @@ def run_regression_embedding_branch(
         scope=scope,
         branch=variant.branch,
         run_sample_id=run_sample_id,
-        message=f"Neighbors input: branch_adata.obsm['X_pca'] shape={branch_adata.obsm['X_pca'].shape}",
+        message=(
+            f"Neighbors input: branch_adata.obsm[{settings.neighbors_use_rep!r}] "
+            f"shape={branch_adata.obsm[settings.neighbors_use_rep].shape}; "
+            f"n_neighbors={settings.n_neighbors}; n_pcs={n_comps}; use_rep={settings.neighbors_use_rep!r}"
+        ),
     )
     sc.pp.neighbors(
         branch_adata,
         n_neighbors=settings.n_neighbors,
         n_pcs=n_comps,
+        use_rep=settings.neighbors_use_rep,
         random_state=settings.random_state,
     )
     _print_branch_matrix_flow(
@@ -604,7 +612,7 @@ def run_regression_embedding_branch(
     matrix_flow_validation = {
         "pca_input": "scaled branch_adata.X",
         "pca_saved": "branch_adata.obsm['X_pca']; branch_adata.varm['PCs']; branch_adata.uns['pca']",
-        "neighbors_input": "branch_adata.obsm['X_pca']",
+        "neighbors_input": f"branch_adata.obsm[{settings.neighbors_use_rep!r}]",
         "neighbors_saved": "branch_adata.uns['neighbors']; branch_adata.obsp['distances']; branch_adata.obsp['connectivities']",
         "umap_input": "neighbors graph",
         "umap_saved": "branch_adata.obsm['X_umap']",
@@ -658,6 +666,7 @@ def run_regression_embedding_branch(
         "n_hvg_genes": int(branch_adata.n_vars),
         "n_pcs": int(n_comps),
         "n_neighbors": settings.n_neighbors,
+        "neighbors_use_rep": settings.neighbors_use_rep,
         "leiden_resolution": settings.leiden_resolution,
         "n_leiden_clusters": int(branch_adata.obs["leiden"].nunique()),
         **matrix_flow_validation,
@@ -701,6 +710,127 @@ def save_umap_plot(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     sc.pl.umap(adata, color=color, title=title, show=False)
     fig = plt.gcf()
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
+    if show:
+        plt.show()
+    plt.close(fig)
+    return output_path
+
+
+def umap_comparison_payload(adata: ad.AnnData, *, color: str) -> pd.DataFrame:
+    """Return minimal UMAP coordinates and one obs column for comparison plots."""
+    if "X_umap" not in adata.obsm:
+        raise KeyError("Missing adata.obsm['X_umap']; run UMAP first.")
+    if color not in adata.obs.columns:
+        raise KeyError(f"Missing adata.obs[{color!r}] for UMAP comparison plot.")
+    coords = pd.DataFrame(adata.obsm["X_umap"][:, :2], columns=["UMAP1", "UMAP2"])
+    coords[color] = adata.obs[color].to_numpy()
+    return coords
+
+
+def _umap_point_size(n_cells: int) -> float:
+    """Return a readable point size for branch comparison UMAPs."""
+    if n_cells >= 50_000:
+        return 1.5
+    if n_cells >= 10_000:
+        return 2.5
+    return 5.0
+
+
+def _as_category_strings(values: pd.Series) -> pd.Series:
+    """Return display-safe categorical strings with missing values labeled."""
+    return values.astype(object).where(values.notna(), "NA").astype(str)
+
+
+def save_umap_branch_comparison_plot(
+    left: pd.DataFrame,
+    right: pd.DataFrame,
+    *,
+    color: str,
+    left_branch: str,
+    right_branch: str,
+    output_path: Path | str,
+    title: str,
+    show: bool = False,
+    dpi: int = 160,
+) -> Path:
+    """Save one side-by-side UMAP comparing two Notebook 01 branches."""
+    required_columns = {"UMAP1", "UMAP2", color}
+    missing = {
+        "left": required_columns.difference(left.columns),
+        "right": required_columns.difference(right.columns),
+    }
+    missing = {side: columns for side, columns in missing.items() if columns}
+    if missing:
+        raise KeyError(f"Missing columns for UMAP branch comparison: {missing}")
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8), constrained_layout=True)
+    fig.suptitle(title)
+    branch_frames = [(axes[0], left, left_branch), (axes[1], right, right_branch)]
+    max_cells = max(len(left), len(right))
+    point_size = _umap_point_size(max_cells)
+    combined_values = pd.concat([left[color], right[color]], ignore_index=True)
+
+    if is_numeric_dtype(combined_values):
+        numeric_values = pd.to_numeric(combined_values, errors="coerce").dropna()
+        vmin = float(numeric_values.min()) if not numeric_values.empty else 0.0
+        vmax = float(numeric_values.max()) if not numeric_values.empty else 1.0
+        if vmin == vmax:
+            vmax = vmin + 1.0
+        scatter = None
+        for ax, frame, branch in branch_frames:
+            values = pd.to_numeric(frame[color], errors="coerce")
+            scatter = ax.scatter(
+                frame["UMAP1"],
+                frame["UMAP2"],
+                c=values,
+                s=point_size,
+                cmap="viridis",
+                vmin=vmin,
+                vmax=vmax,
+                linewidths=0,
+                rasterized=True,
+            )
+            ax.set_title(branch)
+            ax.set_xlabel("UMAP1")
+            ax.set_ylabel("UMAP2")
+        if scatter is not None:
+            fig.colorbar(scatter, ax=axes, shrink=0.82, label=color)
+    else:
+        left_values = _as_category_strings(left[color])
+        right_values = _as_category_strings(right[color])
+        categories = list(dict.fromkeys(pd.concat([left_values, right_values], ignore_index=True).tolist()))
+        cmap_name = "tab20" if len(categories) <= 20 else "nipy_spectral"
+        cmap = plt.get_cmap(cmap_name, max(len(categories), 1))
+        palette = {category: cmap(index) for index, category in enumerate(categories)}
+        for ax, frame, branch, values in [
+            (axes[0], left, left_branch, left_values),
+            (axes[1], right, right_branch, right_values),
+        ]:
+            for category in categories:
+                mask = values == category
+                if not mask.any():
+                    continue
+                ax.scatter(
+                    frame.loc[mask, "UMAP1"],
+                    frame.loc[mask, "UMAP2"],
+                    c=[palette[category]],
+                    s=point_size,
+                    linewidths=0,
+                    rasterized=True,
+                )
+            ax.set_title(branch)
+            ax.set_xlabel("UMAP1")
+            ax.set_ylabel("UMAP2")
+        handles = [
+            Line2D([0], [0], marker="o", color="none", markerfacecolor=palette[category], markersize=5)
+            for category in categories
+        ]
+        fig.legend(handles, categories, title=color, loc="center left", bbox_to_anchor=(1.0, 0.5), fontsize=8)
+
     fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
     if show:
         plt.show()
