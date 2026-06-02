@@ -15,13 +15,82 @@ Use this section first. Older sections below include planning notes from before
 the CCDifference run and before the Seurat-ordering correction; where they
 conflict with this section, treat them as historical context.
 
-### Source Code Updated For Next Seurat-Aligned Rerun
+### Seurat-Aligned CCDifference Rerun Completed
 
-The source implementation has been updated so the next Notebook 01 run follows
-the intended Jeyoon/Seurat ordering more closely:
+Completed run:
 
 ```text
-Default next RUN_LABEL:
+NOTEBOOK00_RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples_freeze
+RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_v1
+RUN_DIR=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_v1
+```
+
+Slurm execution:
+
+```text
+Job ID: 51278701
+State: COMPLETED
+ExitCode: 0:0
+Elapsed: 00:19:15
+MaxRSS: 30605012K
+Node: gl3076
+```
+
+Executed notebook:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/executed/01_notebook00_checkpoint_regression_comparison.cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_v1.executed.ipynb
+```
+
+Slurm logs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook01-exec-nb01-regression-51278701.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook01-exec-nb01-regression-51278701.err
+```
+
+Completion checks:
+
+```text
+notebook01_branch_summary.tsv rows: 14
+branches: not_regressed=7, regressed_ccdifference=7
+regressed_ccdifference h5ad paths: 7/7 non-empty
+not_regressed h5ad paths: 0/7, by design
+all branches n_hvg_genes=4000
+matrix-flow validation lines in Slurm .out: 231
+```
+
+Combined saved carry-forward object:
+
+```text
+RUN_DIR/h5ad/combined/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+shape: 97658 cells x 4000 HVGs
+.X: scaled CCDifference-regressed residuals for 4000 HVGs
+.layers["counts"]: raw counts for the same 4000 HVGs
+.obsm["X_pca"]: 97658 x 50
+.obsm["X_umap"]: 97658 x 2
+.varm["PCs"]: 4000 x 50
+```
+
+Final carry-forward `.h5ad` outputs:
+
+```text
+RUN_DIR/h5ad/combined/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-1/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-2/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-3/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-4/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-5/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-6/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+```
+
+### Source Code Updated For Seurat-Aligned Reruns
+
+The source implementation has been updated so Notebook 01 follows the intended
+Jeyoon/Seurat ordering more closely:
+
+```text
+Default RUN_LABEL:
 cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_v1
 ```
 
@@ -37,6 +106,30 @@ cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_orde
 8. Subset the branch to those HVGs
 9. Scale, PCA, neighbors, UMAP, and Leiden from the branch-specific HVG .X
 ```
+
+The run emits explicit matrix-flow validation lines to stdout and the executed
+notebook. Search the Slurm `.out` log for:
+
+```text
+[Notebook01 matrix flow]
+```
+
+Those lines confirm:
+
+```text
+PCA input:       scaled branch_adata.X
+PCA saved in:    branch_adata.obsm["X_pca"], branch_adata.varm["PCs"], branch_adata.uns["pca"]
+Neighbors input: branch_adata.obsm["X_pca"]
+Neighbors saved: branch_adata.uns["neighbors"] plus Scanpy obsp graph matrices
+UMAP input:      neighbors graph
+UMAP saved in:   branch_adata.obsm["X_umap"]
+Leiden input:    neighbors graph
+Leiden saved in: branch_adata.obs["leiden"]
+```
+
+The same mapping is also recorded in `notebook01_branch_summary.tsv` columns
+and in each saved branch object's
+`uns["notebook01_branch"]["matrix_flow_validation"]`.
 
 Updated Scanpy HVG command for the next run:
 
@@ -119,13 +212,14 @@ Seurat saveRDS(...cc_regressed_integrated.rds)
   -> Not implemented because CCA integration is not yet implemented.
 ```
 
-Rerun requirement:
+Historical-output warning:
 
 ```text
 The completed ccdifference_v1 output below used the older order:
 HVG selection first, 2,000 HVGs, then CCDifference regression on the HVG subset.
-Do not treat that output as the Seurat-order reproduction. A new Slurm rerun is
-required to produce 4,000-HVG, regression-before-HVG outputs.
+Do not treat that output as the Seurat-order reproduction. Use the completed
+ccdifference_seurat_order_v1 run above for the 4,000-HVG,
+regression-before-HVG outputs.
 ```
 
 ### Historical Completed Run Before Seurat-Ordering Correction

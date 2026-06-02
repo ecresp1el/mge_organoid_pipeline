@@ -405,6 +405,23 @@ def run_hvg_selection(
     return hvg_mask, hvg_table, parameter_df
 
 
+def _branch_log_prefix(scope: str, branch: str, run_sample_id: object | None = None) -> str:
+    """Return a compact stdout prefix for branch-level execution logs."""
+    sample = "" if run_sample_id is None else f" sample={run_sample_id}"
+    return f"[Notebook01 matrix flow] scope={scope}{sample} branch={branch}"
+
+
+def _print_branch_matrix_flow(
+    *,
+    scope: str,
+    branch: str,
+    run_sample_id: object | None = None,
+    message: str,
+) -> None:
+    """Print branch matrix provenance messages into notebook and Slurm logs."""
+    print(f"{_branch_log_prefix(scope, branch, run_sample_id)} {message}", flush=True)
+
+
 def run_regression_embedding_branch(
     adata: ad.AnnData,
     *,
@@ -430,13 +447,52 @@ def run_regression_embedding_branch(
         ",".join(f".obs[{key}]" for key in variant.regress_keys) if variant.regress_keys else ""
     )
     branch_adata = adata.copy()
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=(
+            f"branch start: .X=normalized_log1p_full_matrix shape={branch_adata.X.shape}; "
+            f".layers[{hvg_settings.layer!r}] shape={branch_adata.layers[hvg_settings.layer].shape}"
+        ),
+    )
     missing_regress_keys = [key for key in variant.regress_keys if key not in branch_adata.obs.columns]
     if missing_regress_keys:
         raise KeyError(f"Missing regression covariates in adata.obs: {missing_regress_keys}")
 
     if variant.regress_keys:
+        _print_branch_matrix_flow(
+            scope=scope,
+            branch=variant.branch,
+            run_sample_id=run_sample_id,
+            message=f"regress_out input: full branch_adata.X; keys={list(variant.regress_keys)}; n_jobs=Scanpy default",
+        )
         sc.pp.regress_out(branch_adata, keys=list(variant.regress_keys))
+        _print_branch_matrix_flow(
+            scope=scope,
+            branch=variant.branch,
+            run_sample_id=run_sample_id,
+            message=f"regress_out saved: branch_adata.X=regressed_residuals_full_matrix shape={branch_adata.X.shape}",
+        )
+    else:
+        _print_branch_matrix_flow(
+            scope=scope,
+            branch=variant.branch,
+            run_sample_id=run_sample_id,
+            message="regress_out skipped: branch_adata.X remains normalized_log1p_full_matrix",
+        )
 
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=(
+            "HVG input: "
+            f"branch_adata.layers[{hvg_settings.layer!r}] raw counts; "
+            f"flavor={hvg_settings.flavor}; n_top_genes={hvg_settings.n_top_genes}; "
+            f"batch_key={hvg_settings.batch_key}; subset=False"
+        ),
+    )
     hvg_mask, hvg_table, hvg_params = run_hvg_selection(
         branch_adata,
         settings=hvg_settings,
@@ -444,24 +500,117 @@ def run_regression_embedding_branch(
         run_sample_id=run_sample_id,
         branch=variant.branch,
     )
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=f"HVG saved: branch_adata.var['highly_variable']; n_highly_variable_genes={int(hvg_mask.sum())}",
+    )
     branch_adata = branch_adata[:, hvg_mask].copy()
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=(
+            f"HVG subset saved: branch_adata.X shape={branch_adata.X.shape}; "
+            f"branch_adata.layers[{hvg_settings.layer!r}] shape={branch_adata.layers[hvg_settings.layer].shape}"
+        ),
+    )
 
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=f"scale input: branch_adata.X shape={branch_adata.X.shape}; max_value={settings.scale_max_value}",
+    )
     sc.pp.scale(branch_adata, max_value=settings.scale_max_value)
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=f"scale saved: branch_adata.X=scaled matrix shape={branch_adata.X.shape}",
+    )
     n_comps = min(settings.n_pcs, max(1, branch_adata.n_vars - 1), max(1, branch_adata.n_obs - 1))
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=f"PCA input: scaled branch_adata.X shape={branch_adata.X.shape}; n_comps={n_comps}",
+    )
     sc.pp.pca(branch_adata, n_comps=n_comps, svd_solver="arpack", random_state=settings.random_state)
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=(
+            "PCA saved: branch_adata.obsm['X_pca'] "
+            f"shape={branch_adata.obsm['X_pca'].shape}; branch_adata.varm['PCs'] "
+            f"shape={branch_adata.varm['PCs'].shape}; branch_adata.uns['pca']"
+        ),
+    )
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=f"Neighbors input: branch_adata.obsm['X_pca'] shape={branch_adata.obsm['X_pca'].shape}",
+    )
     sc.pp.neighbors(
         branch_adata,
         n_neighbors=settings.n_neighbors,
         n_pcs=n_comps,
         random_state=settings.random_state,
     )
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=(
+            "Neighbors saved: branch_adata.uns['neighbors']; "
+            "branch_adata.obsp['distances']; branch_adata.obsp['connectivities']"
+        ),
+    )
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message="UMAP input: neighbors graph from branch_adata.uns['neighbors']/branch_adata.obsp",
+    )
     sc.tl.umap(branch_adata, random_state=settings.random_state)
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=f"UMAP saved: branch_adata.obsm['X_umap'] shape={branch_adata.obsm['X_umap'].shape}",
+    )
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message="Leiden input: neighbors graph from branch_adata.uns['neighbors']/branch_adata.obsp",
+    )
     sc.tl.leiden(
         branch_adata,
         resolution=settings.leiden_resolution,
         key_added="leiden",
         random_state=settings.random_state,
     )
+    _print_branch_matrix_flow(
+        scope=scope,
+        branch=variant.branch,
+        run_sample_id=run_sample_id,
+        message=f"Leiden saved: branch_adata.obs['leiden']; n_clusters={int(branch_adata.obs['leiden'].nunique())}",
+    )
+
+    matrix_flow_validation = {
+        "pca_input": "scaled branch_adata.X",
+        "pca_saved": "branch_adata.obsm['X_pca']; branch_adata.varm['PCs']; branch_adata.uns['pca']",
+        "neighbors_input": "branch_adata.obsm['X_pca']",
+        "neighbors_saved": "branch_adata.uns['neighbors']; branch_adata.obsp['distances']; branch_adata.obsp['connectivities']",
+        "umap_input": "neighbors graph",
+        "umap_saved": "branch_adata.obsm['X_umap']",
+        "leiden_input": "neighbors graph",
+        "leiden_saved": "branch_adata.obs['leiden']",
+    }
 
     branch_adata.uns["notebook01_branch"] = {
         "scope": scope,
@@ -484,6 +633,7 @@ def run_regression_embedding_branch(
         "hvg_n_genes": int(hvg_mask.sum()),
         "hvg_settings": asdict(hvg_settings),
         "embedding_settings": asdict(settings),
+        "matrix_flow_validation": matrix_flow_validation,
         **asdict(settings),
     }
 
@@ -510,6 +660,7 @@ def run_regression_embedding_branch(
         "n_neighbors": settings.n_neighbors,
         "leiden_resolution": settings.leiden_resolution,
         "n_leiden_clusters": int(branch_adata.obs["leiden"].nunique()),
+        **matrix_flow_validation,
         "elapsed_seconds": time.perf_counter() - started_at,
     }
     return branch_adata, record, hvg_table, hvg_params

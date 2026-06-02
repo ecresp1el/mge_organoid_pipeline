@@ -31,6 +31,7 @@ NOTEBOOK01_WRITE_BRANCH_H5AD="${NOTEBOOK01_WRITE_BRANCH_H5AD:-1}"
 
 executed_dir="${PROJECT_ROOT}/results/notebook01/executed"
 executed_name="01_notebook00_checkpoint_regression_comparison.${NOTEBOOK01_RUN_LABEL}.executed.ipynb"
+executed_path="${executed_dir}/${executed_name}"
 
 mkdir -p "${PROJECT_ROOT}/logs" "${executed_dir}"
 
@@ -65,7 +66,7 @@ echo "Leiden resolution: ${NOTEBOOK01_LEIDEN_RESOLUTION}"
 echo "Show plots in executed notebook: ${NOTEBOOK01_SHOW_PLOTS}"
 echo "Save plots: ${NOTEBOOK01_SAVE_PLOTS}"
 echo "Write branch h5ad: ${NOTEBOOK01_WRITE_BRANCH_H5AD}"
-echo "Executed notebook: ${executed_dir}/${executed_name}"
+echo "Executed notebook: ${executed_path}"
 
 "${CONDA_ENV_BIN}/jupyter" nbconvert \
   --to notebook \
@@ -74,5 +75,31 @@ echo "Executed notebook: ${executed_dir}/${executed_name}"
   --output "${executed_name}" \
   --ExecutePreprocessor.kernel_name=mge-organoid-python \
   --ExecutePreprocessor.timeout=-1
+
+echo "Matrix-flow validation lines from executed notebook:"
+EXECUTED_NOTEBOOK_PATH="${executed_path}" "${CONDA_ENV_BIN}/python" <<'PY'
+import json
+import os
+from pathlib import Path
+
+marker = "[Notebook01 matrix flow]"
+path = Path(os.environ["EXECUTED_NOTEBOOK_PATH"])
+nb = json.loads(path.read_text())
+matched = 0
+for cell in nb.get("cells", []):
+    for output in cell.get("outputs", []):
+        if output.get("output_type") != "stream":
+            continue
+        text = output.get("text", "")
+        if isinstance(text, list):
+            text = "".join(text)
+        for line in text.splitlines():
+            if marker in line:
+                print(line)
+                matched += 1
+print(f"Matrix-flow validation line count: {matched}")
+if matched == 0:
+    raise SystemExit(f"No {marker!r} lines found in {path}")
+PY
 
 echo "Job finished: $(date)"
