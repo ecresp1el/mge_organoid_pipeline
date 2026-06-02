@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=nb01-markers
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=160G
+#SBATCH --time=04:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/notebook01-cluster-markers-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/notebook01-cluster-markers-%x-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+NOTEBOOK01_NOTEBOOK00_RUN_LABEL="${NOTEBOOK01_NOTEBOOK00_RUN_LABEL:-cellranger_filtered_manual_ec_div30_core_samples_freeze}"
+NOTEBOOK01_RUN_LABEL="${NOTEBOOK01_RUN_LABEL:-${NOTEBOOK01_NOTEBOOK00_RUN_LABEL}_ccdifference_seurat_order_pcs10_neighbors20_leiden08_v1}"
+NOTEBOOK01_MARKER_GROUPBY="${NOTEBOOK01_MARKER_GROUPBY:-leiden}"
+NOTEBOOK01_MARKER_METHOD="${NOTEBOOK01_MARKER_METHOD:-wilcoxon}"
+NOTEBOOK01_MARKER_TOP_N="${NOTEBOOK01_MARKER_TOP_N:-25}"
+NOTEBOOK01_MARKER_RANK_N_GENES="${NOTEBOOK01_MARKER_RANK_N_GENES:-200}"
+NOTEBOOK01_MARKER_RESTRICT_TO_BRANCH_HVGS="${NOTEBOOK01_MARKER_RESTRICT_TO_BRANCH_HVGS:-0}"
+
+mkdir -p "${PROJECT_ROOT}/logs"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+export NOTEBOOK01_NOTEBOOK00_RUN_LABEL
+export NOTEBOOK01_RUN_LABEL
+export NOTEBOOK01_MARKER_GROUPBY
+export NOTEBOOK01_MARKER_METHOD
+export NOTEBOOK01_MARKER_TOP_N
+export NOTEBOOK01_MARKER_RANK_N_GENES
+export NOTEBOOK01_MARKER_RESTRICT_TO_BRANCH_HVGS
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Notebook 00 input run label: ${NOTEBOOK01_NOTEBOOK00_RUN_LABEL}"
+echo "Notebook 01 run label: ${NOTEBOOK01_RUN_LABEL}"
+echo "Marker groupby: ${NOTEBOOK01_MARKER_GROUPBY}"
+echo "Marker method: ${NOTEBOOK01_MARKER_METHOD}"
+echo "Marker top N: ${NOTEBOOK01_MARKER_TOP_N}"
+echo "Marker rank N genes: ${NOTEBOOK01_MARKER_RANK_N_GENES}"
+echo "Restrict to branch HVGs: ${NOTEBOOK01_MARKER_RESTRICT_TO_BRANCH_HVGS}"
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/run_notebook01_cluster_markers.py
+
+echo "Job finished: $(date)"
