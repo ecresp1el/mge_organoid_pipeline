@@ -15,7 +15,93 @@ Use this section first. Older sections below include planning notes from before
 the CCDifference run and before the Seurat-ordering correction; where they
 conflict with this section, treat them as historical context.
 
-### Seurat-Aligned CCDifference Rerun Completed
+### Current Preferred CCDifference Rerun Completed
+
+Completed run:
+
+```text
+NOTEBOOK00_RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples_freeze
+RUN_LABEL=cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_pcs10_neighbors20_leiden08_v1
+RUN_DIR=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_pcs10_neighbors20_leiden08_v1
+```
+
+Slurm execution:
+
+```text
+Job ID: 51282977
+State: COMPLETED
+ExitCode: 0:0
+Elapsed: 00:21:58
+MaxRSS: 41621508K
+Node: gl3048
+```
+
+Executed notebook:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/executed/01_notebook00_checkpoint_regression_comparison.cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_pcs10_neighbors20_leiden08_v1.executed.ipynb
+```
+
+Slurm logs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook01-exec-nb01-regression-51282977.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-notebook01-exec-nb01-regression-51282977.err
+```
+
+Completion checks:
+
+```text
+notebook01_branch_summary.tsv rows: 14
+branches: not_regressed=7, regressed_ccdifference=7
+regressed_ccdifference h5ad paths: 7/7 non-empty
+not_regressed h5ad paths: 0/7, by design
+all branches n_hvg_genes=4000
+all branches n_pcs=10
+all branches n_neighbors=20
+all branches neighbors_use_rep=X_pca
+all branches leiden_resolution=0.8
+plot manifest rows: 167
+UMAP branch comparison plots: 51
+missing plot files: 0
+matrix-flow validation lines in Slurm .out: 231
+```
+
+Combined saved carry-forward object:
+
+```text
+RUN_DIR/h5ad/combined/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+shape: 97658 cells x 4000 HVGs
+.X: scaled CCDifference-regressed residuals for 4000 HVGs
+.layers["counts"]: raw counts for the same 4000 HVGs
+.obsm["X_pca"]: 97658 x 10
+.obsm["X_umap"]: 97658 x 2
+.varm["PCs"]: 4000 x 10
+.uns["neighbors"]: present
+```
+
+Final carry-forward `.h5ad` outputs:
+
+```text
+RUN_DIR/h5ad/combined/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-1/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-2/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-3/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-4/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-5/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+RUN_DIR/h5ad/per_sample/9853-MW-6/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+```
+
+New comparison plots are available here:
+
+```text
+RUN_DIR/plots/combined/comparison/umap_compare_CCDifference.png
+RUN_DIR/plots/combined/comparison/umap_compare_leiden.png
+RUN_DIR/plots/per_sample/<run_sample_id>/comparison/umap_compare_CCDifference.png
+RUN_DIR/plots/per_sample/<run_sample_id>/comparison/umap_compare_leiden.png
+```
+
+### Previous Seurat-Aligned CCDifference Rerun Completed
 
 Completed run:
 
@@ -91,7 +177,7 @@ Jeyoon/Seurat ordering more closely:
 
 ```text
 Default RUN_LABEL:
-cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_v1
+cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_order_pcs10_neighbors20_leiden08_v1
 ```
 
 ```text
@@ -107,9 +193,9 @@ cellranger_filtered_manual_ec_div30_core_samples_freeze_ccdifference_seurat_orde
 9. Scale, PCA, neighbors, UMAP, and Leiden from the branch-specific HVG .X
 ```
 
-### Source Defaults Updated After Completed Run
+### Current Source Defaults
 
-As of 2026-06-02, the source defaults for the next Notebook 01 run are:
+As of 2026-06-02, the source defaults for Notebook 01 are:
 
 ```text
 n_pcs=10
@@ -118,11 +204,11 @@ neighbors_use_rep=X_pca
 leiden_resolution=0.8
 ```
 
-The completed Slurm job `51278701` above was run before this default update;
-treat that output as the completed Seurat-order 4,000-HVG run, but not as a
-Leiden-resolution-0.8 rerun unless the notebook is executed again.
+The previous Slurm job `51278701` was run before this default update; treat
+that older output as a Seurat-order 4,000-HVG run, but not as the current
+10-PC/20-neighbor/Leiden-0.8 run.
 
-The next run uses this explicit neighbors call:
+The current run uses this explicit neighbors call:
 
 ```python
 sc.pp.neighbors(
@@ -145,7 +231,7 @@ sc.tl.leiden(
 )
 ```
 
-The next run also keeps all existing single-branch UMAP/PCA plots and adds
+The current run keeps all existing single-branch UMAP/PCA plots and adds
 side-by-side branch comparison UMAPs:
 
 ```text
@@ -187,7 +273,7 @@ The same mapping is also recorded in `notebook01_branch_summary.tsv` columns
 and in each saved branch object's
 `uns["notebook01_branch"]["matrix_flow_validation"]`.
 
-Updated Scanpy HVG command for the next run:
+Current Scanpy HVG command:
 
 ```python
 sc.pp.highly_variable_genes(
@@ -200,7 +286,7 @@ sc.pp.highly_variable_genes(
 )
 ```
 
-Updated CCDifference regression call for the next run:
+Current CCDifference regression call:
 
 ```python
 sc.pp.regress_out(adata, keys=["CCDifference"])
