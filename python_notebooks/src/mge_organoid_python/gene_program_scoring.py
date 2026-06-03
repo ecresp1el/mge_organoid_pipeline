@@ -548,3 +548,96 @@ def plot_score_heatmap(summary, output_path, value_col="mean_score", title=None)
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=200, bbox_inches="tight")
     return fig
+
+
+def plot_program_proportion_dotplot(
+    summary,
+    output_path,
+    proportion_col="fraction_high_score",
+    color_col="mean_score",
+    title=None,
+    min_dot_size=20,
+    max_dot_size=360,
+):
+    """Save a cluster x program dot plot.
+
+    Dot area shows the proportion/fraction column. Dot color shows the
+    continuous score summary column.
+    """
+    if summary.empty:
+        raise ValueError("Cannot plot dotplot from an empty summary table.")
+    required = {"group", "program", proportion_col, color_col}
+    missing = sorted(required.difference(summary.columns))
+    if missing:
+        raise ValueError("Summary table is missing columns: {}".format(", ".join(missing)))
+
+    plot_df = summary.copy()
+    plot_df["group"] = plot_df["group"].astype(str)
+    groups = sorted(pd.unique(plot_df["group"]), key=natural_sort_key)
+    programs = list(pd.unique(plot_df["program"]))
+
+    group_to_y = {group: i for i, group in enumerate(groups)}
+    program_to_x = {program: i for i, program in enumerate(programs)}
+    plot_df["x"] = plot_df["program"].map(program_to_x)
+    plot_df["y"] = plot_df["group"].map(group_to_y)
+    proportions = pd.to_numeric(plot_df[proportion_col], errors="coerce").fillna(0.0).clip(0, 1)
+    colors = pd.to_numeric(plot_df[color_col], errors="coerce")
+    sizes = min_dot_size + proportions * (max_dot_size - min_dot_size)
+
+    fig_height = max(3.8, 0.38 * len(groups) + 1.6)
+    fig_width = max(5.2, 1.25 * len(programs) + 2.8)
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height), constrained_layout=True)
+    scatter = ax.scatter(
+        plot_df["x"],
+        plot_df["y"],
+        s=sizes,
+        c=colors,
+        cmap="viridis",
+        edgecolors="#333333",
+        linewidths=0.25,
+    )
+    ax.set_xticks(range(len(programs)))
+    ax.set_xticklabels(programs, fontsize=9)
+    ax.set_yticks(range(len(groups)))
+    ax.set_yticklabels(groups, fontsize=8)
+    ax.set_xlabel("Jia program")
+    ax.set_ylabel(summary["groupby"].iloc[0])
+    ax.set_title(title or "{} by cluster".format(proportion_col), fontsize=10)
+    ax.grid(axis="both", color="#e5e5e5", linewidth=0.6)
+    ax.set_axisbelow(True)
+    ax.invert_yaxis()
+
+    cbar = fig.colorbar(scatter, ax=ax, fraction=0.046, pad=0.03)
+    cbar.set_label(color_col, fontsize=8)
+    cbar.ax.tick_params(labelsize=7)
+
+    legend_values = [0.05, 0.10, 0.25, 0.50]
+    handles = []
+    labels = []
+    for value in legend_values:
+        handles.append(
+            ax.scatter(
+                [],
+                [],
+                s=min_dot_size + value * (max_dot_size - min_dot_size),
+                c="#bdbdbd",
+                edgecolors="#333333",
+                linewidths=0.25,
+            )
+        )
+        labels.append("{:.0f}%".format(value * 100))
+    ax.legend(
+        handles,
+        labels,
+        title=proportion_col,
+        loc="center left",
+        bbox_to_anchor=(1.14, 0.5),
+        frameon=False,
+        fontsize=7,
+        title_fontsize=8,
+    )
+
+    output = Path(output_path).expanduser()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output, dpi=220, bbox_inches="tight")
+    return fig

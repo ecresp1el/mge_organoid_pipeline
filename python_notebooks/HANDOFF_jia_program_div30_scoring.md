@@ -152,8 +152,18 @@ score drawn over the top as a continuous overlay.
 Additional summary plots:
 
 ```text
+RUN_DIR/plots/div30_jia_program_high_score_proportion_dotplot_by_seurat_clusters.png
 RUN_DIR/plots/div30_jia_program_mean_score_by_seurat_clusters_heatmap.png
 RUN_DIR/plots/div30_jia_program_fraction_high_by_seurat_clusters_heatmap.png
+```
+
+The dot plot uses Seurat/Scanpy-style semantics:
+
+```text
+rows = DIV30 built-in Seurat clusters
+columns = Jia programs
+dot size = fraction of cells above the program high-score threshold
+dot color = mean program score
 ```
 
 ## Slurm Command
