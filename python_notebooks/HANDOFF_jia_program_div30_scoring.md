@@ -66,6 +66,14 @@ Default program order:
 IPC,RGC1,RGC2
 ```
 
+Display labels used in plots and interpretation tables:
+
+```text
+IPC  -> IPC
+RGC1 -> RGC1 (VZ/broad)
+RGC2 -> RGC2 (SVZ)
+```
+
 DIV30 converted AnnData input:
 
 ```text
@@ -171,7 +179,7 @@ RUN_DIR/plots/div30_umap_seurat_clusters_jia_program_scores_panel.png
 That panel is one row:
 
 ```text
-[DIV30 built-in Seurat clusters] [IPC score overlay] [RGC1 score overlay] [RGC2 score overlay]
+[DIV30 built-in Seurat clusters] [IPC score overlay] [RGC1 (VZ/broad) score overlay] [RGC2 (SVZ) score overlay]
 ```
 
 The first panel colors all cells by the built-in Seurat cluster column
@@ -233,6 +241,6 @@ the already-completed DIV30 Seurat resolution-sweep assignment table and
 summarizes Jia scores by each sweep column.
 
 The method answers whether the DIV30 Seurat clusters, or any resolution-sweep
-clusters, are enriched for the Jia `IPC`, `RGC1`, or `RGC2` programs by looking
-at mean program score and fraction of cells above the global high-score
-threshold for each program.
+clusters, are enriched for the Jia `IPC`, `RGC1 (VZ/broad)`, or `RGC2 (SVZ)`
+programs by looking at mean program score and fraction of cells above the
+global high-score threshold for each program.
