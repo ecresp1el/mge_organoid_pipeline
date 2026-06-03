@@ -233,6 +233,24 @@ rsync -avh --progress \
 
 ## Slurm Status
 
+Latest corrected run:
+
+```text
+51359356:
+  Run label: shi_reference_div30_label_transfer_v2
+  State: COMPLETED
+  ExitCode: 0:0
+  Elapsed: 00:06:22
+  MaxRSS: 24756096K
+  Node: gl3076
+  Change from v1:
+    - full_relevant now includes all 10 Shi Table S2 major-type labels
+    - zero-count labels are retained in label-count tables and plot legends
+    - added Shi gestational-week prediction columns and sample-overlaid density plots
+  Output log: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-label-transfer-shi-div30-xfer-51359356.out
+  Error log: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-label-transfer-shi-div30-xfer-51359356.err
+```
+
 Setup/debug attempt:
 
 ```text
