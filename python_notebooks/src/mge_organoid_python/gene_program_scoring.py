@@ -506,6 +506,139 @@ def score_output_obs_table(adata, score_columns, extra_columns=None, id_col="cel
     return table
 
 
+def dense_vector(values):
+    """Return a one-dimensional dense numpy vector from dense/sparse matrix slices."""
+    if hasattr(values, "toarray"):
+        values = values.toarray()
+    array = np.asarray(values)
+    return array.reshape(-1)
+
+
+def summarize_marker_expression_by_group(
+    adata,
+    matched_marker_groups,
+    group_col,
+    expression_cutoff=0.0,
+):
+    """Summarize target marker expression by one categorical grouping column."""
+    if group_col not in adata.obs.columns:
+        raise KeyError("Missing group column: {}".format(group_col))
+
+    groups = adata.obs[group_col].astype(str)
+    valid_groups = sorted(pd.unique(groups[groups != "nan"]), key=natural_sort_key)
+    records = []
+    for marker_group, genes in matched_marker_groups.items():
+        for gene in genes:
+            if gene not in adata.var_names:
+                continue
+            values = dense_vector(adata[:, [gene]].X)
+            for group in valid_groups:
+                mask = groups.values == group
+                group_values = values[mask]
+                detected = group_values > float(expression_cutoff)
+                records.append(
+                    {
+                        "groupby": group_col,
+                        "group": group,
+                        "marker_group": marker_group,
+                        "marker_gene": gene,
+                        "n_cells": int(mask.sum()),
+                        "mean_expression": (
+                            float(np.mean(group_values)) if len(group_values) else np.nan
+                        ),
+                        "median_expression": (
+                            float(np.median(group_values)) if len(group_values) else np.nan
+                        ),
+                        "fraction_expressing": (
+                            float(np.mean(detected)) if len(group_values) else np.nan
+                        ),
+                        "pct_expressing": (
+                            100.0 * float(np.mean(detected)) if len(group_values) else np.nan
+                        ),
+                        "expression_cutoff": float(expression_cutoff),
+                    }
+                )
+    return pd.DataFrame(records)
+
+
+def marker_group_support_table(marker_summary):
+    """Collapse per-gene marker summaries into marker-group support by cluster."""
+    if marker_summary.empty:
+        return marker_summary.copy()
+    grouped = (
+        marker_summary.groupby(["groupby", "group", "marker_group"], sort=False)
+        .agg(
+            n_marker_genes=("marker_gene", "nunique"),
+            mean_marker_expression=("mean_expression", "mean"),
+            mean_fraction_expressing=("fraction_expressing", "mean"),
+            max_marker_expression=("mean_expression", "max"),
+            max_fraction_expressing=("fraction_expressing", "max"),
+        )
+        .reset_index()
+    )
+    grouped["_group_sort"] = grouped["group"].map(lambda value: tuple(natural_sort_key(value)))
+    grouped = grouped.sort_values(["groupby", "marker_group", "_group_sort"]).drop(
+        columns=["_group_sort"]
+    )
+    return grouped
+
+
+def cluster_marker_interpretation_table(base_summary, marker_support):
+    """Create a compact score-plus-marker support table by cluster."""
+    if base_summary.empty:
+        return pd.DataFrame()
+
+    score = base_summary.copy()
+    score["mean_score_rank"] = score.groupby("program")["mean_score"].rank(
+        method="first",
+        ascending=False,
+    )
+    score["fraction_high_score_rank"] = score.groupby("program")["fraction_high_score"].rank(
+        method="first",
+        ascending=False,
+    )
+    score_records = []
+    for group, sub in score.groupby("group", sort=False):
+        top = sub.sort_values("mean_score", ascending=False).iloc[0]
+        record = {
+            "groupby": top["groupby"],
+            "group": str(group),
+            "n_cells": int(top["n_cells"]),
+            "top_jia_program_by_mean_score": top["program"],
+            "top_jia_program_mean_score": float(top["mean_score"]),
+            "top_jia_program_fraction_high_score": float(top["fraction_high_score"]),
+        }
+        for _, row in sub.iterrows():
+            token = safe_token(row["program"]).lower()
+            record["{}_mean_score".format(token)] = float(row["mean_score"])
+            record["{}_mean_score_rank".format(token)] = float(row["mean_score_rank"])
+            record["{}_fraction_high_score".format(token)] = float(row["fraction_high_score"])
+            record["{}_fraction_high_score_rank".format(token)] = float(row["fraction_high_score_rank"])
+        score_records.append(record)
+    result = pd.DataFrame(score_records)
+
+    if marker_support.empty:
+        result["_group_sort"] = result["group"].map(lambda value: tuple(natural_sort_key(value)))
+        return result.sort_values("_group_sort").drop(columns=["_group_sort"])
+
+    marker = marker_support.copy()
+    marker_records = []
+    for group, sub in marker.groupby("group", sort=False):
+        record = {"group": str(group)}
+        for _, row in sub.iterrows():
+            token = safe_token(row["marker_group"]).lower()
+            record["{}_n_marker_genes".format(token)] = int(row["n_marker_genes"])
+            record["{}_mean_marker_expression".format(token)] = float(row["mean_marker_expression"])
+            record["{}_mean_fraction_expressing".format(token)] = float(
+                row["mean_fraction_expressing"]
+            )
+        marker_records.append(record)
+    marker_table = pd.DataFrame(marker_records)
+    result = result.merge(marker_table, on="group", how="left")
+    result["_group_sort"] = result["group"].map(lambda value: tuple(natural_sort_key(value)))
+    return result.sort_values("_group_sort").drop(columns=["_group_sort"])
+
+
 def _plot_base_categorical(ax, x, y, values, title, point_size):
     values = pd.Series(values).astype(str)
     levels = sorted(pd.unique(values), key=natural_sort_key)
@@ -575,6 +708,63 @@ def _plot_score_overlay(ax, x, y, values, title, point_size, background_color):
     )
     ax.set_title(title, fontsize=10)
     return scatter
+
+
+def plot_marker_umap_feature_grid(
+    adata,
+    matched_marker_groups,
+    output_path,
+    umap_key=None,
+    point_size=None,
+    background_color="#d4d4d4",
+):
+    """Save a marker feature UMAP grid grouped by marker class."""
+    selected_umap_key = umap_key or choose_umap_key(adata)
+    coords = np.asarray(adata.obsm[selected_umap_key])
+    x = coords[:, 0]
+    y = coords[:, 1]
+    if point_size is None:
+        point_size = 1.0 if adata.n_obs >= 50000 else 3.0
+
+    marker_groups = [(group, genes) for group, genes in matched_marker_groups.items() if genes]
+    if not marker_groups:
+        raise ValueError("No matched marker genes to plot.")
+    n_rows = len(marker_groups)
+    n_cols = max(len(genes) for _, genes in marker_groups)
+    fig, axes = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(max(3.2 * n_cols, 6), max(3.0 * n_rows, 3.5)),
+        squeeze=False,
+        constrained_layout=True,
+    )
+
+    for row_idx, (marker_group, genes) in enumerate(marker_groups):
+        for col_idx in range(n_cols):
+            ax = axes[row_idx, col_idx]
+            if col_idx >= len(genes):
+                ax.axis("off")
+                continue
+            gene = genes[col_idx]
+            values = dense_vector(adata[:, [gene]].X)
+            scatter = _plot_score_overlay(
+                ax,
+                x,
+                y,
+                values,
+                gene,
+                point_size,
+                background_color,
+            )
+            if col_idx == 0:
+                ax.set_ylabel(marker_group, fontsize=9)
+            if scatter is not None:
+                cbar = fig.colorbar(scatter, ax=ax, fraction=0.046, pad=0.02)
+                cbar.ax.tick_params(labelsize=6)
+    output = Path(output_path).expanduser()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output, dpi=220, bbox_inches="tight")
+    return fig
 
 
 def plot_umap_score_overlay_panel(
@@ -753,6 +943,98 @@ def plot_program_proportion_dotplot(
         handles,
         labels,
         title=proportion_col,
+        loc="center left",
+        bbox_to_anchor=(1.14, 0.5),
+        frameon=False,
+        fontsize=7,
+        title_fontsize=8,
+    )
+
+    output = Path(output_path).expanduser()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output, dpi=220, bbox_inches="tight")
+    return fig
+
+
+def plot_marker_expression_dotplot(
+    marker_summary,
+    output_path,
+    marker_order=None,
+    group_order=None,
+    title=None,
+    min_dot_size=20,
+    max_dot_size=360,
+):
+    """Save a cluster x marker dot plot.
+
+    Dot area shows percent expressing. Dot color shows mean expression.
+    """
+    if marker_summary.empty:
+        raise ValueError("Cannot plot marker dotplot from an empty summary table.")
+    plot_df = marker_summary.copy()
+    plot_df["group"] = plot_df["group"].astype(str)
+    if marker_order is None:
+        marker_order = list(pd.unique(plot_df["marker_gene"]))
+    if group_order is None:
+        group_order = sorted(pd.unique(plot_df["group"]), key=natural_sort_key)
+
+    group_to_y = {group: i for i, group in enumerate(group_order)}
+    marker_to_x = {marker: i for i, marker in enumerate(marker_order)}
+    plot_df = plot_df[
+        plot_df["group"].isin(group_to_y) & plot_df["marker_gene"].isin(marker_to_x)
+    ].copy()
+    plot_df["x"] = plot_df["marker_gene"].map(marker_to_x)
+    plot_df["y"] = plot_df["group"].map(group_to_y)
+    fractions = pd.to_numeric(plot_df["fraction_expressing"], errors="coerce").fillna(0).clip(0, 1)
+    colors = pd.to_numeric(plot_df["mean_expression"], errors="coerce")
+    sizes = min_dot_size + fractions * (max_dot_size - min_dot_size)
+
+    fig_height = max(3.8, 0.38 * len(group_order) + 1.6)
+    fig_width = max(8.0, 0.75 * len(marker_order) + 3.5)
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height), constrained_layout=True)
+    scatter = ax.scatter(
+        plot_df["x"],
+        plot_df["y"],
+        s=sizes,
+        c=colors,
+        cmap="viridis",
+        edgecolors="#333333",
+        linewidths=0.25,
+    )
+    ax.set_xticks(range(len(marker_order)))
+    ax.set_xticklabels(marker_order, rotation=45, ha="right", fontsize=8)
+    ax.set_yticks(range(len(group_order)))
+    ax.set_yticklabels(group_order, fontsize=8)
+    ax.set_xlabel("marker gene")
+    ax.set_ylabel(marker_summary["groupby"].iloc[0])
+    ax.set_title(title or "Marker expression by cluster", fontsize=10)
+    ax.grid(axis="both", color="#e5e5e5", linewidth=0.6)
+    ax.set_axisbelow(True)
+    ax.invert_yaxis()
+
+    cbar = fig.colorbar(scatter, ax=ax, fraction=0.046, pad=0.03)
+    cbar.set_label("mean_expression", fontsize=8)
+    cbar.ax.tick_params(labelsize=7)
+
+    legend_values = [0.05, 0.10, 0.25, 0.50]
+    handles = []
+    labels = []
+    for value in legend_values:
+        handles.append(
+            ax.scatter(
+                [],
+                [],
+                s=min_dot_size + value * (max_dot_size - min_dot_size),
+                c="#bdbdbd",
+                edgecolors="#333333",
+                linewidths=0.25,
+            )
+        )
+        labels.append("{:.0f}%".format(value * 100))
+    ax.legend(
+        handles,
+        labels,
+        title="pct expressing",
         loc="center left",
         bbox_to_anchor=(1.14, 0.5),
         frameon=False,

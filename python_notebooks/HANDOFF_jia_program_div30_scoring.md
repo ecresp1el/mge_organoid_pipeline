@@ -114,6 +114,18 @@ These are not curated housekeeping genes. They are sampled from expression bins
 inside the DIV30 AnnData gene pool using the same `ctrl_size`, `n_bins`,
 `ctrl_as_ref`, and `random_state` settings used for scoring.
 
+Targeted marker validation panel:
+
+```text
+RGC_broad: HES1, VIM, NES
+RGC2_SVZ: FBLN7, CACNA1E, DACH1
+IPC_neurogenic: DLX1, DLX2, ASCL1
+```
+
+These markers are used to validate the module-score interpretation at the
+single-gene level. Percent expressing is defined as converted AnnData `.X`
+expression greater than zero.
+
 ## Output Contract
 
 Run outputs:
@@ -134,6 +146,12 @@ RUN_DIR/tables/jia_program_gene_overlap_detail.tsv
 RUN_DIR/tables/jia_program_scanpy_control_gene_summary.tsv
 RUN_DIR/tables/jia_program_scanpy_control_gene_detail.tsv
 RUN_DIR/tables/jia_program_scanpy_program_gene_bins.tsv
+RUN_DIR/tables/jia_target_marker_panel.tsv
+RUN_DIR/tables/jia_target_marker_gene_overlap_summary.tsv
+RUN_DIR/tables/jia_target_marker_gene_overlap_detail.tsv
+RUN_DIR/tables/div30_target_marker_expression_by_seurat_clusters.tsv
+RUN_DIR/tables/div30_target_marker_group_support_by_seurat_clusters.tsv
+RUN_DIR/tables/div30_jia_score_marker_interpretation_by_seurat_clusters.tsv
 RUN_DIR/tables/jia_program_score_thresholds.tsv
 RUN_DIR/tables/div30_jia_program_scores_obs.tsv
 RUN_DIR/tables/div30_jia_program_summary_by_seurat_clusters.tsv
@@ -167,6 +185,8 @@ Additional summary plots:
 RUN_DIR/plots/div30_jia_program_high_score_proportion_dotplot_by_seurat_clusters.png
 RUN_DIR/plots/div30_jia_program_mean_score_by_seurat_clusters_heatmap.png
 RUN_DIR/plots/div30_jia_program_fraction_high_by_seurat_clusters_heatmap.png
+RUN_DIR/plots/div30_target_marker_umap_feature_grid.png
+RUN_DIR/plots/div30_target_marker_expression_dotplot_by_seurat_clusters.png
 ```
 
 The dot plot uses Seurat/Scanpy-style semantics:
@@ -176,6 +196,15 @@ rows = DIV30 built-in Seurat clusters
 columns = Jia programs
 dot size = fraction of cells above the program high-score threshold
 dot color = mean program score
+```
+
+The target-marker dot plot uses the same visual grammar:
+
+```text
+rows = DIV30 built-in Seurat clusters
+columns = target marker genes
+dot size = percent expressing
+dot color = mean expression
 ```
 
 ## Slurm Command
