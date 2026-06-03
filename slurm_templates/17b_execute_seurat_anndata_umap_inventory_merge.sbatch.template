@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Merge precomputed Seurat inventory tables, inspect AnnData, and make UMAP plots.
+#
+# Typical dependent submit after the array job:
+#   array_job=$(sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/17a_run_seurat_inventory_array.sbatch | awk '{print $4}')
+#   sbatch --dependency=afterok:${array_job} /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/17b_execute_seurat_anndata_umap_inventory_merge.sbatch
+
+#SBATCH --job-name=seurat-ann-merge
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=80G
+#SBATCH --time=04:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-seurat-anndata-merge-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/execute-seurat-anndata-merge-%x-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+SEURAT_INVENTORY_RESULTS_DIRNAME="${SEURAT_INVENTORY_RESULTS_DIRNAME:-seurat_anndata_umap_inventory}"
+SEURAT_INVENTORY_RUN_LABEL="${SEURAT_INVENTORY_RUN_LABEL:-seurat_anndata_umap_inventory_v1}"
+SEURAT_INVENTORY_STUDIES="${SEURAT_INVENTORY_STUDIES:-all}"
+SEURAT_INVENTORY_RUN_R="${SEURAT_INVENTORY_RUN_R:-0}"
+SEURAT_INVENTORY_REQUIRE_R_MARKERS="${SEURAT_INVENTORY_REQUIRE_R_MARKERS:-1}"
+SEURAT_INVENTORY_OVERWRITE_R="${SEURAT_INVENTORY_OVERWRITE_R:-0}"
+SEURAT_INVENTORY_SAVE_PLOTS="${SEURAT_INVENTORY_SAVE_PLOTS:-1}"
+SEURAT_INVENTORY_SHOW_PLOTS="${SEURAT_INVENTORY_SHOW_PLOTS:-1}"
+SEURAT_INVENTORY_MAX_UMAP_COLOR_COLUMNS="${SEURAT_INVENTORY_MAX_UMAP_COLOR_COLUMNS:-10}"
+
+executed_dir="${PROJECT_ROOT}/results/${SEURAT_INVENTORY_RESULTS_DIRNAME}/executed"
+executed_name="seurat_anndata_umap_inventory.${SEURAT_INVENTORY_RUN_LABEL}.executed.ipynb"
+executed_path="${executed_dir}/${executed_name}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${executed_dir}"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+export SEURAT_INVENTORY_RESULTS_DIRNAME
+export SEURAT_INVENTORY_RUN_LABEL
+export SEURAT_INVENTORY_STUDIES
+export SEURAT_INVENTORY_RUN_R
+export SEURAT_INVENTORY_REQUIRE_R_MARKERS
+export SEURAT_INVENTORY_OVERWRITE_R
+export SEURAT_INVENTORY_SAVE_PLOTS
+export SEURAT_INVENTORY_SHOW_PLOTS
+export SEURAT_INVENTORY_MAX_UMAP_COLOR_COLUMNS
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${SEURAT_INVENTORY_RUN_LABEL}"
+echo "Studies: ${SEURAT_INVENTORY_STUDIES}"
+echo "Run R Seurat inventory: ${SEURAT_INVENTORY_RUN_R}"
+echo "Require R inventory markers: ${SEURAT_INVENTORY_REQUIRE_R_MARKERS}"
+echo "Executed notebook: ${executed_path}"
+
+"${CONDA_ENV_BIN}/jupyter" nbconvert \
+  --to notebook \
+  --execute python_notebooks/notebooks/seurat_anndata_umap_inventory.ipynb \
+  --output-dir "${executed_dir}" \
+  --output "${executed_name}" \
+  --ExecutePreprocessor.kernel_name=mge-organoid-python \
+  --ExecutePreprocessor.timeout=-1
+
+echo "Inventory completion lines from executed notebook:"
+EXECUTED_NOTEBOOK_PATH="${executed_path}" "${CONDA_ENV_BIN}/python" <<'PY'
+import json
+import os
+from pathlib import Path
+
+marker = "[SeuratAnnDataInventory]"
+path = Path(os.environ["EXECUTED_NOTEBOOK_PATH"])
+nb = json.loads(path.read_text())
+matched = 0
+complete = False
+for cell in nb.get("cells", []):
+    for output in cell.get("outputs", []):
+        if output.get("output_type") != "stream":
+            continue
+        text = output.get("text", "")
+        if isinstance(text, list):
+            text = "".join(text)
+        for line in text.splitlines():
+            if marker in line:
+                print(line)
+                matched += 1
+                if "complete" in line:
+                    complete = True
+print(f"Inventory marker line count: {matched}")
+if not complete:
+    raise SystemExit(f"No completion marker found in {path}")
+PY
+
+echo "Job finished: $(date)"
