@@ -92,6 +92,9 @@ RUN_DIR/tables/jia_program_markers_full.tsv
 RUN_DIR/tables/jia_program_markers_selected.tsv
 RUN_DIR/tables/jia_program_gene_overlap_summary.tsv
 RUN_DIR/tables/jia_program_gene_overlap_detail.tsv
+RUN_DIR/tables/jia_program_scanpy_control_gene_summary.tsv
+RUN_DIR/tables/jia_program_scanpy_control_gene_detail.tsv
+RUN_DIR/tables/jia_program_scanpy_program_gene_bins.tsv
 ```
 
 By default the run uses all markers in the CSV. Optional environment controls:
@@ -104,6 +107,12 @@ JIA_PROGRAM_CTRL_SIZE=50
 JIA_PROGRAM_RANDOM_STATE=0
 JIA_PROGRAM_HIGH_SCORE_QUANTILE=0.9
 ```
+
+The Scanpy control-gene audit tables record the exact expression-matched
+background genes selected by the installed Scanpy version for each program.
+These are not curated housekeeping genes. They are sampled from expression bins
+inside the DIV30 AnnData gene pool using the same `ctrl_size`, `n_bins`,
+`ctrl_as_ref`, and `random_state` settings used for scoring.
 
 ## Output Contract
 
@@ -122,6 +131,9 @@ RUN_DIR/tables/jia_program_run_parameters.tsv
 RUN_DIR/tables/jia_program_marker_selection_summary.tsv
 RUN_DIR/tables/jia_program_gene_overlap_summary.tsv
 RUN_DIR/tables/jia_program_gene_overlap_detail.tsv
+RUN_DIR/tables/jia_program_scanpy_control_gene_summary.tsv
+RUN_DIR/tables/jia_program_scanpy_control_gene_detail.tsv
+RUN_DIR/tables/jia_program_scanpy_program_gene_bins.tsv
 RUN_DIR/tables/jia_program_score_thresholds.tsv
 RUN_DIR/tables/div30_jia_program_scores_obs.tsv
 RUN_DIR/tables/div30_jia_program_summary_by_seurat_clusters.tsv

@@ -1,5 +1,6 @@
 """Gene-program scoring helpers for notebook-driven analyses."""
 
+from importlib.metadata import version as package_version
 from pathlib import Path
 import re
 
@@ -7,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scanpy as sc
+from scanpy.tools._score_genes import _check_score_genes_args, _nan_means, _score_genes_bins
 
 
 def parse_csv_list(raw):
@@ -230,6 +232,127 @@ def score_programs_scanpy(
     if not score_columns:
         raise ValueError("No programs had matched genes for scoring.")
     return score_columns
+
+
+def scanpy_score_genes_control_audit(
+    adata,
+    matched_programs,
+    score_columns=None,
+    ctrl_size=50,
+    random_state=0,
+    n_bins=25,
+    ctrl_as_ref=True,
+    gene_pool=None,
+    use_raw=False,
+    layer=None,
+):
+    """Return the exact Scanpy score_genes control genes for each program.
+
+    This intentionally calls Scanpy's private helper functions to mirror the
+    installed Scanpy version used by `scanpy.tl.score_genes`.
+    """
+    scanpy_version = package_version("scanpy")
+    score_columns = score_columns or {}
+    control_records = []
+    program_bin_records = []
+    summary_records = []
+
+    for program, genes in matched_programs.items():
+        if not genes:
+            continue
+        if random_state is not None:
+            np.random.seed(random_state)
+        gene_list, resolved_gene_pool, get_subset = _check_score_genes_args(
+            adata,
+            genes,
+            gene_pool,
+            use_raw=bool(use_raw),
+            layer=layer,
+        )
+
+        obs_avg = pd.Series(
+            _nan_means(get_subset(resolved_gene_pool), axis=0),
+            index=resolved_gene_pool,
+        )
+        obs_avg = obs_avg[np.isfinite(obs_avg)]
+        n_items = int(np.round(len(obs_avg) / (int(n_bins) - 1)))
+        obs_cut = obs_avg.rank(method="min") // n_items
+
+        for gene in gene_list:
+            expression_bin = obs_cut.get(gene, np.nan)
+            mean_expression = obs_avg.get(gene, np.nan)
+            program_bin_records.append(
+                {
+                    "program": program,
+                    "score_col": score_columns.get(program, ""),
+                    "program_gene": gene,
+                    "mean_expression": float(mean_expression) if pd.notna(mean_expression) else np.nan,
+                    "expression_bin": int(expression_bin) if pd.notna(expression_bin) else np.nan,
+                    "scanpy_version": scanpy_version,
+                    "ctrl_size": int(ctrl_size),
+                    "n_bins": int(n_bins),
+                    "ctrl_as_ref": bool(ctrl_as_ref),
+                    "random_state": random_state,
+                }
+            )
+
+        control_genes = pd.Index([], dtype="string")
+        for r_genes in _score_genes_bins(
+            gene_list,
+            resolved_gene_pool,
+            ctrl_as_ref=bool(ctrl_as_ref),
+            ctrl_size=int(ctrl_size),
+            n_bins=int(n_bins),
+            get_subset=get_subset,
+        ):
+            for gene in r_genes:
+                expression_bin = obs_cut.get(gene, np.nan)
+                mean_expression = obs_avg.get(gene, np.nan)
+                control_records.append(
+                    {
+                        "program": program,
+                        "score_col": score_columns.get(program, ""),
+                        "control_gene": gene,
+                        "mean_expression": (
+                            float(mean_expression) if pd.notna(mean_expression) else np.nan
+                        ),
+                        "expression_bin": (
+                            int(expression_bin) if pd.notna(expression_bin) else np.nan
+                        ),
+                        "scanpy_version": scanpy_version,
+                        "ctrl_size": int(ctrl_size),
+                        "n_bins": int(n_bins),
+                        "ctrl_as_ref": bool(ctrl_as_ref),
+                        "random_state": random_state,
+                    }
+                )
+            control_genes = control_genes.union(r_genes)
+
+        program_bins = sorted(
+            [int(value) for value in pd.unique(obs_cut.loc[gene_list]) if pd.notna(value)]
+        )
+        summary_records.append(
+            {
+                "program": program,
+                "score_col": score_columns.get(program, ""),
+                "scanpy_version": scanpy_version,
+                "n_program_genes": int(len(gene_list)),
+                "n_gene_pool_genes": int(len(resolved_gene_pool)),
+                "n_expression_bins": int(n_bins),
+                "n_program_expression_bins": int(len(program_bins)),
+                "program_expression_bins": ",".join(str(value) for value in program_bins),
+                "ctrl_size": int(ctrl_size),
+                "ctrl_as_ref": bool(ctrl_as_ref),
+                "random_state": random_state,
+                "n_control_genes": int(len(control_genes)),
+            }
+        )
+
+    return (
+        pd.DataFrame(summary_records),
+        pd.DataFrame(control_records),
+        pd.DataFrame(program_bin_records),
+    )
 
 
 def choose_first_existing(columns, candidates):
