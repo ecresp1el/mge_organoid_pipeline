@@ -5,5 +5,6 @@
   "r.bracketedPaste": true,
   "r.sessionWatcher": true,
   "r.plot.useHttpgd": true,
-  "python.terminal.activateEnvironment": false
+  "python.terminal.activateEnvironment": false,
+  "r.lsp.promptToInstall": false
 }

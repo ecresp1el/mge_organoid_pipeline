@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# Execute standalone Shi reference -> DIV30 cell-level label transfer.
+#
+# Submit:
+#   cp slurm_templates/20_execute_shi_reference_div30_label_transfer.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/20_execute_shi_reference_div30_label_transfer.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/20_execute_shi_reference_div30_label_transfer.sbatch
+
+#SBATCH --job-name=shi-div30-xfer
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=160G
+#SBATCH --time=16:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-label-transfer-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-label-transfer-%x-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+SHI_LABEL_TRANSFER_RESULTS_DIRNAME="${SHI_LABEL_TRANSFER_RESULTS_DIRNAME:-shi_reference_div30_label_transfer}"
+SHI_LABEL_TRANSFER_RUN_LABEL="${SHI_LABEL_TRANSFER_RUN_LABEL:-shi_reference_div30_label_transfer_v1}"
+SHI_LABEL_TRANSFER_QUERY_H5AD="${SHI_LABEL_TRANSFER_QUERY_H5AD:-${PROJECT_ROOT}/results/python_anndata/varela_div30.h5ad}"
+SHI_LABEL_TRANSFER_REFERENCE_H5AD="${SHI_LABEL_TRANSFER_REFERENCE_H5AD:-${PROJECT_ROOT}/results/python_anndata/shi_2019_paper_qc.h5ad}"
+SHI_LABEL_TRANSFER_TABLE_S2_XLSX="${SHI_LABEL_TRANSFER_TABLE_S2_XLSX:-${PROJECT_ROOT}/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s2.xlsx}"
+SHI_LABEL_TRANSFER_N_TOP_VARIABLE_GENES="${SHI_LABEL_TRANSFER_N_TOP_VARIABLE_GENES:-3000}"
+SHI_LABEL_TRANSFER_N_PCS="${SHI_LABEL_TRANSFER_N_PCS:-50}"
+SHI_LABEL_TRANSFER_N_NEIGHBORS="${SHI_LABEL_TRANSFER_N_NEIGHBORS:-31}"
+SHI_LABEL_TRANSFER_RANDOM_STATE="${SHI_LABEL_TRANSFER_RANDOM_STATE:-0}"
+SHI_LABEL_TRANSFER_MIN_LABEL_MATCH_FRACTION="${SHI_LABEL_TRANSFER_MIN_LABEL_MATCH_FRACTION:-0.95}"
+SHI_LABEL_TRANSFER_FULL_EXCLUDE_LABELS="${SHI_LABEL_TRANSFER_FULL_EXCLUDE_LABELS:-Microglia,OPC,Endothelial}"
+SHI_LABEL_TRANSFER_RESTRICTED_LABELS="${SHI_LABEL_TRANSFER_RESTRICTED_LABELS:-MGE,LGE,CGE}"
+SHI_LABEL_TRANSFER_FULL_INCLUDE_LABELS="${SHI_LABEL_TRANSFER_FULL_INCLUDE_LABELS:-}"
+SHI_LABEL_TRANSFER_WRITE_H5AD="${SHI_LABEL_TRANSFER_WRITE_H5AD:-1}"
+SHI_LABEL_TRANSFER_SAVE_PLOTS="${SHI_LABEL_TRANSFER_SAVE_PLOTS:-1}"
+
+executed_dir="${PROJECT_ROOT}/results/${SHI_LABEL_TRANSFER_RESULTS_DIRNAME}/executed"
+executed_name="shi_reference_div30_label_transfer.${SHI_LABEL_TRANSFER_RUN_LABEL}.executed.ipynb"
+executed_path="${executed_dir}/${executed_name}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${executed_dir}"
+
+cd "${REPO_ROOT}"
+
+export REPO_ROOT
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+export SHI_LABEL_TRANSFER_RESULTS_DIRNAME
+export SHI_LABEL_TRANSFER_RUN_LABEL
+export SHI_LABEL_TRANSFER_QUERY_H5AD
+export SHI_LABEL_TRANSFER_REFERENCE_H5AD
+export SHI_LABEL_TRANSFER_TABLE_S2_XLSX
+export SHI_LABEL_TRANSFER_N_TOP_VARIABLE_GENES
+export SHI_LABEL_TRANSFER_N_PCS
+export SHI_LABEL_TRANSFER_N_NEIGHBORS
+export SHI_LABEL_TRANSFER_RANDOM_STATE
+export SHI_LABEL_TRANSFER_MIN_LABEL_MATCH_FRACTION
+export SHI_LABEL_TRANSFER_FULL_EXCLUDE_LABELS
+export SHI_LABEL_TRANSFER_RESTRICTED_LABELS
+export SHI_LABEL_TRANSFER_FULL_INCLUDE_LABELS
+export SHI_LABEL_TRANSFER_WRITE_H5AD
+export SHI_LABEL_TRANSFER_SAVE_PLOTS
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${SHI_LABEL_TRANSFER_RUN_LABEL}"
+echo "Query AnnData: ${SHI_LABEL_TRANSFER_QUERY_H5AD}"
+echo "Shi reference AnnData: ${SHI_LABEL_TRANSFER_REFERENCE_H5AD}"
+echo "Shi Table S2: ${SHI_LABEL_TRANSFER_TABLE_S2_XLSX}"
+echo "Top variable genes: ${SHI_LABEL_TRANSFER_N_TOP_VARIABLE_GENES}"
+echo "PCA/SVD components: ${SHI_LABEL_TRANSFER_N_PCS}"
+echo "kNN neighbors: ${SHI_LABEL_TRANSFER_N_NEIGHBORS}"
+echo "Full-reference excluded labels: ${SHI_LABEL_TRANSFER_FULL_EXCLUDE_LABELS}"
+echo "Restricted-reference labels: ${SHI_LABEL_TRANSFER_RESTRICTED_LABELS}"
+echo "Write annotated H5AD: ${SHI_LABEL_TRANSFER_WRITE_H5AD}"
+echo "Save plots: ${SHI_LABEL_TRANSFER_SAVE_PLOTS}"
+echo "Executed notebook: ${executed_path}"
+echo "jupyter: $("${CONDA_ENV_BIN}/jupyter" --version 2>/dev/null | head -n 1)"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/jupyter" nbconvert \
+  --to notebook \
+  --execute python_notebooks/notebooks/shi_reference_div30_label_transfer.ipynb \
+  --output-dir "${executed_dir}" \
+  --output "${executed_name}" \
+  --ExecutePreprocessor.kernel_name=mge-organoid-python \
+  --ExecutePreprocessor.timeout=-1
+
+echo "Shi label-transfer completion lines from executed notebook:"
+EXECUTED_NOTEBOOK_PATH="${executed_path}" "${CONDA_ENV_BIN}/python" <<'PY'
+import json
+import os
+from pathlib import Path
+
+marker = "[ShiLabelTransfer]"
+path = Path(os.environ["EXECUTED_NOTEBOOK_PATH"])
+nb = json.loads(path.read_text())
+matched = 0
+complete = False
+for cell in nb.get("cells", []):
+    for output in cell.get("outputs", []):
+        if output.get("output_type") != "stream":
+            continue
+        text = output.get("text", "")
+        if isinstance(text, list):
+            text = "".join(text)
+        for line in text.splitlines():
+            if marker in line:
+                print(line)
+                matched += 1
+                if "complete" in line:
+                    complete = True
+print(f"ShiLabelTransfer marker line count: {matched}")
+if not complete:
+    raise SystemExit(f"No completion marker found in {path}")
+PY
+
+echo "Job finished: $(date)"
