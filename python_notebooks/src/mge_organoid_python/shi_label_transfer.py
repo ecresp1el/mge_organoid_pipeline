@@ -368,12 +368,61 @@ def comparison_label_sets(
 ) -> dict[str, set[str]]:
     """Return full-developmental and restricted regional reference label sets."""
     observed = {str(label).strip() for label in labels if str(label).strip()}
-    excluded = non_neural_labels if non_neural_labels is not None else DEFAULT_NON_NEURAL_LABELS
+    excluded = non_neural_labels if non_neural_labels is not None else set()
     regional = regional_labels if regional_labels is not None else DEFAULT_REGIONAL_LABELS
     return {
         "full_relevant": {label for label in observed if label not in excluded},
         "mge_lge_cge_only": {label for label in observed if label in regional},
     }
+
+
+def shi_week_label_from_cell_id(value: object) -> str:
+    """Infer a Shi gestational-week label from cached cell IDs."""
+    suffix = shi_reference_suffix(value)
+    match = re.search(r"GW(\d+)", suffix)
+    if not match:
+        return ""
+    week = int(match.group(1))
+    return f"GW{week:02d}"
+
+
+def shi_week_numeric_from_label(value: object) -> float:
+    """Return numeric gestational week from a Shi week label or cell suffix."""
+    if value is None or pd.isna(value):
+        return np.nan
+    match = re.search(r"GW\s*0*(\d+)", str(value))
+    return float(match.group(1)) if match else np.nan
+
+
+def reference_week_metadata(reference_obs: pd.DataFrame) -> pd.DataFrame:
+    """Return filled Shi reference week labels/numeric values."""
+    cell_ids = _reference_cell_id_series(reference_obs)
+    inferred_label = pd.Series(
+        [shi_week_label_from_cell_id(value) for value in cell_ids],
+        index=reference_obs.index,
+        dtype="string",
+    )
+    if "week_label" in reference_obs.columns:
+        week_label = reference_obs["week_label"].astype("string").replace("", pd.NA)
+        week_label = week_label.fillna(inferred_label.replace("", pd.NA))
+    else:
+        week_label = inferred_label.replace("", pd.NA)
+
+    if "week_numeric" in reference_obs.columns:
+        week_numeric = pd.to_numeric(reference_obs["week_numeric"], errors="coerce")
+        inferred_numeric = week_label.map(shi_week_numeric_from_label)
+        week_numeric = week_numeric.fillna(inferred_numeric)
+    else:
+        week_numeric = week_label.map(shi_week_numeric_from_label)
+
+    return pd.DataFrame(
+        {
+            "reference_obs_name": reference_obs.index.astype(str),
+            "shi_week_label": week_label.astype("string"),
+            "shi_week_numeric": week_numeric.astype(float),
+        },
+        index=reference_obs.index,
+    )
 
 
 def match_common_genes(
@@ -497,6 +546,7 @@ def _fit_project_reference_query(
 def _label_vote_predictions(
     neighbor_indices: np.ndarray,
     reference_labels: np.ndarray,
+    output_prefix: str = "",
 ) -> pd.DataFrame:
     labels, inverse = np.unique(reference_labels.astype(str), return_inverse=True)
     neighbor_codes = inverse[neighbor_indices]
@@ -518,14 +568,12 @@ def _label_vote_predictions(
 
     predictions = pd.DataFrame(
         {
-            "predicted_shi_label": pred_labels,
-            "prediction_score": scores,
-            "uncertainty_score": [1.0 - value for value in scores],
-            "prediction_entropy": entropy_values,
+            f"{output_prefix}predicted_shi_label": pred_labels,
+            f"{output_prefix}prediction_score": scores,
+            f"{output_prefix}uncertainty_score": [1.0 - value for value in scores],
+            f"{output_prefix}prediction_entropy": entropy_values,
         }
     )
-    predictions["broad_region_class"] = predictions["predicted_shi_label"].map(broad_region_from_label)
-    predictions["developmental_class"] = predictions["predicted_shi_label"].map(developmental_class_from_label)
     return predictions
 
 
@@ -542,6 +590,7 @@ def run_knn_label_transfer(
     n_neighbors: int = 31,
     random_state: int = 0,
     n_jobs: int = 1,
+    reference_week_obs: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
     """Run one reference-to-query kNN label-transfer comparison."""
     label_series = reference_label_obs["shi_label"].astype("string")
@@ -570,11 +619,40 @@ def run_knn_label_transfer(
 
     ref_labels = label_series[ref_mask].astype(str).to_numpy()
     predictions = _label_vote_predictions(indices, ref_labels)
+    predictions["broad_region_class"] = predictions["predicted_shi_label"].map(broad_region_from_label)
+    predictions["developmental_class"] = predictions["predicted_shi_label"].map(developmental_class_from_label)
     predictions.index = query.obs_names
     predictions.insert(0, "obs_name", query.obs_names.astype(str))
     predictions.insert(1, "comparison", comparison_name)
     predictions["n_neighbors_used"] = k
     predictions["mean_neighbor_distance"] = distances.mean(axis=1)
+
+    if reference_week_obs is not None:
+        week_labels = reference_week_obs.loc[reference_label_obs.index, "shi_week_label"].astype("string")
+        week_labels = week_labels[ref_mask].fillna("unknown").astype(str).to_numpy()
+        week_predictions = _label_vote_predictions(
+            indices,
+            week_labels,
+            output_prefix="week_",
+        )
+        week_predictions = week_predictions.rename(
+            columns={
+                "week_predicted_shi_label": "predicted_shi_week_label",
+                "week_prediction_score": "week_prediction_score",
+                "week_uncertainty_score": "week_uncertainty_score",
+                "week_prediction_entropy": "week_prediction_entropy",
+            }
+        )
+        week_predictions.index = predictions.index
+        week_numeric = pd.to_numeric(
+            reference_week_obs.loc[reference_label_obs.index, "shi_week_numeric"],
+            errors="coerce",
+        )[ref_mask].to_numpy(dtype=float)
+        neighbor_week = week_numeric[indices]
+        predictions = pd.concat([predictions, week_predictions], axis=1)
+        predictions["mean_neighbor_week_numeric"] = np.nanmean(neighbor_week, axis=1)
+        predictions["median_neighbor_week_numeric"] = np.nanmedian(neighbor_week, axis=1)
+        predictions["std_neighbor_week_numeric"] = np.nanstd(neighbor_week, axis=1)
 
     ref_label_counts = (
         pd.Series(ref_labels, name="shi_label")
@@ -609,6 +687,7 @@ def summarize_predictions_by_cluster(
     score_col: str,
     uncertainty_col: str,
     cluster_col: str = "seurat_clusters",
+    label_categories: Iterable[str] | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Summarize transferred labels by existing query Seurat clusters."""
     if cluster_col not in obs.columns:
@@ -618,12 +697,28 @@ def summarize_predictions_by_cluster(
     work[label_col] = work[label_col].astype(str)
 
     cluster_counts = work.groupby(cluster_col, observed=True).size().reset_index(name="n_cells")
+    cluster_values = sorted(cluster_counts[cluster_col].astype(str), key=natural_sort_key)
+    if label_categories is None:
+        label_values = sorted(work[label_col].dropna().astype(str).unique())
+    else:
+        label_values = [str(value) for value in label_categories]
+
     label_counts = (
         work.groupby([cluster_col, label_col], observed=True)
         .size()
         .reset_index(name="n_cells")
-        .merge(cluster_counts, on=cluster_col, suffixes=("", "_cluster"))
     )
+    full_index = pd.MultiIndex.from_product(
+        [cluster_values, label_values],
+        names=[cluster_col, label_col],
+    )
+    label_counts = (
+        label_counts.set_index([cluster_col, label_col])
+        .reindex(full_index, fill_value=0)
+        .reset_index()
+    )
+    cluster_size_map = cluster_counts.set_index(cluster_col)["n_cells"].to_dict()
+    label_counts["n_cells_cluster"] = label_counts[cluster_col].map(cluster_size_map).astype(int)
     label_counts["fraction"] = label_counts["n_cells"] / label_counts["n_cells_cluster"]
 
     dominant = (
@@ -668,13 +763,29 @@ def plot_umap_categorical(
     title: str,
     path: str | Path,
     point_size: float = 1.0,
+    category_order: Iterable[str] | None = None,
 ) -> None:
-    categories = pd.Series(values, dtype="category")
+    if category_order is None:
+        categories = pd.Series(values, dtype="category")
+    else:
+        categories = pd.Series(
+            pd.Categorical(values.astype(str), categories=[str(value) for value in category_order])
+        )
     codes = categories.cat.codes.to_numpy()
     labels = list(categories.cat.categories)
     cmap = plt.get_cmap("tab20", max(len(labels), 1))
     fig, ax = plt.subplots(figsize=(7.5, 6.5))
-    sc = ax.scatter(coords[:, 0], coords[:, 1], c=codes, s=point_size, cmap=cmap, linewidths=0, rasterized=True)
+    ax.scatter(
+        coords[:, 0],
+        coords[:, 1],
+        c=codes,
+        s=point_size,
+        cmap=cmap,
+        vmin=0,
+        vmax=max(len(labels) - 1, 0),
+        linewidths=0,
+        rasterized=True,
+    )
     ax.set_title(title)
     ax.set_xlabel("UMAP 1")
     ax.set_ylabel("UMAP 2")
@@ -688,6 +799,87 @@ def plot_umap_categorical(
     fig.tight_layout()
     fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
+
+
+def plot_overlaid_density_by_group(
+    data: pd.DataFrame,
+    value_col: str,
+    group_col: str,
+    title: str,
+    path: str | Path,
+    bins: int | Iterable[float] = 40,
+    x_label: str | None = None,
+) -> None:
+    """Plot overlaid density histograms for one value column by group."""
+    fig, ax = plt.subplots(figsize=(8.0, 5.5))
+    groups = sorted(data[group_col].dropna().astype(str).unique(), key=natural_sort_key)
+    cmap = plt.get_cmap("tab10", max(len(groups), 1))
+    for idx, group in enumerate(groups):
+        values = pd.to_numeric(
+            data.loc[data[group_col].astype(str) == group, value_col],
+            errors="coerce",
+        ).dropna()
+        if values.empty:
+            continue
+        ax.hist(
+            values,
+            bins=bins,
+            density=True,
+            histtype="step",
+            linewidth=1.8,
+            color=cmap(idx),
+            label=f"{group} (n={values.shape[0]})",
+        )
+    ax.set_title(title)
+    ax.set_xlabel(x_label or value_col)
+    ax.set_ylabel("density")
+    ax.legend(frameon=False, loc="center left", bbox_to_anchor=(1.02, 0.5), title=group_col)
+    fig.tight_layout()
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def summarize_week_predictions_by_sample(
+    obs: pd.DataFrame,
+    week_label_col: str,
+    week_score_col: str,
+    week_numeric_col: str,
+    sample_col: str = "orig.ident",
+) -> pd.DataFrame:
+    """Summarize transferred Shi gestational week predictions by query sample."""
+    if sample_col not in obs.columns:
+        raise ValueError(f"Missing sample column: {sample_col}")
+    work = obs[[sample_col, week_label_col, week_score_col, week_numeric_col]].copy()
+    work[sample_col] = work[sample_col].astype(str)
+    work[week_label_col] = work[week_label_col].astype(str)
+    counts = (
+        work.groupby([sample_col, week_label_col], observed=True)
+        .size()
+        .reset_index(name="n_cells")
+    )
+    total = work.groupby(sample_col, observed=True).size().rename("n_cells_total")
+    counts = counts.merge(total.reset_index(), on=sample_col)
+    counts["fraction"] = counts["n_cells"] / counts["n_cells_total"]
+    dominant = (
+        counts.sort_values([sample_col, "n_cells", "fraction"], ascending=[True, False, False])
+        .groupby(sample_col, observed=True)
+        .head(1)
+        .rename(columns={week_label_col: "dominant_week_label", "fraction": "dominant_week_fraction"})
+    )
+    numeric = (
+        work.groupby(sample_col, observed=True)
+        .agg(
+            n_cells=(week_label_col, "size"),
+            mean_week_prediction_score=(week_score_col, "mean"),
+            mean_neighbor_week_numeric=(week_numeric_col, "mean"),
+            median_neighbor_week_numeric=(week_numeric_col, "median"),
+        )
+        .reset_index()
+    )
+    return numeric.merge(
+        dominant[[sample_col, "dominant_week_label", "dominant_week_fraction"]],
+        on=sample_col,
+    )
 
 
 def plot_umap_continuous(
