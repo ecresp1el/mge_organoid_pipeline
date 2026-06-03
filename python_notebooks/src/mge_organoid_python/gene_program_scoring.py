@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 
 import matplotlib.pyplot as plt
+from matplotlib.colors import TwoSlopeNorm
 import numpy as np
 import pandas as pd
 import scanpy as sc
@@ -429,6 +430,116 @@ def score_threshold_table(obs, score_columns, quantile=0.9):
     return pd.DataFrame(records)
 
 
+def gene_set_overlap(left_genes, right_genes, label, left_label="left", right_label="right"):
+    """Return summary/detail tables for overlap between two gene sets."""
+    left = pd.Index([str(gene) for gene in left_genes]).drop_duplicates()
+    right = pd.Index([str(gene) for gene in right_genes]).drop_duplicates()
+    overlap = left.intersection(right)
+    union = left.union(right)
+    summary = pd.DataFrame(
+        [
+            {
+                "comparison": label,
+                "left_label": left_label,
+                "right_label": right_label,
+                "n_left_genes": int(len(left)),
+                "n_right_genes": int(len(right)),
+                "n_overlap_genes": int(len(overlap)),
+                "n_union_genes": int(len(union)),
+                "pct_left_overlapping": 100.0 * len(overlap) / len(left) if len(left) else np.nan,
+                "pct_right_overlapping": 100.0 * len(overlap) / len(right) if len(right) else np.nan,
+                "jaccard_index": len(overlap) / len(union) if len(union) else np.nan,
+            }
+        ]
+    )
+    detail = pd.DataFrame(
+        [
+            {
+                "comparison": label,
+                "overlap_gene": gene,
+                "left_label": left_label,
+                "right_label": right_label,
+            }
+            for gene in sorted(overlap, key=natural_sort_key)
+        ]
+    )
+    return summary, detail
+
+
+def score_pair_correlations(obs, pairs):
+    """Compute Pearson and Spearman correlations for named score-column pairs."""
+    records = []
+    for pair in pairs:
+        left_col = pair["left_col"]
+        right_col = pair["right_col"]
+        frame = obs[[left_col, right_col]].apply(pd.to_numeric, errors="coerce").dropna()
+        records.append(
+            {
+                "comparison": pair.get("comparison", ""),
+                "comparison_display": pair.get("comparison_display", pair.get("comparison", "")),
+                "top_n": pair.get("top_n", ""),
+                "left_label": pair.get("left_label", left_col),
+                "right_label": pair.get("right_label", right_col),
+                "left_col": left_col,
+                "right_col": right_col,
+                "n_cells": int(len(frame)),
+                "pearson_r": (
+                    float(frame[left_col].corr(frame[right_col], method="pearson"))
+                    if len(frame) > 1
+                    else np.nan
+                ),
+                "spearman_r": (
+                    float(frame[left_col].corr(frame[right_col], method="spearman"))
+                    if len(frame) > 1
+                    else np.nan
+                ),
+            }
+        )
+    return pd.DataFrame(records)
+
+
+def add_contrast_score(adata, left_col, right_col, contrast_col):
+    """Add left minus right contrast score to adata.obs."""
+    adata.obs[contrast_col] = (
+        pd.to_numeric(adata.obs[left_col], errors="coerce")
+        - pd.to_numeric(adata.obs[right_col], errors="coerce")
+    )
+    return contrast_col
+
+
+def summarize_columns_by_group(obs, score_columns, group_col):
+    """Summarize arbitrary score columns by group."""
+    if group_col not in obs.columns:
+        raise KeyError("Missing group column: {}".format(group_col))
+    frame = obs[[group_col] + list(score_columns.values())].copy()
+    frame[group_col] = frame[group_col].astype(str)
+    frame = frame[frame[group_col].notna() & (frame[group_col] != "nan")]
+    records = []
+    groups = sorted(pd.unique(frame[group_col]), key=natural_sort_key)
+    for group in groups:
+        sub = frame[frame[group_col] == group]
+        for label, score_col in score_columns.items():
+            values = pd.to_numeric(sub[score_col], errors="coerce").dropna()
+            records.append(
+                {
+                    "groupby": group_col,
+                    "group": group,
+                    "score_label": label,
+                    "score_col": score_col,
+                    "n_cells": int(len(values)),
+                    "mean_score": float(values.mean()) if len(values) else np.nan,
+                    "median_score": float(values.median()) if len(values) else np.nan,
+                    "std_score": float(values.std(ddof=0)) if len(values) else np.nan,
+                    "q25_score": float(values.quantile(0.25)) if len(values) else np.nan,
+                    "q75_score": float(values.quantile(0.75)) if len(values) else np.nan,
+                    "fraction_positive": (
+                        float((values > 0).mean()) if len(values) else np.nan
+                    ),
+                }
+            )
+    return pd.DataFrame(records)
+
+
 def summarize_scores_by_group(obs, score_columns, group_col, thresholds=None):
     """Summarize program scores by one categorical grouping column."""
     if group_col not in obs.columns:
@@ -672,7 +783,17 @@ def _plot_base_categorical(ax, x, y, values, title, point_size):
         )
 
 
-def _plot_score_overlay(ax, x, y, values, title, point_size, background_color):
+def _plot_score_overlay(
+    ax,
+    x,
+    y,
+    values,
+    title,
+    point_size,
+    background_color,
+    cmap="viridis",
+    center_zero=False,
+):
     scores = pd.to_numeric(pd.Series(values), errors="coerce").to_numpy()
     ax.scatter(
         x,
@@ -690,18 +811,28 @@ def _plot_score_overlay(ax, x, y, values, title, point_size, background_color):
     x_plot = x[mask][order]
     y_plot = y[mask][order]
     score_plot = scores[mask][order]
-    vmin, vmax = np.nanquantile(score_plot, [0.01, 0.99])
-    if np.isclose(vmin, vmax):
-        vmin = float(np.nanmin(score_plot))
-        vmax = float(np.nanmax(score_plot))
+    norm = None
+    if center_zero:
+        vmax_abs = float(np.nanquantile(np.abs(score_plot), 0.99))
+        if np.isclose(vmax_abs, 0):
+            vmax_abs = float(np.nanmax(np.abs(score_plot)))
+        if not np.isclose(vmax_abs, 0):
+            norm = TwoSlopeNorm(vmin=-vmax_abs, vcenter=0.0, vmax=vmax_abs)
+        vmin = vmax = None
+    else:
+        vmin, vmax = np.nanquantile(score_plot, [0.01, 0.99])
+        if np.isclose(vmin, vmax):
+            vmin = float(np.nanmin(score_plot))
+            vmax = float(np.nanmax(score_plot))
     scatter = ax.scatter(
         x_plot,
         y_plot,
         s=point_size,
         c=score_plot,
-        cmap="viridis",
+        cmap=cmap,
         vmin=vmin,
         vmax=vmax,
+        norm=norm,
         linewidths=0,
         alpha=0.9,
         rasterized=True,
@@ -776,6 +907,8 @@ def plot_umap_score_overlay_panel(
     title_prefix="DIV30",
     point_size=None,
     background_color="#d4d4d4",
+    score_cmap="viridis",
+    center_zero_scores=False,
 ):
     """Save a 1 x N panel: base cluster UMAP, then score overlays."""
     if base_color_col not in adata.obs.columns:
@@ -816,6 +949,8 @@ def plot_umap_score_overlay_panel(
             "{} {}".format(title_prefix, program),
             point_size,
             background_color,
+            cmap=score_cmap,
+            center_zero=center_zero_scores,
         )
         if scatter is not None:
             cbar = fig.colorbar(scatter, ax=ax, fraction=0.046, pad=0.02)

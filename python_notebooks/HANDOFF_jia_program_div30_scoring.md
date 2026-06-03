@@ -154,6 +154,12 @@ RUN_DIR/tables/jia_program_gene_overlap_detail.tsv
 RUN_DIR/tables/jia_program_scanpy_control_gene_summary.tsv
 RUN_DIR/tables/jia_program_scanpy_control_gene_detail.tsv
 RUN_DIR/tables/jia_program_scanpy_program_gene_bins.tsv
+RUN_DIR/tables/jia_rgc_specificity_top_marker_sets.tsv
+RUN_DIR/tables/jia_rgc1_rgc2_scoring_gene_overlap_summary.tsv
+RUN_DIR/tables/jia_rgc1_rgc2_scoring_gene_overlap_detail.tsv
+RUN_DIR/tables/div30_rgc1_rgc2_score_correlations.tsv
+RUN_DIR/tables/div30_rgc_specificity_scores_obs.tsv
+RUN_DIR/tables/div30_rgc_specificity_summary_by_seurat_clusters.tsv
 RUN_DIR/tables/jia_target_marker_panel.tsv
 RUN_DIR/tables/jia_target_marker_gene_overlap_summary.tsv
 RUN_DIR/tables/jia_target_marker_gene_overlap_detail.tsv
@@ -195,6 +201,11 @@ RUN_DIR/plots/div30_jia_program_mean_score_by_seurat_clusters_heatmap.png
 RUN_DIR/plots/div30_jia_program_fraction_high_by_seurat_clusters_heatmap.png
 RUN_DIR/plots/div30_target_marker_umap_feature_grid.png
 RUN_DIR/plots/div30_target_marker_expression_dotplot_by_seurat_clusters.png
+RUN_DIR/plots/div30_umap_rgc1_rgc2_scores_full.png
+RUN_DIR/plots/div30_umap_rgc1_rgc2_scores_top25.png
+RUN_DIR/plots/div30_umap_rgc1_rgc2_scores_top50.png
+RUN_DIR/plots/div30_umap_rgc1_rgc2_scores_top100.png
+RUN_DIR/plots/div30_umap_rgc1_minus_rgc2_contrast_versions_panel.png
 ```
 
 The dot plot uses Seurat/Scanpy-style semantics:
@@ -213,6 +224,17 @@ rows = DIV30 built-in Seurat clusters
 columns = target marker genes
 dot size = percent expressing
 dot color = mean expression
+```
+
+The RGC specificity tables and UMAP plots quantify why RGC1 and RGC2 overlap,
+then test whether smaller marker sets improve separation:
+
+```text
+full marker set
+top 25 markers by avg_log2FC
+top 50 markers by avg_log2FC
+top 100 markers by avg_log2FC
+RGC1_minus_RGC2 contrast score for each version
 ```
 
 ## Slurm Command
