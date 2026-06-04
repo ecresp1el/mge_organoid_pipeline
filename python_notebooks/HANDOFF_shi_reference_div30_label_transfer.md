@@ -18,19 +18,19 @@ stacked bars, heatmaps, and interpretation.
 Default run label:
 
 ```text
-shi_reference_div30_label_transfer_v1
+shi_reference_div30_label_transfer_v2
 ```
 
 Default run directory:
 
 ```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_label_transfer/shi_reference_div30_label_transfer_v1
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_label_transfer/shi_reference_div30_label_transfer_v2
 ```
 
 Executed notebook path:
 
 ```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_label_transfer/executed/shi_reference_div30_label_transfer.shi_reference_div30_label_transfer_v1.executed.ipynb
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_label_transfer/executed/shi_reference_div30_label_transfer.shi_reference_div30_label_transfer_v2.executed.ipynb
 ```
 
 ## Code Added
@@ -97,13 +97,8 @@ The workflow runs two independent per-cell label-transfer comparisons.
 
 ### A. Full Relevant Developmental Reference
 
-Default included labels are all observed Table S2 labels except:
-
-```text
-Microglia, OPC, Endothelial
-```
-
-This keeps:
+As of `shi_reference_div30_label_transfer_v2`, the default full reference
+includes all 10 observed Shi Table S2 major-type labels:
 
 ```text
 MGE
@@ -113,6 +108,9 @@ progenitor
 Excitatory IPC
 Excitatory neuron
 Thalamic neurons
+Microglia
+OPC
+Endothelial
 ```
 
 ### B. Restricted MGE/LGE/CGE Reference
@@ -141,12 +139,16 @@ developmental states.
    - project DIV30 cells into the same SVD space
    - run kNN from each DIV30 cell to Shi reference cells
    - predict labels by neighbor-vote at the single-cell level
+   - predict Shi gestational week from the same neighbor set
 6. Add predictions to DIV30 `adata.obs`.
 7. Summarize predictions by DIV30 `seurat_clusters`.
+8. Summarize Shi gestational-week predictions by DIV30 sample.
 
 Prediction score is the fraction of k nearest Shi reference neighbors voting for
 the winning label. Uncertainty is `1 - prediction_score`. Entropy is normalized
-neighbor-label entropy.
+neighbor-label entropy. The gestational-week score uses the same vote-fraction
+logic, but over Shi neighbor `week_label`; mean/median neighbor week use the
+numeric Shi gestational week.
 
 ## Output Contract
 
@@ -156,6 +158,13 @@ Run outputs:
 RUN_DIR/tables/
 RUN_DIR/plots/
 RUN_DIR/h5ad/
+```
+
+For `shi_reference_div30_label_transfer_v2`, the completed run contains:
+
+```text
+plots/*.png: 14 files
+tables/*: 34 files
 ```
 
 Key tables:
@@ -172,6 +181,10 @@ tables/div30_shi_label_transfer_cluster_summaries.tsv
 tables/div30_shi_label_transfer_label_fractions_by_cluster.tsv
 tables/div30_shi_full_vs_mge_lge_cge_predictions.tsv.gz
 tables/div30_shi_full_vs_mge_lge_cge_summary_by_seurat_clusters.tsv
+tables/div30_shi_week_prediction_counts_by_sample.tsv
+tables/div30_shi_week_prediction_summary_by_sample.tsv
+tables/shi_reference_week_counts.tsv
+tables/shi_reference_week_metadata.tsv
 tables/shi_label_transfer_output_manifest.tsv
 tables/shi_label_transfer_complete.tsv
 ```
@@ -191,6 +204,13 @@ shi_full_uncertainty_score
 shi_full_prediction_entropy
 shi_full_broad_region_class
 shi_full_developmental_class
+shi_full_predicted_shi_week_label
+shi_full_week_prediction_score
+shi_full_week_uncertainty_score
+shi_full_week_prediction_entropy
+shi_full_mean_neighbor_week_numeric
+shi_full_median_neighbor_week_numeric
+shi_full_std_neighbor_week_numeric
 
 shi_mge_lge_cge_predicted_shi_label
 shi_mge_lge_cge_prediction_score
@@ -198,16 +218,130 @@ shi_mge_lge_cge_uncertainty_score
 shi_mge_lge_cge_prediction_entropy
 shi_mge_lge_cge_broad_region_class
 shi_mge_lge_cge_developmental_class
+shi_mge_lge_cge_predicted_shi_week_label
+shi_mge_lge_cge_week_prediction_score
+shi_mge_lge_cge_week_uncertainty_score
+shi_mge_lge_cge_week_prediction_entropy
+shi_mge_lge_cge_mean_neighbor_week_numeric
+shi_mge_lge_cge_median_neighbor_week_numeric
+shi_mge_lge_cge_std_neighbor_week_numeric
 ```
 
-Plots are generated for each comparison:
+## v2 Plot Inventory
+
+`shi_reference_div30_label_transfer_v2` generated exactly 14 PNG plots:
+7 plots for `full_relevant` and 7 plots for `mge_lge_cge_only`.
+
+Run plot directory:
 
 ```text
-UMAP colored by Shi predicted label
-UMAP colored by prediction score
-UMAP colored by broad MGE/LGE/CGE class
-stacked barplot of Shi labels by seurat_clusters
-heatmap of seurat_clusters x Shi predicted labels
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_label_transfer/shi_reference_div30_label_transfer_v2/plots
+```
+
+Shared plot inputs:
+
+```text
+DIV30 query AnnData:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div30.h5ad
+  UMAP coordinates from .obsm["X_umap_seurat"]
+  sample groups from .obs["orig.ident"]
+  post hoc cluster groups from .obs["seurat_clusters"]
+
+Shi reference AnnData:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/shi_2019_paper_qc.h5ad
+
+Shi Table S2:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s2.xlsx
+  cell-level Major types and gestational-week-derived labels
+```
+
+Plot helper functions are defined in:
+
+```text
+python_notebooks/src/mge_organoid_python/shi_label_transfer.py
+```
+
+Full-reference plots:
+
+```text
+1. div30_umap_shi_full_predicted_shi_label.png
+   Input: query .obsm["X_umap_seurat"] + query.obs["shi_full_predicted_shi_label"]
+   Function: plot_umap_categorical
+
+2. div30_umap_shi_full_prediction_score.png
+   Input: query .obsm["X_umap_seurat"] + query.obs["shi_full_prediction_score"]
+   Function: plot_umap_continuous
+
+3. div30_umap_shi_full_broad_region_class.png
+   Input: query .obsm["X_umap_seurat"] + query.obs["shi_full_broad_region_class"]
+   Function: plot_umap_categorical
+
+4. div30_shi_full_shi_label_stacked_bar_by_seurat_clusters.png
+   Input table: tables/div30_shi_full_label_counts.tsv
+   Source columns: seurat_clusters, shi_full_predicted_shi_label, fraction
+   Function: plot_stacked_bar
+
+5. div30_shi_full_shi_label_heatmap_by_seurat_clusters.png
+   Input table: tables/div30_shi_full_label_counts.tsv
+   Source columns: seurat_clusters, shi_full_predicted_shi_label, fraction
+   Function: plot_heatmap
+
+6. div30_shi_full_mean_neighbor_gw_age_density_by_sample.png
+   Input: query.obs["orig.ident"] + query.obs["shi_full_mean_neighbor_week_numeric"]
+   Function: plot_overlaid_density_by_group
+
+7. div30_shi_full_gw_prediction_score_density_by_sample.png
+   Input: query.obs["orig.ident"] + query.obs["shi_full_week_prediction_score"]
+   Function: plot_overlaid_density_by_group
+```
+
+MGE/LGE/CGE-restricted plots:
+
+```text
+8. div30_umap_shi_mge_lge_cge_predicted_shi_label.png
+   Input: query .obsm["X_umap_seurat"] + query.obs["shi_mge_lge_cge_predicted_shi_label"]
+   Function: plot_umap_categorical
+
+9. div30_umap_shi_mge_lge_cge_prediction_score.png
+   Input: query .obsm["X_umap_seurat"] + query.obs["shi_mge_lge_cge_prediction_score"]
+   Function: plot_umap_continuous
+
+10. div30_umap_shi_mge_lge_cge_broad_region_class.png
+    Input: query .obsm["X_umap_seurat"] + query.obs["shi_mge_lge_cge_broad_region_class"]
+    Function: plot_umap_categorical
+
+11. div30_shi_mge_lge_cge_shi_label_stacked_bar_by_seurat_clusters.png
+    Input table: tables/div30_shi_mge_lge_cge_label_counts.tsv
+    Source columns: seurat_clusters, shi_mge_lge_cge_predicted_shi_label, fraction
+    Function: plot_stacked_bar
+
+12. div30_shi_mge_lge_cge_shi_label_heatmap_by_seurat_clusters.png
+    Input table: tables/div30_shi_mge_lge_cge_label_counts.tsv
+    Source columns: seurat_clusters, shi_mge_lge_cge_predicted_shi_label, fraction
+    Function: plot_heatmap
+
+13. div30_shi_mge_lge_cge_mean_neighbor_gw_age_density_by_sample.png
+    Input: query.obs["orig.ident"] + query.obs["shi_mge_lge_cge_mean_neighbor_week_numeric"]
+    Function: plot_overlaid_density_by_group
+
+14. div30_shi_mge_lge_cge_gw_prediction_score_density_by_sample.png
+    Input: query.obs["orig.ident"] + query.obs["shi_mge_lge_cge_week_prediction_score"]
+    Function: plot_overlaid_density_by_group
+```
+
+Notes for tomorrow:
+
+```text
+tables/shi_reference_comparison_label_sets.tsv confirms full_relevant has all
+10 Shi labels, and mge_lge_cge_only has MGE, LGE, and CGE.
+
+tables/div30_shi_full_label_counts.tsv keeps zero-count label rows, so CGE,
+Microglia, OPC, and Endothelial do not silently disappear when their predicted
+fraction is 0.
+
+The overlaid GW-age plots are not based on DIV30 collection age directly. They
+are inferred from the Shi reference neighbors for each DIV30 cell and then
+overlaid by DIV30 sample (`orig.ident`).
 ```
 
 ## Slurm Command
@@ -224,11 +358,15 @@ sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/20_execute
 From `/Users/ecrespo/Downloads`:
 
 ```bash
-mkdir -p ./shi_reference_div30_label_transfer_v1
+mkdir -p ./shi_reference_div30_label_transfer_v2
 
 rsync -avh --progress \
-  elcrespo@greatlakes.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_label_transfer/shi_reference_div30_label_transfer_v1/ \
-  ./shi_reference_div30_label_transfer_v1/
+  elcrespo@greatlakes.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_label_transfer/shi_reference_div30_label_transfer_v2/plots/ \
+  ./shi_reference_div30_label_transfer_v2/plots/
+
+rsync -avh --progress \
+  elcrespo@greatlakes.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_label_transfer/shi_reference_div30_label_transfer_v2/tables/ \
+  ./shi_reference_div30_label_transfer_v2/tables/
 ```
 
 ## Slurm Status
