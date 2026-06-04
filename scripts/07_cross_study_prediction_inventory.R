@@ -48,6 +48,48 @@ collapse_csv <- function(x) {
   if (length(x) == 0) "" else paste(as.character(x), collapse = ",")
 }
 
+read_feature_map_symbols <- function(feature_map_path, features) {
+  if (!nzchar(feature_map_path) || !file.exists(feature_map_path)) {
+    return(list(
+      n_feature_map_pairs = 0L,
+      n_features_mapped_to_symbols = 0L,
+      mapped_symbols = character()
+    ))
+  }
+  feature_map <- read.delim(
+    feature_map_path,
+    header = FALSE,
+    stringsAsFactors = FALSE,
+    sep = "\t",
+    quote = "",
+    comment.char = ""
+  )
+  if (ncol(feature_map) < 2) {
+    return(list(
+      n_feature_map_pairs = nrow(feature_map),
+      n_features_mapped_to_symbols = 0L,
+      mapped_symbols = character()
+    ))
+  }
+  colnames(feature_map)[1:2] <- c("feature_id", "gene_symbol")
+  feature_map <- feature_map[
+    !is.na(feature_map$feature_id) &
+      !is.na(feature_map$gene_symbol) &
+      nzchar(feature_map$feature_id) &
+      nzchar(feature_map$gene_symbol),
+    c("feature_id", "gene_symbol"),
+    drop = FALSE
+  ]
+  feature_map <- feature_map[!duplicated(feature_map$feature_id), , drop = FALSE]
+  mapped <- feature_map$gene_symbol[match(features, feature_map$feature_id)]
+  mapped <- unique(mapped[!is.na(mapped) & nzchar(mapped)])
+  list(
+    n_feature_map_pairs = nrow(feature_map),
+    n_features_mapped_to_symbols = length(mapped),
+    mapped_symbols = mapped
+  )
+}
+
 safe_chr <- function(expr, default = "") {
   tryCatch(as.character(expr), error = function(e) default)
 }
@@ -105,20 +147,52 @@ table_dir <- file.path(run_dir, "tables")
 dir.create(table_dir, recursive = TRUE, showWarnings = FALSE)
 
 target_studies <- data.frame(
-  study_id = c("varela_div30", "varela_div90", "walsh", "bershteyn_2025", "bershteyn_2023"),
-  study_label = c("Varela DIV30", "Varela DIV90", "Walsh", "Bershteyn 2025", "Bershteyn 2023"),
+  study_id = c(
+    "varela_div30",
+    "varela_div90",
+    "walsh",
+    "bershteyn_2025",
+    "bershteyn_2023",
+    "xiang_2018",
+    "samarasinghe_2021",
+    "siebert_2026"
+  ),
+  study_label = c(
+    "Varela DIV30",
+    "Varela DIV90",
+    "Walsh",
+    "Bershteyn 2025",
+    "Bershteyn 2023",
+    "Xiang",
+    "Samarasinghe",
+    "Siebert 2026"
+  ),
   object_path = c(
     "results/varela_this_paper/varela_this_paper_seurat.rds",
     "/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds",
     "results/walsh_day75/walsh_day75_final_annotated.rds",
     "results/bershteyn_2025/bershteyn_2025_seurat.rds",
-    "results/bershteyn_2023/bershteyn_2023_seurat.rds"
+    "results/bershteyn_2023/bershteyn_2023_seurat.rds",
+    "results/xiang_2018/xiang_2018_seurat.rds",
+    "results/samarasinghe_2021/samarasinghe_2021_seurat.rds",
+    "results/siebert_2026/siebert_2026_seurat.rds"
   ),
-  assay = c("RNA", "RNA", "RNA", "RNA", "RNA"),
-  reduction = c("umap", "umap", "umap_sel", "umap", "umap"),
+  assay = rep("RNA", 8),
+  reduction = c("umap", "umap", "umap_sel", "umap", "umap", "umap", "umap", "umap"),
+  feature_map_path = c(
+    "",
+    "",
+    "",
+    "",
+    "",
+    "data/raw/xiang_2018_geo_files/suppl/GSE98201_genes.tsv.gz",
+    "",
+    ""
+  ),
   stringsAsFactors = FALSE
 )
 target_studies$object_path_resolved <- vapply(target_studies$object_path, resolve_path, character(1), project_root = project_root)
+target_studies$feature_map_path_resolved <- vapply(target_studies$feature_map_path, resolve_path, character(1), project_root = project_root)
 
 log_msg("Project root: ", project_root)
 log_msg("Run dir: ", run_dir)
@@ -167,12 +241,36 @@ for (idx in seq_len(nrow(target_studies))) {
       assay_layers_available = "",
       reductions_available = "",
       requested_reduction = study$reduction,
+      feature_map_path = study$feature_map_path_resolved,
+      n_feature_map_pairs = 0L,
+      n_features_mapped_to_symbols = 0L,
       n_cells = NA_integer_,
       n_features = NA_integer_,
       n_metadata_columns = NA_integer_,
       n_reference_features = length(reference_features),
+      n_shared_reference_features_raw = NA_integer_,
+      n_shared_reference_features_mapped = NA_integer_,
       n_shared_reference_features = NA_integer_,
+      shared_reference_fraction_raw = NA_real_,
+      shared_reference_fraction_mapped = NA_real_,
       shared_reference_fraction = NA_real_,
+      stringsAsFactors = FALSE
+    )
+    readiness_rows[[length(readiness_rows) + 1]] <- data.frame(
+      study_id = study$study_id,
+      study_label = study$study_label,
+      ready_for_seurat_label_transfer = FALSE,
+      ready_for_sample_level_score_plots = FALSE,
+      ready_for_cluster_summaries = FALSE,
+      primary_sample_col = "",
+      sample_cols_present = "",
+      primary_cluster_col = "",
+      cluster_cols_present = "",
+      requested_reduction = study$reduction,
+      requested_reduction_ok = FALSE,
+      existing_shi_prediction_metadata_cols = "",
+      n_shared_reference_features = NA_integer_,
+      missing_for_requested_workflow = "object file",
       stringsAsFactors = FALSE
     )
     next
@@ -190,7 +288,14 @@ for (idx in seq_len(nrow(target_studies))) {
   metadata <- obj@meta.data
   metadata_cols <- colnames(metadata)
   requested_reduction_ok <- study$reduction %in% Reductions(obj)
-  shared_features <- intersect(features, reference_features)
+  shared_features_raw <- intersect(features, reference_features)
+  feature_map <- read_feature_map_symbols(study$feature_map_path_resolved, features)
+  shared_features_mapped <- intersect(feature_map$mapped_symbols, reference_features)
+  shared_features <- if (length(shared_features_mapped) > length(shared_features_raw)) {
+    shared_features_mapped
+  } else {
+    shared_features_raw
+  }
   sample_col <- sample_priority[sample_priority %in% metadata_cols]
   sample_col <- if (length(sample_col) > 0) sample_col[[1]] else ""
   cluster_col <- cluster_priority[cluster_priority %in% metadata_cols]
@@ -215,11 +320,18 @@ for (idx in seq_len(nrow(target_studies))) {
     assay_layers_available = collapse_csv(layer_names),
     reductions_available = reductions_available,
     requested_reduction = study$reduction,
+    feature_map_path = study$feature_map_path_resolved,
+    n_feature_map_pairs = feature_map$n_feature_map_pairs,
+    n_features_mapped_to_symbols = feature_map$n_features_mapped_to_symbols,
     n_cells = length(cells),
     n_features = length(features),
     n_metadata_columns = length(metadata_cols),
     n_reference_features = length(reference_features),
+    n_shared_reference_features_raw = length(shared_features_raw),
+    n_shared_reference_features_mapped = length(shared_features_mapped),
     n_shared_reference_features = length(shared_features),
+    shared_reference_fraction_raw = if (length(reference_features) > 0) length(shared_features_raw) / length(reference_features) else NA_real_,
+    shared_reference_fraction_mapped = if (length(reference_features) > 0) length(shared_features_mapped) / length(reference_features) else NA_real_,
     shared_reference_fraction = if (length(reference_features) > 0) length(shared_features) / length(reference_features) else NA_real_,
     stringsAsFactors = FALSE
   )
