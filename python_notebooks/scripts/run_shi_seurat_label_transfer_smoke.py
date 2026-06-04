@@ -27,9 +27,12 @@ from mge_organoid_python.shi_label_transfer import (
     plot_stacked_bar,
     plot_umap_categorical,
     plot_umap_continuous,
+    reference_week_metadata,
     safe_token,
+    shi_week_numeric_from_label,
     summarize_predictions_by_cluster,
 )
+from scipy.stats import gaussian_kde
 
 
 MARKER = "[ShiSeuratTransfer]"
@@ -76,6 +79,13 @@ def prepare_reference_labels(
             table_s2,
             min_match_fraction=min_match_fraction,
         )
+        week_obs = reference_week_metadata(reference.obs)
+        week_numeric = pd.to_numeric(week_obs["shi_week_numeric"], errors="coerce")
+        week_obs["shi_week_numeric"] = week_numeric
+        week_obs["shi_week_label"] = week_numeric.map(
+            lambda value: f"GW{int(value):02d}" if pd.notna(value) else pd.NA
+        ).astype("string")
+        label_obs = label_obs.join(week_obs[["shi_week_label", "shi_week_numeric"]])
         for source_col, output_col in [
             ("cell_id", "reference_cell_id"),
             ("raw_cell_id", "reference_raw_cell_id"),
@@ -163,6 +173,17 @@ def load_predictions(prediction_path: Path) -> pd.DataFrame:
     return predictions
 
 
+def load_week_predictions(prediction_path: Path) -> pd.DataFrame:
+    predictions = load_predictions(prediction_path)
+    predictions = predictions.rename(
+        columns={
+            "predicted.id": "predicted_week_label",
+            "prediction.score.max": "week_prediction_score",
+        }
+    )
+    return predictions
+
+
 def align_predictions_to_adata(adata: ad.AnnData, predictions: pd.DataFrame) -> pd.DataFrame:
     pred_by_cell = predictions.set_index("cell_id", drop=False)
     obs_names = pd.Index(adata.obs_names.astype(str))
@@ -230,6 +251,48 @@ def add_predictions_to_obs(adata: ad.AnnData, aligned: pd.DataFrame, label_order
     return label_score_cols
 
 
+def add_week_predictions_to_obs(adata: ad.AnnData, aligned: pd.DataFrame) -> list[str]:
+    prefix = "shi_seurat_full"
+    adata.obs[f"{prefix}_predicted_shi_week_label"] = aligned["predicted_week_label"].astype(str).to_numpy()
+    adata.obs[f"{prefix}_week_prediction_score"] = pd.to_numeric(
+        aligned["week_prediction_score"],
+        errors="coerce",
+    ).to_numpy()
+    adata.obs[f"{prefix}_week_uncertainty_score"] = 1.0 - adata.obs[f"{prefix}_week_prediction_score"].astype(float)
+    adata.obs[f"{prefix}_predicted_shi_week_numeric"] = adata.obs[f"{prefix}_predicted_shi_week_label"].map(
+        shi_week_numeric_from_label
+    )
+
+    score_cols = [col for col in aligned.columns if col.startswith("prediction.score.") and col != "prediction.score.max"]
+    week_score_cols = []
+    weighted_sum = np.zeros(adata.n_obs, dtype=float)
+    weight_total = np.zeros(adata.n_obs, dtype=float)
+    records = []
+    for col in score_cols:
+        label = col.removeprefix("prediction.score.")
+        token = sanitize_score_label(label)
+        out_col = f"{prefix}_week_prediction_score_{token}"
+        values = pd.to_numeric(aligned[col], errors="coerce").fillna(0.0).to_numpy(dtype=float)
+        adata.obs[out_col] = values
+        week_score_cols.append(out_col)
+        week_numeric = shi_week_numeric_from_label(label)
+        if np.isfinite(week_numeric):
+            weighted_sum += values * week_numeric
+            weight_total += values
+        records.append({"shi_week_label": label, "score_column": out_col, "shi_week_numeric": week_numeric})
+
+    expected = np.divide(
+        weighted_sum,
+        weight_total,
+        out=np.full_like(weighted_sum, np.nan, dtype=float),
+        where=weight_total > 0,
+    )
+    adata.obs[f"{prefix}_expected_shi_week_numeric"] = expected
+    score_map = pd.DataFrame.from_records(records)
+    adata.uns["shi_seurat_full_week_score_column_map"] = score_map.to_dict(orient="list")
+    return week_score_cols
+
+
 def plot_score_panel(
     coords: np.ndarray,
     obs: pd.DataFrame,
@@ -257,6 +320,202 @@ def plot_score_panel(
         ax.set_xticks([])
         ax.set_yticks([])
         fig.colorbar(artist, ax=ax, label="Seurat prediction score")
+    fig.tight_layout()
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+NON_GREY_COLORS = [
+    "#1f77b4",
+    "#ff7f0e",
+    "#2ca02c",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#e377c2",
+    "#17becf",
+    "#bcbd22",
+    "#e41a1c",
+    "#377eb8",
+    "#4daf4a",
+    "#984ea3",
+    "#ff7f00",
+    "#a65628",
+]
+
+
+def color_for_index(index: int) -> str:
+    return NON_GREY_COLORS[index % len(NON_GREY_COLORS)]
+
+
+def style_umap_axis(ax: plt.Axes) -> None:
+    ax.set_xlabel("UMAP 1")
+    ax.set_ylabel("UMAP 2")
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+
+def plot_predicted_label_with_overlay_panels(
+    coords: np.ndarray,
+    labels: pd.Series,
+    label_order: list[str],
+    path: Path,
+) -> None:
+    values = labels.astype(str)
+    categories = [label for label in label_order if (values == str(label)).any()]
+    if not categories:
+        categories = sorted(values.dropna().unique())
+    left_cols = min(4, max(1, len(categories)))
+    rows = int(np.ceil(len(categories) / left_cols))
+    fig = plt.figure(figsize=(3.8 * left_cols + 6.0, 3.3 * rows))
+    gs = fig.add_gridspec(rows, left_cols + 2, width_ratios=[1] * left_cols + [1.35, 1.35])
+
+    for idx, label in enumerate(categories):
+        row = idx // left_cols
+        col = idx % left_cols
+        ax = fig.add_subplot(gs[row, col])
+        mask = values.to_numpy() == str(label)
+        ax.scatter(coords[:, 0], coords[:, 1], c="#d0d0d0", s=0.6, linewidths=0, rasterized=True)
+        ax.scatter(
+            coords[mask, 0],
+            coords[mask, 1],
+            c=color_for_index(idx),
+            s=1.4,
+            linewidths=0,
+            rasterized=True,
+        )
+        ax.set_title(f"{label} (n={int(mask.sum())})", fontsize=9)
+        style_umap_axis(ax)
+
+    for idx in range(len(categories), rows * left_cols):
+        row = idx // left_cols
+        col = idx % left_cols
+        ax = fig.add_subplot(gs[row, col])
+        ax.axis("off")
+
+    ax_full = fig.add_subplot(gs[:, left_cols:])
+    color_map = {label: color_for_index(idx) for idx, label in enumerate(categories)}
+    for idx, label in enumerate(categories):
+        mask = values.to_numpy() == str(label)
+        ax_full.scatter(
+            coords[mask, 0],
+            coords[mask, 1],
+            c=color_map[label],
+            s=1.0,
+            linewidths=0,
+            rasterized=True,
+            label=f"{label} (n={int(mask.sum())})",
+        )
+    ax_full.set_title("All predicted Shi labels")
+    style_umap_axis(ax_full)
+    ax_full.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False, fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_stacked_bar_with_cluster_umaps(
+    coords: np.ndarray,
+    obs: pd.DataFrame,
+    label_counts: pd.DataFrame,
+    cluster_col: str,
+    label_col: str,
+    path: Path,
+    title: str,
+) -> None:
+    clusters = sorted(obs[cluster_col].dropna().astype(str).unique(), key=natural_sort_key)
+    cluster_cols = 3
+    rows = int(np.ceil(len(clusters) / cluster_cols))
+    fig = plt.figure(figsize=(17.5, max(7.0, 3.1 * rows)))
+    gs = fig.add_gridspec(rows, 6, width_ratios=[1.6, 1.6, 1.6, 1, 1, 1])
+
+    ax_bar = fig.add_subplot(gs[:, :3])
+    wide = label_counts.pivot(index=cluster_col, columns=label_col, values="fraction").fillna(0.0)
+    wide = wide.loc[sorted(wide.index.astype(str), key=natural_sort_key)]
+    colors = [color_for_index(idx) for idx in range(wide.shape[1])]
+    wide.plot(kind="bar", stacked=True, ax=ax_bar, width=0.85, color=colors)
+    ax_bar.set_title(title)
+    ax_bar.set_xlabel("seurat_clusters")
+    ax_bar.set_ylabel("fraction of cells")
+    ax_bar.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False, title=label_col, fontsize=8)
+
+    cluster_values = obs[cluster_col].astype(str).to_numpy()
+    for idx, cluster in enumerate(clusters):
+        row = idx // cluster_cols
+        col = 3 + idx % cluster_cols
+        ax = fig.add_subplot(gs[row, col])
+        mask = cluster_values == str(cluster)
+        ax.scatter(coords[:, 0], coords[:, 1], c="#d0d0d0", s=0.6, linewidths=0, rasterized=True)
+        ax.scatter(
+            coords[mask, 0],
+            coords[mask, 1],
+            c=color_for_index(idx),
+            s=1.4,
+            linewidths=0,
+            rasterized=True,
+        )
+        ax.set_title(f"cluster {cluster} (n={int(mask.sum())})", fontsize=9)
+        style_umap_axis(ax)
+
+    for idx in range(len(clusters), rows * cluster_cols):
+        row = idx // cluster_cols
+        col = 3 + idx % cluster_cols
+        ax = fig.add_subplot(gs[row, col])
+        ax.axis("off")
+
+    fig.tight_layout()
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_ridge_by_group(
+    data: pd.DataFrame,
+    value_col: str,
+    group_col: str,
+    path: Path,
+    title: str,
+    x_label: str,
+) -> None:
+    work = data[[value_col, group_col]].copy()
+    work[value_col] = pd.to_numeric(work[value_col], errors="coerce")
+    work[group_col] = work[group_col].astype(str)
+    work = work.dropna(subset=[value_col, group_col])
+    groups = sorted(work[group_col].unique(), key=natural_sort_key)
+    if not groups:
+        raise ValueError(f"No groups available for ridge plot: {group_col}")
+
+    x_min = float(np.floor(work[value_col].min())) - 0.5
+    x_max = float(np.ceil(work[value_col].max())) + 0.5
+    x_grid = np.linspace(x_min, x_max, 300)
+    fig, ax = plt.subplots(figsize=(9.0, max(5.0, 0.48 * len(groups))))
+
+    for idx, group in enumerate(groups):
+        values = work.loc[work[group_col] == group, value_col].to_numpy(dtype=float)
+        values = values[np.isfinite(values)]
+        if values.size == 0:
+            continue
+        if np.unique(values).size > 1:
+            kde = gaussian_kde(values)
+            density = kde(x_grid)
+        else:
+            center = values[0]
+            density = np.exp(-0.5 * ((x_grid - center) / 0.18) ** 2)
+        density = density / density.max() * 0.82 if density.max() > 0 else density
+        baseline = idx
+        color = color_for_index(idx)
+        ax.fill_between(x_grid, baseline, baseline + density, color=color, alpha=0.82, linewidth=0)
+        ax.plot(x_grid, baseline + density, color=color, linewidth=1.1)
+        ax.plot([x_min, x_max], [baseline, baseline], color="#bdbdbd", linewidth=0.6)
+
+    ax.set_yticks(np.arange(len(groups)))
+    ax.set_yticklabels(groups)
+    ax.set_ylim(-0.2, len(groups) - 0.1 + 0.9)
+    ax.set_xlim(x_min, x_max)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(group_col)
+    ax.set_title(title)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     fig.tight_layout()
     fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -320,6 +579,8 @@ def main() -> None:
     labels_path = seurat_dir / "shi_reference_labels_for_seurat.tsv"
     prediction_path = seurat_dir / "div30_shi_seurat_full_predictions.tsv.gz"
     score_path = seurat_dir / "div30_shi_seurat_full_prediction_scores.tsv.gz"
+    week_prediction_path = seurat_dir / "div30_shi_seurat_full_week_predictions.tsv.gz"
+    week_score_path = seurat_dir / "div30_shi_seurat_full_week_prediction_scores.tsv.gz"
 
     log(f"Run label: {run_label}")
     log(f"Run dir: {run_dir}")
@@ -331,7 +592,7 @@ def main() -> None:
         min_match_fraction=min_match_fraction,
     )
 
-    if overwrite or not prediction_path.exists() or not score_path.exists():
+    if overwrite or not prediction_path.exists() or not score_path.exists() or not week_prediction_path.exists() or not week_score_path.exists():
         run_seurat_transfer(
             repo_root=repo_root,
             rscript_bin=rscript_bin,
@@ -352,6 +613,9 @@ def main() -> None:
     predictions = load_predictions(prediction_path)
     aligned = align_predictions_to_adata(adata, predictions)
     score_cols = add_predictions_to_obs(adata, aligned, label_order=label_order)
+    week_predictions = load_week_predictions(week_prediction_path)
+    aligned_week = align_predictions_to_adata(adata, week_predictions)
+    week_score_cols = add_week_predictions_to_obs(adata, aligned_week)
     if "cell_id" in adata.obs.columns:
         adata.obs["cell_id_for_join"] = adata.obs["cell_id"].astype(str)
     else:
@@ -367,9 +631,14 @@ def main() -> None:
         f"{prefix}_uncertainty_score",
         f"{prefix}_broad_region_class",
         f"{prefix}_developmental_class",
+        f"{prefix}_predicted_shi_week_label",
+        f"{prefix}_predicted_shi_week_numeric",
+        f"{prefix}_week_prediction_score",
+        f"{prefix}_week_uncertainty_score",
+        f"{prefix}_expected_shi_week_numeric",
     ]
     obs_cols = [col for col in obs_cols if col in adata.obs.columns]
-    adata.obs[obs_cols + score_cols].to_csv(
+    adata.obs[obs_cols + score_cols + week_score_cols].to_csv(
         table_dir / "div30_shi_seurat_label_transfer_obs.tsv.gz",
         sep="\t",
         index=True,
@@ -378,6 +647,11 @@ def main() -> None:
         adata.obs,
         score_cols,
         table_dir / "div30_shi_seurat_label_transfer_label_scores_long.tsv.gz",
+    )
+    write_long_score_table(
+        adata.obs,
+        week_score_cols,
+        table_dir / "div30_shi_seurat_label_transfer_week_scores_long.tsv.gz",
     )
 
     cluster_tables = summarize_predictions_by_cluster(
@@ -408,6 +682,12 @@ def main() -> None:
         plot_dir / "div30_umap_shi_seurat_full_predicted_shi_label.png",
         point_size=1.0,
         category_order=label_order,
+    )
+    plot_predicted_label_with_overlay_panels(
+        coords,
+        adata.obs[f"{prefix}_predicted_shi_label"],
+        label_order=label_order,
+        path=plot_dir / "div30_umap_shi_seurat_full_predicted_shi_label_with_subtype_overlays.png",
     )
     plot_umap_continuous(
         coords,
@@ -449,6 +729,25 @@ def main() -> None:
         path=plot_dir / "div30_shi_seurat_full_shi_label_stacked_bar_by_seurat_clusters.png",
         title="Seurat-transfer Shi label fractions by DIV30 seurat_clusters",
     )
+    plot_stacked_bar_with_cluster_umaps(
+        coords,
+        adata.obs,
+        cluster_tables["label_counts"],
+        cluster_col="seurat_clusters",
+        label_col=f"{prefix}_predicted_shi_label",
+        path=plot_dir / "div30_shi_seurat_full_shi_label_stacked_bar_by_seurat_clusters_with_cluster_umaps.png",
+        title="Seurat-transfer Shi label fractions by DIV30 seurat_clusters",
+    )
+
+    if "orig.ident" in adata.obs.columns:
+        plot_ridge_by_group(
+            adata.obs,
+            value_col=f"{prefix}_expected_shi_week_numeric",
+            group_col="orig.ident",
+            path=plot_dir / "div30_shi_seurat_full_expected_shi_gw_ridge_by_sample.png",
+            title="Seurat-transfer expected Shi gestational week by DIV30 sample",
+            x_label="Expected Shi gestational week",
+        )
 
     manifest = []
     for root in [seurat_dir, table_dir, plot_dir, h5ad_dir]:

@@ -79,46 +79,58 @@ get_data_like_matrix <- function(obj, assay) {
   stop("Could not extract data-like matrix for assay ", assay, ": ", conditionMessage(last_error), call. = FALSE)
 }
 
-key_map <- function(labels, key_col) {
+key_map <- function(labels, key_col, value_col = "shi_label") {
   if (!(key_col %in% colnames(labels))) return(setNames(character(0), character(0)))
+  if (!(value_col %in% colnames(labels))) return(setNames(character(0), character(0)))
   keys <- as.character(labels[[key_col]])
-  values <- as.character(labels[["shi_label"]])
+  values <- as.character(labels[[value_col]])
   keep <- !is.na(keys) & nzchar(keys) & !is.na(values) & nzchar(values)
+  key_counts <- table(keys[keep])
+  unique_keys <- names(key_counts)[key_counts == 1L]
+  keep <- keep & keys %in% unique_keys
   stats::setNames(values[keep], keys[keep])
 }
 
 attach_reference_labels <- function(reference, labels) {
   maps <- list(
-    colname = key_map(labels, "reference_obs_name"),
-    cell_id = key_map(labels, "reference_cell_id"),
-    raw_cell_id = key_map(labels, "reference_raw_cell_id")
+    colname = key_map(labels, "reference_obs_name")
+  )
+  week_maps <- list(
+    colname = key_map(labels, "reference_obs_name", "shi_week_label")
+  )
+  week_numeric_maps <- list(
+    colname = key_map(labels, "reference_obs_name", "shi_week_numeric")
   )
   metadata <- reference@meta.data
   result <- rep(NA_character_, ncol(reference))
   source <- rep(NA_character_, ncol(reference))
+  week_result <- rep(NA_character_, ncol(reference))
+  week_numeric_result <- rep(NA_character_, ncol(reference))
   cells <- colnames(reference)
-  candidate_columns <- intersect(c("cell_id", "raw_cell_id"), colnames(metadata))
 
   for (i in seq_along(cells)) {
     candidates <- c(cells[[i]])
     names(candidates) <- "colname"
-    for (column in candidate_columns) {
-      value <- as.character(metadata[cells[[i]], column])
-      candidates <- c(candidates, value)
-      names(candidates)[length(candidates)] <- column
-    }
     for (j in seq_along(candidates)) {
       key <- candidates[[j]]
       map_name <- names(candidates)[[j]]
       if (!is.na(key) && nzchar(key) && key %in% names(maps[[map_name]])) {
         result[[i]] <- unname(maps[[map_name]][[key]])
         source[[i]] <- map_name
+        if (key %in% names(week_maps[[map_name]])) {
+          week_result[[i]] <- unname(week_maps[[map_name]][[key]])
+        }
+        if (key %in% names(week_numeric_maps[[map_name]])) {
+          week_numeric_result[[i]] <- unname(week_numeric_maps[[map_name]][[key]])
+        }
         break
       }
     }
   }
   reference$shi_transfer_label <- result
   reference$shi_transfer_label_source <- source
+  reference$shi_transfer_week_label <- week_result
+  reference$shi_transfer_week_numeric <- suppressWarnings(as.numeric(week_numeric_result))
   reference
 }
 
@@ -175,7 +187,12 @@ if (!(opt$reference_assay %in% Seurat::Assays(reference))) {
 }
 reference <- join_layers_if_needed(reference, opt$reference_assay)
 reference <- attach_reference_labels(reference, labels)
-labelled_cells <- colnames(reference)[!is.na(reference$shi_transfer_label) & nzchar(reference$shi_transfer_label)]
+labelled_cells <- colnames(reference)[
+  !is.na(reference$shi_transfer_label) &
+    nzchar(reference$shi_transfer_label) &
+    !is.na(reference$shi_transfer_week_label) &
+    nzchar(reference$shi_transfer_week_label)
+]
 if (length(labelled_cells) < 10) {
   diagnostics <- data.frame(metric = c("reference_cells", "labelled_reference_cells"), value = c(ncol(reference), length(labelled_cells)))
   write_tsv(diagnostics, file.path(opt$outdir, "div30_shi_seurat_full_transfer_diagnostics.tsv"))
@@ -183,8 +200,10 @@ if (length(labelled_cells) < 10) {
 }
 reference <- subset(reference, cells = labelled_cells)
 reference$shi_transfer_label <- factor(reference$shi_transfer_label)
+reference$shi_transfer_week_label <- factor(reference$shi_transfer_week_label)
 log_msg("Reference cells after label subset: ", ncol(reference))
 log_msg("Reference labels: ", paste(levels(reference$shi_transfer_label), collapse = ", "))
+log_msg("Reference week labels: ", paste(levels(reference$shi_transfer_week_label), collapse = ", "))
 
 log_msg("Reading query Seurat object")
 query <- readRDS(opt$query)
@@ -245,27 +264,52 @@ predictions <- Seurat::TransferData(
 predictions <- as.data.frame(predictions, stringsAsFactors = FALSE)
 predictions <- data.frame(cell_id = rownames(predictions), predictions, check.names = FALSE)
 
+log_msg("Running TransferData for Shi gestational week labels")
+week_predictions <- Seurat::TransferData(
+  anchorset = anchors,
+  refdata = reference$shi_transfer_week_label,
+  dims = dims_use,
+  verbose = TRUE
+)
+week_predictions <- as.data.frame(week_predictions, stringsAsFactors = FALSE)
+week_predictions <- data.frame(cell_id = rownames(week_predictions), week_predictions, check.names = FALSE)
+
 prediction_path <- file.path(opt$outdir, "div30_shi_seurat_full_predictions.tsv.gz")
 score_path <- file.path(opt$outdir, "div30_shi_seurat_full_prediction_scores.tsv.gz")
+week_prediction_path <- file.path(opt$outdir, "div30_shi_seurat_full_week_predictions.tsv.gz")
+week_score_path <- file.path(opt$outdir, "div30_shi_seurat_full_week_prediction_scores.tsv.gz")
 diagnostics_path <- file.path(opt$outdir, "div30_shi_seurat_full_transfer_diagnostics.tsv")
 
 score_cols <- grep("^prediction\\.score\\.", colnames(predictions), value = TRUE)
 score_cols <- setdiff(score_cols, "prediction.score.max")
 scores <- predictions[, c("cell_id", score_cols), drop = FALSE]
+week_score_cols <- grep("^prediction\\.score\\.", colnames(week_predictions), value = TRUE)
+week_score_cols <- setdiff(week_score_cols, "prediction.score.max")
+week_scores <- week_predictions[, c("cell_id", week_score_cols), drop = FALSE]
 
 log_msg("Writing predictions: ", prediction_path)
 write_tsv_gz(predictions, prediction_path)
 log_msg("Writing score matrix: ", score_path)
 write_tsv_gz(scores, score_path)
+log_msg("Writing week predictions: ", week_prediction_path)
+write_tsv_gz(week_predictions, week_prediction_path)
+log_msg("Writing week score matrix: ", week_score_path)
+write_tsv_gz(week_scores, week_score_path)
 
 label_counts <- as.data.frame(table(reference$shi_transfer_label), stringsAsFactors = FALSE)
 colnames(label_counts) <- c("shi_label", "n_reference_cells")
 label_counts_path <- file.path(opt$outdir, "shi_reference_labels_used_by_seurat.tsv")
 write_tsv(label_counts, label_counts_path)
 
+week_counts <- as.data.frame(table(reference$shi_transfer_week_label), stringsAsFactors = FALSE)
+colnames(week_counts) <- c("shi_week_label", "n_reference_cells")
+week_counts_path <- file.path(opt$outdir, "shi_reference_weeks_used_by_seurat.tsv")
+write_tsv(week_counts, week_counts_path)
+
 diagnostics <- data.frame(
   metric = c(
     "reference_cells_labelled",
+    "reference_cells_with_week",
     "query_cells",
     "shared_features_used",
     "pca_components_used",
@@ -277,6 +321,7 @@ diagnostics <- data.frame(
   ),
   value = c(
     as.character(ncol(reference)),
+    as.character(sum(!is.na(reference$shi_transfer_week_label) & nzchar(as.character(reference$shi_transfer_week_label)))),
     as.character(ncol(query)),
     as.character(length(variable_features)),
     as.character(length(dims_use)),
