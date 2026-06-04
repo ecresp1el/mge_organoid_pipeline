@@ -390,6 +390,175 @@ rsync -avh --progress \
   /Users/ecrespo/Downloads/shi_reference_div30_div90_seurat_comparison_v1/plots/
 ```
 
+## Cross-Study Prediction Inventory
+
+This inventory was run before bringing the cross-study UMAP objects into the
+notebook and before extending Shi-style Seurat prediction scores beyond the
+currently plotted Varela DIV30/DIV90 objects.
+
+Script:
+
+```text
+scripts/07_cross_study_prediction_inventory.R
+```
+
+Slurm template:
+
+```text
+slurm_templates/22_cross_study_prediction_inventory.sbatch.template
+```
+
+Submitted job:
+
+```text
+Slurm job: 51411711
+State: COMPLETED
+ExitCode: 0:0
+Elapsed: 00:03:16
+MaxRSS: 36105284K
+Node: gl3215
+Job script:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/22_cross_study_prediction_inventory.sbatch
+Logs:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-study-inventory-cross-study-inv-51411711.out
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-study-inventory-cross-study-inv-51411711.err
+```
+
+Output table directory:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_prediction_inventory/cross_study_prediction_inventory_v1/tables
+```
+
+Inventory tables:
+
+```text
+cross_study_prediction_inventory_complete.tsv
+cross_study_prediction_object_summary.tsv
+cross_study_prediction_readiness.tsv
+cross_study_prediction_metadata_columns.tsv
+cross_study_prediction_metadata_value_counts.tsv
+cross_study_prediction_primary_sample_counts.tsv
+cross_study_prediction_primary_cluster_counts.tsv
+div30_div90_existing_shi_prediction_table_summary.tsv
+div30_div90_existing_shi_prediction_sample_counts.tsv
+div30_div90_existing_shi_prediction_cluster_counts.tsv
+div30_div90_existing_shi_prediction_label_counts.tsv
+```
+
+Objects inspected:
+
+| study_id | object | cells | RNA features | UMAP for plotting | shared Shi genes |
+| --- | --- | ---: | ---: | --- | ---: |
+| `varela_div30` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds` | 90,631 | 18,082 | `umap` | 14,354 |
+| `varela_div90` | `/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds` | 22,338 | 18,082 | `umap` | 14,354 |
+| `walsh` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/walsh_day75/walsh_day75_final_annotated.rds` | 4,519 | 20,194 | `umap_sel` | 14,945 |
+| `bershteyn_2025` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/bershteyn_2025/bershteyn_2025_seurat.rds` | 124,583 | 45,068 | `umap` | 20,021 |
+| `bershteyn_2023` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/bershteyn_2023/bershteyn_2023_seurat.rds` | 98,042 | 45,068 | `umap` | 20,021 |
+
+Readiness conclusion:
+
+```text
+All five objects are ready for Seurat label transfer, sample-level score plots,
+and cluster summaries. Each object has an RNA assay, usable UMAP coordinates,
+sample metadata, cluster metadata, and enough shared features with the Shi
+reference for transfer-anchor testing.
+
+Varela DIV30 and DIV90 already have exported Shi Seurat prediction obs tables.
+Walsh and Bershteyn objects do not yet have Shi prediction metadata columns, so
+they need new Seurat TransferData runs before Scanpy-side plotting.
+```
+
+Primary metadata columns to use:
+
+| study_id | sample column | cluster column | sample columns present | cluster columns present |
+| --- | --- | --- | --- | --- |
+| `varela_div30` | `orig.ident` | `seurat_clusters` | `orig.ident` | `seurat_clusters`, `RNA_snn_res.0.2` |
+| `varela_div90` | `orig.ident` | `seurat_clusters` | `orig.ident` | `seurat_clusters`, `cluster_id`, `cluster_number_name`, `RNA_snn_res.0.5` |
+| `walsh` | `sample_id` | `seurat_clusters` | `sample_id`, `orig.ident` | `seurat_clusters`, `RNA_snn_res.2` |
+| `bershteyn_2025` | `sample` | `seurat_clusters` | `sample` | `seurat_clusters`, `predicted.GEcluster`, `predicted.GEtype`, `predicted.GEgws` |
+| `bershteyn_2023` | `orig.ident` | `seurat_clusters` | `orig.ident`, `samples` | `seurat_clusters`, `celltype`, `process` |
+
+Primary sample inventory:
+
+| study_id | samples from primary metadata column |
+| --- | --- |
+| `varela_div30` | `9583-MW-6` 22,528; `9583-MW-5` 22,230; `9583-MW-3` 15,773; `9583-MW-1` 14,564; `9583-MW-4` 11,004; `9583-MW-2` 4,532 |
+| `varela_div90` | `10496-MW-4` 6,314; `10496-MW-6` 4,850; `10496-MW-2` 3,533; `10496-MW-1` 3,095; `10496-MW-3` 2,714; `10496-MW-5` 1,832 |
+| `walsh` | `GSM7979671` 2,273; `GSM7979672` 2,246 |
+| `bershteyn_2025` | `010720S` 11,834; `200520S2` 11,123; `010519S1` 10,778; `280120S` 10,776; `010519S2` 10,661; `070120S` 10,537; `220720S1` 10,345; `100620S` 9,885; `220720S2` 8,802; `150120S` 8,294; `251219S` 6,929; `200520S1` 6,756; `111219S` 5,722; `200319S` 2,141 |
+| `bershteyn_2023` | `MB279` 10,009; `MS35r41` 9,208; `r41v2ym` 8,722; `MS35mock` 8,403; `mockv2ym` 8,208; `mockv2dw` 8,206; `D0` 8,118; `MB528` 7,127; `r41v2dw` 6,656; `MB460` 6,447; `MB527` 4,933; `D14` 4,851; `MB280` 4,205; `MB461` 2,949 |
+
+Primary cluster inventory:
+
+| study_id | cluster summary |
+| --- | --- |
+| `varela_div30` | `seurat_clusters`, 7 clusters: 0, 1, 2, 3, 4, 6, 7 |
+| `varela_div90` | `seurat_clusters`, 13 clusters: 0 through 12 |
+| `walsh` | `seurat_clusters`, 24 clusters: 0 through 23 |
+| `bershteyn_2025` | `seurat_clusters`, 9 clusters: 0 through 8 |
+| `bershteyn_2023` | `seurat_clusters`, 6 clusters: 0 through 5 |
+
+Existing Varela DIV30/DIV90 Shi Seurat prediction tables:
+
+| timepoint | cells | samples | clusters | label score columns | week score columns | predicted label column | predicted week column |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| DIV30 | 90,631 | 6 | 7 | 11 | 6 | `shi_seurat_full_predicted_shi_label` | `shi_seurat_full_predicted_shi_week_label` |
+| DIV90 | 22,338 | 6 | 13 | 11 | 6 | `shi_seurat_full_predicted_shi_label` | `shi_seurat_full_predicted_shi_week_label` |
+
+Current Varela predicted-label inventory:
+
+```text
+DIV30:
+  MGE 49,251
+  progenitor 40,476
+  Thalamic neurons 556
+  OPC 266
+  Excitatory neuron 54
+  LGE 25
+  Microglia 2
+  Excitatory IPC 1
+
+DIV90:
+  MGE 17,525
+  progenitor 3,247
+  LGE 590
+  CGE 490
+  OPC 269
+  Thalamic neurons 180
+  Endothelial 20
+  Microglia 13
+  Excitatory neuron 4
+```
+
+What is needed to extend prediction scores across studies:
+
+```text
+1. Keep using the Shi reference Seurat object as the reference:
+   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_2019_paper_qc/shi_2019_seurat.rds
+
+2. For each target object, run Seurat FindTransferAnchors/TransferData using
+   RNA features shared with Shi. Do not use sample IDs or clusters as prediction
+   inputs.
+
+3. Export per-cell predicted Shi label, max label score, full per-label score
+   matrix, predicted Shi gestational-week label, max week score, and full
+   per-week score matrix.
+
+4. Bring the exported tables back into AnnData/Scanpy only for plotting and
+   summaries, using the primary sample and cluster columns listed above.
+```
+
+Rsync inventory tables from a Mac:
+
+```bash
+mkdir -p /Users/ecrespo/Downloads/cross_study_prediction_inventory_v1/tables
+
+rsync -avh --progress \
+  elcrespo@greatlakes.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_prediction_inventory/cross_study_prediction_inventory_v1/tables/ \
+  /Users/ecrespo/Downloads/cross_study_prediction_inventory_v1/tables/
+```
+
 ## HTML Reference For This Target
 
 Local inspiration file from the Mac:
