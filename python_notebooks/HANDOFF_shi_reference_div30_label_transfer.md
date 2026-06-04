@@ -125,7 +125,11 @@ This is intentionally compared against the full-reference result to identify
 cells whose MGE/LGE/CGE label is potentially being forced by removing other
 developmental states.
 
-## Method
+## Legacy v2 Method
+
+This describes the completed `shi_reference_div30_label_transfer_v2` run only.
+Do not use this Scanpy-side kNN vote-fraction method for the next scoring
+target.
 
 1. Load DIV30 query AnnData and Shi reference AnnData.
 2. Read Shi Table S2 `Major types` labels.
@@ -150,7 +154,248 @@ neighbor-label entropy. The gestational-week score uses the same vote-fraction
 logic, but over Shi neighbor `week_label`; mean/median neighbor week use the
 numeric Shi gestational week.
 
-## Output Contract
+## Next Target: Seurat Prediction Scores
+
+Default next run label:
+
+```text
+shi_reference_div30_seurat_label_transfer_v1
+```
+
+This next target should replace Scanpy-side prediction scoring with Seurat
+anchor-based label transfer. Scanpy/AnnData should remain the plotting and
+summary environment after Seurat predictions are exported and joined back onto
+DIV30 cells.
+
+Core rule for the next target:
+
+```text
+Do not compute prediction_score from Scanpy kNN neighbor-vote fractions.
+Use Seurat's transferred prediction scores as the prediction-score source of
+truth.
+```
+
+Recommended first runnable target:
+
+1. Run one Seurat label-transfer comparison using the full Shi reference label
+   set.
+2. Export per-cell Seurat predictions and the full label-score matrix.
+3. Import those tables into the existing DIV30 AnnData.
+4. Generate a small smoke-test plot set:
+   - UMAP colored by predicted Shi label
+   - UMAP colored by maximum Seurat prediction score
+   - UMAP panels for MGE, LGE, and CGE score columns
+   - ridge/density-style score distributions by DIV30 sample
+   - stacked bar of predicted labels by DIV30 `seurat_clusters`
+5. Only after that runs, add the MGE/LGE/CGE-restricted comparison and
+   gestational-week transfer.
+
+Expected new output roots:
+
+```text
+RUN_DIR/seurat/
+RUN_DIR/tables/
+RUN_DIR/plots/
+RUN_DIR/h5ad/
+```
+
+Expected Seurat-side files:
+
+```text
+seurat/div30_shi_seurat_full_predictions.tsv.gz
+seurat/div30_shi_seurat_full_prediction_scores.tsv.gz
+seurat/div30_shi_seurat_full_transfer_diagnostics.tsv
+```
+
+Expected AnnData-side files:
+
+```text
+tables/div30_shi_seurat_label_transfer_obs.tsv.gz
+tables/div30_shi_seurat_label_transfer_label_scores_long.tsv.gz
+h5ad/div30_shi_seurat_label_transfer_predictions.h5ad
+```
+
+Required new `adata.obs` columns for the first target:
+
+```text
+shi_seurat_full_predicted_shi_label
+shi_seurat_full_prediction_score
+shi_seurat_full_uncertainty_score
+shi_seurat_full_broad_region_class
+shi_seurat_full_developmental_class
+```
+
+Required per-label score columns in `adata.obs` for plotting:
+
+```text
+shi_seurat_full_prediction_score_MGE
+shi_seurat_full_prediction_score_LGE
+shi_seurat_full_prediction_score_CGE
+shi_seurat_full_prediction_score_progenitor
+shi_seurat_full_prediction_score_Excitatory_IPC
+shi_seurat_full_prediction_score_Excitatory_neuron
+shi_seurat_full_prediction_score_Thalamic_neurons
+shi_seurat_full_prediction_score_Microglia
+shi_seurat_full_prediction_score_OPC
+shi_seurat_full_prediction_score_Endothelial
+```
+
+Column-name sanitization rule: preserve the original Shi label in a companion
+long table, but replace spaces and punctuation with underscores for wide
+`adata.obs` score columns.
+
+Implementation added for the first smoke target:
+
+```text
+python_notebooks/scripts/seurat_shi_label_transfer_export.R
+python_notebooks/scripts/run_shi_seurat_label_transfer_smoke.py
+slurm_templates/21_run_shi_seurat_label_transfer_smoke.sbatch.template
+```
+
+Submitted smoke run:
+
+```text
+Slurm job: 51405243
+Job script:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/21_run_shi_seurat_label_transfer_smoke.sbatch
+Expected run directory:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1
+Logs:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-seurat-label-transfer-shi-seurat-xfer-51405243.out
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-seurat-label-transfer-shi-seurat-xfer-51405243.err
+```
+
+## HTML Reference For This Target
+
+Local inspiration file from the Mac:
+
+```text
+file:///Users/ecrespo/Downloads/ms2024.html
+```
+
+Public Dataverse source:
+
+```text
+https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZQSPKW
+```
+
+Dataverse API metadata endpoint:
+
+```text
+https://dataverse.harvard.edu/api/datasets/:persistentId/?persistentId=doi:10.7910/DVN/ZQSPKW
+```
+
+The API lists one unrestricted HTML file:
+
+```text
+filename: ms2024.html
+dataFile id: 11713377
+contentType: text/html
+filesize: 20,925,576 bytes
+license: CC0 1.0
+```
+
+Download command for the analysis environment:
+
+```bash
+curl -L \
+  "https://dataverse.harvard.edu/api/access/datafile/11713377" \
+  -o /tmp/ms2024.html
+```
+
+The rendered Dataverse landing page may require JavaScript/browser
+verification, but the API and direct file endpoint are readable from the Linux
+workspace.
+
+Use this HTML specifically for the Seurat prediction-score plotting pattern.
+Do not copy the biological interpretation directly, because the context differs.
+The useful transferable pattern is:
+
+1. Treat Seurat `prediction.score.*` assays as score matrices.
+2. Plot selected score rows on UMAP.
+3. Melt full score matrices to long tables for density/ridge-style plots.
+4. Use metadata `predicted.*` and `predicted.*.score` columns for winner-label
+   summaries and confidence distributions.
+
+```text
+Observed relevant pattern in ms2024.html:
+  prediction.score.adSupercluster
+  prediction.score.adROIGroup
+  prediction.score.mtg_type
+  FeaturePlot(..., features = rownames(prediction.score.* assay), ...)
+  reshape2::melt(t(GetAssayData(prediction.score.* assay)))
+  FetchData(..., vars = c("predicted.*.score", "predicted.*", "mpt"))
+```
+
+The Seurat route should preserve the same core rule: DIV30 `seurat_clusters`
+must not be used as prediction input. They are only used after prediction for
+cluster summaries, stacked bars, heatmaps, and interpretation.
+
+Candidate Seurat-side workflow for this target:
+
+```r
+anchors <- FindTransferAnchors(
+  reference = shi_reference_seurat,
+  query = div30_query_seurat,
+  normalization.method = "LogNormalize",
+  reference.assay = "RNA",
+  query.assay = "RNA",
+  dims = 1:50
+)
+
+label_predictions <- TransferData(
+  anchorset = anchors,
+  refdata = shi_reference_seurat$shi_label,
+  dims = 1:50
+)
+
+div30_query_seurat <- AddMetaData(div30_query_seurat, label_predictions)
+```
+
+Expected Seurat prediction fields to export:
+
+```text
+cell_id
+predicted.id or predicted.<transfer_name>
+prediction.score.max or predicted.<transfer_name>.score
+prediction.score.<label> columns or prediction.score.<transfer_name> assay rows
+```
+
+Suggested AnnData column names after import:
+
+```text
+shi_seurat_full_predicted_shi_label
+shi_seurat_full_prediction_score
+shi_seurat_full_uncertainty_score
+shi_seurat_full_prediction_score_MGE
+shi_seurat_full_prediction_score_LGE
+shi_seurat_full_prediction_score_CGE
+...
+```
+
+For gestational-week transfer, run a second `TransferData` call with
+`refdata = shi_reference_seurat$week_label` and import analogous columns:
+
+```text
+shi_seurat_full_predicted_shi_week_label
+shi_seurat_full_week_prediction_score
+shi_seurat_full_week_uncertainty_score
+```
+
+After import, Scanpy plotting should remain unchanged in spirit: color the DIV30
+Seurat UMAP by `shi_seurat_full_predicted_shi_label`,
+`shi_seurat_full_prediction_score`, individual
+`shi_seurat_full_prediction_score_*` label-score columns, broad/developmental
+classes derived from the predicted label, and later week prediction columns.
+Cluster-level summaries should use DIV30 `seurat_clusters` only after these
+per-cell predictions have been joined.
+
+## Legacy v2 Output Contract
+
+This output contract belongs to the completed Scanpy-side
+`shi_reference_div30_label_transfer_v2` run. For the next Seurat score target,
+use the expected output roots and files listed in
+`Next Target: Seurat Prediction Scores`.
 
 Run outputs:
 
@@ -227,7 +472,7 @@ shi_mge_lge_cge_median_neighbor_week_numeric
 shi_mge_lge_cge_std_neighbor_week_numeric
 ```
 
-## v2 Plot Inventory
+## Legacy v2 Plot Inventory
 
 `shi_reference_div30_label_transfer_v2` generated exactly 14 PNG plots:
 7 plots for `full_relevant` and 7 plots for `mge_lge_cge_only`.

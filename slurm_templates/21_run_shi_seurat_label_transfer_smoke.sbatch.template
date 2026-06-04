@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# Run the first Seurat-based Shi reference -> DIV30 label-transfer smoke target.
+#
+# Submit:
+#   cp slurm_templates/21_run_shi_seurat_label_transfer_smoke.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/21_run_shi_seurat_label_transfer_smoke.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/21_run_shi_seurat_label_transfer_smoke.sbatch
+
+#SBATCH --job-name=shi-seurat-xfer
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=160G
+#SBATCH --time=24:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-seurat-label-transfer-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-seurat-label-transfer-%x-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+SHI_SEURAT_RESULTS_DIRNAME="${SHI_SEURAT_RESULTS_DIRNAME:-shi_reference_div30_seurat_label_transfer}"
+SHI_SEURAT_RUN_LABEL="${SHI_SEURAT_RUN_LABEL:-shi_reference_div30_seurat_label_transfer_v1}"
+SHI_SEURAT_REFERENCE_H5AD="${SHI_SEURAT_REFERENCE_H5AD:-${PROJECT_ROOT}/results/python_anndata/shi_2019_paper_qc.h5ad}"
+SHI_SEURAT_QUERY_H5AD="${SHI_SEURAT_QUERY_H5AD:-${PROJECT_ROOT}/results/python_anndata/varela_div30.h5ad}"
+SHI_SEURAT_REFERENCE_RDS="${SHI_SEURAT_REFERENCE_RDS:-${PROJECT_ROOT}/results/shi_2019_paper_qc/shi_2019_seurat.rds}"
+SHI_SEURAT_QUERY_RDS="${SHI_SEURAT_QUERY_RDS:-${PROJECT_ROOT}/results/varela_this_paper/varela_this_paper_seurat.rds}"
+SHI_SEURAT_TABLE_S2_XLSX="${SHI_SEURAT_TABLE_S2_XLSX:-${PROJECT_ROOT}/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s2.xlsx}"
+SHI_SEURAT_REFERENCE_ASSAY="${SHI_SEURAT_REFERENCE_ASSAY:-RNA}"
+SHI_SEURAT_QUERY_ASSAY="${SHI_SEURAT_QUERY_ASSAY:-RNA}"
+SHI_SEURAT_NORMALIZATION_METHOD="${SHI_SEURAT_NORMALIZATION_METHOD:-LogNormalize}"
+SHI_SEURAT_DIMS="${SHI_SEURAT_DIMS:-50}"
+SHI_SEURAT_NPCS="${SHI_SEURAT_NPCS:-50}"
+SHI_SEURAT_NFEATURES="${SHI_SEURAT_NFEATURES:-3000}"
+SHI_SEURAT_RANDOM_STATE="${SHI_SEURAT_RANDOM_STATE:-0}"
+SHI_SEURAT_MIN_LABEL_MATCH_FRACTION="${SHI_SEURAT_MIN_LABEL_MATCH_FRACTION:-0.95}"
+SHI_SEURAT_OVERWRITE="${SHI_SEURAT_OVERWRITE:-0}"
+SHI_SEURAT_WRITE_H5AD="${SHI_SEURAT_WRITE_H5AD:-1}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+export REPO_ROOT
+export PROJECT_ROOT
+export CONDA_ENV_BIN
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+export RSCRIPT="${CONDA_ENV_BIN}/Rscript"
+export SHI_SEURAT_RESULTS_DIRNAME
+export SHI_SEURAT_RUN_LABEL
+export SHI_SEURAT_REFERENCE_H5AD
+export SHI_SEURAT_QUERY_H5AD
+export SHI_SEURAT_REFERENCE_RDS
+export SHI_SEURAT_QUERY_RDS
+export SHI_SEURAT_TABLE_S2_XLSX
+export SHI_SEURAT_REFERENCE_ASSAY
+export SHI_SEURAT_QUERY_ASSAY
+export SHI_SEURAT_NORMALIZATION_METHOD
+export SHI_SEURAT_DIMS
+export SHI_SEURAT_NPCS
+export SHI_SEURAT_NFEATURES
+export SHI_SEURAT_RANDOM_STATE
+export SHI_SEURAT_MIN_LABEL_MATCH_FRACTION
+export SHI_SEURAT_OVERWRITE
+export SHI_SEURAT_WRITE_H5AD
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${SHI_SEURAT_RUN_LABEL}"
+echo "Reference Seurat: ${SHI_SEURAT_REFERENCE_RDS}"
+echo "Query Seurat: ${SHI_SEURAT_QUERY_RDS}"
+echo "Reference AnnData: ${SHI_SEURAT_REFERENCE_H5AD}"
+echo "Query AnnData: ${SHI_SEURAT_QUERY_H5AD}"
+echo "Shi Table S2: ${SHI_SEURAT_TABLE_S2_XLSX}"
+echo "Reference assay: ${SHI_SEURAT_REFERENCE_ASSAY}"
+echo "Query assay: ${SHI_SEURAT_QUERY_ASSAY}"
+echo "Dims: ${SHI_SEURAT_DIMS}"
+echo "N PCs: ${SHI_SEURAT_NPCS}"
+echo "N features: ${SHI_SEURAT_NFEATURES}"
+echo "Overwrite: ${SHI_SEURAT_OVERWRITE}"
+echo "Write H5AD: ${SHI_SEURAT_WRITE_H5AD}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+echo "Rscript: $("${CONDA_ENV_BIN}/Rscript" --version 2>&1 | head -n 1)"
+
+"${CONDA_ENV_BIN}/python" "${REPO_ROOT}/python_notebooks/scripts/run_shi_seurat_label_transfer_smoke.py"
+
+echo "Job finished: $(date)"
