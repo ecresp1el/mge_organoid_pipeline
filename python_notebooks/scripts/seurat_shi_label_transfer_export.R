@@ -22,7 +22,8 @@ parse_args <- function(args) {
     dims = "50",
     nfeatures = "3000",
     npcs = "50",
-    seed = "0"
+    seed = "0",
+    output_prefix = "div30"
   )
   i <- 1L
   while (i <= length(args)) {
@@ -173,6 +174,7 @@ log_msg("Reference RDS: ", opt$reference)
 log_msg("Query RDS: ", opt$query)
 log_msg("Labels TSV: ", opt$labels)
 log_msg("Output dir: ", opt$outdir)
+log_msg("Output prefix: ", opt$output_prefix)
 
 labels <- read_tsv(opt$labels)
 if (!("shi_label" %in% colnames(labels))) stop("Labels TSV lacks shi_label column", call. = FALSE)
@@ -195,7 +197,7 @@ labelled_cells <- colnames(reference)[
 ]
 if (length(labelled_cells) < 10) {
   diagnostics <- data.frame(metric = c("reference_cells", "labelled_reference_cells"), value = c(ncol(reference), length(labelled_cells)))
-  write_tsv(diagnostics, file.path(opt$outdir, "div30_shi_seurat_full_transfer_diagnostics.tsv"))
+  write_tsv(diagnostics, file.path(opt$outdir, paste0(opt$output_prefix, "_shi_seurat_full_transfer_diagnostics.tsv")))
   stop("Fewer than 10 reference cells received Shi labels in Seurat object", call. = FALSE)
 }
 reference <- subset(reference, cells = labelled_cells)
@@ -274,11 +276,11 @@ week_predictions <- Seurat::TransferData(
 week_predictions <- as.data.frame(week_predictions, stringsAsFactors = FALSE)
 week_predictions <- data.frame(cell_id = rownames(week_predictions), week_predictions, check.names = FALSE)
 
-prediction_path <- file.path(opt$outdir, "div30_shi_seurat_full_predictions.tsv.gz")
-score_path <- file.path(opt$outdir, "div30_shi_seurat_full_prediction_scores.tsv.gz")
-week_prediction_path <- file.path(opt$outdir, "div30_shi_seurat_full_week_predictions.tsv.gz")
-week_score_path <- file.path(opt$outdir, "div30_shi_seurat_full_week_prediction_scores.tsv.gz")
-diagnostics_path <- file.path(opt$outdir, "div30_shi_seurat_full_transfer_diagnostics.tsv")
+prediction_path <- file.path(opt$outdir, paste0(opt$output_prefix, "_shi_seurat_full_predictions.tsv.gz"))
+score_path <- file.path(opt$outdir, paste0(opt$output_prefix, "_shi_seurat_full_prediction_scores.tsv.gz"))
+week_prediction_path <- file.path(opt$outdir, paste0(opt$output_prefix, "_shi_seurat_full_week_predictions.tsv.gz"))
+week_score_path <- file.path(opt$outdir, paste0(opt$output_prefix, "_shi_seurat_full_week_prediction_scores.tsv.gz"))
+diagnostics_path <- file.path(opt$outdir, paste0(opt$output_prefix, "_shi_seurat_full_transfer_diagnostics.tsv"))
 
 score_cols <- grep("^prediction\\.score\\.", colnames(predictions), value = TRUE)
 score_cols <- setdiff(score_cols, "prediction.score.max")
