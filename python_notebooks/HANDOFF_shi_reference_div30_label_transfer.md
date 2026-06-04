@@ -265,6 +265,131 @@ Logs:
   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-seurat-label-transfer-shi-seurat-xfer-51405243.err
 ```
 
+Completed Seurat transfer/plot runs:
+
+```text
+DIV30 refreshed plot run:
+  Slurm job: 51410249
+  State: COMPLETED
+  ExitCode: 0:0
+  Output root:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1
+  Completion:
+    n_query_cells = 90631
+    n_score_columns = 10
+    n_plots = 8
+  Notes:
+    - reused existing Seurat prediction tables
+    - regenerated plots with non-squished cluster UMAP panel layout
+    - subtype overlay panels now keep all Shi labels, including zero-count CGE/Endothelial
+
+DIV30 unexpected-label marker summary:
+  Slurm job: 51410250
+  State: COMPLETED
+  ExitCode: 0:0
+  Output table:
+    tables/markers/shi_seurat_unexpected_label_marker_summary.tsv
+  Result summary:
+    Thalamic neurons: 556 cells, mean max score 0.604
+    Excitatory neuron: 54 cells, mean max score 0.534
+    Excitatory IPC: 1 cell, mean max score 0.473
+  Interpretation note:
+    These are low-confidence Seurat edge calls. The "Excitatory neuron" cells
+    are high for SST/GAD1, so do not interpret that label literally without
+    checking markers and score thresholds.
+
+DIV90 Seurat transfer:
+  Slurm job: 51410263
+  State: COMPLETED
+  ExitCode: 0:0
+  Elapsed: 00:06:08
+  MaxRSS: 22621688K
+  Output root:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div90_seurat_label_transfer/shi_reference_div90_seurat_label_transfer_v1
+  Query inputs:
+    AnnData: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div90.h5ad
+    Seurat: /nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds
+  Completion:
+    n_query_cells = 22338
+    n_score_columns = 10
+    n_plots = 8
+  Diagnostics:
+    reference_cells_labelled = 55704
+    shared_features_used = 2542
+    anchors = 3249
+```
+
+Completed Seurat plot inventory for each timepoint:
+
+```text
+<slug>_umap_shi_seurat_full_predicted_shi_label.png
+<slug>_umap_shi_seurat_full_predicted_shi_label_with_subtype_overlays.png
+<slug>_umap_shi_seurat_full_prediction_score.png
+<slug>_umap_shi_seurat_full_mge_lge_cge_score_panel.png
+<slug>_shi_seurat_full_prediction_score_density_by_sample.png
+<slug>_shi_seurat_full_expected_shi_gw_ridge_by_sample.png
+<slug>_shi_seurat_full_shi_label_stacked_bar_by_seurat_clusters.png
+<slug>_shi_seurat_full_shi_label_stacked_bar_by_seurat_clusters_with_cluster_umaps.png
+```
+
+Rsync completed Seurat plot folders from a Mac:
+
+```bash
+mkdir -p /Users/ecrespo/Downloads/shi_reference_div30_seurat_label_transfer_v1/plots
+mkdir -p /Users/ecrespo/Downloads/shi_reference_div90_seurat_label_transfer_v1/plots
+
+rsync -avh --progress \
+  elcrespo@greatlakes.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1/plots/ \
+  /Users/ecrespo/Downloads/shi_reference_div30_seurat_label_transfer_v1/plots/
+
+rsync -avh --progress \
+  elcrespo@greatlakes.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div90_seurat_label_transfer/shi_reference_div90_seurat_label_transfer_v1/plots/ \
+  /Users/ecrespo/Downloads/shi_reference_div90_seurat_label_transfer_v1/plots/
+```
+
+Completed DIV30/DIV90 shared-axis comparison plots:
+
+```text
+Script:
+  python_notebooks/scripts/plot_shi_seurat_timepoint_comparisons.py
+Output root:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_div90_seurat_label_transfer_comparison/shi_reference_div30_div90_seurat_comparison_v1
+Inputs:
+  DIV30 tables/div30_shi_seurat_label_transfer_obs.tsv.gz
+  DIV90 tables/div90_shi_seurat_label_transfer_obs.tsv.gz
+Completion:
+  n_cells = 112969
+  n_plots = 8
+  numeric_gw_range = [9, 18]
+  even_gw_range = [0, 4]
+  kde_bw_method = 0.08
+  kde_min_density = 0.01
+Plots:
+  plots/div30_div90_shi_seurat_full_expected_shi_gw_ridge_by_sample_shared_axis.png
+  plots/div30_div90_shi_seurat_full_expected_shi_gw_density_by_timepoint_shared_axis.png
+  plots/div30_div90_shi_seurat_full_expected_shi_gw_ridge_by_sample_shared_axis_even_gw_spacing.png
+  plots/div30_div90_shi_seurat_full_expected_shi_gw_density_by_timepoint_shared_axis_even_gw_spacing.png
+  plots/div30_div90_shi_seurat_full_expected_shi_gw_ridge_by_sample_shared_axis_predicted_mge.png
+  plots/div30_div90_shi_seurat_full_expected_shi_gw_density_by_timepoint_shared_axis_predicted_mge.png
+  plots/div30_div90_shi_seurat_full_expected_shi_gw_ridge_by_sample_shared_axis_even_gw_spacing_predicted_mge.png
+  plots/div30_div90_shi_seurat_full_expected_shi_gw_density_by_timepoint_shared_axis_even_gw_spacing_predicted_mge.png
+Tables:
+  tables/div30_div90_expected_shi_gw_summary_by_sample.tsv
+  tables/div30_div90_expected_shi_gw_summary_by_sample_predicted_mge.tsv
+  tables/div30_div90_shi_label_counts_by_timepoint.tsv
+  tables/div30_div90_shi_label_counts_by_timepoint_predicted_mge.tsv
+```
+
+Rsync the shared-axis comparison plots from a Mac:
+
+```bash
+mkdir -p /Users/ecrespo/Downloads/shi_reference_div30_div90_seurat_comparison_v1/plots
+
+rsync -avh --progress \
+  elcrespo@greatlakes.arc-ts.umich.edu:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_div90_seurat_label_transfer_comparison/shi_reference_div30_div90_seurat_comparison_v1/plots/ \
+  /Users/ecrespo/Downloads/shi_reference_div30_div90_seurat_comparison_v1/plots/
+```
+
 ## HTML Reference For This Target
 
 Local inspiration file from the Mac:
