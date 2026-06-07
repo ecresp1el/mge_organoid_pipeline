@@ -14,16 +14,40 @@
 REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 CONTROL_ONLY="${CONTROL_ONLY:-false}"
+SEURAT_MODULE="${SEURAT_MODULE:-r-seurat/4.1.1-R-4.2.0-5z5hgo7}"
+LIGER_EXTRA_MODULES="${LIGER_EXTRA_MODULES:-}"
 
-# Activate the Bioinformatics stack, then load Seurat (brings its own R 4.2.0)
+# Activate the Bioinformatics stack, then load Seurat and any site-provided
+# LIGER wrapper modules. The R script intentionally does not install packages.
 module load Bioinformatics
-module load r-seurat/4.1.1-R-4.2.0-5z5hgo7
+if ! module load "${SEURAT_MODULE}"; then
+  echo "ERROR: failed to load SEURAT_MODULE=${SEURAT_MODULE}"
+  exit 1
+fi
+if [[ -n "${LIGER_EXTRA_MODULES}" ]]; then
+  for extra_module in ${LIGER_EXTRA_MODULES}; do
+    if ! module load "${extra_module}"; then
+      echo "ERROR: failed to load LIGER extra module: ${extra_module}"
+      exit 1
+    fi
+  done
+fi
 
 set -euo pipefail
 
 mkdir -p "${PROJECT_ROOT}/logs"
 
 export PROJECT_ROOT
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Control-only mode: ${CONTROL_ONLY}"
+echo "Seurat module: ${SEURAT_MODULE}"
+echo "LIGER extra modules: ${LIGER_EXTRA_MODULES}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+Rscript -e 'missing <- c("SeuratWrappers", "rliger")[!vapply(c("SeuratWrappers", "rliger"), requireNamespace, logical(1), quietly = TRUE)]; if (length(missing)) { cat("ERROR: missing R package(s):", paste(missing, collapse = ", "), "\n"); cat("Current .libPaths():\n"); cat(paste(.libPaths(), collapse = "\n"), "\n"); quit(status = 1) } else { cat("LIGER package preflight OK\n") }'
 Rscript "${REPO_ROOT}/scripts/05b_samarasinghe_2021_liger.R" \
   --project-root "${PROJECT_ROOT}" \
   --control-only "${CONTROL_ONLY}"
+echo "Job finished: $(date)"

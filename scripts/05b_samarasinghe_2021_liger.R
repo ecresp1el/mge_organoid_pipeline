@@ -12,31 +12,16 @@ suppressPackageStartupMessages({
   library(ggplot2)
 })
 
-# Ensure required wrappers/liger are available; install into a temp library if missing.
-lib_extra <- file.path(tempdir(), "r_libs")
-dir.create(lib_extra, showWarnings = FALSE, recursive = TRUE)
-.libPaths(c(lib_extra, .libPaths()))
-
-need_pkgs <- c("SeuratWrappers", "rliger")
-dep_pkgs <- c("S4Vectors","DelayedArray","HDF5Array","MatrixGenerics","rhdf5lib","rhdf5",
-              "RcppPlanc","leidenAlg","sccore","pbmcapply","pROC","checkmate",
-              "HighFive","hdf5r","hdf5r.Extra","bit","bit64","backports",
-              "fastmatch","easy.utils")
-all_pkgs <- unique(c(need_pkgs, dep_pkgs))
-
-to_install <- all_pkgs[!all_pkgs %in% rownames(installed.packages())]
-cran_repo <- "https://cloud.r-project.org"
-if (length(to_install) > 0) {
-  install.packages(to_install, repos = cran_repo, lib = lib_extra, quiet = TRUE)
-}
-
-# Install any remaining via Bioconductor if needed
-remaining <- all_pkgs[!all_pkgs %in% rownames(installed.packages())]
-if (length(remaining) > 0) {
-  if (!requireNamespace("BiocManager", quietly = TRUE)) {
-    install.packages("BiocManager", repos = cran_repo, lib = lib_extra, quiet = TRUE)
-  }
-  BiocManager::install(remaining, lib = lib_extra, ask = FALSE, update = FALSE)
+required_pkgs <- c("SeuratWrappers", "rliger")
+missing_pkgs <- required_pkgs[!vapply(required_pkgs, requireNamespace, logical(1), quietly = TRUE)]
+if (length(missing_pkgs) > 0) {
+  stop(
+    "Missing required module-provided R package(s): ",
+    paste(missing_pkgs, collapse = ", "),
+    "\nLoad a module stack or R_LIBS_USER that provides these packages before running this script.",
+    "\nCurrent .libPaths():\n  ",
+    paste(.libPaths(), collapse = "\n  ")
+  )
 }
 
 suppressPackageStartupMessages({
@@ -94,7 +79,7 @@ dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
 
 message("Reading counts: ", counts_path)
-dt <- data.table::fread(counts_path)
+dt <- data.table::fread(cmd = paste("gzip -dc", shQuote(counts_path)))
 genes <- dt[[1]]
 dt[[1]] <- NULL
 mat <- as.matrix(dt)
@@ -105,6 +90,7 @@ rm(mat, dt); gc()
 # Derive sample ID (orig.ident) from column names: prefix before last underscore.
 cells <- colnames(spmat)
 sample_id <- sub("_[^_]+$", "", cells)
+condition <- ifelse(grepl("_rett", sample_id), "MECP2_mutant_Rett", "control_WT_MECP2")
 
 if (control_only) {
   control_samples <- c("d56_ctrl", "d70_ctrl", "d100_ctrl_docked_2")
@@ -113,6 +99,7 @@ if (control_only) {
   if (!any(keep)) stop("No control cells found in counts matrix")
   spmat <- spmat[, keep, drop = FALSE]
   sample_id <- sample_id[keep]
+  condition <- condition[keep]
   cells <- cells[keep]
 }
 
@@ -121,7 +108,7 @@ seu <- CreateSeuratObject(counts = spmat, project = "Samarasinghe2021",
 seu$orig.ident <- sample_id
 seu$sample_id <- sample_id
 seu$culture_day <- sub("^d([0-9]+).*$", "d\\1", sample_id)
-seu$condition <- ifelse(grepl("_rett", sample_id), "MECP2_mutant_Rett", "control_WT_MECP2")
+seu$condition <- condition
 
 # QC metrics
 seu[["percent.mt"]] <- PercentageFeatureSet(seu, pattern = "^MT-")
@@ -152,12 +139,50 @@ seu <- RunUMAP(seu, dims = iNMF_dims, reduction = "iNMF")
 # Save objects and plots
 saveRDS(seu, file.path(outdir, "samarasinghe_2021_liger.rds"))
 
+write.csv(
+  as.data.frame(table(
+    sample_id = seu$sample_id,
+    culture_day = seu$culture_day,
+    condition = seu$condition
+  )),
+  file.path(outdir, "sample_cell_counts_after_qc.csv"),
+  row.names = FALSE
+)
+
 p1 <- DimPlot(seu, reduction = "umap", group.by = "seurat_clusters", label = TRUE) +
   ggtitle("Samarasinghe 2021 UMAP (LIGER iNMF, res=0.3)")
 ggsave(file.path(plot_dir, "umap_by_cluster_liger.png"), p1, width = 8, height = 6, dpi = 300)
 ggsave(file.path(plot_dir, "umap_by_cluster_liger.pdf"), p1, width = 8, height = 6)
 
-p2 <- ElbowPlot(seu, ndims = min(50, length(iNMF_dims))) + ggtitle("iNMF elbow (proxy)")
+p_sample <- DimPlot(seu, reduction = "umap", group.by = "sample_id") +
+  ggtitle("Samarasinghe 2021 UMAP by sample (LIGER iNMF)")
+ggsave(file.path(plot_dir, "umap_by_sample_liger.png"), p_sample, width = 8, height = 6, dpi = 300)
+ggsave(file.path(plot_dir, "umap_by_sample_liger.pdf"), p_sample, width = 8, height = 6)
+
+p_condition <- DimPlot(seu, reduction = "umap", group.by = "condition") +
+  ggtitle("Samarasinghe 2021 UMAP by condition (LIGER iNMF)")
+ggsave(file.path(plot_dir, "umap_by_condition_liger.png"), p_condition, width = 8, height = 6, dpi = 300)
+ggsave(file.path(plot_dir, "umap_by_condition_liger.pdf"), p_condition, width = 8, height = 6)
+
+p_day <- DimPlot(seu, reduction = "umap", group.by = "culture_day") +
+  ggtitle("Samarasinghe 2021 UMAP by culture day (LIGER iNMF)")
+ggsave(file.path(plot_dir, "umap_by_culture_day_liger.png"), p_day, width = 8, height = 6, dpi = 300)
+ggsave(file.path(plot_dir, "umap_by_culture_day_liger.pdf"), p_day, width = 8, height = 6)
+
+control_cells <- Cells(seu)[seu$condition == "control_WT_MECP2"]
+if (!control_only && length(control_cells) > 0) {
+  p_control <- DimPlot(
+    seu,
+    reduction = "umap",
+    cells = control_cells,
+    group.by = "seurat_clusters",
+    label = TRUE
+  ) + ggtitle("Samarasinghe 2021 WT-control cells on all-sample LIGER UMAP")
+  ggsave(file.path(plot_dir, "umap_control_only_by_cluster_liger.png"), p_control, width = 8, height = 6, dpi = 300)
+  ggsave(file.path(plot_dir, "umap_control_only_by_cluster_liger.pdf"), p_control, width = 8, height = 6)
+}
+
+p2 <- ElbowPlot(seu, reduction = "iNMF", ndims = min(50, length(iNMF_dims))) + ggtitle("iNMF elbow")
 ggsave(file.path(plot_dir, "inmf_elbow.png"), p2, width = 6, height = 4, dpi = 300)
 
 message("Done. Outputs in: ", outdir)

@@ -263,10 +263,13 @@ Below is a high-level workflow for each major study, with scripts and key input/
 - **R handover:** After `.rds` is created, ready for R analysis
 
 ### Samarasinghe 2021
-- **Script:** `scripts/05_samarasinghe_2021_seurat.R`
-- **Inputs:** Filtered/normalized counts CSVs
-- **Outputs:** *(Not present yet)*
-- **R handover:** After `.rds` is created, ready for R analysis
+- **Plain Seurat script:** `scripts/05_samarasinghe_2021_seurat.R`
+- **Paper-style LIGER script:** `scripts/05b_samarasinghe_2021_liger.R`
+- **Inputs:** `GSE165577_Filtered_counts_all_samples.csv.gz`; normalized GEO counts are downloaded but not used by these scripts
+- **Current plain Seurat output:** `results/samarasinghe_2021/samarasinghe_2021_seurat.rds`
+- **Pending LIGER outputs:** `results/samarasinghe_2021_liger/samarasinghe_2021_liger.rds` and UMAP plots
+- **LIGER module note:** `05b` uses module/prebuilt-library packages only; it intentionally does not install packages in the job. The runtime must provide `SeuratWrappers` and `rliger` in addition to Seurat.
+- **R handover:** Use the plain Seurat object for non-paper UMAPs; use the LIGER object, once generated, for paper-style all-sample integration and WT-control-only UMAP views on the integrated manifold.
 
 ### Liu 2025 hnbMO (GSE286235)
 - **Scripts:** `scripts/01f_download_gse286235_geo.sh`, `scripts/05j_liu_2025_hnbmo_seurat.R`
@@ -291,6 +294,7 @@ Below is a high-level workflow for each major study, with scripts and key input/
 - Great Lakes modules control R/Seurat (no in-job installs). Common patterns:
   - Walsh pipeline: `module load Bioinformatics` + `module load r-seurat/4.1.1-R-4.1.1-qyci4bo`
   - Plotting / Xiang / Bershteyn_2023: `module load Bioinformatics` + `module load r-seurat/4.1.1-R-4.2.0-5z5hgo7`
+  - Samarasinghe LIGER: `slurm_templates/05b_samarasinghe_2021_liger.sbatch.template` loads `SEURAT_MODULE` plus optional `LIGER_EXTRA_MODULES`; the currently checked Seurat modules do not include `SeuratWrappers`/`rliger`, so this needs a site/user module stack that provides them before submission will pass preflight.
   - Panel B with Assay5 studies (e.g., Varela): submit with the Seurat v5 template and set `SEURAT5_MODULE` to an available v5 module.
   - Current Panel B Seurat v5 template uses:
     - `CONFIG_PATH=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/config/panel_b_cross_study_config.example.R`
