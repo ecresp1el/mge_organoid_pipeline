@@ -26,6 +26,7 @@ parse_args <- function(args) {
     nfeatures = "2000",
     dims = "10",
     resolution = "0.5",
+    integrate = "false",
     seed = "11",
     help = FALSE
   )
@@ -69,6 +70,7 @@ print_usage <- function() {
       "  --nfeatures <int>       HVGs for FindVariableFeatures (default: 2000)",
       "  --dims <int>            PCs used for neighbors/UMAP (default: 10)",
       "  --resolution <num>      Cluster resolution (default: 0.5)",
+      "  --integrate <bool>      Use Seurat anchor integration across healthy samples (default: false)",
       "  --seed <int>            Random seed for PCA/UMAP/clustering steps (default: 11)",
       "",
       "Environment:",
@@ -262,6 +264,7 @@ gene_min_cells <- as.integer(opt$`gene-min-cells`)
 nfeatures <- as.integer(opt$nfeatures)
 dims_n <- as.integer(opt$dims)
 resolution <- as.numeric(opt$resolution)
+integrate_samples <- as_bool(opt$integrate)
 seed <- as.integer(opt$seed)
 
 if (!dir.exists(h5_dir)) dir.create(h5_dir, recursive = TRUE, showWarnings = FALSE)
@@ -306,6 +309,7 @@ write_tsv(
       "Primary Figure 1C-like run uses healthy H9 D36, H9 D63, and IMR90-4 D63 only",
       "Cell calling is explicit because filtered matrices were not deposited",
       "Downstream Seurat workflow follows guided-tutorial-style defaults",
+      "Sample handling",
       "Cell-type labels are exploratory marker-score labels mapped at cluster level"
     ),
     value = c(
@@ -315,6 +319,11 @@ write_tsv(
       paste0("NormalizeData; FindVariableFeatures nfeatures=", nfeatures,
              "; ScaleData no regression; PCA/Neighbors/Clusters/UMAP dims=1:", dims_n,
              "; resolution=", resolution),
+      if (integrate_samples) {
+        "Seurat anchor integration across H9 D36, H9 D63, and IMR90-4 D63 before PCA/UMAP/clustering"
+      } else {
+        "No integration; samples are merged directly before PCA/UMAP/clustering"
+      },
       "RG-div, RGC, IPC, IM, GABA, CHN marker sets from paper text/results"
     ),
     stringsAsFactors = FALSE
@@ -327,6 +336,7 @@ message("H5 directory: ", h5_dir)
 message("Converted 10x directory: ", tenx_dir)
 message("Output directory: ", outdir)
 message("Include DS sample: ", include_ds)
+message("Integrate samples: ", integrate_samples)
 message("Samples: ", paste(file_info$sample_id, collapse = ", "))
 
 objects <- list()
@@ -396,14 +406,26 @@ for (i in seq_len(nrow(file_info))) {
 qc_summary <- do.call(rbind, qc_rows)
 write_tsv(qc_summary, file.path(table_dir, "qc_summary_by_sample.tsv"))
 
-if (length(objects) == 1L) {
-  seu <- objects[[1L]]
+if (integrate_samples && length(objects) > 1L) {
+  message("Running Seurat anchor integration across samples")
+  objects <- lapply(objects, function(obj) {
+    obj <- NormalizeData(obj)
+    obj <- FindVariableFeatures(obj, selection.method = "vst", nfeatures = nfeatures)
+    obj
+  })
+  anchors <- FindIntegrationAnchors(object.list = objects, dims = seq_len(dims_n))
+  seu <- IntegrateData(anchorset = anchors, dims = seq_len(dims_n))
+  rm(anchors); gc()
 } else {
-  seu <- Reduce(function(x, y) merge(x, y), objects)
+  if (length(objects) == 1L) {
+    seu <- objects[[1L]]
+  } else {
+    seu <- Reduce(function(x, y) merge(x, y), objects)
+  }
 }
 rm(objects); gc()
 
-if (exists("JoinLayers", mode = "function")) {
+if (!integrate_samples && exists("JoinLayers", mode = "function")) {
   message("Joining Seurat v5 assay layers after sample merge")
   seu <- JoinLayers(seu)
 }
@@ -411,12 +433,24 @@ if (exists("JoinLayers", mode = "function")) {
 message("Merged cells: ", ncol(seu), "; genes: ", nrow(seu))
 
 message("Normalization / HVG / scaling / PCA / UMAP / clustering")
-seu <- NormalizeData(seu)
+if (integrate_samples) {
+  DefaultAssay(seu) <- "RNA"
+  if (exists("JoinLayers", mode = "function")) {
+    message("Joining Seurat v5 RNA layers after integration")
+    seu <- JoinLayers(seu, assay = "RNA")
+  }
+} else {
+  seu <- NormalizeData(seu)
+}
 marker_scoring <- add_marker_scores(seu, cell_type_marker_sets)
 seu <- marker_scoring$obj
 score_cols <- marker_scoring$score_cols
 marker_presence <- marker_scoring$marker_presence
-seu <- FindVariableFeatures(seu, selection.method = "vst", nfeatures = nfeatures)
+if (integrate_samples) {
+  DefaultAssay(seu) <- "integrated"
+} else {
+  seu <- FindVariableFeatures(seu, selection.method = "vst", nfeatures = nfeatures)
+}
 seu <- ScaleData(seu)
 seu <- RunPCA(seu, npcs = max(20L, dims_n), seed.use = seed)
 seu <- FindNeighbors(seu, dims = seq_len(dims_n))
@@ -433,9 +467,17 @@ write_tsv(marker_presence, file.path(table_dir, "cell_type_marker_presence.tsv")
 write_tsv(annotation$cluster_score_summary,
           file.path(table_dir, "cell_type_marker_score_by_cluster.tsv"))
 
-seurat_path <- file.path(outdir, "liu_2025_hnbmo_healthy_seurat.rds")
+seurat_path <- if (integrate_samples) {
+  file.path(outdir, "liu_2025_hnbmo_healthy_integrated_seurat.rds")
+} else {
+  file.path(outdir, "liu_2025_hnbmo_healthy_seurat.rds")
+}
 if (include_ds) {
-  seurat_path <- file.path(outdir, "liu_2025_hnbmo_with_ds_seurat.rds")
+  seurat_path <- if (integrate_samples) {
+    file.path(outdir, "liu_2025_hnbmo_with_ds_integrated_seurat.rds")
+  } else {
+    file.path(outdir, "liu_2025_hnbmo_with_ds_seurat.rds")
+  }
 }
 message("Saving Seurat object: ", seurat_path)
 saveRDS(seu, seurat_path)
@@ -469,6 +511,7 @@ marker_genes <- unique(c(
 ))
 marker_genes <- marker_genes[marker_genes %in% rownames(seu)]
 if (length(marker_genes)) {
+  DefaultAssay(seu) <- "RNA"
   p_markers <- FeaturePlot(seu, features = marker_genes, reduction = "umap", ncol = 4)
   ggsave(file.path(plot_dir, "umap_marker_panel.png"), p_markers,
          width = 12, height = max(4, 3 * ceiling(length(marker_genes) / 4)), dpi = 300)
