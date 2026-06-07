@@ -458,20 +458,18 @@ Objects inspected:
 | `bershteyn_2025` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/bershteyn_2025/bershteyn_2025_seurat.rds` | 124,583 | 45,068 | `umap` | 20,021 |
 | `bershteyn_2023` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/bershteyn_2023/bershteyn_2023_seurat.rds` | 98,042 | 45,068 | `umap` | 20,021 |
 | `xiang_2018` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/xiang_2018/xiang_2018_seurat.rds` | 58,950 | 23,287 | `umap` | 20,484 after Ensembl-to-symbol mapping |
-| `samarasinghe_2021` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/samarasinghe_2021/samarasinghe_2021_seurat.rds` | missing object | missing object | `umap` requested | missing object |
+| `samarasinghe_2021` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/samarasinghe_2021_zenodo_processed_object/samarasinghe_2021_zenodo_seurat.rds` | 49,942 | 27,379 | `umap` | Shi overlap not re-audited after Zenodo registration |
 | `siebert_2026` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siebert_2026/siebert_2026_seurat.rds` | 64,676 | 32,131 | `umap` | 15,305 |
 
 Readiness conclusion:
 
 ```text
-Seven of eight configured cross-study objects are ready for Seurat label
-transfer, sample-level score plots, and cluster summaries. Varela DIV30,
-Varela DIV90, Walsh, Bershteyn 2025, Bershteyn 2023, Xiang, and Siebert 2026
-have an RNA assay, usable UMAP coordinates, sample metadata, cluster metadata,
-and enough shared features with the Shi reference for transfer-anchor testing.
-
-Samarasinghe is not ready because the canonical Seurat object is missing:
-  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/samarasinghe_2021/samarasinghe_2021_seurat.rds
+All eight configured cross-study objects now have a canonical Seurat object.
+Samarasinghe was updated to use the official Zenodo processed `datExpr` object
+instead of rebuilding from GEO counts. Re-run the cross-study prediction
+inventory/transfer step before interpreting Samarasinghe Shi label-transfer
+scores, because the older handoff audit was performed before this Zenodo object
+was registered.
 
 Xiang is ready only if the GSE98201 feature map is used. The raw Xiang rownames
 are Ensembl IDs and have 0 direct overlaps with the Shi reference symbols. With
@@ -528,7 +526,7 @@ Primary metadata columns to use:
 | `bershteyn_2025` | `sample` | `seurat_clusters` | `sample` | `seurat_clusters`, `predicted.GEcluster`, `predicted.GEtype`, `predicted.GEgws` |
 | `bershteyn_2023` | `orig.ident` | `seurat_clusters` | `orig.ident`, `samples` | `seurat_clusters`, `celltype`, `process` |
 | `xiang_2018` | `orig.ident` | `seurat_clusters` | `orig.ident` | `seurat_clusters`, `RNA_snn_res.0.5` |
-| `samarasinghe_2021` | missing object | missing object | missing object | missing object |
+| `samarasinghe_2021` | `orig.ident` | `seurat_clusters` | `orig.ident`, `Time`, `Genotype` | `RNA_snn_res.0.3`, `seurat_clusters`, `new.cluster.ids` |
 | `siebert_2026` | `orig.ident` | `seurat_clusters` | `orig.ident`, `sample` | `seurat_clusters`, `SCT_snn_res.1`, `SCT_snn_res.0.8` |
 
 Primary sample inventory:
@@ -541,7 +539,7 @@ Primary sample inventory:
 | `bershteyn_2025` | `010720S` 11,834; `200520S2` 11,123; `010519S1` 10,778; `280120S` 10,776; `010519S2` 10,661; `070120S` 10,537; `220720S1` 10,345; `100620S` 9,885; `220720S2` 8,802; `150120S` 8,294; `251219S` 6,929; `200520S1` 6,756; `111219S` 5,722; `200319S` 2,141 |
 | `bershteyn_2023` | `MB279` 10,009; `MS35r41` 9,208; `r41v2ym` 8,722; `MS35mock` 8,403; `mockv2ym` 8,208; `mockv2dw` 8,206; `D0` 8,118; `MB528` 7,127; `r41v2dw` 6,656; `MB460` 6,447; `MB527` 4,933; `D14` 4,851; `MB280` 4,205; `MB461` 2,949 |
 | `xiang_2018` | `Xiang2018` 58,950 |
-| `samarasinghe_2021` | missing object |
+| `samarasinghe_2021` | `D70_Ctrl_docked_1_seurat` 10,931; `D56_Ctrl_unfused_1_seurat` 9,306; `D56_Rett_unfused_1_seurat` 9,186; `D100_Rett_docked_2_seurat` 7,561; `D100_Ctrl_docked_2_seurat` 6,698; `D70_Rett_docked_1_seurat` 6,260 |
 | `siebert_2026` | `Old_1` 16,606; `Young_2` 16,377; `Old_2` 16,073; `Young_1` 15,620 |
 
 Sample alias and metadata notes:
@@ -616,7 +614,7 @@ Primary cluster inventory:
 | `bershteyn_2025` | `seurat_clusters`, 9 clusters: 0 through 8 |
 | `bershteyn_2023` | `seurat_clusters`, 6 clusters: 0 through 5 |
 | `xiang_2018` | `seurat_clusters`, 28 clusters: 0 through 27 |
-| `samarasinghe_2021` | missing object |
+| `samarasinghe_2021` | `seurat_clusters`, 14 clusters: 0 through 13; manual `new.cluster.ids`, 10 labels |
 | `siebert_2026` | `seurat_clusters`, 28 clusters: 0 through 27 |
 
 Existing Varela DIV30/DIV90 Shi Seurat prediction tables:
@@ -664,8 +662,8 @@ What is needed to extend prediction scores across studies:
    For Xiang, first harmonize Ensembl rownames to gene symbols using:
    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/data/raw/xiang_2018_geo_files/suppl/GSE98201_genes.tsv.gz
 
-   For Samarasinghe, first generate or register the missing Seurat object at:
-   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/samarasinghe_2021/samarasinghe_2021_seurat.rds
+   For Samarasinghe, use the official Zenodo processed object:
+   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/samarasinghe_2021_zenodo_processed_object/samarasinghe_2021_zenodo_seurat.rds
 
 3. Export per-cell predicted Shi label, max label score, full per-label score
    matrix, predicted Shi gestational-week label, max week score, and full

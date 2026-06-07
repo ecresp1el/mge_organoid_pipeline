@@ -174,7 +174,7 @@ target_studies <- data.frame(
     "results/bershteyn_2025/bershteyn_2025_seurat.rds",
     "results/bershteyn_2023/bershteyn_2023_seurat.rds",
     "results/xiang_2018/xiang_2018_seurat.rds",
-    "results/samarasinghe_2021/samarasinghe_2021_seurat.rds",
+    "results/samarasinghe_2021_zenodo_processed_object/samarasinghe_2021_zenodo_seurat.rds",
     "results/siebert_2026/siebert_2026_seurat.rds"
   ),
   assay = rep("RNA", 8),
