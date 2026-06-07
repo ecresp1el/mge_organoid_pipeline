@@ -126,16 +126,38 @@ seu <- FindVariableFeatures(seu)
 # Scale per batch without centering (split.by = orig.ident, do.center = FALSE)
 seu <- ScaleData(seu, split.by = "orig.ident", do.center = FALSE)
 
-# LIGER integration via SeuratWrappers
-seu <- RunOptimizeALS(seu, k = 20, lambda = 5, split.by = "orig.ident")
-seu <- RunQuantileNorm(seu, split.by = "orig.ident")
+# LIGER integration. SeuratWrappers::RunOptimizeALS is not compatible with
+# rliger 2.2.x, so call the current rliger Seurat methods directly while keeping
+# the paper parameters and Seurat-scaled input.
+seu <- rliger::runINMF(
+  seu,
+  k = 20,
+  lambda = 5,
+  datasetVar = "orig.ident",
+  layer = "scale.data",
+  reduction = "inmf"
+)
+seu <- rliger::quantileNorm(
+  seu,
+  reduction = "inmf",
+  quantiles = 50,
+  minCells = 20,
+  nNeighbors = 20,
+  center = FALSE
+)
+seu[["iNMF"]] <- CreateDimReducObject(
+  embeddings = Embeddings(seu, "inmfNorm"),
+  loadings = Loadings(seu, "inmfNorm"),
+  assay = DefaultAssay(seu),
+  key = "iNMF_"
+)
 
 # Clustering on iNMF
 seu <- FindNeighbors(seu, reduction = "iNMF", dims = 1:20)
 seu <- FindClusters(seu, resolution = 0.3)
 
 # UMAP on iNMF dims 1:ncol(iNMF)
-iNMF_dims <- 1:ncol(seu[["iNMF"]])
+iNMF_dims <- 1:ncol(Embeddings(seu, "iNMF"))
 seu <- RunUMAP(seu, dims = iNMF_dims, reduction = "iNMF")
 
 # Save objects and plots
@@ -184,7 +206,6 @@ if (!control_only && length(control_cells) > 0) {
   ggsave(file.path(plot_dir, "umap_control_only_by_cluster_liger.pdf"), p_control, width = 8, height = 6)
 }
 
-p2 <- ElbowPlot(seu, reduction = "iNMF", ndims = min(50, length(iNMF_dims))) + ggtitle("iNMF elbow")
-ggsave(file.path(plot_dir, "inmf_elbow.png"), p2, width = 6, height = 4, dpi = 300)
+message("Skipping iNMF elbow plot; this reduction does not store PCA-style standard deviations.")
 
 message("Done. Outputs in: ", outdir)

@@ -1,0 +1,36 @@
+#!/bin/bash
+#SBATCH --job-name=liu2025_qc_sweep
+#SBATCH --time=04:00:00
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=96G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05l_liu_2025_hnbmo_qc_sweep_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05l_liu_2025_hnbmo_qc_sweep_%j.log
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+
+set -euo pipefail
+
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+
+module load Bioinformatics
+module load "${SEURAT5_MODULE}"
+
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript "${REPO_ROOT}/scripts/05l_liu_2025_hnbmo_qc_threshold_sweep.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --outdir "${PROJECT_ROOT}/results/liu_2025_hnbmo_qc_sweep"
+
+echo "Job finished: $(date)"

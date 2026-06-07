@@ -81,6 +81,7 @@ PROJECT_ROOT/
   - Healthy-only Seurat: `results/liu_2025_hnbmo/liu_2025_hnbmo_healthy_seurat.rds`
   - Figure 1C-like UMAP: `results/liu_2025_hnbmo/plots/figure1c_like_umap_by_exploratory_cell_type.{png,pdf}`
   - Sample/timepoint UMAP: `results/liu_2025_hnbmo/plots/figure1c_like_umap_by_h9_imr90_timepoint.{png,pdf}`
+  - QC threshold sweep: `results/liu_2025_hnbmo_qc_sweep/plots/best_count_match_nCount_nFeature_violin.{png,pdf}` and `results/liu_2025_hnbmo_qc_sweep/tables/qc_sweep_ranking_against_reported_cell_count.tsv`
 - Siebert 2026 canonical Seurat path: `results/siebert_2026/siebert_2026_seurat.rds` (UMAP plot may be generated later under `results/siebert_2026/plots/`)
 - He et al full V2 SCN8A-ready Seurat: `results/he_et_al/he_et_al_scn8a_seurat.rds`; sanity plot `results/he_et_al/plots/scn8a_umap.{png,pdf}`
 
@@ -153,6 +154,7 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 - Shi Table S3 xlsx->tsv conversion (no extra deps): `scripts/05h_shi_table_s3_xlsx_to_tsv.py`
 - Shi Table S3-based cluster annotation mapping: `scripts/05i_shi_2019_annotate_from_table_s3.R`
 - Liu 2025 hnbMO healthy-only Seurat + UMAP: `scripts/05j_liu_2025_hnbmo_seurat.R`
+- Liu 2025 hnbMO raw-matrix QC threshold sweep: `scripts/05l_liu_2025_hnbmo_qc_threshold_sweep.R`
 - Cross-study marker Panel B figure assembly (no analysis/recompute): `scripts/06_cross_study_panelB_markers.R`
 - Cross-study multi-gene UMAP panel (log1p): `scripts/06_cross_study_gene_panel_log.R`
 - Cross-study SCN8A He-vs-Varela config: `config/scn8a_he_vs_varela_config.example.R`
@@ -273,10 +275,11 @@ Below is a high-level workflow for each major study, with scripts and key input/
 - **R handover:** Use the plain Seurat object for non-paper UMAPs; use the LIGER object, once generated, for paper-style all-sample integration and WT-control-only UMAP views on the integrated manifold.
 
 ### Liu 2025 hnbMO (GSE286235)
-- **Scripts:** `scripts/01f_download_gse286235_geo.sh`, `scripts/05j_liu_2025_hnbmo_seurat.R`
+- **Scripts:** `scripts/01f_download_gse286235_geo.sh`, `scripts/05j_liu_2025_hnbmo_seurat.R`, `scripts/05l_liu_2025_hnbmo_qc_threshold_sweep.R`
 - **Inputs:** Cell Ranger `raw_feature_bc_matrix.h5` files; healthy samples GSM8721440, GSM8721441, GSM8721442 are used by default
 - **Outputs:** `liu_2025_hnbmo_healthy_seurat.rds`, Figure 1C-like UMAPs, marker-score cell-type table, sample and QC tables
 - **Default exploratory assumptions:** raw H5s are converted to 10x directories; cell calling uses `nFeature_RNA >= 1360` and `percent.mt < 20`, yielding 14,249 healthy cells in a raw-H5 probe, close to the paper's 14,245 cells; downstream analysis follows Seurat tutorial-style defaults (`NormalizeData`, 2,000 HVGs, `ScaleData` without regression, PCs 1:10, resolution 0.5)
+- **QC sweep:** `scripts/05l_liu_2025_hnbmo_qc_threshold_sweep.R` compares raw observed barcode distributions, candidate cell-like `nFeature_RNA` gates, and `percent.mt` cutoffs of 5/10/15/20. Slurm job 51484257 completed on `gl3260` and ranked `nFeature_RNA >= 1360`, `percent.mt < 20` as the closest cell-count match to the reported 14,245 healthy cells (retained 14,249).
 - **R handover:** After `.rds` is created, ready for cross-study marker plotting or label transfer
 
 ---
