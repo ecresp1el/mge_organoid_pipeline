@@ -1,21 +1,18 @@
 #!/bin/bash
-#SBATCH --job-name=samarasinghe_liger
-#SBATCH --time=12:00:00
-#SBATCH --cpus-per-task=12
-#SBATCH --mem=96G
+#SBATCH --job-name=samar_liger_lib
+#SBATCH --time=04:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
 #SBATCH --nodes=1
-#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05b_samarasinghe_2021_liger_%j.log
-#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05b_samarasinghe_2021_liger_%j.log
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=your_email@umich.edu
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05b_bootstrap_samarasinghe_liger_lib_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05b_bootstrap_samarasinghe_liger_lib_%j.log
 #SBATCH --account=parent0
 #SBATCH --partition=standard
 
 REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
-CONTROL_ONLY="${CONTROL_ONLY:-false}"
 SEURAT_MODULE="${SEURAT_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
-LIGER_EXTRA_MODULES="${LIGER_EXTRA_MODULES:-}"
+BOOTSTRAP_EXTRA_MODULES="${BOOTSTRAP_EXTRA_MODULES:-cmake/3.26.3}"
 LIGER_R_LIBS="${LIGER_R_LIBS:-${PROJECT_ROOT}/software/Rlibs/samarasinghe_liger_R4.4}"
 
 # Keep this job independent of interactive conda state. These changes are local
@@ -25,43 +22,39 @@ unset CONDA_SHLVL _CE_CONDA _CE_M
 PATH="$(printf '%s' "${PATH}" | tr ':' '\n' | grep -v '/miniconda[0-9]*/' | grep -v '/conda/' | paste -sd ':' -)"
 export PATH
 
-# Activate the Bioinformatics stack, then load Seurat and any site-provided
-# LIGER wrapper modules. The R script intentionally does not install packages.
 module purge
 module load Bioinformatics
 if ! module load "${SEURAT_MODULE}"; then
   echo "ERROR: failed to load SEURAT_MODULE=${SEURAT_MODULE}"
   exit 1
 fi
-if [[ -n "${LIGER_EXTRA_MODULES}" ]]; then
-  for extra_module in ${LIGER_EXTRA_MODULES}; do
+if [[ -n "${BOOTSTRAP_EXTRA_MODULES}" ]]; then
+  for extra_module in ${BOOTSTRAP_EXTRA_MODULES}; do
     if ! module load "${extra_module}"; then
-      echo "ERROR: failed to load LIGER extra module: ${extra_module}"
+      echo "ERROR: failed to load bootstrap extra module: ${extra_module}"
       exit 1
     fi
   done
 fi
-export R_LIBS_USER="${LIGER_R_LIBS}${R_LIBS_USER:+:${R_LIBS_USER}}"
 
 set -euo pipefail
 
-mkdir -p "${PROJECT_ROOT}/logs"
-
+mkdir -p "${PROJECT_ROOT}/logs" "${LIGER_R_LIBS}"
 export PROJECT_ROOT
+export R_LIBS_USER="${LIGER_R_LIBS}"
+
 echo "Job started: $(date)"
 echo "Host: $(hostname)"
 echo "Repo root: ${REPO_ROOT}"
 echo "Project/data root: ${PROJECT_ROOT}"
-echo "Control-only mode: ${CONTROL_ONLY}"
 echo "Seurat module: ${SEURAT_MODULE}"
-echo "LIGER extra modules: ${LIGER_EXTRA_MODULES}"
+echo "Bootstrap extra modules: ${BOOTSTRAP_EXTRA_MODULES}"
 echo "LIGER R library: ${LIGER_R_LIBS}"
 echo "Conda prefix: ${CONDA_PREFIX:-<unset>}"
 echo "Conda env: ${CONDA_DEFAULT_ENV:-<unset>}"
 echo "Python: $(command -v python 2>/dev/null || echo '<not found>')"
 echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
-Rscript -e 'missing <- c("SeuratWrappers", "rliger")[!vapply(c("SeuratWrappers", "rliger"), requireNamespace, logical(1), quietly = TRUE)]; if (length(missing)) { cat("ERROR: missing R package(s):", paste(missing, collapse = ", "), "\n"); cat("Current .libPaths():\n"); cat(paste(.libPaths(), collapse = "\n"), "\n"); quit(status = 1) } else { cat("LIGER package preflight OK\n") }'
-Rscript "${REPO_ROOT}/scripts/05b_samarasinghe_2021_liger.R" \
+Rscript "${REPO_ROOT}/scripts/05b_bootstrap_samarasinghe_liger_lib.R" \
   --project-root "${PROJECT_ROOT}" \
-  --control-only "${CONTROL_ONLY}"
+  --lib-path "${LIGER_R_LIBS}"
 echo "Job finished: $(date)"

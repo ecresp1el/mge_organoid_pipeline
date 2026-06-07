@@ -403,6 +403,11 @@ if (length(objects) == 1L) {
 }
 rm(objects); gc()
 
+if (exists("JoinLayers", mode = "function")) {
+  message("Joining Seurat v5 assay layers after sample merge")
+  seu <- JoinLayers(seu)
+}
+
 message("Merged cells: ", ncol(seu), "; genes: ", nrow(seu))
 
 message("Normalization / HVG / scaling / PCA / UMAP / clustering")
@@ -420,6 +425,10 @@ seu <- RunUMAP(seu, dims = seq_len(dims_n), seed.use = seed)
 
 annotation <- annotate_clusters_by_marker_scores(seu, score_cols)
 seu <- annotation$obj
+seu$figure1c_sample <- factor(
+  paste(seu$cell_line, seu$day, sep = " "),
+  levels = c("H9 D36", "H9 D63", "IMR90-4 D63")
+)
 write_tsv(marker_presence, file.path(table_dir, "cell_type_marker_presence.tsv"))
 write_tsv(annotation$cluster_score_summary,
           file.path(table_dir, "cell_type_marker_score_by_cluster.tsv"))
@@ -450,10 +459,6 @@ plot_dim("liu2025_exploratory_cell_type", "figure1c_like_umap_by_exploratory_cel
 plot_dim("sample_id", "umap_by_sample", "Liu 2025 hnbMO UMAP by sample")
 plot_dim("day", "umap_by_day", "Liu 2025 hnbMO UMAP by day")
 plot_dim("cell_line", "umap_by_cell_line", "Liu 2025 hnbMO UMAP by cell line")
-seu$figure1c_sample <- factor(
-  paste(seu$cell_line, seu$day, sep = " "),
-  levels = c("H9 D36", "H9 D63", "IMR90-4 D63")
-)
 plot_dim("figure1c_sample", "figure1c_like_umap_by_h9_imr90_timepoint",
          "Figure 1C-like hnbMO UMAP: H9 D36, H9 D63, IMR90-4 D63")
 
