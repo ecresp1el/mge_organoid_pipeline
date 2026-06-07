@@ -518,11 +518,41 @@ Sample alias and metadata notes:
   `vFB_domain`.
 - Siebert 2026 has four primary sample values in both `orig.ident` and
   `sample`: `Old_1`, `Young_2`, `Old_2`, and `Young_1`. Additional informative
-  metadata columns include `cellLine` with four values, `donor_batch` with 14
-  sample-by-cell-line values, and author annotation columns `predictions` and
-  `predictions_class`. Use `orig.ident`/`sample` for primary sample-level plots;
-  use `cellLine` or `donor_batch` only when the analysis needs line- or
-  donor/batch-level stratification.
+  metadata columns include `cellLine`, `donor_batch`, and author annotation
+  columns `predictions` and `predictions_class`. Use `orig.ident`/`sample` for
+  primary sample-level plots; use `cellLine` or `donor_batch` only when the
+  analysis needs line- or donor/batch-level stratification.
+
+Siebert 2026 metadata value inventory was extracted by Slurm job `51479753`
+using:
+
+```text
+scripts/08_extract_siebert_metadata_values.R
+slurm_templates/23_extract_siebert_metadata_values.sbatch.template
+```
+
+Output tables:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siebert_2026/metadata_value_inventory
+```
+
+Key Siebert 2026 metadata values:
+
+- `cellLine`: `CellLine1` 28,080; `CellLine3` 20,719; `CellLine2` 14,993;
+  `CellLine4` 884.
+- `donor_batch`: `Old_1_CellLine1` 7,554; `Old_2_CellLine1` 7,429;
+  `Young_2_CellLine1` 6,792; `Young_1_CellLine1` 6,305;
+  `Young_2_CellLine3` 5,707; `Young_1_CellLine3` 5,484;
+  `Old_1_CellLine3` 4,880; `Old_2_CellLine3` 4,648;
+  `Old_1_CellLine2` 4,172; `Old_2_CellLine2` 3,996;
+  `Young_1_CellLine2` 3,413; `Young_2_CellLine2` 3,412;
+  `Young_2_CellLine4` 466; `Young_1_CellLine4` 418.
+- `predictions`: 16 author labels. Top labels are `progenitors` 44,680,
+  `MGE_IN` 10,200, `CGE_NR2F2/PROX1` 3,775, and `MGE_SST` 1,673.
+- `predictions_class`: 21 author labels. Top labels are `IPC_late` 21,578,
+  `MGE_IN` 10,899, `Radial_glia` 10,386, `Neuroblast` 7,185, and
+  `CGE_NR2F2/PROX1` 3,850.
 
 Primary cluster inventory:
 

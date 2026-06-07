@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Extract exact Siebert 2026 metadata values/counts from the Seurat RDS.
+#
+# Submit:
+#   cp slurm_templates/23_extract_siebert_metadata_values.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/23_extract_siebert_metadata_values.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/23_extract_siebert_metadata_values.sbatch
+
+#SBATCH --job-name=siebert-meta
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=160G
+#SBATCH --time=02:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siebert-metadata-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siebert-metadata-%x-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+SIEBERT_SEURAT_RDS="${SIEBERT_SEURAT_RDS:-${PROJECT_ROOT}/results/siebert_2026/siebert_2026_seurat.rds}"
+SIEBERT_METADATA_OUT_DIR="${SIEBERT_METADATA_OUT_DIR:-${PROJECT_ROOT}/results/siebert_2026/metadata_value_inventory}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${SIEBERT_METADATA_OUT_DIR}"
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export SIEBERT_SEURAT_RDS
+export SIEBERT_METADATA_OUT_DIR
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Siebert RDS: ${SIEBERT_SEURAT_RDS}"
+echo "Output dir: ${SIEBERT_METADATA_OUT_DIR}"
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript "${REPO_ROOT}/scripts/08_extract_siebert_metadata_values.R"
+
+echo "Job finished: $(date)"
