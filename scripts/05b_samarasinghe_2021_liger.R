@@ -163,15 +163,17 @@ seu <- RunUMAP(seu, dims = iNMF_dims, reduction = "iNMF")
 # Save objects and plots
 saveRDS(seu, file.path(outdir, "samarasinghe_2021_liger.rds"))
 
-write.csv(
-  as.data.frame(table(
+sample_counts <- aggregate(
+  cell_count ~ sample_id + culture_day + condition,
+  data = data.frame(
     sample_id = seu$sample_id,
     culture_day = seu$culture_day,
-    condition = seu$condition
-  )),
-  file.path(outdir, "sample_cell_counts_after_qc.csv"),
-  row.names = FALSE
+    condition = seu$condition,
+    cell_count = 1L
+  ),
+  FUN = sum
 )
+write.csv(sample_counts, file.path(outdir, "sample_cell_counts_after_qc.csv"), row.names = FALSE)
 
 p1 <- DimPlot(seu, reduction = "umap", group.by = "seurat_clusters", label = TRUE) +
   ggtitle("Samarasinghe 2021 UMAP (LIGER iNMF, res=0.3)")
