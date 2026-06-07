@@ -502,12 +502,27 @@ Primary sample inventory:
 | --- | --- |
 | `varela_div30` | `9583-MW-6` 22,528; `9583-MW-5` 22,230; `9583-MW-3` 15,773; `9583-MW-1` 14,564; `9583-MW-4` 11,004; `9583-MW-2` 4,532 |
 | `varela_div90` | `10496-MW-4` 6,314; `10496-MW-6` 4,850; `10496-MW-2` 3,533; `10496-MW-1` 3,095; `10496-MW-3` 2,714; `10496-MW-5` 1,832 |
-| `walsh` | `GSM7979671` 2,273; `GSM7979672` 2,246 |
+| `walsh` | `GSM7979671` / `MEL1_dFB_d75` 2,273; `GSM7979672` / `MEL1_vFB_d75` 2,246 |
 | `bershteyn_2025` | `010720S` 11,834; `200520S2` 11,123; `010519S1` 10,778; `280120S` 10,776; `010519S2` 10,661; `070120S` 10,537; `220720S1` 10,345; `100620S` 9,885; `220720S2` 8,802; `150120S` 8,294; `251219S` 6,929; `200520S1` 6,756; `111219S` 5,722; `200319S` 2,141 |
 | `bershteyn_2023` | `MB279` 10,009; `MS35r41` 9,208; `r41v2ym` 8,722; `MS35mock` 8,403; `mockv2ym` 8,208; `mockv2dw` 8,206; `D0` 8,118; `MB528` 7,127; `r41v2dw` 6,656; `MB460` 6,447; `MB527` 4,933; `D14` 4,851; `MB280` 4,205; `MB461` 2,949 |
 | `xiang_2018` | `Xiang2018` 58,950 |
 | `samarasinghe_2021` | missing object |
 | `siebert_2026` | `Old_1` 16,606; `Young_2` 16,377; `Old_2` 16,073; `Young_1` 15,620 |
+
+Sample alias and metadata notes:
+
+- Walsh `sample_id` values are GEO accessions. Use `MEL1_dFB_d75` as the
+  readable alias for `GSM7979671` and `MEL1_vFB_d75` as the readable alias for
+  `GSM7979672`. Both are day-75/DIV75 units; the object also carries
+  `orig.ident` values `dFB` and `vFB`, plus `domain` values `dFB_domain` and
+  `vFB_domain`.
+- Siebert 2026 has four primary sample values in both `orig.ident` and
+  `sample`: `Old_1`, `Young_2`, `Old_2`, and `Young_1`. Additional informative
+  metadata columns include `cellLine` with four values, `donor_batch` with 14
+  sample-by-cell-line values, and author annotation columns `predictions` and
+  `predictions_class`. Use `orig.ident`/`sample` for primary sample-level plots;
+  use `cellLine` or `donor_batch` only when the analysis needs line- or
+  donor/batch-level stratification.
 
 Primary cluster inventory:
 
