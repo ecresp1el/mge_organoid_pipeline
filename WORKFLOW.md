@@ -79,7 +79,8 @@ PROJECT_ROOT/
 - Shi 2019 (GSE135827): `results/shi_2019/shi_2019_seurat.rds`; UMAP `results/shi_2019/plots/umap_by_cluster.{png,pdf}` and week UMAP `results/shi_2019/plots/umap_by_week.{png,pdf}`
 - Liu 2025 hnbMO (GSE286235) expected outputs:
   - Healthy-only Seurat: `results/liu_2025_hnbmo/liu_2025_hnbmo_healthy_seurat.rds`
-  - UMAP: `results/liu_2025_hnbmo/plots/umap_by_cluster.{png,pdf}`
+  - Figure 1C-like UMAP: `results/liu_2025_hnbmo/plots/figure1c_like_umap_by_exploratory_cell_type.{png,pdf}`
+  - Sample/timepoint UMAP: `results/liu_2025_hnbmo/plots/figure1c_like_umap_by_h9_imr90_timepoint.{png,pdf}`
 - Siebert 2026 canonical Seurat path: `results/siebert_2026/siebert_2026_seurat.rds` (UMAP plot may be generated later under `results/siebert_2026/plots/`)
 - He et al full V2 SCN8A-ready Seurat: `results/he_et_al/he_et_al_scn8a_seurat.rds`; sanity plot `results/he_et_al/plots/scn8a_umap.{png,pdf}`
 
@@ -96,7 +97,7 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 | Bershteyn 2023 (GSE208672) | Yes (provided Seurat `.rds.gz`) | Yes (`results/bershteyn_2023/bershteyn_2023_seurat.rds`) | Yes (`results/bershteyn_2023/plots/umap_by_cluster.png`) | Raw `suppl/` contains extra variants (`.rds`, `.gz2`) from download/read debugging. |
 | Samarasinghe 2021 (GSE165577) | Yes (filtered/normalized counts CSVs) | Not yet (script ready) | Not yet | Needs Seurat run (`scripts/05_samarasinghe_2021_seurat.R`). LIGER step pending. |
 | Shi 2019 (GSE135827) | Expected at `data/raw/shi_2019_geo_files/suppl/GSE135827_GE_mat_raw_count_with_week_info.txt.gz` | Expected at `results/shi_2019/shi_2019_seurat.rds` | Expected at `results/shi_2019/plots/umap_by_cluster.png` | Standalone GEO workflow with per-cell week metadata from barcode suffix (`-GWxx`). |
-| Liu 2025 hnbMO (GSE286235) | Expected at `data/raw/liu_2025_hnbmo_geo_files/suppl/GSM872144*_raw_feature_bc_matrix.h5` | Expected at `results/liu_2025_hnbmo/liu_2025_hnbmo_healthy_seurat.rds` | Expected at `results/liu_2025_hnbmo/plots/umap_by_cluster.png` | Uses healthy samples only by default; raw Cell Ranger H5s require explicit cell filtering. |
+| Liu 2025 hnbMO (GSE286235) | Expected at `data/raw/liu_2025_hnbmo_geo_files/suppl/GSM872144*_raw_feature_bc_matrix.h5` | Expected at `results/liu_2025_hnbmo/liu_2025_hnbmo_healthy_seurat.rds` | Expected at `results/liu_2025_hnbmo/plots/figure1c_like_umap_by_exploratory_cell_type.png` | Figure 1C-like healthy-only run: H9 D36, H9 D63, IMR90-4 D63; raw H5s require explicit cell calling. |
 | Varela (this paper, Day30) | Yes (`/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds`) | Yes (`results/varela_this_paper/varela_this_paper_seurat.rds`) | Included in Panel B assembly | Canonical Panel B path is under `PROJECT_ROOT/results/...` and now uses a true copied file. |
 | Siebert 2026 (NeMO `nemo:dat-htzat9t`) | Metadata available (`data/raw/siebert_2026_nemo/`) | Canonical path: `results/siebert_2026/siebert_2026_seurat.rds` | Optional (when plotted) | Cleaned Seurat object should be copied to canonical results path for pipeline use. |
 | He et al HNOCA full V2 (Zenodo 14160929) | Yes (`data/raw/he_et_al_zenodo/suppl/hnoca_allmeta.h5ad`) | Yes (`results/he_et_al/he_et_al_scn8a_seurat.rds`) | Yes (`results/he_et_al/plots/scn8a_umap.png`) | SCN8A-only extracted slice for cross-study SCN8A panel. |
@@ -192,7 +193,7 @@ Run from your local terminal (Mac/Linux):
 | He et al SCN8A         | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/he_et_al/he_et_al_scn8a_seurat.rds`  | scripts/05f_he_et_al_scn8a_seurat.R             | Yes           | Built from extracted slice                  |
 | Shi 2019 (GSE135827)   | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_2019/shi_2019_seurat.rds` | scripts/05g_shi_2019_seurat.R | Yes | Standalone GEO matrix workflow; metadata exports under `results/shi_2019/` |
 | Shi 2019 (Table S3-annotated) | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_2019_paper_qc/table_s3_annotation/shi_2019_seurat_annotated_table_s3_res0_11.rds` | scripts/05i_shi_2019_annotate_from_table_s3.R | Yes | Cluster labels mapped to paper major cell types via Table S3 DEGs |
-| Liu 2025 hnbMO (GSE286235) | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/liu_2025_hnbmo/liu_2025_hnbmo_healthy_seurat.rds` | scripts/05j_liu_2025_hnbmo_seurat.R | Yes | Healthy-only by default; DS sample optional with `--include-ds true` |
+| Liu 2025 hnbMO (GSE286235) | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/liu_2025_hnbmo/liu_2025_hnbmo_healthy_seurat.rds` | scripts/05j_liu_2025_hnbmo_seurat.R | Yes | Figure 1C-like healthy-only run; DS sample optional with `--include-ds true` |
 | Samarasinghe 2021      | *(Not present yet)*                                                                                    | scripts/05_samarasinghe_2021_seurat.R           | No            | Script ready, output not found              |
 
 ---
@@ -274,7 +275,8 @@ Below is a high-level workflow for each major study, with scripts and key input/
 ### Liu 2025 hnbMO (GSE286235)
 - **Scripts:** `scripts/01f_download_gse286235_geo.sh`, `scripts/05j_liu_2025_hnbmo_seurat.R`
 - **Inputs:** Cell Ranger `raw_feature_bc_matrix.h5` files; healthy samples GSM8721440, GSM8721441, GSM8721442 are used by default
-- **Outputs:** `liu_2025_hnbmo_healthy_seurat.rds`, UMAP/QC plots, sample and QC tables
+- **Outputs:** `liu_2025_hnbmo_healthy_seurat.rds`, Figure 1C-like UMAPs, marker-score cell-type table, sample and QC tables
+- **Default exploratory assumptions:** raw H5s are converted to 10x directories; cell calling uses `nFeature_RNA >= 1360` and `percent.mt < 20`, yielding 14,249 healthy cells in a raw-H5 probe, close to the paper's 14,245 cells; downstream analysis follows Seurat tutorial-style defaults (`NormalizeData`, 2,000 HVGs, `ScaleData` without regression, PCs 1:10, resolution 0.5)
 - **R handover:** After `.rds` is created, ready for cross-study marker plotting or label transfer
 
 ---

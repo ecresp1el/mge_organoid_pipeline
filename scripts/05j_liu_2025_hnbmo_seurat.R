@@ -3,6 +3,8 @@
 # Build a healthy-only Seurat object and UMAP for Liu et al. 2025 hnbMO
 # scRNA-seq (GSE286235). GEO provides Cell Ranger raw_feature_bc_matrix.h5
 # files, so this script applies explicit cell-level filtering before merging.
+# The primary plot target is a Figure 1C-like UMAP of hnbMOs from H9 day 36,
+# H9 day 63, and IMR90-4 day 63, colored by exploratory marker-based cell type.
 
 suppressPackageStartupMessages({
   library(Matrix)
@@ -18,12 +20,12 @@ parse_args <- function(args) {
     `raw-tar` = "",
     outdir = "",
     `include-ds` = "false",
-    `min-features` = "1000",
+    `min-features` = "1360",
     `max-percent-mt` = "20",
     `gene-min-cells` = "3",
-    nfeatures = "3000",
-    dims = "30",
-    resolution = "0.8",
+    nfeatures = "2000",
+    dims = "10",
+    resolution = "0.5",
     seed = "11",
     help = FALSE
   )
@@ -61,12 +63,12 @@ print_usage <- function() {
       "  --raw-tar <path>        Optional GSE286235_RAW.tar to extract if H5s are absent",
       "  --outdir <path>         Output directory (default: PROJECT_ROOT/results/liu_2025_hnbmo)",
       "  --include-ds <bool>     Include DS sample GSM8721443 (default: false)",
-      "  --min-features <int>    Lower cell filter on detected genes (default: 1000)",
+      "  --min-features <int>    Lower cell filter on detected genes (default: 1360; gives 14,249 healthy cells in a raw-H5 probe, close to the paper's 14,245)",
       "  --max-percent-mt <num>  Upper mitochondrial percent filter (default: 20)",
       "  --gene-min-cells <int>  Keep genes expressed in at least this many cells (default: 3)",
-      "  --nfeatures <int>       HVGs for FindVariableFeatures (default: 3000)",
-      "  --dims <int>            PCs used for neighbors/UMAP (default: 30)",
-      "  --resolution <num>      Cluster resolution (default: 0.8)",
+      "  --nfeatures <int>       HVGs for FindVariableFeatures (default: 2000)",
+      "  --dims <int>            PCs used for neighbors/UMAP (default: 10)",
+      "  --resolution <num>      Cluster resolution (default: 0.5)",
       "  --seed <int>            Random seed for PCA/UMAP/clustering steps (default: 11)",
       "",
       "Environment:",
@@ -122,6 +124,100 @@ read_10x_matrix <- function(path, sample_id, tenx_dir) {
     converted_dir,
     "\nRun scripts/05j_convert_gse286235_h5_to_10x.py first."
   )
+}
+
+get_expression_data <- function(obj) {
+  tryCatch(
+    GetAssayData(obj, assay = "RNA", layer = "data"),
+    error = function(e) GetAssayData(obj, assay = "RNA", slot = "data")
+  )
+}
+
+sanitize_label <- function(x) {
+  gsub("[^A-Za-z0-9]+", "_", x)
+}
+
+cell_type_marker_sets <- list(
+  `RG-div` = c("MKI67", "TOP2A", "UBE2C", "CENPF", "HMGB2"),
+  RGC = c("SOX2", "VIM", "HES1", "NES", "PAX6"),
+  IPC = c("EOMES", "NEUROD1", "NEUROG2", "ASCL1"),
+  IM = c("DCX", "STMN2", "TUBB3", "MAP2"),
+  GABA = c("GAD1", "GAD2", "DLX1", "DLX2", "DLX5"),
+  CHN = c("CHAT", "SLC18A3", "SLC5A7", "LHX8", "ISL1", "NGFR")
+)
+
+add_marker_scores <- function(obj, marker_sets) {
+  expr <- get_expression_data(obj)
+  score_cols <- character()
+  marker_presence <- list()
+
+  for (cell_type in names(marker_sets)) {
+    markers <- marker_sets[[cell_type]]
+    present <- intersect(markers, rownames(expr))
+    missing <- setdiff(markers, present)
+    score_col <- paste0("liu2025_score_", sanitize_label(cell_type))
+    score_cols <- c(score_cols, score_col)
+    marker_presence[[cell_type]] <- data.frame(
+      cell_type = cell_type,
+      marker = markers,
+      present = markers %in% present,
+      stringsAsFactors = FALSE
+    )
+
+    if (length(present) == 0L) {
+      obj[[score_col]] <- NA_real_
+      next
+    }
+    obj[[score_col]] <- as.numeric(Matrix::colMeans(expr[present, , drop = FALSE]))
+    if (length(missing) > 0L) {
+      message("Missing marker(s) for ", cell_type, ": ", paste(missing, collapse = ", "))
+    }
+  }
+
+  list(
+    obj = obj,
+    score_cols = score_cols,
+    marker_presence = do.call(rbind, marker_presence)
+  )
+}
+
+annotate_clusters_by_marker_scores <- function(obj, score_cols) {
+  md <- obj@meta.data
+  cluster_col <- "seurat_clusters"
+  if (!(cluster_col %in% colnames(md))) stop("Missing seurat_clusters metadata")
+
+  cluster_levels <- sort(unique(as.character(md[[cluster_col]])))
+  summary_rows <- list()
+  cluster_to_type <- setNames(rep(NA_character_, length(cluster_levels)), cluster_levels)
+
+  for (cluster_id in cluster_levels) {
+    idx <- as.character(md[[cluster_col]]) == cluster_id
+    means <- vapply(score_cols, function(col) mean(md[[col]][idx], na.rm = TRUE), numeric(1))
+    cell_types <- sub("^liu2025_score_", "", names(means))
+    cell_types <- gsub("_", "-", cell_types)
+    if (all(is.na(means))) {
+      predicted <- "unassigned"
+    } else {
+      predicted <- cell_types[which.max(means)]
+      if (predicted == "RG-div") predicted <- "RG-div"
+    }
+    cluster_to_type[[cluster_id]] <- predicted
+    summary_rows[[cluster_id]] <- data.frame(
+      seurat_cluster = cluster_id,
+      predicted_cell_type = predicted,
+      n_cells = sum(idx),
+      score_name = names(means),
+      mean_score = as.numeric(means),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  obj$liu2025_exploratory_cell_type <- unname(cluster_to_type[as.character(md[[cluster_col]])])
+  obj$liu2025_exploratory_cell_type <- factor(
+    obj$liu2025_exploratory_cell_type,
+    levels = c("RG-div", "RGC", "IPC", "IM", "GABA", "CHN", "unassigned")
+  )
+  list(obj = obj, cluster_score_summary = do.call(rbind, summary_rows))
 }
 
 sample_info <- data.frame(
@@ -202,6 +298,29 @@ file_info <- file_info[order(file_info$sample_geo_accession), , drop = FALSE]
 write_tsv(file_info[, c("sample_geo_accession", "sample_id", "sample_title",
                         "disease_status", "day", "day_numeric", "cell_line", "path")],
           file.path(table_dir, "sample_manifest_used.tsv"))
+
+write_tsv(
+  data.frame(
+    assumption = c(
+      "GEO provides raw_feature_bc_matrix.h5 files, not filtered Cell Ranger outputs",
+      "Primary Figure 1C-like run uses healthy H9 D36, H9 D63, and IMR90-4 D63 only",
+      "Cell calling is explicit because filtered matrices were not deposited",
+      "Downstream Seurat workflow follows guided-tutorial-style defaults",
+      "Cell-type labels are exploratory marker-score labels mapped at cluster level"
+    ),
+    value = c(
+      "raw H5 converted to 10x matrix.mtx/features/barcodes directories before Seurat",
+      "GSM8721440, GSM8721441, GSM8721442",
+      paste0("nFeature_RNA >= ", min_features, " and percent.mt < ", max_percent_mt),
+      paste0("NormalizeData; FindVariableFeatures nfeatures=", nfeatures,
+             "; ScaleData no regression; PCA/Neighbors/Clusters/UMAP dims=1:", dims_n,
+             "; resolution=", resolution),
+      "RG-div, RGC, IPC, IM, GABA, CHN marker sets from paper text/results"
+    ),
+    stringsAsFactors = FALSE
+  ),
+  file.path(table_dir, "analysis_assumptions.tsv")
+)
 
 message("Building Liu 2025 hnbMO Seurat object")
 message("H5 directory: ", h5_dir)
@@ -288,12 +407,22 @@ message("Merged cells: ", ncol(seu), "; genes: ", nrow(seu))
 
 message("Normalization / HVG / scaling / PCA / UMAP / clustering")
 seu <- NormalizeData(seu)
+marker_scoring <- add_marker_scores(seu, cell_type_marker_sets)
+seu <- marker_scoring$obj
+score_cols <- marker_scoring$score_cols
+marker_presence <- marker_scoring$marker_presence
 seu <- FindVariableFeatures(seu, selection.method = "vst", nfeatures = nfeatures)
-seu <- ScaleData(seu, vars.to.regress = c("percent.mt"))
-seu <- RunPCA(seu, npcs = max(50L, dims_n), seed.use = seed)
+seu <- ScaleData(seu)
+seu <- RunPCA(seu, npcs = max(20L, dims_n), seed.use = seed)
 seu <- FindNeighbors(seu, dims = seq_len(dims_n))
 seu <- FindClusters(seu, resolution = resolution, random.seed = seed)
 seu <- RunUMAP(seu, dims = seq_len(dims_n), seed.use = seed)
+
+annotation <- annotate_clusters_by_marker_scores(seu, score_cols)
+seu <- annotation$obj
+write_tsv(marker_presence, file.path(table_dir, "cell_type_marker_presence.tsv"))
+write_tsv(annotation$cluster_score_summary,
+          file.path(table_dir, "cell_type_marker_score_by_cluster.tsv"))
 
 seurat_path <- file.path(outdir, "liu_2025_hnbmo_healthy_seurat.rds")
 if (include_ds) {
@@ -316,11 +445,23 @@ plot_dim <- function(group_by, filename, title, label = FALSE) {
 
 plot_dim("seurat_clusters", "umap_by_cluster",
          paste0("Liu 2025 hnbMO UMAP by cluster (res=", resolution, ")"), TRUE)
+plot_dim("liu2025_exploratory_cell_type", "figure1c_like_umap_by_exploratory_cell_type",
+         "Figure 1C-like hnbMO UMAP by exploratory cell type", TRUE)
 plot_dim("sample_id", "umap_by_sample", "Liu 2025 hnbMO UMAP by sample")
 plot_dim("day", "umap_by_day", "Liu 2025 hnbMO UMAP by day")
 plot_dim("cell_line", "umap_by_cell_line", "Liu 2025 hnbMO UMAP by cell line")
+seu$figure1c_sample <- factor(
+  paste(seu$cell_line, seu$day, sep = " "),
+  levels = c("H9 D36", "H9 D63", "IMR90-4 D63")
+)
+plot_dim("figure1c_sample", "figure1c_like_umap_by_h9_imr90_timepoint",
+         "Figure 1C-like hnbMO UMAP: H9 D36, H9 D63, IMR90-4 D63")
 
-marker_genes <- c("FOXG1", "NKX2-1", "LHX8", "ISL1", "CHAT", "SLC18A3", "GAD1", "GAD2")
+marker_genes <- unique(c(
+  "MKI67", "TOP2A", "SOX2", "VIM", "EOMES", "NEUROD1",
+  "DCX", "STMN2", "GAD1", "GAD2", "CHAT", "SLC18A3",
+  "FOXG1", "NKX2-1", "LHX8", "ISL1"
+))
 marker_genes <- marker_genes[marker_genes %in% rownames(seu)]
 if (length(marker_genes)) {
   p_markers <- FeaturePlot(seu, features = marker_genes, reduction = "umap", ncol = 4)

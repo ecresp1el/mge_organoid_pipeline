@@ -17,8 +17,16 @@ CONTROL_ONLY="${CONTROL_ONLY:-false}"
 SEURAT_MODULE="${SEURAT_MODULE:-r-seurat/4.1.1-R-4.2.0-5z5hgo7}"
 LIGER_EXTRA_MODULES="${LIGER_EXTRA_MODULES:-}"
 
+# Keep this job independent of interactive conda state. These changes are local
+# to the batch process and do not modify the submit shell.
+unset CONDA_DEFAULT_ENV CONDA_EXE CONDA_PREFIX CONDA_PROMPT_MODIFIER CONDA_PYTHON_EXE
+unset CONDA_SHLVL _CE_CONDA _CE_M
+PATH="$(printf '%s' "${PATH}" | tr ':' '\n' | grep -v '/miniconda[0-9]*/' | grep -v '/conda/' | paste -sd ':' -)"
+export PATH
+
 # Activate the Bioinformatics stack, then load Seurat and any site-provided
 # LIGER wrapper modules. The R script intentionally does not install packages.
+module purge
 module load Bioinformatics
 if ! module load "${SEURAT_MODULE}"; then
   echo "ERROR: failed to load SEURAT_MODULE=${SEURAT_MODULE}"
@@ -45,6 +53,9 @@ echo "Project/data root: ${PROJECT_ROOT}"
 echo "Control-only mode: ${CONTROL_ONLY}"
 echo "Seurat module: ${SEURAT_MODULE}"
 echo "LIGER extra modules: ${LIGER_EXTRA_MODULES}"
+echo "Conda prefix: ${CONDA_PREFIX:-<unset>}"
+echo "Conda env: ${CONDA_DEFAULT_ENV:-<unset>}"
+echo "Python: $(command -v python 2>/dev/null || echo '<not found>')"
 echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
 Rscript -e 'missing <- c("SeuratWrappers", "rliger")[!vapply(c("SeuratWrappers", "rliger"), requireNamespace, logical(1), quietly = TRUE)]; if (length(missing)) { cat("ERROR: missing R package(s):", paste(missing, collapse = ", "), "\n"); cat("Current .libPaths():\n"); cat(paste(.libPaths(), collapse = "\n"), "\n"); quit(status = 1) } else { cat("LIGER package preflight OK\n") }'
 Rscript "${REPO_ROOT}/scripts/05b_samarasinghe_2021_liger.R" \

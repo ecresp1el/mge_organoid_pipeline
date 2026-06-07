@@ -12,6 +12,7 @@
 REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 PY_CONDA_ENV="${PY_CONDA_ENV:-mge-organoid-python}"
+FORCE_10X_CONVERSION="${FORCE_10X_CONVERSION:-false}"
 
 set -euo pipefail
 
@@ -26,11 +27,15 @@ echo "Project/data root: ${PROJECT_ROOT}"
 if [[ -f "${HOME}/miniconda3/etc/profile.d/conda.sh" ]]; then
   # Convert Cell Ranger H5s to 10x directories so Seurat does not require hdf5r.
   source "${HOME}/miniconda3/etc/profile.d/conda.sh"
+  CONVERT_ARGS=()
+  if [[ "${FORCE_10X_CONVERSION}" == "true" ]]; then
+    CONVERT_ARGS+=(--force)
+  fi
   conda run -n "${PY_CONDA_ENV}" python \
     "${REPO_ROOT}/scripts/05j_convert_gse286235_h5_to_10x.py" \
     --h5-dir "${PROJECT_ROOT}/data/raw/liu_2025_hnbmo_geo_files/suppl" \
     --out-dir "${PROJECT_ROOT}/data/raw/liu_2025_hnbmo_geo_files/suppl/10x" \
-    --force
+    "${CONVERT_ARGS[@]}"
 else
   echo "Warning: conda.sh not found; assuming converted 10x directories already exist." >&2
 fi
