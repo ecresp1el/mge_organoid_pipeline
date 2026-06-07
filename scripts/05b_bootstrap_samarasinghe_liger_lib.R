@@ -59,6 +59,7 @@ install_cran_if_missing <- function(pkg) {
 
 install_cran_if_missing("remotes")
 install_cran_if_missing("BiocManager")
+install_cran_if_missing("R.utils")
 
 bioc_pkgs <- c("S4Vectors", "DelayedArray", "HDF5Array")
 missing_bioc <- bioc_pkgs[!vapply(bioc_pkgs, requireNamespace, logical(1), quietly = TRUE)]

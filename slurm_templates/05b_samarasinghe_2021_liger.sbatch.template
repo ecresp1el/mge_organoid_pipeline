@@ -15,7 +15,7 @@ REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 CONTROL_ONLY="${CONTROL_ONLY:-false}"
 SEURAT_MODULE="${SEURAT_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
-LIGER_EXTRA_MODULES="${LIGER_EXTRA_MODULES:-gcc/13.2.0 hdf5/2.1.1}"
+LIGER_EXTRA_MODULES="${LIGER_EXTRA_MODULES:-gcc/13.2.0 hdf5/1.10.8}"
 LIGER_R_LIBS="${LIGER_R_LIBS:-${PROJECT_ROOT}/software/Rlibs/samarasinghe_liger_R4.4}"
 
 # Keep this job independent of interactive conda state. These changes are local
