@@ -29,7 +29,7 @@ from scipy import sparse
 from .paths import resolve_project_root
 
 
-MARKER_EXPRESSION_SCHEMA_VERSION = "cross_study_marker_expression_v2"
+MARKER_EXPRESSION_SCHEMA_VERSION = "cross_study_marker_expression_v3"
 
 ON_TARGET_GENES = [
     "DCX",
@@ -142,15 +142,6 @@ def default_cross_study_marker_specs(
             cluster_col="seurat_clusters",
         ),
         CrossStudyMarkerSpec(
-            study_id="walsh",
-            study_label="Walsh et al. 2024",
-            seurat_path="results/walsh_day75/walsh_day75_final_annotated.rds",
-            reduction="umap_sel",
-            sample_col="sample_id",
-            cluster_col="seurat_clusters",
-            include_in_first_plot=False,
-        ),
-        CrossStudyMarkerSpec(
             study_id="siebert_2026",
             study_label="Siebert et al. 2026",
             seurat_path="results/siebert_2026/siebert_2026_seurat.rds",
@@ -159,6 +150,14 @@ def default_cross_study_marker_specs(
             sample_col="orig.ident",
             cluster_col="seurat_clusters",
             note="RNA counts are transformed to log1p(CP10K) during export.",
+        ),
+        CrossStudyMarkerSpec(
+            study_id="walsh",
+            study_label="Walsh et al. 2024",
+            seurat_path="results/walsh_day75/walsh_day75_final_annotated.rds",
+            reduction="umap_sel",
+            sample_col="sample_id",
+            cluster_col="seurat_clusters",
         ),
         CrossStudyMarkerSpec(
             study_id="bershteyn_2025",
@@ -200,17 +199,17 @@ def included_specs(specs: Sequence[CrossStudyMarkerSpec]) -> list[CrossStudyMark
     return [spec for spec in specs if spec.include_in_first_plot]
 
 
-def run_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v2") -> Path:
+def run_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v3") -> Path:
     """Return the run directory for this workflow."""
     return resolve_project_root(project_root) / "results" / "cross_study_marker_expression" / run_label
 
 
-def table_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v2") -> Path:
+def table_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v3") -> Path:
     """Return the table directory for this workflow."""
     return run_dir(project_root, run_label) / "tables"
 
 
-def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v2") -> Path:
+def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v3") -> Path:
     """Return the plot directory for this workflow."""
     return run_dir(project_root, run_label) / "plots"
 
@@ -218,13 +217,13 @@ def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_stu
 def per_study_table_path(
     study_id: str,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v2",
+    run_label: str = "cross_study_marker_expression_v3",
 ) -> Path:
     """Return the standardized per-study marker table path."""
     return table_dir(project_root, run_label) / "per_study" / f"{study_id}_marker_expression.tsv.gz"
 
 
-def ensure_output_dirs(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v2") -> dict[str, Path]:
+def ensure_output_dirs(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v3") -> dict[str, Path]:
     """Create and return output directories."""
     paths = {
         "run_dir": run_dir(project_root, run_label),
@@ -601,7 +600,7 @@ def validate_marker_expression_table(
 def readiness_table(
     specs: Sequence[CrossStudyMarkerSpec] | None = None,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v2",
+    run_label: str = "cross_study_marker_expression_v3",
     genes: Sequence[str] = GENE_ORDER,
 ) -> pd.DataFrame:
     """Return readiness for source paths, H5AD caches, and Python marker tables."""
@@ -645,7 +644,7 @@ def readiness_table(
 
 def write_setup_tables(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v2",
+    run_label: str = "cross_study_marker_expression_v3",
     include_xiang: bool = False,
 ) -> dict[str, Path]:
     """Write canonical setup/readiness tables for the notebook."""
@@ -666,7 +665,7 @@ def write_setup_tables(
 
 def extract_available_h5ad_marker_tables(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v2",
+    run_label: str = "cross_study_marker_expression_v3",
     study_ids: Sequence[str] | None = None,
     include_xiang: bool = False,
 ) -> pd.DataFrame:
@@ -716,7 +715,7 @@ def extract_available_h5ad_marker_tables(
 def load_marker_expression_tables(
     specs: Sequence[CrossStudyMarkerSpec] | None = None,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v2",
+    run_label: str = "cross_study_marker_expression_v3",
     genes: Sequence[str] = GENE_ORDER,
     require_all: bool = True,
 ) -> pd.DataFrame:
@@ -920,7 +919,7 @@ def plot_marker_umap_grid(
 
 def plot_default_marker_grids(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v2",
+    run_label: str = "cross_study_marker_expression_v3",
     max_cells_per_study: int | None = None,
     include_xiang: bool = False,
 ) -> pd.DataFrame:
@@ -969,7 +968,7 @@ def _parse_study_ids(raw: Sequence[str] | None) -> list[str] | None:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", default=None)
-    parser.add_argument("--run-label", default="cross_study_marker_expression_v2")
+    parser.add_argument("--run-label", default="cross_study_marker_expression_v3")
     parser.add_argument("--include-xiang", action="store_true")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
