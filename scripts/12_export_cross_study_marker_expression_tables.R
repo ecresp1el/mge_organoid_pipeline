@@ -115,6 +115,14 @@ get_matrix_layer <- function(obj, assay, layer) {
   GetAssayData(obj, assay = assay, slot = layer)
 }
 
+normalize_marker_counts_log1p_cp10k <- function(marker_counts, total_counts, scale_factor = 10000) {
+  total_counts <- as.numeric(total_counts)
+  total_counts[!is.finite(total_counts) | total_counts <= 0] <- NA_real_
+  scaled <- t(t(marker_counts) / total_counts) * scale_factor
+  scaled[is.na(scaled)] <- 0
+  log1p(scaled)
+}
+
 write_tsv_gz <- function(df, path) {
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   con <- gzfile(path, open = "wt")
@@ -128,6 +136,7 @@ export_one_study <- function(row, genes, outdir, project_root) {
   object_path <- resolve_path(row$seurat_path[[1]], project_root)
   assay <- row$assay[[1]]
   layer <- row$expression_layer[[1]]
+  transform <- if ("expression_transform" %in% colnames(row)) row$expression_transform[[1]] else "none"
   reduction <- row$reduction[[1]]
   sample_col <- row$sample_col[[1]]
   cluster_col <- row$cluster_col[[1]]
@@ -149,6 +158,13 @@ export_one_study <- function(row, genes, outdir, project_root) {
   if (length(cells) == 0L) stop(study_id, " has no common cells across expression, UMAP, and metadata")
 
   expr_sub <- expr[unname(gene_match$matches[genes]), cells, drop = FALSE]
+  if (identical(transform, "log1p_cp10k")) {
+    if (!identical(layer, "counts")) {
+      warning(study_id, " requested log1p_cp10k transform from non-count layer: ", layer)
+    }
+    total_counts <- Matrix::colSums(expr[, cells, drop = FALSE])
+    expr_sub <- normalize_marker_counts_log1p_cp10k(expr_sub, total_counts)
+  }
   expr_dense <- as.matrix(t(expr_sub))
   colnames(expr_dense) <- genes
   emb_sub <- emb[cells, , drop = FALSE]
