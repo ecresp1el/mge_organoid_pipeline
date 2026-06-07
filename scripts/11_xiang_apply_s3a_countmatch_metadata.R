@@ -101,6 +101,7 @@ fwrite(comparison, file.path(table_dir, "Xiang_s3a_countmatch_condition_totals_v
 
 message("[", Sys.time(), "] Plotting from existing tSNE coordinate table")
 tsne <- fread(file.path(table_dir, "Xiang_tSNE_coordinates.tsv"))
+tsne[, barcode_suffix := as.character(barcode_suffix)]
 plot_df <- merge(
   tsne[, .(barcode, tSNE_1, tSNE_2, barcode_suffix)],
   s3a_map,
