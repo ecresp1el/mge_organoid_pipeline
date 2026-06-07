@@ -29,7 +29,8 @@ if [[ -f "${HOME}/miniconda3/etc/profile.d/conda.sh" ]]; then
   conda run -n "${PY_CONDA_ENV}" python \
     "${REPO_ROOT}/scripts/05j_convert_gse286235_h5_to_10x.py" \
     --h5-dir "${PROJECT_ROOT}/data/raw/liu_2025_hnbmo_geo_files/suppl" \
-    --out-dir "${PROJECT_ROOT}/data/raw/liu_2025_hnbmo_geo_files/suppl/10x"
+    --out-dir "${PROJECT_ROOT}/data/raw/liu_2025_hnbmo_geo_files/suppl/10x" \
+    --force
 else
   echo "Warning: conda.sh not found; assuming converted 10x directories already exist." >&2
 fi
