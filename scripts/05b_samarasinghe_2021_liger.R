@@ -47,25 +47,48 @@ suppressPackageStartupMessages({
 # Minimal arg parse (no optparse)
 args <- commandArgs(trailingOnly = TRUE)
 arg_list <- list()
-for (a in args) {
-  if (grepl("^--", a)) {
-    kv <- strsplit(sub("^--", "", a), "=", fixed = TRUE)[[1]]
-    key <- kv[1]; val <- if (length(kv) > 1) kv[2] else NA
-    arg_list[[key]] <- val
+i <- 1
+while (i <= length(args)) {
+  arg <- args[[i]]
+  if (grepl("^--", arg)) {
+    keyval <- sub("^--", "", arg)
+    if (grepl("=", keyval, fixed = TRUE)) {
+      kv <- strsplit(keyval, "=", fixed = TRUE)[[1]]
+      arg_list[[kv[[1]]]] <- if (length(kv) > 1) kv[[2]] else ""
+    } else {
+      arg_list[[keyval]] <- if (i < length(args) && !grepl("^--", args[[i + 1]])) args[[i + 1]] else ""
+      if (i < length(args) && !grepl("^--", args[[i + 1]])) i <- i + 1
+    }
   }
+  i <- i + 1
 }
-project_root <- if (!is.null(arg_list[["project-root"]])) arg_list[["project-root"]] else Sys.getenv("PROJECT_ROOT")
+arg_value <- function(name, default = "") {
+  value <- arg_list[[name]]
+  if (!is.null(value) && nzchar(value)) value else default
+}
+arg_flag <- function(name, default = FALSE) {
+  value <- arg_list[[name]]
+  if (is.null(value) || !nzchar(value)) return(default)
+  tolower(value) %in% c("1", "true", "t", "yes", "y")
+}
+
+project_root <- arg_value("project-root", Sys.getenv("PROJECT_ROOT"))
 if (project_root == "") stop("PROJECT_ROOT or --project-root is required")
 project_root <- sub("/+$", "", project_root)
+control_only <- arg_flag("control-only", FALSE)
 
-counts_path <- if (!is.null(arg_list[["counts"]])) {
-  arg_list[["counts"]]
-} else {
-  file.path(project_root, "data/raw/samarasinghe_2021_geo_files/suppl/GSE165577_Filtered_counts_all_samples.csv.gz")
-}
+counts_path <- arg_value("counts", file.path(
+  project_root,
+  "data/raw/samarasinghe_2021_geo_files/suppl/GSE165577_Filtered_counts_all_samples.csv.gz"
+))
 if (!file.exists(counts_path)) stop("Counts file not found: ", counts_path)
 
-outdir <- if (!is.null(arg_list[["outdir"]])) arg_list[["outdir"]] else file.path(project_root, "results/samarasinghe_2021_liger")
+outdir_default <- if (control_only) {
+  file.path(project_root, "results/samarasinghe_2021_liger_control_only")
+} else {
+  file.path(project_root, "results/samarasinghe_2021_liger")
+}
+outdir <- arg_value("outdir", outdir_default)
 plot_dir <- file.path(outdir, "plots")
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
@@ -83,9 +106,22 @@ rm(mat, dt); gc()
 cells <- colnames(spmat)
 sample_id <- sub("_[^_]+$", "", cells)
 
+if (control_only) {
+  control_samples <- c("d56_ctrl", "d70_ctrl", "d100_ctrl_docked_2")
+  keep <- sample_id %in% control_samples
+  message("Control-only mode: retaining ", sum(keep), " of ", length(keep), " cells")
+  if (!any(keep)) stop("No control cells found in counts matrix")
+  spmat <- spmat[, keep, drop = FALSE]
+  sample_id <- sample_id[keep]
+  cells <- cells[keep]
+}
+
 seu <- CreateSeuratObject(counts = spmat, project = "Samarasinghe2021",
                           min.cells = 1, min.features = 1)
 seu$orig.ident <- sample_id
+seu$sample_id <- sample_id
+seu$culture_day <- sub("^d([0-9]+).*$", "d\\1", sample_id)
+seu$condition <- ifelse(grepl("_rett", sample_id), "MECP2_mutant_Rett", "control_WT_MECP2")
 
 # QC metrics
 seu[["percent.mt"]] <- PercentageFeatureSet(seu, pattern = "^MT-")

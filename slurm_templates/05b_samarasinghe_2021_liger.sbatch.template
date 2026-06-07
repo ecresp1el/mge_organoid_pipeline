@@ -13,6 +13,7 @@
 
 REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+CONTROL_ONLY="${CONTROL_ONLY:-false}"
 
 # Activate the Bioinformatics stack, then load Seurat (brings its own R 4.2.0)
 module load Bioinformatics
@@ -23,4 +24,6 @@ set -euo pipefail
 mkdir -p "${PROJECT_ROOT}/logs"
 
 export PROJECT_ROOT
-Rscript "${REPO_ROOT}/scripts/05b_samarasinghe_2021_liger.R" --project-root "${PROJECT_ROOT}"
+Rscript "${REPO_ROOT}/scripts/05b_samarasinghe_2021_liger.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --control-only "${CONTROL_ONLY}"

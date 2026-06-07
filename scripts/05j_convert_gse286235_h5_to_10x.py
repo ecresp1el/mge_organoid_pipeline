@@ -80,7 +80,7 @@ def convert_one(h5_path: Path, sample_id: str, out_root: Path, force: bool) -> N
             feature_types = ["Gene Expression"] * len(feature_ids)
         barcodes = decode(group["barcodes"][:])
 
-    with gzip.open(out_dir / "matrix.mtx.gz", "wt") as handle:
+    with gzip.open(out_dir / "matrix.mtx.gz", "wb") as handle:
         scipy.io.mmwrite(handle, matrix, field="integer")
     write_gzip_lines(
         out_dir / "features.tsv.gz",
