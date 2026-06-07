@@ -100,36 +100,53 @@ feature_names_unique <- make.unique(feature_names)
 stage_rows <- list()
 suffix_rows <- list()
 
-suffix_count_df <- function(stage_order, stage, keep_cells) {
+suffix_count_df <- function(chronological_order, requested_stage, stage, keep_cells) {
   tab <- as.data.frame(table(factor(barcode_suffix[keep_cells], levels = suffix_levels)), stringsAsFactors = FALSE)
   colnames(tab) <- c("barcode_suffix", "n_cells")
-  tab$stage_order <- stage_order
+  tab$chronological_order <- chronological_order
+  tab$requested_stage <- requested_stage
   tab$stage <- stage
   tab <- merge(tab, suffix_map, by = "barcode_suffix", all.x = TRUE, sort = FALSE)
   tab <- tab[order(as.integer(tab$barcode_suffix)), ]
-  tab[, c("stage_order", "stage", "barcode_suffix", "sample", "condition", "timepoint", "replicate", "geo_accession", "n_cells")]
+  tab[
+    ,
+    c(
+      "chronological_order",
+      "requested_stage",
+      "stage",
+      "barcode_suffix",
+      "sample",
+      "condition",
+      "timepoint",
+      "replicate",
+      "geo_accession",
+      "n_cells"
+    )
+  ]
 }
 
-add_stage <- function(stage_order, stage, keep_cells, n_genes, notes = "") {
+add_stage <- function(chronological_order, requested_stage, stage, keep_cells, n_genes, notes = "") {
   stage_rows[[length(stage_rows) + 1L]] <<- data.frame(
-    stage_order = stage_order,
+    chronological_order = chronological_order,
+    requested_stage = requested_stage,
     stage = stage,
     n_cells = sum(keep_cells),
     n_genes = n_genes,
     notes = notes,
     stringsAsFactors = FALSE
   )
-  suffix_rows[[length(suffix_rows) + 1L]] <<- suffix_count_df(stage_order, stage, keep_cells)
+  suffix_rows[[length(suffix_rows) + 1L]] <<- suffix_count_df(chronological_order, requested_stage, stage, keep_cells)
 }
 
 all_cells <- rep(TRUE, ncol(counts))
-add_stage(1, "raw_matrix_loaded", all_cells, nrow(counts), "MatrixMarket raw dimensions")
-add_stage(2, "after_barcode_suffix_parsing", all_cells, nrow(counts), paste0("unmapped_suffixes=", sum(!barcode_suffix %in% suffix_levels)))
-add_stage(3, "after_sample_metadata_assignment", all_cells, nrow(counts), paste0("missing_sample_metadata=", sum(is.na(metadata$sample))))
+add_stage(1, 1, "raw_matrix_loaded", all_cells, nrow(counts), "MatrixMarket raw dimensions")
+add_stage(2, 2, "after_barcode_suffix_parsing", all_cells, nrow(counts), paste0("unmapped_suffixes=", sum(!barcode_suffix %in% suffix_levels)))
+add_stage(3, 3, "after_sample_metadata_assignment", all_cells, nrow(counts), paste0("missing_sample_metadata=", sum(is.na(metadata$sample))))
 
 # Gene-symbol conversion is chronological before filtering in the script. It
 # does not drop cells or genes because make.unique preserves one row per input.
 add_stage(
+  4,
   7,
   "after_gene_symbol_conversion",
   all_cells,
@@ -142,6 +159,7 @@ add_stage(
 gene_keep <- Matrix::rowSums(counts > 0) >= 4
 genes_after_gene_filter <- sum(gene_keep)
 add_stage(
+  5,
   4,
   "after_gene_filter_min_cells_ge_4",
   all_cells,
@@ -152,6 +170,7 @@ add_stage(
 nfeature_after_gene_filter <- Matrix::colSums(counts[gene_keep, , drop = FALSE] > 0)
 cell_keep <- nfeature_after_gene_filter >= 201
 add_stage(
+  6,
   5,
   "after_cell_filter_min_features_ge_201",
   cell_keep,
@@ -159,6 +178,7 @@ add_stage(
   paste0("cells_removed=", sum(!cell_keep))
 )
 add_stage(
+  7,
   6,
   "after_mito_count_doublet_filtering",
   cell_keep,
@@ -177,6 +197,7 @@ variable_genes <- if (file.exists(variable_gene_file)) {
 }
 add_stage(
   8,
+  8,
   "after_integration_or_feature_intersection",
   cell_keep,
   if (is.na(variable_genes)) genes_after_gene_filter else variable_genes,
@@ -185,13 +206,21 @@ add_stage(
 
 stage_counts <- do.call(rbind, stage_rows)
 suffix_counts <- do.call(rbind, suffix_rows)
-stage_counts <- stage_counts[order(stage_counts$stage_order), ]
+stage_counts <- stage_counts[order(stage_counts$chronological_order), ]
 stage_counts$cells_lost_vs_previous_stage <- c(NA_integer_, head(stage_counts$n_cells, -1) - tail(stage_counts$n_cells, -1))
 stage_counts <- stage_counts[
   ,
-  c("stage_order", "stage", "n_cells", "cells_lost_vs_previous_stage", "n_genes", "notes")
+  c(
+    "chronological_order",
+    "requested_stage",
+    "stage",
+    "n_cells",
+    "cells_lost_vs_previous_stage",
+    "n_genes",
+    "notes"
+  )
 ]
-suffix_counts <- suffix_counts[order(suffix_counts$stage_order, as.integer(suffix_counts$barcode_suffix)), ]
+suffix_counts <- suffix_counts[order(suffix_counts$chronological_order, as.integer(suffix_counts$barcode_suffix)), ]
 
 user_expected <- data.frame(
   barcode_suffix = suffix_levels,
@@ -208,7 +237,7 @@ user_expected <- data.frame(
   user_expected_cells = c(2969, 6480, 5438, 6355, 9722, 10258, 8820, 9193),
   stringsAsFactors = FALSE
 )
-raw_suffix <- suffix_count_df(1, "raw_matrix_loaded", all_cells)
+raw_suffix <- suffix_count_df(1, 1, "raw_matrix_loaded", all_cells)
 comparison <- merge(
   user_expected,
   raw_suffix[, c("barcode_suffix", "sample", "geo_accession", "n_cells")],
