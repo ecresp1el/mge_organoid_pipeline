@@ -45,6 +45,7 @@ PROJECT_ROOT/
   - Shi_2019 (GSE135827; GEO raw-count matrix + week suffix barcodes): `PROJECT_ROOT/data/raw/shi_2019_geo_files/`
   - Liu_2025_hnbMO (GSE286235; Cell Ranger raw H5s): `PROJECT_ROOT/data/raw/liu_2025_hnbmo_geo_files/`
     - Healthy samples only by default: GSM8721440, GSM8721441, GSM8721442; DS sample GSM8721443 retained for optional runs.
+  - Liu_2025_hnbMO SRA FASTQ reconstruction (PRJNA1206345; healthy only): `PROJECT_ROOT/data/raw/liu_2025_hnbmo_sra/`
   - He et al HNOCA full V2 (Zenodo 14160929): `PROJECT_ROOT/data/raw/he_et_al_zenodo/suppl/hnoca_allmeta.h5ad`
 - NeMO landing-page downloads (Siebert 2026, `nemo:dat-htzat9t`):
   - `PROJECT_ROOT/data/raw/siebert_2026_nemo/` (metadata, BDBags, subset fetch + downloads)
@@ -58,6 +59,7 @@ PROJECT_ROOT/
   - Samarasinghe_2021 LIGER (paper-matched): **not generated yet** (expected: `PROJECT_ROOT/results/samarasinghe_2021_liger/`)
   - Shi_2019: `PROJECT_ROOT/results/shi_2019/` (standalone Seurat + UMAP built from GSE135827 GEO count table)
   - Liu_2025_hnbMO: `PROJECT_ROOT/results/liu_2025_hnbmo/` (healthy-only Seurat + UMAP built from GSE286235 Cell Ranger raw H5s)
+  - Liu_2025_hnbMO Cell Ranger rerun: `PROJECT_ROOT/results/liu_2025_hnbmo_cellranger_counts/` (healthy-only `cellranger count` rerun from SRA FASTQs; pending/active)
   - Siebert_2026: `PROJECT_ROOT/results/siebert_2026/` (canonical cleaned Seurat copy path)
   - Varela (this paper): `PROJECT_ROOT/results/varela_this_paper/varela_this_paper_seurat.rds` (true copy of `/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds`)
   - He et al SCN8A slice (intermediate): `PROJECT_ROOT/data/processed/he_et_al_scn8a_slice/`
@@ -82,6 +84,7 @@ PROJECT_ROOT/
   - Figure 1C-like UMAP: `results/liu_2025_hnbmo/plots/figure1c_like_umap_by_exploratory_cell_type.{png,pdf}`
   - Sample/timepoint UMAP: `results/liu_2025_hnbmo/plots/figure1c_like_umap_by_h9_imr90_timepoint.{png,pdf}`
   - QC threshold sweep: `results/liu_2025_hnbmo_qc_sweep/plots/best_count_match_nCount_nFeature_violin.{png,pdf}` and `results/liu_2025_hnbmo_qc_sweep/tables/qc_sweep_ranking_against_reported_cell_count.tsv`
+  - SRA/Cell Ranger rerun: `results/liu_2025_hnbmo_cellranger_counts/{BF_H9_D36,BF_H9_D63,BFCO_IMR_D63}/outs/filtered_feature_bc_matrix.h5`
 - Siebert 2026 canonical Seurat path: `results/siebert_2026/siebert_2026_seurat.rds` (UMAP plot may be generated later under `results/siebert_2026/plots/`)
 - He et al full V2 SCN8A-ready Seurat: `results/he_et_al/he_et_al_scn8a_seurat.rds`; sanity plot `results/he_et_al/plots/scn8a_umap.{png,pdf}`
 
@@ -144,6 +147,7 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 - He et al full V2 download (Zenodo 14160929): `scripts/01d_download_he_et_al_zenodo.sh`
 - Shi et al GEO download (GSE135827): `scripts/01e_download_shi_geo.sh`
 - Liu 2025 hnbMO GEO download (GSE286235): `scripts/01f_download_gse286235_geo.sh`
+- Liu 2025 hnbMO SRA-to-FASTQ reconstruction: `scripts/01g_gse286235_sra_to_10x_fastqs.sh`
 - Samarasinghe 2021 Seurat/UMAP: `scripts/05_samarasinghe_2021_seurat.R`
 - Samarasinghe 2021 LIGER (paper settings): `scripts/05b_samarasinghe_2021_liger.R`
 - Xiang 2018 scRNA 10x (GSE98201) Seurat/UMAP: `scripts/05c_xiang_2018_seurat.R`
@@ -155,6 +159,7 @@ To regenerate this table from the current state of `PROJECT_ROOT`, run:
 - Shi Table S3-based cluster annotation mapping: `scripts/05i_shi_2019_annotate_from_table_s3.R`
 - Liu 2025 hnbMO healthy-only Seurat + UMAP: `scripts/05j_liu_2025_hnbmo_seurat.R`
 - Liu 2025 hnbMO raw-matrix QC threshold sweep: `scripts/05l_liu_2025_hnbmo_qc_threshold_sweep.R`
+- Liu 2025 hnbMO Cell Ranger count from reconstructed FASTQs: `scripts/05m_liu_2025_hnbmo_cellranger_count.sh`
 - Cross-study marker Panel B figure assembly (no analysis/recompute): `scripts/06_cross_study_panelB_markers.R`
 - Cross-study multi-gene UMAP panel (log1p): `scripts/06_cross_study_gene_panel_log.R`
 - Cross-study SCN8A He-vs-Varela config: `config/scn8a_he_vs_varela_config.example.R`
@@ -275,11 +280,12 @@ Below is a high-level workflow for each major study, with scripts and key input/
 - **R handover:** Use the plain Seurat object for non-paper UMAPs; use the LIGER object, once generated, for paper-style all-sample integration and WT-control-only UMAP views on the integrated manifold.
 
 ### Liu 2025 hnbMO (GSE286235)
-- **Scripts:** `scripts/01f_download_gse286235_geo.sh`, `scripts/05j_liu_2025_hnbmo_seurat.R`, `scripts/05l_liu_2025_hnbmo_qc_threshold_sweep.R`
+- **Scripts:** `scripts/01f_download_gse286235_geo.sh`, `scripts/01g_gse286235_sra_to_10x_fastqs.sh`, `scripts/05j_liu_2025_hnbmo_seurat.R`, `scripts/05l_liu_2025_hnbmo_qc_threshold_sweep.R`, `scripts/05m_liu_2025_hnbmo_cellranger_count.sh`
 - **Inputs:** Cell Ranger `raw_feature_bc_matrix.h5` files; healthy samples GSM8721440, GSM8721441, GSM8721442 are used by default
 - **Outputs:** `liu_2025_hnbmo_healthy_seurat.rds`, Figure 1C-like UMAPs, marker-score cell-type table, sample and QC tables
 - **Default exploratory assumptions:** raw H5s are converted to 10x directories; cell calling uses `nFeature_RNA >= 1360` and `percent.mt < 20`, yielding 14,249 healthy cells in a raw-H5 probe, close to the paper's 14,245 cells; downstream analysis follows Seurat tutorial-style defaults (`NormalizeData`, 2,000 HVGs, `ScaleData` without regression, PCs 1:10, resolution 0.5)
 - **QC sweep:** `scripts/05l_liu_2025_hnbmo_qc_threshold_sweep.R` compares raw observed barcode distributions, candidate cell-like `nFeature_RNA` gates, and `percent.mt` cutoffs of 5/10/15/20. Slurm job 51484257 completed on `gl3260` and ranked `nFeature_RNA >= 1360`, `percent.mt < 20` as the closest cell-count match to the reported 14,245 healthy cells (retained 14,249).
+- **Cell Ranger rerun:** `scripts/01g_gse286235_sra_to_10x_fastqs.sh` reconstructs Cell Ranger-compatible FASTQs from healthy SRA runs in PRJNA1206345; `scripts/05m_liu_2025_hnbmo_cellranger_count.sh` runs `cellranger count` with Great Lakes `cellranger/6.1.2`, `--chemistry SC3Pv3`, `--no-bam`, and `/nfs/turbo/umms-parent/Manny_human_ref/refdata-gex-GRCh38-2020-A`. This is closer to the authors' upstream workflow than raw-H5 thresholding, but not exact Cell Ranger v3.1 because Great Lakes does not expose v3.1 as a module.
 - **R handover:** After `.rds` is created, ready for cross-study marker plotting or label transfer
 
 ---

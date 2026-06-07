@@ -1,0 +1,45 @@
+#!/bin/bash
+#SBATCH --job-name=liu2025_cr_count
+#SBATCH --time=48:00:00
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=160G
+#SBATCH --nodes=1
+#SBATCH --array=1-3
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05m_liu_2025_cellranger_count_%A_%a.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05m_liu_2025_cellranger_count_%A_%a.log
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+CELLRANGER_MODULE="${CELLRANGER_MODULE:-cellranger/6.1.2}"
+CELLRANGER_REF="${CELLRANGER_REF:-/nfs/turbo/umms-parent/Manny_human_ref/refdata-gex-GRCh38-2020-A}"
+
+set -euo pipefail
+
+SAMPLES=(BF_H9_D36 BF_H9_D63 BFCO_IMR_D63)
+SAMPLE_ID="${SAMPLES[$((SLURM_ARRAY_TASK_ID - 1))]}"
+
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT CELLRANGER_REF
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Sample: ${SAMPLE_ID}"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+
+module load Bioinformatics
+module load "${CELLRANGER_MODULE}"
+
+echo "Cell Ranger module: ${CELLRANGER_MODULE}"
+echo "cellranger: $(cellranger --version)"
+
+bash "${REPO_ROOT}/scripts/05m_liu_2025_hnbmo_cellranger_count.sh" \
+  --sample-id "${SAMPLE_ID}" \
+  --project-root "${PROJECT_ROOT}" \
+  --transcriptome "${CELLRANGER_REF}" \
+  --localcores "${SLURM_CPUS_PER_TASK}" \
+  --localmem 140
+
+echo "Job finished: $(date)"
