@@ -185,7 +185,7 @@ main <- function() {
   studies <- read.delim(opt$study_table, stringsAsFactors = FALSE, check.names = FALSE)
   genes <- read.delim(opt$gene_table, stringsAsFactors = FALSE, check.names = FALSE)
   genes <- genes$gene
-  studies <- studies[studies$include_in_first_plot %in% c(TRUE, "TRUE", "true", "1"), , drop = FALSE]
+  studies <- studies[studies$include_in_first_plot %in% c(TRUE, "TRUE", "True", "true", "1"), , drop = FALSE]
   if (length(opt$study_id) > 0L) {
     studies <- studies[studies$study_id %in% opt$study_id, , drop = FALSE]
   }
