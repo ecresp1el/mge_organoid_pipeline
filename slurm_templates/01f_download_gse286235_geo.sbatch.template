@@ -1,0 +1,27 @@
+#!/bin/bash
+#SBATCH --job-name=download_gse286235
+#SBATCH --time=02:00:00
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=8G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/01f_download_gse286235_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/01f_download_gse286235_%j.log
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+
+set -euo pipefail
+
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+
+bash "${REPO_ROOT}/scripts/01f_download_gse286235_geo.sh" --project-root "${PROJECT_ROOT}"
+
+echo "Job finished: $(date)"

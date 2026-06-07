@@ -1,0 +1,47 @@
+#!/bin/bash
+#SBATCH --job-name=liu2025_hnbmo_seurat
+#SBATCH --time=08:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=128G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05j_liu_2025_hnbmo_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05j_liu_2025_hnbmo_%j.log
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+PY_CONDA_ENV="${PY_CONDA_ENV:-mge-organoid-python}"
+
+set -euo pipefail
+
+mkdir -p "${PROJECT_ROOT}/logs"
+
+export PROJECT_ROOT
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+
+if [[ -f "${HOME}/miniconda3/etc/profile.d/conda.sh" ]]; then
+  # Convert Cell Ranger H5s to 10x directories so Seurat does not require hdf5r.
+  source "${HOME}/miniconda3/etc/profile.d/conda.sh"
+  conda run -n "${PY_CONDA_ENV}" python \
+    "${REPO_ROOT}/scripts/05j_convert_gse286235_h5_to_10x.py" \
+    --h5-dir "${PROJECT_ROOT}/data/raw/liu_2025_hnbmo_geo_files/suppl" \
+    --out-dir "${PROJECT_ROOT}/data/raw/liu_2025_hnbmo_geo_files/suppl/10x"
+else
+  echo "Warning: conda.sh not found; assuming converted 10x directories already exist." >&2
+fi
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript "${REPO_ROOT}/scripts/05j_liu_2025_hnbmo_seurat.R" \
+  --project-root "${PROJECT_ROOT}"
+
+echo "Job finished: $(date)"
