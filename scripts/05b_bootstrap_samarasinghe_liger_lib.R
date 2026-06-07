@@ -61,6 +61,19 @@ install_cran_if_missing("remotes")
 install_cran_if_missing("BiocManager")
 install_cran_if_missing("R.utils")
 
+install_archive_if_missing <- function(pkg, version, url) {
+  have_pkg <- requireNamespace(pkg, quietly = TRUE)
+  have_version <- if (have_pkg) as.character(packageVersion(pkg)) else ""
+  if (!have_pkg || utils::compareVersion(have_version, version) < 0) {
+    message("Installing ", pkg, " ", version, " from CRAN Archive")
+    unlink(Sys.glob(file.path(lib_path, paste0("00LOCK*", pkg, "*"))), recursive = TRUE, force = TRUE)
+    unlink(file.path(lib_path, pkg), recursive = TRUE, force = TRUE)
+    install.packages(url, lib = lib_path, repos = NULL, type = "source")
+  } else {
+    message("Already available: ", pkg, " ", have_version)
+  }
+}
+
 bioc_pkgs <- c("S4Vectors", "DelayedArray", "HDF5Array")
 missing_bioc <- bioc_pkgs[!vapply(bioc_pkgs, requireNamespace, logical(1), quietly = TRUE)]
 if (length(missing_bioc) > 0) {
@@ -73,6 +86,15 @@ if (length(missing_bioc) > 0) {
     dependencies = c("Depends", "Imports", "LinkingTo")
   )
 }
+
+# RcppPlanc 2.0.15 currently fails to compile on this cluster because one source
+# header uses std::unique_ptr without including <memory>. rliger only requires
+# RcppPlanc >= 2.0.0, and 2.0.0 contains the needed include.
+install_archive_if_missing(
+  "RcppPlanc",
+  "2.0.0",
+  "https://cran.r-project.org/src/contrib/Archive/RcppPlanc/RcppPlanc_2.0.0.tar.gz"
+)
 
 if (!requireNamespace("rliger", quietly = TRUE)) {
   message("Installing rliger into isolated library")

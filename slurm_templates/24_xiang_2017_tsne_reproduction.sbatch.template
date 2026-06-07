@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Reconstruct Xiang 2017 eight-library metadata and reproduce paper-relevant tSNE.
+#
+# Submit:
+#   cp slurm_templates/24_xiang_2017_tsne_reproduction.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/24_xiang_2017_tsne_reproduction.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/24_xiang_2017_tsne_reproduction.sbatch
+
+#SBATCH --job-name=xiang17-tsne
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=160G
+#SBATCH --time=12:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/xiang17-tsne-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/xiang17-tsne-%x-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+XIANG_TSNE_RUN_LABEL="${XIANG_TSNE_RUN_LABEL:-xiang_2017_tsne_reproduction_v1}"
+XIANG_TSNE_SEED="${XIANG_TSNE_SEED:-1007}"
+XIANG_REGRESSION_MODEL="${XIANG_REGRESSION_MODEL:-linear}"
+# 0 means use all genes with dispersion > 0. Set to a positive integer for a faster sensitivity run.
+XIANG_MAX_VARIABLE_GENES="${XIANG_MAX_VARIABLE_GENES:-0}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+export REPO_ROOT
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export XIANG_TSNE_RUN_LABEL
+export XIANG_TSNE_SEED
+export XIANG_REGRESSION_MODEL
+export XIANG_MAX_VARIABLE_GENES
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${XIANG_TSNE_RUN_LABEL}"
+echo "Seed: ${XIANG_TSNE_SEED}"
+echo "Regression model: ${XIANG_REGRESSION_MODEL}"
+echo "Max variable genes: ${XIANG_MAX_VARIABLE_GENES}"
+echo "Rscript: $("${CONDA_ENV_BIN}/Rscript" --version 2>&1 | head -n 1)"
+
+"${CONDA_ENV_BIN}/Rscript" "${REPO_ROOT}/scripts/10_xiang_2017_tsne_reproduction.R"
+
+echo "Job finished: $(date)"

@@ -115,7 +115,9 @@ seu[["percent.mt"]] <- PercentageFeatureSet(seu, pattern = "^MT-")
 
 # Filtering: nFeature_RNA > 500, nFeature_RNA < mean+3*sd, percent.mt < 10%
 upper_thresh <- mean(seu$nFeature_RNA) + 3 * sd(seu$nFeature_RNA)
-seu <- subset(seu, subset = nFeature_RNA > 500 & nFeature_RNA < upper_thresh & percent.mt < 10)
+qc_keep <- seu$nFeature_RNA > 500 & seu$nFeature_RNA < upper_thresh & seu$percent.mt < 10
+message("QC filter retained ", sum(qc_keep), " of ", length(qc_keep), " cells")
+seu <- seu[, qc_keep]
 
 # Normalize and HVG as in paper (default Seurat)
 seu <- NormalizeData(seu)
