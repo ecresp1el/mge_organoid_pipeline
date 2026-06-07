@@ -100,13 +100,14 @@ feature_names_unique <- make.unique(feature_names)
 stage_rows <- list()
 suffix_rows <- list()
 
-suffix_count_df <- function(stage, keep_cells) {
+suffix_count_df <- function(stage_order, stage, keep_cells) {
   tab <- as.data.frame(table(factor(barcode_suffix[keep_cells], levels = suffix_levels)), stringsAsFactors = FALSE)
   colnames(tab) <- c("barcode_suffix", "n_cells")
+  tab$stage_order <- stage_order
   tab$stage <- stage
   tab <- merge(tab, suffix_map, by = "barcode_suffix", all.x = TRUE, sort = FALSE)
   tab <- tab[order(as.integer(tab$barcode_suffix)), ]
-  tab[, c("stage", "barcode_suffix", "sample", "condition", "timepoint", "replicate", "geo_accession", "n_cells")]
+  tab[, c("stage_order", "stage", "barcode_suffix", "sample", "condition", "timepoint", "replicate", "geo_accession", "n_cells")]
 }
 
 add_stage <- function(stage_order, stage, keep_cells, n_genes, notes = "") {
@@ -118,7 +119,7 @@ add_stage <- function(stage_order, stage, keep_cells, n_genes, notes = "") {
     notes = notes,
     stringsAsFactors = FALSE
   )
-  suffix_rows[[length(suffix_rows) + 1L]] <<- suffix_count_df(stage, keep_cells)
+  suffix_rows[[length(suffix_rows) + 1L]] <<- suffix_count_df(stage_order, stage, keep_cells)
 }
 
 all_cells <- rep(TRUE, ncol(counts))
@@ -185,6 +186,12 @@ add_stage(
 stage_counts <- do.call(rbind, stage_rows)
 suffix_counts <- do.call(rbind, suffix_rows)
 stage_counts <- stage_counts[order(stage_counts$stage_order), ]
+stage_counts$cells_lost_vs_previous_stage <- c(NA_integer_, head(stage_counts$n_cells, -1) - tail(stage_counts$n_cells, -1))
+stage_counts <- stage_counts[
+  ,
+  c("stage_order", "stage", "n_cells", "cells_lost_vs_previous_stage", "n_genes", "notes")
+]
+suffix_counts <- suffix_counts[order(suffix_counts$stage_order, as.integer(suffix_counts$barcode_suffix)), ]
 
 user_expected <- data.frame(
   barcode_suffix = suffix_levels,
@@ -201,7 +208,7 @@ user_expected <- data.frame(
   user_expected_cells = c(2969, 6480, 5438, 6355, 9722, 10258, 8820, 9193),
   stringsAsFactors = FALSE
 )
-raw_suffix <- suffix_count_df("raw_matrix_loaded", all_cells)
+raw_suffix <- suffix_count_df(1, "raw_matrix_loaded", all_cells)
 comparison <- merge(
   user_expected,
   raw_suffix[, c("barcode_suffix", "sample", "geo_accession", "n_cells")],
