@@ -44,25 +44,32 @@ slurm_templates/01g_gse286235_sra_to_10x_fastqs_array.sbatch.template
 slurm_templates/05m_liu_2025_hnbmo_cellranger_count_array.sbatch.template
 ```
 
-Active Slurm jobs as of 2026-06-07 17:53 EDT:
+Active Slurm jobs as of 2026-06-07 18:15 EDT:
 
 ```text
 FASTQ reconstruction array: 51484325
   51484325_1 BF_H9_D36      COMPLETED, ExitCode 0:0, elapsed 01:19:54
   51484325_2 BF_H9_D63      COMPLETED, ExitCode 0:0, elapsed 01:35:38
-  51484325_3 BFCO_IMR_D63   RUNNING on gl3260; converting/compressing SRR31892910
+  51484325_3 BFCO_IMR_D63   COMPLETED, ExitCode 0:0, elapsed 01:55:22
 
-Cell Ranger count array: 51484326
-  51484326_[1-3] PENDING with dependency afterok:51484325
+Original Cell Ranger count array: 51484326
+  51484326_[1-3] FAILED immediately, ExitCode 1:0.
+  Cause: Great Lakes cellranger/6.1.2 module sourceme references unset
+  _RUN10X while Slurm template had `set -u` active.
+
+Corrected Cell Ranger count array: 51485738
+  Submitted after patching slurm_templates/05m_liu_2025_hnbmo_cellranger_count_array.sbatch.template
+  to relax nounset only around module load.
+  Status at update: PENDING with reason None.
 ```
 
 Check status later:
 
 ```bash
-squeue -j 51484325,51484326 -o '%.18i %.9P %.28j %.8u %.2t %.10M %.6D %R'
-sacct -j 51484325,51484326 --format=JobID,JobName%28,State,ExitCode,Elapsed,MaxRSS,ReqMem -P
+squeue -j 51484325,51484326,51485738 -o '%.18i %.9P %.28j %.8u %.2t %.10M %.6D %R'
+sacct -j 51484325,51484326,51485738 --format=JobID,JobName%28,State,ExitCode,Elapsed,MaxRSS,ReqMem -P
 tail -n 60 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/01g_gse286235_sra_fastq_51484325_3.log
-tail -n 60 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05m_liu_2025_cellranger_count_51484326_1.log
+tail -n 60 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05m_liu_2025_cellranger_count_51485738_1.log
 ```
 
 Input/output locations:

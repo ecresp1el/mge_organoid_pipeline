@@ -29,8 +29,12 @@ echo "Sample: ${SAMPLE_ID}"
 echo "Repo root: ${REPO_ROOT}"
 echo "Project/data root: ${PROJECT_ROOT}"
 
+# The cellranger/6.1.2 module sourceme references optional unset variables.
+# Keep strict mode for our code, but relax nounset during module initialization.
+set +u
 module load Bioinformatics
 module load "${CELLRANGER_MODULE}"
+set -u
 
 echo "Cell Ranger module: ${CELLRANGER_MODULE}"
 echo "cellranger: $(cellranger --version)"
