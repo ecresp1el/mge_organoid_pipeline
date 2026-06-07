@@ -495,9 +495,17 @@ rsync -avh --progress \
 
 This inventory was run before bringing the cross-study UMAP objects into the
 notebook and before extending Shi-style Seurat prediction scores beyond the
-currently plotted Varela DIV30/DIV90 objects. The corrected inventory includes
-all studies from the cross-study Panel B config: Varela DIV30, Varela DIV90,
-Walsh, Bershteyn 2025, Bershteyn 2023, Xiang, Samarasinghe, and Siebert 2026.
+currently plotted Varela DIV30/DIV90 objects.
+
+Current inclusion decision:
+
+- **Include as cross-study UMAP / target datasets:** Varela DIV30, Varela DIV90,
+  Walsh, Bershteyn 2025, Bershteyn 2023, Samarasinghe 2021, and Siebert 2026.
+- **Do not include yet:** Xiang et al. The object exists, but it is not ready for
+  this comparison set because sample metadata/biology require additional
+  reconstruction and validation.
+- **Reference only:** Shi et al. 2019 is the label-transfer reference. Do not use
+  Shi as a cross-study target UMAP/comparison dataset.
 
 Script:
 
@@ -558,30 +566,30 @@ Objects inspected:
 | `walsh` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/walsh_day75/walsh_day75_final_annotated.rds` | 4,519 | 20,194 | `umap_sel` | 14,945 |
 | `bershteyn_2025` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/bershteyn_2025/bershteyn_2025_seurat.rds` | 124,583 | 45,068 | `umap` | 20,021 |
 | `bershteyn_2023` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/bershteyn_2023/bershteyn_2023_seurat.rds` | 98,042 | 45,068 | `umap` | 20,021 |
-| `xiang_2018` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/xiang_2018/xiang_2018_seurat.rds` | 58,950 | 23,287 | `umap` | 20,484 after Ensembl-to-symbol mapping |
+| `xiang_2018` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/xiang_2018/xiang_2018_seurat.rds` | 58,950 | 23,287 | `umap` | **exclude for now; not ready for cross-study inclusion** |
 | `samarasinghe_2021` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/samarasinghe_2021_zenodo_processed_object/samarasinghe_2021_zenodo_seurat.rds` | 49,942 | 27,379 | `umap` | Shi overlap not re-audited after Zenodo registration |
 | `siebert_2026` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siebert_2026/siebert_2026_seurat.rds` | 64,676 | 32,131 | `umap` | 15,305 |
 
 Readiness conclusion:
 
 ```text
-All eight configured cross-study objects now have a canonical Seurat object.
-Samarasinghe was updated to use the official Zenodo processed `datExpr` object
-instead of rebuilding from GEO counts. Re-run the cross-study prediction
-inventory/transfer step before interpreting Samarasinghe Shi label-transfer
-scores, because the older handoff audit was performed before this Zenodo object
-was registered.
+Seven target cross-study objects are currently usable: Varela DIV30, Varela
+DIV90, Walsh, Bershteyn 2025, Bershteyn 2023, Samarasinghe 2021, and Siebert
+2026. Samarasinghe was updated to use the official Zenodo processed `datExpr`
+object instead of rebuilding from GEO counts. Re-run the cross-study
+prediction inventory/transfer step before interpreting Samarasinghe Shi
+label-transfer scores, because the older handoff audit was performed before
+this Zenodo object was registered.
 
-Xiang is ready only if the GSE98201 feature map is used. The raw Xiang rownames
-are Ensembl IDs and have 0 direct overlaps with the Shi reference symbols. With
-the configured feature map, Xiang has 20,484 mapped shared Shi genes:
+Xiang is **not ready for inclusion**. The existing `xiang_2018` Seurat object
+has only `orig.ident = Xiang2018`, and the useful sample biology must be
+reconstructed from GSE98201 Cell Ranger aggregation suffixes `-1` through `-8`.
+The raw Xiang rownames are also Ensembl IDs, so marker/label-transfer work
+requires the GSE98201 feature map:
   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/data/raw/xiang_2018_geo_files/suppl/GSE98201_genes.tsv.gz
 
-Xiang sample metadata caveat:
-The existing `xiang_2018` Seurat object has only `orig.ident = Xiang2018`, but
-the GSE98201 barcodes retain Cell Ranger aggregation suffixes `-1` through `-8`.
-For Xiang 2017 tSNE reproduction, reconstruct sample metadata from barcode
-suffixes before plotting or interpreting sample biology.
+Until the Xiang metadata and biology mapping are validated, exclude Xiang from
+cross-study UMAP comparisons and Shi-style target label-transfer runs.
 
 Xiang 2017 tSNE reproduction run:
 
@@ -613,8 +621,10 @@ Recovered Xiang barcode suffix metadata:
 | `-8` | `hCO_d79_rep2` | `hCO` | `d79` | `rep2` | `GSM2684870` | 9,193 |
 
 Varela DIV30 and DIV90 already have exported Shi Seurat prediction obs tables.
-Walsh, Bershteyn, Xiang, and Siebert do not yet have Shi prediction metadata
-columns, so they need new Seurat TransferData runs before Scanpy-side plotting.
+Walsh, Bershteyn, Samarasinghe, and Siebert do not yet have Shi prediction
+metadata columns, so they need new Seurat TransferData runs before Scanpy-side
+plotting. Xiang is excluded until it is made ready. Shi itself remains the
+reference and should not be treated as a cross-study target.
 ```
 
 Primary metadata columns to use:
@@ -626,7 +636,7 @@ Primary metadata columns to use:
 | `walsh` | `sample_id` | `seurat_clusters` | `sample_id`, `orig.ident` | `seurat_clusters`, `RNA_snn_res.2` |
 | `bershteyn_2025` | `sample` | `seurat_clusters` | `sample` | `seurat_clusters`, `predicted.GEcluster`, `predicted.GEtype`, `predicted.GEgws` |
 | `bershteyn_2023` | `orig.ident` | `seurat_clusters` | `orig.ident`, `samples` | `seurat_clusters`, `celltype`, `process` |
-| `xiang_2018` | `orig.ident` | `seurat_clusters` | `orig.ident` | `seurat_clusters`, `RNA_snn_res.0.5` |
+| `xiang_2018` | **exclude for now** | **exclude for now** | `orig.ident` only in current object | `seurat_clusters`, `RNA_snn_res.0.5`; sample biology requires suffix reconstruction |
 | `samarasinghe_2021` | `orig.ident` | `seurat_clusters` | `orig.ident`, `Time`, `Genotype` | `RNA_snn_res.0.3`, `seurat_clusters`, `new.cluster.ids` |
 | `siebert_2026` | `orig.ident` | `seurat_clusters` | `orig.ident`, `sample` | `seurat_clusters`, `SCT_snn_res.1`, `SCT_snn_res.0.8` |
 
@@ -639,7 +649,7 @@ Primary sample inventory:
 | `walsh` | `GSM7979671` / `MEL1_dFB_d75` 2,273; `GSM7979672` / `MEL1_vFB_d75` 2,246 |
 | `bershteyn_2025` | `010720S` 11,834; `200520S2` 11,123; `010519S1` 10,778; `280120S` 10,776; `010519S2` 10,661; `070120S` 10,537; `220720S1` 10,345; `100620S` 9,885; `220720S2` 8,802; `150120S` 8,294; `251219S` 6,929; `200520S1` 6,756; `111219S` 5,722; `200319S` 2,141 |
 | `bershteyn_2023` | `MB279` 10,009; `MS35r41` 9,208; `r41v2ym` 8,722; `MS35mock` 8,403; `mockv2ym` 8,208; `mockv2dw` 8,206; `D0` 8,118; `MB528` 7,127; `r41v2dw` 6,656; `MB460` 6,447; `MB527` 4,933; `D14` 4,851; `MB280` 4,205; `MB461` 2,949 |
-| `xiang_2018` | `Xiang2018` 58,950 |
+| `xiang_2018` | **excluded for now**; current object has only `orig.ident = Xiang2018` 58,950, while usable sample biology requires validated suffix reconstruction |
 | `samarasinghe_2021` | `D70_Ctrl_docked_1_seurat` 10,931; `D56_Ctrl_unfused_1_seurat` 9,306; `D56_Rett_unfused_1_seurat` 9,186; `D100_Rett_docked_2_seurat` 7,561; `D100_Ctrl_docked_2_seurat` 6,698; `D70_Rett_docked_1_seurat` 6,260 |
 | `siebert_2026` | `Old_1` 16,606; `Young_2` 16,377; `Old_2` 16,073; `Young_1` 15,620 |
 
@@ -714,7 +724,7 @@ Primary cluster inventory:
 | `walsh` | `seurat_clusters`, 24 clusters: 0 through 23 |
 | `bershteyn_2025` | `seurat_clusters`, 9 clusters: 0 through 8 |
 | `bershteyn_2023` | `seurat_clusters`, 6 clusters: 0 through 5 |
-| `xiang_2018` | `seurat_clusters`, 28 clusters: 0 through 27 |
+| `xiang_2018` | **excluded for now**; `seurat_clusters`, 28 clusters: 0 through 27 exist, but sample biology/metadata are not ready |
 | `samarasinghe_2021` | `seurat_clusters`, 14 clusters: 0 through 13; manual `new.cluster.ids`, 10 labels |
 | `siebert_2026` | `seurat_clusters`, 28 clusters: 0 through 27 |
 
@@ -760,8 +770,13 @@ What is needed to extend prediction scores across studies:
    RNA features shared with Shi. Do not use sample IDs or clusters as prediction
    inputs.
 
-   For Xiang, first harmonize Ensembl rownames to gene symbols using:
+   Do not run Xiang as a target yet. If Xiang is revisited later, first
+   validate sample metadata from barcode suffixes and harmonize Ensembl rownames
+   to gene symbols using:
    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/data/raw/xiang_2018_geo_files/suppl/GSE98201_genes.tsv.gz
+
+   Do not include Shi itself as a target object. Shi remains the reference-only
+   dataset for these label-transfer comparisons.
 
    For Samarasinghe, use the official Zenodo processed object:
    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/samarasinghe_2021_zenodo_processed_object/samarasinghe_2021_zenodo_seurat.rds
