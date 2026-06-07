@@ -15,7 +15,7 @@ REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 CONTROL_ONLY="${CONTROL_ONLY:-false}"
 SEURAT_MODULE="${SEURAT_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
-LIGER_EXTRA_MODULES="${LIGER_EXTRA_MODULES:-}"
+LIGER_EXTRA_MODULES="${LIGER_EXTRA_MODULES:-gcc/13.2.0 hdf5/2.1.1}"
 LIGER_R_LIBS="${LIGER_R_LIBS:-${PROJECT_ROOT}/software/Rlibs/samarasinghe_liger_R4.4}"
 
 # Keep this job independent of interactive conda state. These changes are local
@@ -29,10 +29,6 @@ export PATH
 # LIGER wrapper modules. The R script intentionally does not install packages.
 module purge
 module load Bioinformatics
-if ! module load "${SEURAT_MODULE}"; then
-  echo "ERROR: failed to load SEURAT_MODULE=${SEURAT_MODULE}"
-  exit 1
-fi
 if [[ -n "${LIGER_EXTRA_MODULES}" ]]; then
   for extra_module in ${LIGER_EXTRA_MODULES}; do
     if ! module load "${extra_module}"; then
@@ -40,6 +36,10 @@ if [[ -n "${LIGER_EXTRA_MODULES}" ]]; then
       exit 1
     fi
   done
+fi
+if ! module load "${SEURAT_MODULE}"; then
+  echo "ERROR: failed to load SEURAT_MODULE=${SEURAT_MODULE}"
+  exit 1
 fi
 export R_LIBS_USER="${LIGER_R_LIBS}${R_LIBS_USER:+:${R_LIBS_USER}}"
 

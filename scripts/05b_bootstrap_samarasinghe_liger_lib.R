@@ -40,6 +40,7 @@ lib_path <- arg_value(
   file.path(project_root, "software/Rlibs/samarasinghe_liger_R4.4")
 )
 dir.create(lib_path, recursive = TRUE, showWarnings = FALSE)
+unlink(Sys.glob(file.path(lib_path, "00LOCK*")), recursive = TRUE, force = TRUE)
 .libPaths(c(lib_path, .libPaths()))
 
 options(repos = c(CRAN = "https://cloud.r-project.org"))
@@ -58,6 +59,19 @@ install_cran_if_missing <- function(pkg) {
 
 install_cran_if_missing("remotes")
 install_cran_if_missing("BiocManager")
+
+bioc_pkgs <- c("S4Vectors", "DelayedArray", "HDF5Array")
+missing_bioc <- bioc_pkgs[!vapply(bioc_pkgs, requireNamespace, logical(1), quietly = TRUE)]
+if (length(missing_bioc) > 0) {
+  message("Installing Bioconductor package(s): ", paste(missing_bioc, collapse = ", "))
+  BiocManager::install(
+    missing_bioc,
+    lib = lib_path,
+    ask = FALSE,
+    update = FALSE,
+    dependencies = c("Depends", "Imports", "LinkingTo")
+  )
+}
 
 if (!requireNamespace("rliger", quietly = TRUE)) {
   message("Installing rliger into isolated library")
