@@ -5,6 +5,107 @@ cell-level labels.
 
 This is not Notebook 02. It is a separate reference-mapping workflow.
 
+## Active Add-On: Wang et al. 2025 hnbMO Cell Ranger Rerun
+
+This handoff also tracks the active Wang/Liu 2025 hnbMO rerun because it is
+currently running on Great Lakes.
+
+Study:
+
+```text
+Wang et al. 2025 / GSE286235 / PRJNA1206345
+Generation of human nucleus basalis organoids with functional nbM-cortical
+cholinergic projections in transplanted assembloids
+```
+
+Goal:
+
+```text
+Rerun Cell Ranger from healthy SRA reads so downstream Seurat can use
+Cell Ranger filtered_feature_bc_matrix outputs instead of the raw-H5
+nFeature_RNA >= 1360 proxy filter.
+```
+
+Healthy samples:
+
+```text
+BF_H9_D36      H9 day 36
+BF_H9_D63      H9 day 63
+BFCO_IMR_D63   IMR90-4 day 63
+```
+
+Code/config added:
+
+```text
+config/liu_2025_hnbmo_healthy_sra_runs.tsv
+scripts/01g_gse286235_sra_to_10x_fastqs.sh
+scripts/05m_liu_2025_hnbmo_cellranger_count.sh
+slurm_templates/01g_gse286235_sra_to_10x_fastqs_array.sbatch.template
+slurm_templates/05m_liu_2025_hnbmo_cellranger_count_array.sbatch.template
+```
+
+Active Slurm jobs as of 2026-06-07 17:53 EDT:
+
+```text
+FASTQ reconstruction array: 51484325
+  51484325_1 BF_H9_D36      COMPLETED, ExitCode 0:0, elapsed 01:19:54
+  51484325_2 BF_H9_D63      COMPLETED, ExitCode 0:0, elapsed 01:35:38
+  51484325_3 BFCO_IMR_D63   RUNNING on gl3260; converting/compressing SRR31892910
+
+Cell Ranger count array: 51484326
+  51484326_[1-3] PENDING with dependency afterok:51484325
+```
+
+Check status later:
+
+```bash
+squeue -j 51484325,51484326 -o '%.18i %.9P %.28j %.8u %.2t %.10M %.6D %R'
+sacct -j 51484325,51484326 --format=JobID,JobName%28,State,ExitCode,Elapsed,MaxRSS,ReqMem -P
+tail -n 60 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/01g_gse286235_sra_fastq_51484325_3.log
+tail -n 60 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05m_liu_2025_cellranger_count_51484326_1.log
+```
+
+Input/output locations:
+
+```text
+SRA + reconstructed FASTQs:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/data/raw/liu_2025_hnbmo_sra/
+
+FASTQs:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/data/raw/liu_2025_hnbmo_sra/fastqs/{BF_H9_D36,BF_H9_D63,BFCO_IMR_D63}/
+
+Cell Ranger outputs, once dependency releases:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/liu_2025_hnbmo_cellranger_counts/{BF_H9_D36,BF_H9_D63,BFCO_IMR_D63}/outs/filtered_feature_bc_matrix.h5
+```
+
+FASTQ reconstruction assumptions:
+
+```text
+Use healthy SRA runs only.
+Treat each SRA run as one lane for its sample.
+Use fasterq-dump --split-files --include-technical.
+Rename to Cell Ranger-style names: <sample>_S1_L00x_R{1,2}_001.fastq.gz.
+```
+
+Cell Ranger rerun assumptions:
+
+```text
+Great Lakes module: cellranger/6.1.2
+Authors reported: Cell Ranger v3.1
+Chemistry: --chemistry SC3Pv3
+Reference: /nfs/turbo/umms-parent/Manny_human_ref/refdata-gex-GRCh38-2020-A
+Storage saver: --no-bam
+Cell calling: Cell Ranger default; no --force-cells and no nFeature proxy filter
+```
+
+Important caveat:
+
+```text
+This is closer to the authors' upstream workflow than filtering GEO raw H5s,
+but it is not exact-author because Great Lakes does not expose Cell Ranger 3.1
+and the paper did not report the exact GRCh38 reference bundle.
+```
+
 ## Core Rule
 
 DIV30 `seurat_clusters` are not used for prediction.
