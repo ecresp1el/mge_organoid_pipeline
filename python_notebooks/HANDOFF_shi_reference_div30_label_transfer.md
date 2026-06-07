@@ -478,6 +478,41 @@ are Ensembl IDs and have 0 direct overlaps with the Shi reference symbols. With
 the configured feature map, Xiang has 20,484 mapped shared Shi genes:
   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/data/raw/xiang_2018_geo_files/suppl/GSE98201_genes.tsv.gz
 
+Xiang sample metadata caveat:
+The existing `xiang_2018` Seurat object has only `orig.ident = Xiang2018`, but
+the GSE98201 barcodes retain Cell Ranger aggregation suffixes `-1` through `-8`.
+For Xiang 2017 tSNE reproduction, reconstruct sample metadata from barcode
+suffixes before plotting or interpreting sample biology.
+
+Xiang 2017 tSNE reproduction run:
+
+```text
+Slurm job: 51483745
+Script: scripts/10_xiang_2017_tsne_reproduction.R
+Slurm template: slurm_templates/24_xiang_2017_tsne_reproduction.sbatch.template
+Output root:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/xiang_2017_tsne_reproduction/xiang_2017_tsne_reproduction_v1
+```
+
+This is a modern approximation of the Xiang et al. Seurat v1.4 workflow unless
+an old Seurat v1.4 runtime is added later. The run uses paper-style filters
+(`min.cells = 4`, `min.features = 201`), per-cell log2 normalization, variable
+genes with dispersion > 0, regression of `sample` and `nCount_RNA`, 20 PCs, and
+tSNE using PC1-PC5 only.
+
+Recovered Xiang barcode suffix metadata:
+
+| barcode_suffix | sample | condition | timepoint | replicate | GEO accession | raw barcodes |
+| --- | --- | --- | --- | --- | --- | ---: |
+| `-1` | `hMGEO_d30_rep1` | `hMGEO` | `d30` | `rep1` | `GSM2589129` | 6,480 |
+| `-2` | `hCO_d30_rep1` | `hCO` | `d30` | `rep1` | `GSM2589130` | 2,969 |
+| `-3` | `hMGEO_d72_rep1` | `hMGEO` | `d72` | `rep1` | `GSM2589131` | 9,722 |
+| `-4` | `hCO_d72_rep1` | `hCO` | `d72` | `rep1` | `GSM2589132` | 10,258 |
+| `-5` | `hMGEO_d30_rep2` | `hMGEO` | `d30` | `rep2` | `GSM2684867` | 5,438 |
+| `-6` | `hCO_d30_rep2` | `hCO` | `d30` | `rep2` | `GSM2684868` | 6,355 |
+| `-7` | `hMGEO_d79_rep2` | `hMGEO` | `d79` | `rep2` | `GSM2684869` | 8,821 |
+| `-8` | `hCO_d79_rep2` | `hCO` | `d79` | `rep2` | `GSM2684870` | 9,193 |
+
 Varela DIV30 and DIV90 already have exported Shi Seurat prediction obs tables.
 Walsh, Bershteyn, Xiang, and Siebert do not yet have Shi prediction metadata
 columns, so they need new Seurat TransferData runs before Scanpy-side plotting.
