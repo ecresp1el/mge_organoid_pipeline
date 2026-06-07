@@ -554,6 +554,23 @@ Key Siebert 2026 metadata values:
   `MGE_IN` 10,899, `Radial_glia` 10,386, `Neuroblast` 7,185, and
   `CGE_NR2F2/PROX1` 3,850.
 
+Siebert 2026 organoid-age interpretation:
+
+- The paper describes single-cell RNA-seq of MGE-enriched GE organoids at
+  `DIV51` and `DIV164`, derived from four independent cell lines. Treat
+  `Young_*` as the younger organoid-age group and `Old_*` as the older
+  organoid-age group. Based on the methods, the likely mapping is
+  `Young = DIV51` and `Old = DIV164`.
+- The `_1` and `_2` suffixes are best interpreted as sequencing/library
+  lane-style batches within each age group, because the methods state that
+  cell lines from the same age were pooled and run in two lanes.
+- The methods list cell lines `H28126`, `H1`, and `WTCII` at both `DIV51` and
+  `DIV164`, and `13234` at `DIV51` only. In the current Seurat object, only
+  `CellLine4` is absent from the `Old_*` groups, so `CellLine4` is consistent
+  with the DIV51-only line (`13234`). The object does not encode a direct
+  mapping from `CellLine1`-`CellLine3` to `H28126`/`H1`/`WTCII`, so keep those
+  labels anonymized unless an external demultiplexing key is found.
+
 Primary cluster inventory:
 
 | study_id | cluster summary |
