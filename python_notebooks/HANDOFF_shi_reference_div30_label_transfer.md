@@ -1286,3 +1286,180 @@ Corrected submitted run:
   Pre-submit reference-label join check: 55,704 / 56,136 matched (99.23%)
   Completion marker: present
 ```
+
+## 2026-06-07 Cross-Study Shi Seurat Transfer Status
+
+New workflow target:
+
+```text
+Run label:
+  cross_study_shi_seurat_label_transfer_v1
+
+Output root:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1
+```
+
+Code added/updated for this cross-study workflow:
+
+```text
+scripts/13_run_cross_study_shi_seurat_label_transfer.R
+python_notebooks/src/mge_organoid_python/cross_study_shi_prediction_plots.py
+python_notebooks/scripts/run_cross_study_shi_prediction_plots.py
+python_notebooks/notebooks/cross_study_shi_prediction_scores.ipynb
+slurm_templates/26_cross_study_shi_seurat_label_transfer.sbatch.template
+slurm_templates/27_cross_study_shi_seurat_label_transfer_array.sbatch.template
+slurm_templates/28_finalize_cross_study_shi_prediction_plots.sbatch.template
+```
+
+Important implementation details:
+
+```text
+- Shi is reference only.
+- Xiang is excluded.
+- Varela DIV30 and DIV90 reuse existing Seurat TransferData score exports.
+- Reused Varela tables do not carry UMAP columns, so Python augments UMAP/sample/cluster
+  metadata from the existing Varela H5AD caches during combine/plot.
+- Non-Varela targets run Seurat FindTransferAnchors + TransferData from the Shi RDS.
+- The Shi RDS has week_label but not a major shi_label column, so the R workflow attaches
+  major labels from the validated existing TSV:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1/seurat/shi_reference_labels_for_seurat.tsv
+- Prediction inputs remain RNA expression only. Samples, clusters, author labels, and UMAP
+  coordinates are not used for prediction.
+- TransferData k.weight is adaptive:
+    n_anchors >= 100 -> k.weight = 50
+    n_anchors < 100  -> k.weight = min(4, n_anchors - 1)
+```
+
+Serial job attempts:
+
+```text
+51486655:
+  State: FAILED
+  Partition: largemem
+  Reason:
+    siebert_2026 produced only 25 anchors.
+    TransferData failed because default k.weight was larger than the anchor count:
+      "Please set k.weight to be smaller than the number of anchors (25)."
+
+51486702:
+  State: FAILED
+  Partition: largemem
+  Change:
+    set k.weight = min(50, n_anchors - 1).
+  Reason:
+    siebert_2026 still failed.
+    Seurat reported:
+      "Number of anchor cells is less than k.weight. Consider lowering k.weight to less than 5..."
+
+51486807:
+  State: CANCELLED
+  Reason:
+    cancelled manually after deciding to switch from one serial all-study job to a per-study array.
+```
+
+Parallel array jobs:
+
+```text
+Array job:
+  51486835
+
+Final combine/plot job:
+  51486836
+  Dependency:
+    afterok:51486835
+
+Array mapping:
+  51486835_1  siebert_2026
+  51486835_2  walsh
+  51486835_3  bershteyn_2025
+  51486835_4  bershteyn_2023
+  51486835_5  samarasinghe_2021
+```
+
+Status as of 2026-06-07 22:09 EDT:
+
+```text
+Completed per-study outputs:
+  varela_div30  reused existing Seurat predictions
+  varela_div90  reused existing Seurat predictions
+  walsh         completed new Seurat transfer successfully
+
+Running:
+  51486835_3  bershteyn_2025
+  51486835_4  bershteyn_2023
+
+Pending:
+  51486835_5  samarasinghe_2021
+  51486836    final combine/plot job, currently held by dependency
+
+Failed:
+  51486835_1  siebert_2026
+```
+
+Current per-study obs tables present:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1/tables/per_study/varela_div30_shi_seurat_label_transfer_obs.tsv.gz
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1/tables/per_study/varela_div90_shi_seurat_label_transfer_obs.tsv.gz
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1/tables/per_study/walsh_shi_seurat_label_transfer_obs.tsv.gz
+```
+
+Walsh completed details:
+
+```text
+Shared features: 14,945
+Anchors: 3,183
+TransferData k.weight: 50
+Warning:
+  zero predicted cells for Excitatory IPC, Microglia, Endothelial
+Interpretation:
+  This is not a runtime failure. Keep zero-count labels in summaries/legends.
+```
+
+Siebert failure details:
+
+```text
+Shared features: 15,305
+Anchors: 25
+TransferData k.weight after patch: 4
+Failure:
+  Error in data.frame(predicted.id = prediction.ids, prediction.score = as.matrix(prediction.scores),  :
+    arguments imply differing number of rows: 0, 64676
+
+Interpretation:
+  Siebert is not just a default-k.weight problem. The low/poor anchor set is causing
+  Seurat TransferData to return no predicted IDs while retaining a score matrix with
+  64,676 query rows. Treat siebert_2026 as a special failed target for now.
+```
+
+Recommended next actions:
+
+```text
+1. Let 51486835_3, 51486835_4, and 51486835_5 finish.
+2. Because 51486835_1 failed, 51486836 will not run automatically under afterok.
+3. After the successful array tasks finish, manually run the Python final combine/plot
+   for available successful studies, excluding siebert_2026 unless it is debugged.
+4. Debug siebert_2026 separately. Possible directions:
+     - inspect RNA assay/layers and feature naming in the Siebert object
+     - try fewer dims or a different anchor reduction strategy
+     - verify whether its RNA data layer is sparse/empty/odd after JoinLayers
+     - consider excluding Siebert from this first cross-study Seurat-transfer figure
+       if anchors remain too weak.
+```
+
+Status/check commands:
+
+```bash
+squeue -j 51486835,51486836 -o '%.20i %.9P %.30j %.8u %.2t %.10M %.6D %R'
+
+sacct -j 51486835,51486836 \
+  --format=JobID,JobName%30,State,ExitCode,Elapsed,MaxRSS,ReqMem -P
+
+for i in 1 2 3 4 5; do
+  echo "==== task ${i} ===="
+  tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-xfer-array-51486835_${i}.err
+done
+
+find /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1/tables/per_study \
+  -maxdepth 1 -type f -name '*_shi_seurat_label_transfer_obs.tsv.gz' -printf '%f\t%TY-%Tm-%Td %TH:%TM\t%s\n' | sort
+```
