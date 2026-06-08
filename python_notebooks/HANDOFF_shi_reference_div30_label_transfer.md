@@ -538,7 +538,7 @@ Slurm template:
 Current run label:
 
 ```text
-cross_study_marker_expression_v6
+cross_study_marker_expression_v7
 ```
 
 Data provenance and expression scale:
@@ -578,7 +578,11 @@ Layout logic:
   `Samarasinghe et al. 2021`.
 - Row labels include the number of cells plotted for that study.
 - All cells for each study are drawn in grey as the UMAP background.
-- Cells with expression greater than zero are overlaid in color.
+- Cells with expression greater than zero are overlaid using a grey-to-red
+  expression colormap, and each per-gene colorbar uses that same grey-to-red
+  scale.
+- Marker-expression v7 uses 3x larger dots than v6 for both the grey background
+  layer and the colored expression overlay.
 - The combined ON/OFF plot draws a vertical divider between the last ON-target
   gene (`NKX2-1`) and the first OFF-target gene (`SP8`).
 - Each gene column has its own colorbar. That color scale is shared across all
