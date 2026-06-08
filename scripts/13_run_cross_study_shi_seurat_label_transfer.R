@@ -549,6 +549,7 @@ reuse_existing_obs <- function(study, table_per_study_dir, seurat_dir, project_r
     n_reference_cells = NA_integer_,
     n_shared_features = NA_integer_,
     n_anchors = NA_integer_,
+    transfer_k_weight = NA_integer_,
     label_score_columns_exported = paste(label_score_cols, collapse = ","),
     week_score_columns_exported = paste(week_score_cols, collapse = ","),
     n_missing_prediction = sum(is.na(obs$shi_seurat_full_predicted_shi_label) | !nzchar(as.character(obs$shi_seurat_full_predicted_shi_label))),
@@ -611,12 +612,19 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
     dims = dims_use,
     verbose = TRUE
   )
+  n_anchors <- nrow(anchors@anchors)
+  if (n_anchors < 2L) {
+    stop(study_id, " produced too few transfer anchors: ", n_anchors, call. = FALSE)
+  }
+  transfer_k_weight <- if (n_anchors < 100L) min(4L, n_anchors - 1L) else 50L
+  log_msg("TransferData k.weight for ", study_id, ": ", transfer_k_weight, " (anchors=", n_anchors, ")")
 
   log_msg("TransferData major Shi labels for ", study_id)
   predictions <- as.data.frame(Seurat::TransferData(
     anchorset = anchors,
     refdata = reference@meta.data[[label_col]],
     dims = dims_use,
+    k.weight = transfer_k_weight,
     verbose = TRUE
   ), stringsAsFactors = FALSE)
   predictions <- data.frame(cell_id = rownames(predictions), predictions, check.names = FALSE)
@@ -629,6 +637,7 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
     anchorset = anchors,
     refdata = reference@meta.data[[week_col]],
     dims = dims_use,
+    k.weight = transfer_k_weight,
     verbose = TRUE
   ), stringsAsFactors = FALSE)
   week_predictions <- data.frame(cell_id = rownames(week_predictions), week_predictions, check.names = FALSE)
@@ -661,7 +670,8 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
     n_query_cells = ncol(query),
     n_reference_cells = ncol(reference),
     n_shared_features = length(shared_features),
-    n_anchors = nrow(anchors@anchors),
+    n_anchors = n_anchors,
+    transfer_k_weight = transfer_k_weight,
     label_score_columns_exported = paste(label_score_cols, collapse = ","),
     week_score_columns_exported = paste(week_score_cols, collapse = ","),
     n_missing_prediction = sum(is.na(obs$shi_seurat_full_predicted_shi_label) | !nzchar(as.character(obs$shi_seurat_full_predicted_shi_label))),

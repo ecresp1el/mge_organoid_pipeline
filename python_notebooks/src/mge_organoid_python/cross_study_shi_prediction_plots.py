@@ -511,6 +511,17 @@ def write_summary_tables(data: pd.DataFrame, paths: OutputPaths) -> dict[str, Pa
     _gw_summary(["study_id", "study_label"], "gw_summary_by_study")
     _gw_summary(sample_index, "gw_summary_by_sample")
 
+    per_study_diags = sorted(paths.seurat_dir.glob("*_shi_seurat_full_transfer_diagnostics.tsv"))
+    if per_study_diags:
+        diagnostics = []
+        for path in per_study_diags:
+            diagnostics.append(pd.read_csv(path, sep="\t"))
+        diag_combined = pd.concat(diagnostics, ignore_index=True)
+        diag_combined.to_csv(paths.diagnostics_dir / "cross_study_shi_transfer_diagnostics_summary.tsv", sep="\t", index=False)
+        diag_combined.to_csv(paths.table_dir / "cross_study_shi_transfer_diagnostics_summary.tsv", sep="\t", index=False)
+        outputs["diagnostics_summary"] = paths.table_dir / "cross_study_shi_transfer_diagnostics_summary.tsv"
+        return outputs
+
     diag_src = paths.diagnostics_dir / "cross_study_shi_transfer_diagnostics_summary.tsv"
     diag_dst = paths.table_dir / "cross_study_shi_transfer_diagnostics_summary.tsv"
     if diag_src.exists():
