@@ -45,6 +45,11 @@ STUDY_LABELS = {
     "samarasinghe_2021": "Samarasinghe et al. 2021",
 }
 
+VARELA_H5AD_PATHS = {
+    "varela_div30": "results/python_anndata/varela_div30.h5ad",
+    "varela_div90": "results/python_anndata/varela_div90.h5ad",
+}
+
 SHI_LABEL_ORDER = [
     "MGE",
     "LGE",
@@ -285,6 +290,70 @@ def normalize_obs_table(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
+def resolve_project_path(path: str | Path, project_root: str | Path | None = None) -> Path:
+    raw = Path(path).expanduser()
+    if raw.is_absolute():
+        return raw
+    return resolve_project_root(project_root) / raw
+
+
+def augment_reused_varela_from_h5ad(
+    data: pd.DataFrame,
+    study_id: str,
+    project_root: str | Path | None = None,
+) -> pd.DataFrame:
+    """Add UMAP/sample/cluster metadata to reused Varela Seurat prediction tables."""
+    if study_id not in VARELA_H5AD_PATHS or {"umap_1", "umap_2"}.issubset(data.columns):
+        return data
+    h5ad_path = resolve_project_path(VARELA_H5AD_PATHS[study_id], project_root)
+    if not h5ad_path.exists():
+        raise FileNotFoundError(f"{study_id} reused predictions need UMAP coordinates; missing H5AD: {h5ad_path}")
+    from .cross_study_marker_expression import (
+        _read_h5ad_dataframe_index,
+        _read_h5ad_dataframe_value,
+        _read_h5ad_obsm,
+    )
+    import h5py
+
+    with h5py.File(h5ad_path, "r") as handle:
+        obs_names = pd.Index(_read_h5ad_dataframe_index(handle["obs"]).astype(str), name="_h5ad_cell_id")
+        umap, _ = _read_h5ad_obsm(handle, ("X_umap_seurat", "X_umap"))
+        sample_values = _read_h5ad_dataframe_value(handle["obs"], "orig.ident")
+        if sample_values is None:
+            sample_values = np.full(obs_names.shape[0], "", dtype=object)
+        cluster_values = _read_h5ad_dataframe_value(handle["obs"], "seurat_clusters")
+        if cluster_values is None:
+            cluster_values = np.full(obs_names.shape[0], "", dtype=object)
+    meta = pd.DataFrame(
+        {
+            "_h5ad_cell_id": obs_names.astype(str),
+            "_h5ad_umap_1": umap[:, 0],
+            "_h5ad_umap_2": umap[:, 1],
+            "_h5ad_sample": sample_values.astype(str),
+            "_h5ad_cluster": cluster_values.astype(str),
+        }
+    )
+    out = data.copy()
+    join_col = ""
+    for candidate in ["cell_id", "cell_id_for_join"]:
+        if candidate in out.columns and out[candidate].astype(str).isin(set(meta["_h5ad_cell_id"])).all():
+            join_col = candidate
+            break
+    if not join_col:
+        raise ValueError(f"{study_id} reused prediction cell IDs could not be matched to H5AD obs names: {h5ad_path}")
+    out = out.merge(meta, left_on=join_col, right_on="_h5ad_cell_id", how="left", sort=False)
+    if out["_h5ad_umap_1"].isna().any() or out["_h5ad_umap_2"].isna().any():
+        raise ValueError(f"{study_id} H5AD UMAP join left missing coordinates.")
+    out["umap_1"] = out["_h5ad_umap_1"]
+    out["umap_2"] = out["_h5ad_umap_2"]
+    if "sample" not in out.columns:
+        out["sample"] = out["_h5ad_sample"]
+    if "cluster" not in out.columns:
+        out["cluster"] = out["_h5ad_cluster"]
+    drop_cols = [col for col in out.columns if col.startswith("_h5ad_")]
+    return out.drop(columns=drop_cols)
+
+
 def compute_expected_gw(data: pd.DataFrame) -> pd.DataFrame:
     data = data.copy()
     cols = week_score_columns(data)
@@ -343,6 +412,7 @@ def load_per_study_tables(
             missing.append(f"{study_id}: {path}")
             continue
         table = pd.read_csv(path, sep="\t")
+        table = augment_reused_varela_from_h5ad(table, study_id, project_root)
         tables.append(normalize_obs_table(table))
     if missing:
         raise FileNotFoundError("Missing per-study Shi obs tables:\n" + "\n".join(missing))

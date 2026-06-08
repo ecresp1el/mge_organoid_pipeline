@@ -503,9 +503,8 @@ reuse_existing_obs <- function(study, table_per_study_dir, seurat_dir, project_r
   if (!nzchar(path) || !file.exists(path)) return(NULL)
   log_msg("Reusing existing Seurat prediction obs table for ", study$study_id[[1]], ": ", path)
   obs <- read_tsv_maybe_gz(path)
-  obs <- augment_reused_obs_from_query(study, obs, project_root)
   required <- c(
-    "cell_id", "umap_1", "umap_2", "shi_seurat_full_predicted_shi_label",
+    "cell_id", "shi_seurat_full_predicted_shi_label",
     "shi_seurat_full_prediction_score", "shi_seurat_full_predicted_shi_week_label",
     "shi_seurat_full_week_prediction_score"
   )
