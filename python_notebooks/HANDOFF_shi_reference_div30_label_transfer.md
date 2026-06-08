@@ -514,6 +514,91 @@ Current inclusion decision:
 - **Reference only:** Shi et al. 2019 is the label-transfer reference. Do not use
   Shi as a cross-study target UMAP/comparison dataset.
 
+## Cross-Study Marker Expression Plot Workflow
+
+This is the Python-side workflow for the first major cross-study marker-expression
+figure. It is **not** a Shi prediction-score plot. It plots marker-gene expression
+directly on each study's own UMAP coordinates.
+
+Code entrypoints:
+
+```text
+Python module:
+  python_notebooks/src/mge_organoid_python/cross_study_marker_expression.py
+Notebook:
+  python_notebooks/notebooks/cross_study_marker_expression.ipynb
+CLI wrapper:
+  python_notebooks/scripts/run_cross_study_marker_expression.py
+Seurat exporter:
+  scripts/12_export_cross_study_marker_expression_tables.R
+Slurm template:
+  slurm_templates/25_cross_study_marker_expression.sbatch.template
+```
+
+Current run label:
+
+```text
+cross_study_marker_expression_v6
+```
+
+Data provenance and expression scale:
+
+- Varela DIV30 and Varela DIV90 are read from existing AnnData/H5AD caches:
+  `results/python_anndata/varela_div30.h5ad` and
+  `results/python_anndata/varela_div90.h5ad`.
+- Walsh, Bershteyn 2025, Bershteyn 2023, Samarasinghe 2021, and Siebert 2026
+  are exported from the registered Seurat objects using
+  `scripts/12_export_cross_study_marker_expression_tables.R`.
+- The standardized per-cell tables are written under:
+  `results/cross_study_marker_expression/<run_label>/tables/per_study/`.
+- Each table contains `cell_id`, `study_id`, `study_label`, `sample`, `cluster`,
+  `umap_1`, `umap_2`, and one column per marker gene.
+- Expression values are log-normalized expression used for plotting. Varela,
+  Walsh, Bershteyn 2025, Bershteyn 2023, and Samarasinghe use the configured
+  Seurat/AnnData RNA `data` values. Siebert 2026 is exported from RNA `counts`
+  and transformed during export to `log1p(CP10K)`.
+- The figure label is:
+  `log1p(CP10K); each gene column has its own scale`.
+
+Current marker panels:
+
+- ON-target genes:
+  `DCX`, `GAD2`, `DLX5`, `LHX6`, `MAF`, `SST`, `PVALB`, `ERBB4`, `MEF2C`,
+  `MAFB`, `LHX8`, `NKX2-1`.
+- OFF-target genes:
+  `SP8`, `PAX6`, `NEUROD2`, `ISL1`, `ACHE`, `NKX6-2`, `MKI67`.
+
+Layout logic:
+
+- Studies are rows.
+- Genes are columns.
+- Study rows are ordered as:
+  `This Study, DIV 30`, `This Study, DIV 90`, `Siebert et al. 2026`,
+  `Walsh et al. 2025`, `Bershteyn et al. 2025`, `Bershteyn et al. 2023`,
+  `Samarasinghe et al. 2021`.
+- Row labels include the number of cells plotted for that study.
+- All cells for each study are drawn in grey as the UMAP background.
+- Cells with expression greater than zero are overlaid in color.
+- The combined ON/OFF plot draws a vertical divider between the last ON-target
+  gene (`NKX2-1`) and the first OFF-target gene (`SP8`).
+- Each gene column has its own colorbar. That color scale is shared across all
+  study rows for that gene, so comparisons are fair within a gene across
+  studies. Do **not** interpret color intensity as directly comparable between
+  different gene columns, because each gene has its own scale.
+
+Plot-study toggle:
+
+- Study exclusion is a plotting filter, not a data-export deletion.
+- The Slurm/notebook environment variable is:
+  `CROSS_STUDY_MARKER_EXCLUDE_STUDIES`.
+- Default for the current iteration:
+  `CROSS_STUDY_MARKER_EXCLUDE_STUDIES=bershteyn_2025`.
+- To include all studies in a future run, set:
+  `CROSS_STUDY_MARKER_EXCLUDE_STUDIES=none`.
+- To exclude multiple studies, use comma-, semicolon-, or space-separated study
+  IDs, for example:
+  `CROSS_STUDY_MARKER_EXCLUDE_STUDIES="bershteyn_2025 walsh"`.
+
 Script:
 
 ```text

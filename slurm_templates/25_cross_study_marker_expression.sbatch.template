@@ -25,9 +25,10 @@ module load "${SEURAT5_MODULE}"
 REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
 PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
 CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
-CROSS_STUDY_MARKER_RUN_LABEL="${CROSS_STUDY_MARKER_RUN_LABEL:-cross_study_marker_expression_v5}"
+CROSS_STUDY_MARKER_RUN_LABEL="${CROSS_STUDY_MARKER_RUN_LABEL:-cross_study_marker_expression_v6}"
 CROSS_STUDY_MARKER_SEURAT_STUDIES="${CROSS_STUDY_MARKER_SEURAT_STUDIES:-walsh,bershteyn_2025,bershteyn_2023,samarasinghe_2021,siebert_2026}"
 CROSS_STUDY_MARKER_MAX_CELLS_PER_STUDY="${CROSS_STUDY_MARKER_MAX_CELLS_PER_STUDY:-}"
+CROSS_STUDY_MARKER_EXCLUDE_STUDIES="${CROSS_STUDY_MARKER_EXCLUDE_STUDIES:-bershteyn_2025}"
 
 RUN_DIR="${PROJECT_ROOT}/results/cross_study_marker_expression/${CROSS_STUDY_MARKER_RUN_LABEL}"
 TABLE_DIR="${RUN_DIR}/tables"
@@ -42,6 +43,9 @@ mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${PER_STUDY_DIR}" "${EXE
 cd "${REPO_ROOT}"
 
 export PROJECT_ROOT
+export CROSS_STUDY_MARKER_RUN_LABEL
+export CROSS_STUDY_MARKER_MAX_CELLS_PER_STUDY
+export CROSS_STUDY_MARKER_EXCLUDE_STUDIES
 export PATH="${CONDA_ENV_BIN}:${PATH}"
 export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
 
@@ -52,6 +56,7 @@ echo "Project/data root: ${PROJECT_ROOT}"
 echo "Run label: ${CROSS_STUDY_MARKER_RUN_LABEL}"
 echo "Seurat studies: ${CROSS_STUDY_MARKER_SEURAT_STUDIES}"
 echo "Max cells per study for plotting: ${CROSS_STUDY_MARKER_MAX_CELLS_PER_STUDY:-none}"
+echo "Excluded studies from plots: ${CROSS_STUDY_MARKER_EXCLUDE_STUDIES:-none}"
 echo "Executed notebook: ${EXECUTED_PATH}"
 echo "Seurat module: ${SEURAT5_MODULE}"
 echo "python: $("${CONDA_ENV_BIN}/python" --version)"
