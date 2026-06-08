@@ -760,6 +760,37 @@ Prediction UMAP aesthetic update on 2026-06-08:
   were complete before cancellation. The plot-only Slurm template has since been
   updated to call the new `plot-umap` command so future aesthetic rerenders only
   regenerate UMAP grids.
+- Prediction UMAP rerender job `51533477` completed after aligning the plotted
+  cohort with the marker-expression PV figure: `bershteyn_2025` is excluded from
+  prediction UMAP grids, and `samarasinghe_2021` is filtered internally to
+  control samples only. The filter audit table is:
+  `tables/cross_study_shi_umap_internal_plot_filter_summary.tsv`.
+- `Max label score` and `Max GW score` are no longer included as UMAP grid
+  columns. There is no maximum-prediction-score threshold/filter for including
+  cells in prediction UMAPs.
+
+Prediction-score decision still needed:
+
+- The exported Shi scores come from Seurat `TransferData` output: `predicted.id`,
+  `prediction.score.max`, and the per-class `prediction.score.<label>` columns.
+  This is Seurat's anchor-weighted label-support score.
+- The pipeline does **not** call `GetTransferPredictions()` and therefore does
+  **not** apply its default `score.filter = 0.75` behavior that would return
+  `"Unassigned"` for lower-confidence cells.
+- Current UMAP plots therefore show all cells that pass the plot-level filters
+  using the raw Seurat prediction/support scores. There is no score cutoff.
+- Decision to make before final interpretation: keep the raw `TransferData`
+  labels/scores for all plotted cells, or add an explicit confidence policy
+  such as `score >= 0.75` / `"Unassigned"` / study-specific audit threshold.
+  If this changes, it should be documented as an interpretation/filtering
+  decision rather than a change to the underlying Seurat score formula.
+- For gestational-week score panels, duplicate Shi week classes are collapsed
+  after Seurat transfer by summing default per-class support scores that map to
+  the same canonical GW label, e.g. `GW12`, `GW12_01`, and `GW12_02` become
+  one plotted `GW12` score column; `GW18` and `GW18_01` become one plotted
+  `GW18` score column. The individual GW score grid now uses the ordered unique
+  GW columns `GW09`, `GW12`, `GW13`, `GW16`, `GW18`. This is a
+  label-granularity correction, not a new anchor-weighting method.
 
 ## Cross-Study Marker Expression Plot Workflow
 
@@ -1622,9 +1653,15 @@ Important implementation details:
     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1/seurat/shi_reference_labels_for_seurat.tsv
 - Prediction inputs remain RNA expression only. Samples, clusters, author labels, and UMAP
   coordinates are not used for prediction.
-- TransferData k.weight is adaptive:
+- One Seurat parameter required explicit handling during cross-study transfer:
+  `TransferData(k.weight)`. The initial Siebert 2026 serial run produced too
+  few anchors for Seurat's default `k.weight = 50`, so the workflow now uses an
+  adaptive guard:
     n_anchors >= 100 -> k.weight = 50
     n_anchors < 100  -> k.weight = min(4, n_anchors - 1)
+- This `k.weight` change controls the number of anchors used for Seurat's
+  weighting step. It is not a prediction-score cutoff and does not invoke
+  `GetTransferPredictions(score.filter = 0.75)`.
 ```
 
 Serial job attempts:
