@@ -1178,12 +1178,11 @@ def plot_marker_umap_grid(
             ax.scatter(x, y, s=background_point_size, c="#d0d0d0", linewidths=0, rasterized=True)
             positive = np.isfinite(expr) & (expr > 0)
             if positive.any():
-                order = np.argsort(expr[positive])
                 ax.scatter(
-                    x[positive][order],
-                    y[positive][order],
+                    x[positive],
+                    y[positive],
                     s=point_size,
-                    c=expr[positive][order],
+                    c=expr[positive],
                     cmap=cmap_obj,
                     norm=norm,
                     linewidths=0,
@@ -1221,7 +1220,7 @@ def plot_marker_umap_grid(
                 }
             )
     fig.suptitle(title, fontsize=12, y=0.995)
-    fig.tight_layout(rect=(0.145, 0.12, 0.995, 0.965), w_pad=0.05, h_pad=0.08)
+    fig.tight_layout(rect=(0.145, 0.15, 0.995, 0.965), w_pad=0.05, h_pad=0.08)
     fig.canvas.draw()
 
     for row_idx, study_label in enumerate(study_labels):
@@ -1256,22 +1255,24 @@ def plot_marker_umap_grid(
         )
 
     bottom_position = axes[-1, 0].get_position()
-    cbar_y = max(0.035, bottom_position.y0 - 0.055)
+    cbar_y = max(0.040, bottom_position.y0 - 0.072)
     for col_idx, gene in enumerate(genes):
         position = axes[-1, col_idx].get_position()
-        cax = fig.add_axes([position.x0, cbar_y, position.x1 - position.x0, 0.010])
+        width = (position.x1 - position.x0) * 0.60
+        x0 = position.x0 + ((position.x1 - position.x0) - width) / 2
+        cax = fig.add_axes([x0, cbar_y, width, 0.008])
         vmax = vmax_by_gene[gene]
         sm = ScalarMappable(norm=Normalize(vmin=0.0, vmax=vmax, clip=True), cmap=cmap_obj)
         sm.set_array([])
         cbar = fig.colorbar(sm, cax=cax, orientation="horizontal")
-        cbar.ax.tick_params(labelsize=5.5, length=1.5, pad=1)
+        cbar.ax.tick_params(labelsize=4.8, length=1.2, pad=0.8)
         cbar.set_ticks([0.0, vmax])
         cbar.set_ticklabels(["0", f"{vmax:.2g}"])
         cbar.outline.set_linewidth(0.4)
 
     fig.text(
         0.5,
-        max(0.012, cbar_y - 0.030),
+        max(0.012, cbar_y - 0.026),
         "log1p(CP10K); each gene column has its own scale",
         ha="center",
         va="center",

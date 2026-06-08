@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Regenerate cross-study marker-expression plots from existing per-study tables.
+
+#SBATCH --job-name=cross-marker-plot
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=32G
+#SBATCH --time=02:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-marker-plot-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-marker-plot-%x-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+CROSS_STUDY_MARKER_RUN_LABEL="${CROSS_STUDY_MARKER_RUN_LABEL:-cross_study_marker_expression_v12}"
+CROSS_STUDY_MARKER_MAX_CELLS_PER_STUDY="${CROSS_STUDY_MARKER_MAX_CELLS_PER_STUDY:-}"
+CROSS_STUDY_MARKER_EXCLUDE_STUDIES="${CROSS_STUDY_MARKER_EXCLUDE_STUDIES:-bershteyn_2025}"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export CROSS_STUDY_MARKER_RUN_LABEL
+export CROSS_STUDY_MARKER_MAX_CELLS_PER_STUDY
+export CROSS_STUDY_MARKER_EXCLUDE_STUDIES
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+echo "Plot-only job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${CROSS_STUDY_MARKER_RUN_LABEL}"
+echo "Max cells per study for plotting: ${CROSS_STUDY_MARKER_MAX_CELLS_PER_STUDY:-none}"
+echo "Excluded studies from plots: ${CROSS_STUDY_MARKER_EXCLUDE_STUDIES:-none}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+plot_args=(
+  --project-root "${PROJECT_ROOT}"
+  --run-label "${CROSS_STUDY_MARKER_RUN_LABEL}"
+  plot
+  --exclude-study-id "${CROSS_STUDY_MARKER_EXCLUDE_STUDIES}"
+)
+if [[ -n "${CROSS_STUDY_MARKER_MAX_CELLS_PER_STUDY}" ]]; then
+  plot_args+=(--max-cells-per-study "${CROSS_STUDY_MARKER_MAX_CELLS_PER_STUDY}")
+fi
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/run_cross_study_marker_expression.py \
+  "${plot_args[@]}"
+
+echo "Plot-only job finished: $(date)"

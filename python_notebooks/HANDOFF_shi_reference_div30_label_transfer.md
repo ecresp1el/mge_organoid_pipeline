@@ -836,6 +836,12 @@ Layout logic:
   paired OFF-target panel, and sets the PV panel order to:
   `MAFB`, `MEF2C`, `ERBB4`, `ETV1`, `CRABP1`, `TAC1`, `ST18`, `PVALB` /
   `SP8`, `EBF1`, `NKX2-2`, `RAX`, `HMX3`, `DBH`.
+- A v12 plot-only rerender keeps the same marker tables/data but shortens the
+  bottom per-gene colorbars to 60% of each column width while keeping them
+  aligned in one row. The expression overlay uses the table/cell order directly;
+  it does not sort cells by expression before drawing. The plot-only Slurm
+  template is:
+  `slurm_templates/25_cross_study_marker_expression_plot_only.sbatch.template`.
 
 Plot-study toggle:
 
