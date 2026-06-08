@@ -29,7 +29,7 @@ from scipy import sparse
 from .paths import resolve_project_root
 
 
-MARKER_EXPRESSION_SCHEMA_VERSION = "cross_study_marker_expression_v8"
+MARKER_EXPRESSION_SCHEMA_VERSION = "cross_study_marker_expression_v9"
 
 GREY_TO_RED_CMAP = LinearSegmentedColormap.from_list("grey_to_red_expression", ["#d0d0d0", "#d7301f"])
 
@@ -213,17 +213,17 @@ def exclude_specs(
     return [spec for spec in specs if spec.study_id not in excluded]
 
 
-def run_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v8") -> Path:
+def run_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v9") -> Path:
     """Return the run directory for this workflow."""
     return resolve_project_root(project_root) / "results" / "cross_study_marker_expression" / run_label
 
 
-def table_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v8") -> Path:
+def table_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v9") -> Path:
     """Return the table directory for this workflow."""
     return run_dir(project_root, run_label) / "tables"
 
 
-def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v8") -> Path:
+def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v9") -> Path:
     """Return the plot directory for this workflow."""
     return run_dir(project_root, run_label) / "plots"
 
@@ -231,13 +231,13 @@ def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_stu
 def per_study_table_path(
     study_id: str,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v8",
+    run_label: str = "cross_study_marker_expression_v9",
 ) -> Path:
     """Return the standardized per-study marker table path."""
     return table_dir(project_root, run_label) / "per_study" / f"{study_id}_marker_expression.tsv.gz"
 
 
-def ensure_output_dirs(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v8") -> dict[str, Path]:
+def ensure_output_dirs(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v9") -> dict[str, Path]:
     """Create and return output directories."""
     paths = {
         "run_dir": run_dir(project_root, run_label),
@@ -614,7 +614,7 @@ def validate_marker_expression_table(
 def readiness_table(
     specs: Sequence[CrossStudyMarkerSpec] | None = None,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v8",
+    run_label: str = "cross_study_marker_expression_v9",
     genes: Sequence[str] = GENE_ORDER,
 ) -> pd.DataFrame:
     """Return readiness for source paths, H5AD caches, and Python marker tables."""
@@ -658,7 +658,7 @@ def readiness_table(
 
 def write_setup_tables(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v8",
+    run_label: str = "cross_study_marker_expression_v9",
     include_xiang: bool = False,
 ) -> dict[str, Path]:
     """Write canonical setup/readiness tables for the notebook."""
@@ -679,7 +679,7 @@ def write_setup_tables(
 
 def extract_available_h5ad_marker_tables(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v8",
+    run_label: str = "cross_study_marker_expression_v9",
     study_ids: Sequence[str] | None = None,
     include_xiang: bool = False,
 ) -> pd.DataFrame:
@@ -729,7 +729,7 @@ def extract_available_h5ad_marker_tables(
 def load_marker_expression_tables(
     specs: Sequence[CrossStudyMarkerSpec] | None = None,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v8",
+    run_label: str = "cross_study_marker_expression_v9",
     genes: Sequence[str] = GENE_ORDER,
     require_all: bool = True,
 ) -> pd.DataFrame:
@@ -960,7 +960,10 @@ def plot_marker_umap_grid(
         for col_idx, gene in enumerate(genes):
             ax = axes[row_idx, col_idx]
             vmax = vmax_by_gene[gene]
-            norm = Normalize(vmin=0.0, vmax=vmax)
+            # Color range is in the original expression units: 0 to the gene's
+            # positive-expression q99. Values above q99 keep their original data
+            # value but draw at the top color so outliers do not stretch the bar.
+            norm = Normalize(vmin=0.0, vmax=vmax, clip=True)
             expr = pd.to_numeric(subset[gene], errors="coerce").to_numpy(dtype=float)
             x = subset["umap_1"].to_numpy(dtype=float)
             y = subset["umap_2"].to_numpy(dtype=float)
@@ -972,7 +975,7 @@ def plot_marker_umap_grid(
                     x[positive][order],
                     y[positive][order],
                     s=point_size,
-                    c=np.clip(expr[positive][order], 0.0, vmax),
+                    c=expr[positive][order],
                     cmap=cmap,
                     norm=norm,
                     linewidths=0,
@@ -991,6 +994,11 @@ def plot_marker_umap_grid(
                     "gene_group": gene_group(gene),
                     "scale_group": gene,
                     "scale_basis": "per_gene",
+                    "color_scale_min": 0.0,
+                    "color_scale_max": vmax,
+                    "color_scale_max_rule": f"q{vmax_quantile:g}_positive_expression",
+                    "color_values_are_raw_expression": True,
+                    "values_above_color_scale_max": "drawn_at_max_color_only",
                     "study_label": study_label,
                     "plot_filter": filter_by_study[study_label]["plot_filter"],
                     "plot_filter_label": filter_by_study[study_label]["plot_filter_label"],
@@ -1045,7 +1053,7 @@ def plot_marker_umap_grid(
         position = axes[-1, col_idx].get_position()
         cax = fig.add_axes([position.x0, cbar_y, position.x1 - position.x0, 0.010])
         vmax = vmax_by_gene[gene]
-        sm = ScalarMappable(norm=Normalize(vmin=0.0, vmax=vmax), cmap=cmap)
+        sm = ScalarMappable(norm=Normalize(vmin=0.0, vmax=vmax, clip=True), cmap=cmap)
         sm.set_array([])
         cbar = fig.colorbar(sm, cax=cax, orientation="horizontal")
         cbar.ax.tick_params(labelsize=5.5, length=1.5, pad=1)
@@ -1073,7 +1081,7 @@ def plot_marker_umap_grid(
 
 def plot_default_marker_grids(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v8",
+    run_label: str = "cross_study_marker_expression_v9",
     max_cells_per_study: int | None = None,
     include_xiang: bool = False,
     exclude_study_ids: Sequence[str] | None = None,
@@ -1136,7 +1144,7 @@ def _parse_study_ids(raw: Sequence[str] | None) -> list[str] | None:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", default=None)
-    parser.add_argument("--run-label", default="cross_study_marker_expression_v8")
+    parser.add_argument("--run-label", default="cross_study_marker_expression_v9")
     parser.add_argument("--include-xiang", action="store_true")
     subparsers = parser.add_subparsers(dest="command", required=True)
 

@@ -14,6 +14,8 @@ suppressPackageStartupMessages({
   library(patchwork)
 })
 
+options(future.globals.maxSize = 8 * 1024^3)
+
 parse_args <- function(args) {
   out <- list(
     `project-root` = Sys.getenv("PROJECT_ROOT", unset = ""),
@@ -272,6 +274,7 @@ for (i in seq_len(nrow(sample_info))) {
     min.cells = gene_min_cells,
     min.features = 0
   )
+  obj <- RenameCells(obj, add.cell.id = info$sample_id)
   obj$sample_id <- info$sample_id
   obj$figure1c_sample <- factor(info$figure1c_sample, levels = sample_info$figure1c_sample)
   obj$sample_geo_accession <- info$sample_geo_accession
@@ -368,7 +371,7 @@ ggsave(file.path(plot_dir, "merged_umap_by_cluster.png"), p_merged_cluster, widt
 ggsave(file.path(plot_dir, "merged_umap_by_cluster.pdf"), p_merged_cluster, width = 7, height = 5.5)
 
 message("Running Seurat anchor integration")
-split_objects <- SplitObject(merged, split.by = "sample_id")
+split_objects <- objects
 split_objects <- lapply(split_objects, function(x) {
   DefaultAssay(x) <- "RNA"
   x <- NormalizeData(x, verbose = FALSE)

@@ -128,6 +128,108 @@ but it is not exact-author because Great Lakes does not expose Cell Ranger 3.1
 and the paper did not report the exact GRCh38 reference bundle.
 ```
 
+### Wang 2025 hnbMO Exploratory Seurat Processing
+
+Status as of 2026-06-08:
+
+```text
+Exploratory only. Do not include this Wang object in the broader study/cross-study
+analysis yet.
+```
+
+New script/template:
+
+```text
+scripts/05n_wang_2025_hnbmo_cellranger_seurat.R
+slurm_templates/05n_wang_2025_hnbmo_cellranger_seurat.sbatch.template
+```
+
+Jobs:
+
+```text
+51508301 FAILED during integration after merged UMAP completed.
+  Cause: duplicated 10x barcodes across samples confused split/integration path.
+
+51508462 FAILED during integration.
+  Cause: Seurat/future globals max size limit during FindIntegrationAnchors.
+
+51508627 COMPLETED, ExitCode 0:0, elapsed 00:07:16, MaxRSS ~11.9G.
+```
+
+Fixes applied before successful job:
+
+```text
+Prefix cell names by sample at object creation with RenameCells(add.cell.id=sample_id).
+Integrate from original per-sample objects rather than SplitObject(merged).
+Set options(future.globals.maxSize = 8 * 1024^3).
+```
+
+Output root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/wang_2025_hnbmo_cellranger_seurat_exploratory
+```
+
+Main objects:
+
+```text
+wang_2025_hnbmo_cellranger_merged_seurat.rds
+wang_2025_hnbmo_cellranger_integrated_seurat.rds
+```
+
+Main plots:
+
+```text
+plots/merged_vs_integrated_umap_by_sample.{png,pdf}
+plots/merged_umap_by_sample.{png,pdf}
+plots/integrated_umap_by_sample.{png,pdf}
+plots/merged_umap_by_cluster.{png,pdf}
+plots/integrated_umap_by_cluster.{png,pdf}
+plots/qc_cells_kept_filtered_by_sample.{png,pdf}
+plots/qc_metric_violins_kept_vs_filtered.{png,pdf}
+```
+
+QC tracking:
+
+```text
+Cell Ranger filtered cells:        19,201
+After additional Seurat QC:        18,705
+Additional Seurat QC removed:         496
+
+Additional Seurat QC defaults:
+  nFeature_RNA >= 200
+  nFeature_RNA < Inf
+  percent.mt < 20
+  gene min.cells = 3
+```
+
+Per-sample QC:
+
+```text
+BF_H9_D36      Cell Ranger 6,648 -> Seurat QC 6,534; removed 114
+BF_H9_D63      Cell Ranger 4,115 -> Seurat QC 3,735; removed 380
+BFCO_IMR_D63   Cell Ranger 8,438 -> Seurat QC 8,436; removed   2
+```
+
+Useful tables:
+
+```text
+tables/seurat_qc_filtering_by_sample.tsv
+tables/seurat_qc_per_cell.tsv
+tables/cell_count_totals.tsv
+tables/analysis_assumptions.tsv
+tables/merged_cluster_counts_by_sample.tsv
+tables/integrated_cluster_counts_by_sample.tsv
+```
+
+UMAP interpretation:
+
+```text
+Merged/no-integration UMAP separates strongly by sample/cell line/timepoint.
+Seurat integrated UMAP mixes samples onto a shared manifold and is closer in
+spirit to the paper's Figure 1C presentation.
+```
+
 ## Core Rule
 
 DIV30 `seurat_clusters` are not used for prediction.
@@ -553,7 +655,7 @@ Slurm template:
 Current run label:
 
 ```text
-cross_study_marker_expression_v8
+cross_study_marker_expression_v9
 ```
 
 Data provenance and expression scale:
@@ -613,6 +715,11 @@ Layout logic:
   study rows for that gene, so comparisons are fair within a gene across
   studies. Do **not** interpret color intensity as directly comparable between
   different gene columns, because each gene has its own scale.
+- Marker-expression v9 passes raw expression values directly to the color layer.
+  For each gene, the colorbar spans raw expression units from `0` to the
+  99th percentile of positive plotted expression values for that gene. Values
+  above that 99th percentile are drawn at the top color only, so outliers do not
+  stretch the colorbar. The expression table itself is not modified.
 
 Plot-study toggle:
 
