@@ -205,6 +205,7 @@ join_layers_if_needed <- function(obj, assay) {
 
 get_data_layer <- function(obj, assay) {
   last_error <- NULL
+  assay_dims <- dim(obj[[assay]])
   for (layer in c("data", "logcounts", "counts")) {
     mat <- tryCatch(
       SeuratObject::GetAssayData(obj, assay = assay, layer = layer),
@@ -213,9 +214,21 @@ get_data_layer <- function(obj, assay) {
         NULL
       }
     )
-    if (!is.null(mat)) return(layer)
+    if (is.null(mat)) next
+    mat_dims <- dim(mat)
+    has_expected_shape <- length(mat_dims) == 2L && all(mat_dims == assay_dims)
+    n_nonzero <- tryCatch(Matrix::nnzero(mat), error = function(e) NA_integer_)
+    has_values <- has_expected_shape && is.finite(n_nonzero) && n_nonzero > 0L
+    if (has_values) return(layer)
+    log_msg(
+      "Ignoring empty or shape-mismatched ", layer, " layer for assay ", assay,
+      " (layer dim=", paste(mat_dims, collapse = "x"),
+      ", assay dim=", paste(assay_dims, collapse = "x"),
+      ", nnzero=", n_nonzero, ")"
+    )
   }
-  stop("Could not extract RNA matrix for assay ", assay, ": ", conditionMessage(last_error), call. = FALSE)
+  detail <- if (is.null(last_error)) "no non-empty data/logcounts/counts layer found" else conditionMessage(last_error)
+  stop("Could not extract RNA matrix for assay ", assay, ": ", detail, call. = FALSE)
 }
 
 ensure_log_normalized <- function(obj, assay) {

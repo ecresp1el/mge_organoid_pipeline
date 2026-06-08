@@ -358,6 +358,24 @@ p_qc_violin <- ggplot(qc_metric_long, aes(x = figure1c_sample, y = value, fill =
 ggsave(file.path(plot_dir, "qc_metric_violins_kept_vs_filtered.png"), p_qc_violin, width = 11, height = 5, dpi = 300)
 ggsave(file.path(plot_dir, "qc_metric_violins_kept_vs_filtered.pdf"), p_qc_violin, width = 11, height = 5)
 
+post_qc_metric_long <- rbind(
+  data.frame(figure1c_sample = qc_long$figure1c_sample, seurat_qc_status = qc_long$seurat_qc_status, metric = "nFeature_RNA", value = qc_long$nFeature_RNA),
+  data.frame(figure1c_sample = qc_long$figure1c_sample, seurat_qc_status = qc_long$seurat_qc_status, metric = "nCount_RNA", value = qc_long$nCount_RNA)
+)
+post_qc_metric_long <- post_qc_metric_long[post_qc_metric_long$seurat_qc_status == "kept", , drop = FALSE]
+post_qc_metric_long$metric <- factor(post_qc_metric_long$metric, levels = c("nFeature_RNA", "nCount_RNA"))
+
+p_post_qc_violin <- ggplot(post_qc_metric_long, aes(x = figure1c_sample, y = value, fill = figure1c_sample)) +
+  geom_violin(scale = "width", trim = TRUE, color = "gray25", linewidth = 0.2) +
+  geom_boxplot(width = 0.16, outlier.shape = NA, color = "gray20", fill = "white", alpha = 0.75, linewidth = 0.35) +
+  facet_wrap(~metric, scales = "free_y", nrow = 1) +
+  scale_fill_manual(values = sample_colors) +
+  labs(x = NULL, y = NULL, fill = NULL, title = "Post-QC nFeature_RNA and nCount_RNA by sample") +
+  theme_classic(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 25, hjust = 1), legend.position = "none")
+ggsave(file.path(plot_dir, "post_qc_violin_nFeature_nCount_by_sample.png"), p_post_qc_violin, width = 11, height = 5.5, dpi = 300)
+ggsave(file.path(plot_dir, "post_qc_violin_nFeature_nCount_by_sample.pdf"), p_post_qc_violin, width = 11, height = 5.5)
+
 message("Cells after Cell Ranger filtering: ", sum(qc_summary$cellranger_filtered_cells))
 message("Cells after additional Seurat QC: ", sum(qc_summary$kept_after_seurat_qc))
 

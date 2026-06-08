@@ -249,6 +249,7 @@ New plots added by script:
   integrated_umap_nFeature_RNA_after_qc.{png,pdf}
   integrated_umap_nCount_RNA_after_qc.{png,pdf}
   merged_vs_integrated_umap_qc_metrics_after_qc.{png,pdf}
+  post_qc_violin_nFeature_nCount_by_sample.{png,pdf}
 
 Slurm job:
   51509995 COMPLETED, ExitCode 0:0, elapsed 00:08:11, MaxRSS ~12.2G.
@@ -262,6 +263,14 @@ Per-sample result:
   BF_H9_D36      6,648 -> 6,506; removed 142
   BF_H9_D63      4,115 -> 3,712; removed 403
   BFCO_IMR_D63   8,438 -> 8,420; removed 18
+
+User-requested violin plot:
+  post-QC kept cells only, after nFeature_RNA < 6000 branch.
+  Panels: nFeature_RNA and nCount_RNA by H9 D36, H9 D63, IMR90-4 D63.
+  PNG:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/wang_2025_hnbmo_cellranger_seurat_exploratory_maxFeature6000/plots/post_qc_violin_nFeature_nCount_by_sample.png
+  PDF:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/wang_2025_hnbmo_cellranger_seurat_exploratory_maxFeature6000/plots/post_qc_violin_nFeature_nCount_by_sample.pdf
 ```
 
 ## Core Rule
