@@ -181,6 +181,7 @@ sample_info <- data.frame(
   cell_line = c("H9", "H9", "IMR90-4"),
   stringsAsFactors = FALSE
 )
+sample_colors <- c("H9 D36" = "#F8766D", "H9 D63" = "#00BA38", "IMR90-4 D63" = "#619CFF")
 sample_info$filtered_matrix_dir <- file.path(cellranger_dir, sample_info$sample_id, "outs", "filtered_feature_bc_matrix")
 sample_info$metrics_summary_csv <- file.path(cellranger_dir, sample_info$sample_id, "outs", "metrics_summary.csv")
 

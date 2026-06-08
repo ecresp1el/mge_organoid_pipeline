@@ -271,6 +271,34 @@ User-requested violin plot:
     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/wang_2025_hnbmo_cellranger_seurat_exploratory_maxFeature6000/plots/post_qc_violin_nFeature_nCount_by_sample.png
   PDF:
     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/wang_2025_hnbmo_cellranger_seurat_exploratory_maxFeature6000/plots/post_qc_violin_nFeature_nCount_by_sample.pdf
+
+New percent.mt < 10 branch requested on 2026-06-08:
+  Keep the nFeature_RNA cap from the prior branch.
+  Filters:
+    nFeature_RNA >= 200
+    nFeature_RNA < 6000
+    percent.mt < 10
+
+  Output branch:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/wang_2025_hnbmo_cellranger_seurat_exploratory_maxFeature6000_percentMT10
+
+  Slurm:
+    51519761 CANCELLED before start; original request was 128G and sat pending.
+    51519875 FAILED after 00:00:42, ExitCode 1:0.
+      Cause: script generated the new post-QC violin before `sample_colors` was defined.
+      Partial QC tables were written before failure.
+    51520086 SUBMITTED after patching scripts/05n_wang_2025_hnbmo_cellranger_seurat.R
+      to define `sample_colors` immediately after `sample_info`.
+
+  Expected key plots when complete:
+    plots/post_qc_violin_nFeature_nCount_by_sample.{png,pdf}
+    plots/merged_vs_integrated_umap_by_sample.{png,pdf}
+    plots/merged_vs_integrated_umap_qc_metrics_after_qc.{png,pdf}
+
+  Check commands:
+    squeue -j 51520086 -o '%.18i %.9P %.28j %.8u %.2t %.10M %.6D %R'
+    sacct -j 51519761,51519875,51520086 --format=JobID,JobName%28,State,ExitCode,Elapsed,MaxRSS,ReqMem -P
+    tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05n_wang_2025_hnbmo_cellranger_seurat_maxFeature6000_mt10_51520086.log
 ```
 
 ## Core Rule
