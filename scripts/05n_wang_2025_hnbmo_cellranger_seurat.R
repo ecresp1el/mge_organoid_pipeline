@@ -127,6 +127,17 @@ make_cluster_umap <- function(obj, reduction = "umap", title = NULL) {
     theme(plot.title = element_text(face = "bold"))
 }
 
+make_metric_umap <- function(obj, metric, title = NULL) {
+  emb <- as.data.frame(Embeddings(obj, reduction = "umap"))
+  emb[[metric]] <- obj@meta.data[[metric]]
+  ggplot(emb, aes(x = UMAP_1, y = UMAP_2, color = .data[[metric]])) +
+    geom_point(size = 0.25, alpha = 0.85) +
+    scale_color_viridis_c(option = "magma") +
+    labs(x = "UMAP_1", y = "UMAP_2", color = metric, title = title) +
+    theme_classic(base_size = 13) +
+    theme(plot.title = element_text(face = "bold"))
+}
+
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
 if (isTRUE(opt$help)) {
   print_usage()
@@ -365,10 +376,16 @@ saveRDS(merged, file.path(outdir, "wang_2025_hnbmo_cellranger_merged_seurat.rds"
 
 p_merged_sample <- make_sample_umap(merged, title = "Merged, no integration")
 p_merged_cluster <- make_cluster_umap(merged, title = "Merged clusters")
+p_merged_nfeature <- make_metric_umap(merged, "nFeature_RNA", title = "Merged nFeature_RNA after QC")
+p_merged_ncount <- make_metric_umap(merged, "nCount_RNA", title = "Merged nCount_RNA after QC")
 ggsave(file.path(plot_dir, "merged_umap_by_sample.png"), p_merged_sample, width = 7, height = 5.5, dpi = 300)
 ggsave(file.path(plot_dir, "merged_umap_by_sample.pdf"), p_merged_sample, width = 7, height = 5.5)
 ggsave(file.path(plot_dir, "merged_umap_by_cluster.png"), p_merged_cluster, width = 7, height = 5.5, dpi = 300)
 ggsave(file.path(plot_dir, "merged_umap_by_cluster.pdf"), p_merged_cluster, width = 7, height = 5.5)
+ggsave(file.path(plot_dir, "merged_umap_nFeature_RNA_after_qc.png"), p_merged_nfeature, width = 7, height = 5.5, dpi = 300)
+ggsave(file.path(plot_dir, "merged_umap_nFeature_RNA_after_qc.pdf"), p_merged_nfeature, width = 7, height = 5.5)
+ggsave(file.path(plot_dir, "merged_umap_nCount_RNA_after_qc.png"), p_merged_ncount, width = 7, height = 5.5, dpi = 300)
+ggsave(file.path(plot_dir, "merged_umap_nCount_RNA_after_qc.pdf"), p_merged_ncount, width = 7, height = 5.5)
 
 message("Running Seurat anchor integration")
 split_objects <- objects
@@ -391,14 +408,24 @@ saveRDS(integrated, file.path(outdir, "wang_2025_hnbmo_cellranger_integrated_seu
 
 p_integrated_sample <- make_sample_umap(integrated, title = "Seurat integrated")
 p_integrated_cluster <- make_cluster_umap(integrated, title = "Integrated clusters")
+p_integrated_nfeature <- make_metric_umap(integrated, "nFeature_RNA", title = "Integrated nFeature_RNA after QC")
+p_integrated_ncount <- make_metric_umap(integrated, "nCount_RNA", title = "Integrated nCount_RNA after QC")
 ggsave(file.path(plot_dir, "integrated_umap_by_sample.png"), p_integrated_sample, width = 7, height = 5.5, dpi = 300)
 ggsave(file.path(plot_dir, "integrated_umap_by_sample.pdf"), p_integrated_sample, width = 7, height = 5.5)
 ggsave(file.path(plot_dir, "integrated_umap_by_cluster.png"), p_integrated_cluster, width = 7, height = 5.5, dpi = 300)
 ggsave(file.path(plot_dir, "integrated_umap_by_cluster.pdf"), p_integrated_cluster, width = 7, height = 5.5)
+ggsave(file.path(plot_dir, "integrated_umap_nFeature_RNA_after_qc.png"), p_integrated_nfeature, width = 7, height = 5.5, dpi = 300)
+ggsave(file.path(plot_dir, "integrated_umap_nFeature_RNA_after_qc.pdf"), p_integrated_nfeature, width = 7, height = 5.5)
+ggsave(file.path(plot_dir, "integrated_umap_nCount_RNA_after_qc.png"), p_integrated_ncount, width = 7, height = 5.5, dpi = 300)
+ggsave(file.path(plot_dir, "integrated_umap_nCount_RNA_after_qc.pdf"), p_integrated_ncount, width = 7, height = 5.5)
 
 p_compare <- p_merged_sample + p_integrated_sample + plot_layout(ncol = 2)
 ggsave(file.path(plot_dir, "merged_vs_integrated_umap_by_sample.png"), p_compare, width = 13, height = 5.5, dpi = 300)
 ggsave(file.path(plot_dir, "merged_vs_integrated_umap_by_sample.pdf"), p_compare, width = 13, height = 5.5)
+
+p_metric_compare <- (p_merged_nfeature + p_integrated_nfeature) / (p_merged_ncount + p_integrated_ncount)
+ggsave(file.path(plot_dir, "merged_vs_integrated_umap_qc_metrics_after_qc.png"), p_metric_compare, width = 13, height = 11, dpi = 300)
+ggsave(file.path(plot_dir, "merged_vs_integrated_umap_qc_metrics_after_qc.pdf"), p_metric_compare, width = 13, height = 11)
 
 cluster_counts_merged <- as.data.frame.matrix(table(merged$seurat_clusters, merged$figure1c_sample))
 cluster_counts_merged$seurat_cluster <- rownames(cluster_counts_merged)
