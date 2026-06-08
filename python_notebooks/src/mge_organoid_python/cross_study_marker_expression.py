@@ -20,7 +20,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap, Normalize
+from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
 import numpy as np
 import pandas as pd
@@ -29,9 +29,7 @@ from scipy import sparse
 from .paths import resolve_project_root
 
 
-MARKER_EXPRESSION_SCHEMA_VERSION = "cross_study_marker_expression_v9"
-
-GREY_TO_RED_CMAP = LinearSegmentedColormap.from_list("grey_to_red_expression", ["#d0d0d0", "#d7301f"])
+MARKER_EXPRESSION_SCHEMA_VERSION = "cross_study_marker_expression_v10"
 
 ON_TARGET_GENES = [
     "DCX",
@@ -213,17 +211,17 @@ def exclude_specs(
     return [spec for spec in specs if spec.study_id not in excluded]
 
 
-def run_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v9") -> Path:
+def run_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v10") -> Path:
     """Return the run directory for this workflow."""
     return resolve_project_root(project_root) / "results" / "cross_study_marker_expression" / run_label
 
 
-def table_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v9") -> Path:
+def table_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v10") -> Path:
     """Return the table directory for this workflow."""
     return run_dir(project_root, run_label) / "tables"
 
 
-def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v9") -> Path:
+def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v10") -> Path:
     """Return the plot directory for this workflow."""
     return run_dir(project_root, run_label) / "plots"
 
@@ -231,13 +229,13 @@ def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_stu
 def per_study_table_path(
     study_id: str,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v9",
+    run_label: str = "cross_study_marker_expression_v10",
 ) -> Path:
     """Return the standardized per-study marker table path."""
     return table_dir(project_root, run_label) / "per_study" / f"{study_id}_marker_expression.tsv.gz"
 
 
-def ensure_output_dirs(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v9") -> dict[str, Path]:
+def ensure_output_dirs(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v10") -> dict[str, Path]:
     """Create and return output directories."""
     paths = {
         "run_dir": run_dir(project_root, run_label),
@@ -614,7 +612,7 @@ def validate_marker_expression_table(
 def readiness_table(
     specs: Sequence[CrossStudyMarkerSpec] | None = None,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v9",
+    run_label: str = "cross_study_marker_expression_v10",
     genes: Sequence[str] = GENE_ORDER,
 ) -> pd.DataFrame:
     """Return readiness for source paths, H5AD caches, and Python marker tables."""
@@ -658,7 +656,7 @@ def readiness_table(
 
 def write_setup_tables(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v9",
+    run_label: str = "cross_study_marker_expression_v10",
     include_xiang: bool = False,
 ) -> dict[str, Path]:
     """Write canonical setup/readiness tables for the notebook."""
@@ -679,7 +677,7 @@ def write_setup_tables(
 
 def extract_available_h5ad_marker_tables(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v9",
+    run_label: str = "cross_study_marker_expression_v10",
     study_ids: Sequence[str] | None = None,
     include_xiang: bool = False,
 ) -> pd.DataFrame:
@@ -729,7 +727,7 @@ def extract_available_h5ad_marker_tables(
 def load_marker_expression_tables(
     specs: Sequence[CrossStudyMarkerSpec] | None = None,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v9",
+    run_label: str = "cross_study_marker_expression_v10",
     genes: Sequence[str] = GENE_ORDER,
     require_all: bool = True,
 ) -> pd.DataFrame:
@@ -832,6 +830,13 @@ def expression_group_limits(
     return limits
 
 
+def _finite_quantile(values: np.ndarray, quantile: float) -> float:
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        return np.nan
+    return float(np.quantile(values, quantile))
+
+
 def expression_summary_table(
     data: pd.DataFrame,
     genes: Sequence[str] = GENE_ORDER,
@@ -904,6 +909,83 @@ def _apply_internal_umap_plot_filters(data: pd.DataFrame) -> tuple[pd.DataFrame,
     return filtered, summary
 
 
+def marker_expression_distribution_audit_table(
+    data: pd.DataFrame,
+    genes: Sequence[str] = GENE_ORDER,
+    max_cells_per_study: int | None = None,
+    random_state: int = 0,
+    vmax_quantile: float = 0.99,
+    cmap: str = "viridis",
+) -> pd.DataFrame:
+    """Summarize plotted expression distributions using the exact plot filters/scales."""
+    genes = list(genes)
+    filtered, filter_summary = _apply_internal_umap_plot_filters(data)
+    plot_data = downsample_by_study(filtered, max_cells_per_study, random_state=random_state)
+    vmax_by_gene = expression_limits(plot_data, genes, quantile=vmax_quantile)
+    filter_by_study = filter_summary.set_index("study_label").to_dict(orient="index")
+    rows = []
+    for study_label, group in plot_data.groupby("study_label", sort=False):
+        x = group["umap_1"].to_numpy(dtype=float)
+        y = group["umap_2"].to_numpy(dtype=float)
+        finite_umap = np.isfinite(x) & np.isfinite(y)
+        group = group.loc[finite_umap]
+        filter_info = filter_by_study[study_label]
+        for gene in genes:
+            values = pd.to_numeric(group[gene], errors="coerce").to_numpy(dtype=float)
+            finite = np.isfinite(values)
+            finite_values = values[finite]
+            positive_values = finite_values[finite_values > 0]
+            vmax = vmax_by_gene[gene]
+            above_scale = finite_values > vmax
+            positive_above_scale = positive_values > vmax
+            rows.append(
+                {
+                    "plot_token": "on_off_target",
+                    "study_label": study_label,
+                    "gene": gene,
+                    "gene_group": gene_group(gene),
+                    "plot_filter": filter_info["plot_filter"],
+                    "plot_filter_label": filter_info["plot_filter_label"],
+                    "n_cells_before_plot_filter": filter_info["n_cells_before_plot_filter"],
+                    "n_cells_after_plot_filter": filter_info["n_cells_after_plot_filter"],
+                    "n_cells_removed_by_plot_filter": filter_info["n_cells_removed_by_plot_filter"],
+                    "sample_values_after_plot_filter": filter_info["sample_values_after_plot_filter"],
+                    "n_cells_plotted": int(group.shape[0]),
+                    "n_finite_expression_values": int(finite_values.size),
+                    "n_nonfinite_expression_values": int((~finite).sum()),
+                    "n_positive_cells": int(positive_values.size),
+                    "pct_positive_cells": float(positive_values.size / finite_values.size * 100.0) if finite_values.size else np.nan,
+                    "expr_min": float(np.min(finite_values)) if finite_values.size else np.nan,
+                    "expr_q25": _finite_quantile(finite_values, 0.25),
+                    "expr_q50": _finite_quantile(finite_values, 0.50),
+                    "expr_q75": _finite_quantile(finite_values, 0.75),
+                    "expr_q90": _finite_quantile(finite_values, 0.90),
+                    "expr_q95": _finite_quantile(finite_values, 0.95),
+                    "expr_q99": _finite_quantile(finite_values, 0.99),
+                    "expr_max": float(np.max(finite_values)) if finite_values.size else np.nan,
+                    "positive_expr_min": float(np.min(positive_values)) if positive_values.size else np.nan,
+                    "positive_expr_q50": _finite_quantile(positive_values, 0.50),
+                    "positive_expr_q90": _finite_quantile(positive_values, 0.90),
+                    "positive_expr_q95": _finite_quantile(positive_values, 0.95),
+                    "positive_expr_q99": _finite_quantile(positive_values, 0.99),
+                    "positive_expr_max": float(np.max(positive_values)) if positive_values.size else np.nan,
+                    "color_map": cmap,
+                    "color_scale_basis": "per_gene_across_all_plotted_studies",
+                    "color_scale_min": 0.0,
+                    "color_scale_max": vmax,
+                    "color_scale_max_rule": f"q{vmax_quantile:g}_positive_expression",
+                    "color_values_are_raw_expression": True,
+                    "values_above_color_scale_max": "drawn_at_max_color_only",
+                    "n_values_above_color_scale_max": int(above_scale.sum()),
+                    "pct_values_above_color_scale_max": float(above_scale.mean() * 100.0) if finite_values.size else np.nan,
+                    "n_positive_values_above_color_scale_max": int(positive_above_scale.sum()),
+                    "pct_positive_values_above_color_scale_max": float(positive_above_scale.mean() * 100.0) if positive_values.size else np.nan,
+                    "max_value_above_color_scale_max": float(np.max(finite_values[above_scale])) if above_scale.any() else np.nan,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 def plot_marker_umap_grid(
     data: pd.DataFrame,
     output_path: str | Path,
@@ -914,7 +996,7 @@ def plot_marker_umap_grid(
     random_state: int = 0,
     point_size: float = 0.36,
     background_point_size: float = 0.15,
-    cmap=GREY_TO_RED_CMAP,
+    cmap: str = "viridis",
     vmax_quantile: float = 0.99,
 ) -> pd.DataFrame:
     """Plot a study-by-gene UMAP grid from standardized marker tables."""
@@ -1081,10 +1163,11 @@ def plot_marker_umap_grid(
 
 def plot_default_marker_grids(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v9",
+    run_label: str = "cross_study_marker_expression_v10",
     max_cells_per_study: int | None = None,
     include_xiang: bool = False,
     exclude_study_ids: Sequence[str] | None = None,
+    cmap: str = "viridis",
 ) -> pd.DataFrame:
     """Load marker tables and write ON-target, OFF-target, and combined grids."""
     ensure_output_dirs(project_root, run_label)
@@ -1107,6 +1190,17 @@ def plot_default_marker_grids(
         sep="\t",
         index=False,
     )
+    marker_expression_distribution_audit_table(
+        data,
+        genes=GENE_ORDER,
+        max_cells_per_study=max_cells_per_study,
+        vmax_quantile=0.99,
+        cmap=cmap,
+    ).to_csv(
+        table_dir(project_root, run_label) / "cross_study_marker_expression_distribution_audit.tsv",
+        sep="\t",
+        index=False,
+    )
     outputs = [
         ("on_target", ON_TARGET_GENES, "Cross-study ON-target marker expression"),
         ("off_target", OFF_TARGET_GENES, "Cross-study OFF-target marker expression"),
@@ -1122,6 +1216,7 @@ def plot_default_marker_grids(
             specs=plot_specs,
             title=title,
             max_cells_per_study=max_cells_per_study,
+            cmap=cmap,
         )
         manifest.insert(0, "plot_token", token)
         manifest.insert(1, "plot_path", str(output_path))
@@ -1144,7 +1239,7 @@ def _parse_study_ids(raw: Sequence[str] | None) -> list[str] | None:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", default=None)
-    parser.add_argument("--run-label", default="cross_study_marker_expression_v9")
+    parser.add_argument("--run-label", default="cross_study_marker_expression_v10")
     parser.add_argument("--include-xiang", action="store_true")
     subparsers = parser.add_subparsers(dest="command", required=True)
 

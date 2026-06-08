@@ -655,7 +655,7 @@ Slurm template:
 Current run label:
 
 ```text
-cross_study_marker_expression_v9
+cross_study_marker_expression_v10
 ```
 
 Data provenance and expression scale:
@@ -720,6 +720,13 @@ Layout logic:
   99th percentile of positive plotted expression values for that gene. Values
   above that 99th percentile are drawn at the top color only, so outliers do not
   stretch the colorbar. The expression table itself is not modified.
+- Marker-expression v10 uses `viridis` for the expression overlay/colorbars and
+  writes an audit table computed from the exact same plotted data and colorbar
+  rules:
+  `tables/cross_study_marker_expression_distribution_audit.tsv`. This table
+  summarizes expression distributions/ranges by study and gene, including
+  positive-cell counts, quantiles, raw maxima, per-gene colorbar maxima, and the
+  number/percentage of values above the plotted colorbar maximum.
 
 Plot-study toggle:
 
