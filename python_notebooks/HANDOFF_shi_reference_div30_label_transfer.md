@@ -230,6 +230,40 @@ Seurat integrated UMAP mixes samples onto a shared manifold and is closer in
 spirit to the paper's Figure 1C presentation.
 ```
 
+Requested follow-up as of 2026-06-08:
+
+```text
+Paper-reported healthy Figure 1C cell total: 14,245 cells.
+
+New exploratory filter requested:
+  nFeature_RNA >= 200
+  nFeature_RNA < 6000
+  percent.mt < 20
+
+New output branch:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/wang_2025_hnbmo_cellranger_seurat_exploratory_maxFeature6000
+
+New plots added by script:
+  merged_umap_nFeature_RNA_after_qc.{png,pdf}
+  merged_umap_nCount_RNA_after_qc.{png,pdf}
+  integrated_umap_nFeature_RNA_after_qc.{png,pdf}
+  integrated_umap_nCount_RNA_after_qc.{png,pdf}
+  merged_vs_integrated_umap_qc_metrics_after_qc.{png,pdf}
+
+Slurm job:
+  51509995 COMPLETED, ExitCode 0:0, elapsed 00:08:11, MaxRSS ~12.2G.
+
+Result:
+  Cell Ranger filtered cells: 19,201
+  After added Seurat QC with nFeature_RNA < 6000: 18,638
+  Total removed by added Seurat QC: 563
+
+Per-sample result:
+  BF_H9_D36      6,648 -> 6,506; removed 142
+  BF_H9_D63      4,115 -> 3,712; removed 403
+  BFCO_IMR_D63   8,438 -> 8,420; removed 18
+```
+
 ## Core Rule
 
 DIV30 `seurat_clusters` are not used for prediction.
