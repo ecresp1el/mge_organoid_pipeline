@@ -1648,3 +1648,110 @@ done
 find /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1/tables/per_study \
   -maxdepth 1 -type f -name '*_shi_seurat_label_transfer_obs.tsv.gz' -printf '%f\t%TY-%Tm-%Td %TH:%TM\t%s\n' | sort
 ```
+
+## 2026-06-08 Siebert Cross-Study Shi Transfer Fix
+
+Supersedes the 2026-06-07 note that treated `siebert_2026` as failed/excluded.
+
+Root cause:
+
+```text
+A. Low anchors:
+   Siebert RNA counts were populated, but RNA data/logcounts were empty:
+     counts: 32131 x 64676, nnzero 126244258
+     data:   0 x 0,       nnzero 0
+
+   The transfer helper accepted the empty data layer as usable, so NormalizeData()
+   was skipped. After treating 0 x 0 layers as missing and normalizing counts,
+   Siebert anchors increased from 25 to 4089.
+
+B. 0 predicted IDs:
+   The 25-anchor run had valid anchor labels, so this was not solved by only
+   naming refdata with a "_reference" suffix. The degenerate low-anchor run
+   produced invalid/NA TransferData weights/scores, causing Seurat to construct
+   zero predicted IDs for 64676 query rows.
+```
+
+Code patch:
+
+```text
+scripts/13_run_cross_study_shi_seurat_label_transfer.R
+
+get_data_layer() now ignores empty or shape-mismatched data/logcounts/counts
+layers. A layer must match assay dimensions and have finite positive nnzero
+before it is considered usable.
+```
+
+Successful Siebert rerun:
+
+```text
+Slurm job: 51515010
+State: COMPLETED
+Elapsed: 00:10:09
+MaxRSS: 48001428K
+
+Log:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siebert-xfer-fixed-51515010.err
+
+Key log lines:
+  Ignoring empty or shape-mismatched data layer for assay RNA (layer dim=0x0, assay dim=32131x64676, nnzero=0)
+  Ignoring empty or shape-mismatched logcounts layer for assay RNA (layer dim=0x0, assay dim=32131x64676, nnzero=0)
+  No data/logcounts layer found for assay RNA; running NormalizeData
+  Found 4089 anchors
+  TransferData k.weight for siebert_2026: 50 (anchors=4089)
+```
+
+Siebert output now present:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1/tables/per_study/siebert_2026_shi_seurat_label_transfer_obs.tsv.gz
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1/seurat/per_study/siebert_2026_shi_seurat_full_transfer_diagnostics.tsv
+```
+
+Siebert diagnostics:
+
+```text
+n_query_cells: 64676
+n_reference_cells: 38831
+n_shared_features: 15305
+n_anchors: 4089
+transfer_k_weight: 50
+n_missing_prediction: 0
+Warning: zero predicted cells for Shi labels Microglia and Endothelial.
+```
+
+Combined cross-study table was regenerated explicitly for all seven target
+studies:
+
+```text
+varela_div30
+varela_div90
+siebert_2026
+walsh
+bershteyn_2025
+bershteyn_2023
+samarasinghe_2021
+
+Combined rows: 454731
+```
+
+All five UMAP grid plot files were regenerated and verified to include all seven
+studies:
+
+```text
+plots/umap_grids/cross_study_umap_shi_seurat_full_predicted_shi_label_grid.png
+plots/umap_grids/cross_study_umap_shi_seurat_full_label_score_grid.png
+plots/umap_grids/cross_study_umap_shi_seurat_full_all_label_scores_grid.png
+plots/umap_grids/cross_study_umap_shi_seurat_full_gw_prediction_grid.png
+plots/umap_grids/cross_study_umap_shi_seurat_full_individual_gw_scores_grid.png
+```
+
+Important plotting note:
+
+```text
+The all-in-one Python plotting command refreshed the UMAP grids, but the
+sample-level summary-plot phase was cancelled after hanging. The existing
+summary plots and cross_study_shi_seurat_label_transfer_complete.tsv should be
+treated as stale until summary plotting is split or optimized. The UMAP grid
+manifest is current and includes all seven studies.
+```
