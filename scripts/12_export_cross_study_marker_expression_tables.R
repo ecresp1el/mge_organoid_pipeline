@@ -52,6 +52,7 @@ log_msg <- function(...) {
 
 gene_aliases <- list(
   "NKX2-1" = c("NKX2-1", "NKX2.1"),
+  "NKX2-2" = c("NKX2-2", "NKX2.2"),
   "NKX6-2" = c("NKX6-2", "NKX6.2")
 )
 
@@ -150,23 +151,26 @@ export_one_study <- function(row, genes, outdir, project_root) {
   gene_match <- match_genes(genes, features)
   missing <- setdiff(genes, names(gene_match$matches))
   if (length(missing) > 0L) {
-    stop(study_id, " missing marker genes: ", paste(missing, collapse = ","))
+    log_msg(study_id, " missing marker genes exported as NA columns: ", paste(missing, collapse = ","))
   }
   emb <- Embeddings(obj, reduction = reduction)
   meta <- obj@meta.data
   cells <- Reduce(intersect, list(colnames(expr), rownames(emb), rownames(meta)))
   if (length(cells) == 0L) stop(study_id, " has no common cells across expression, UMAP, and metadata")
 
-  expr_sub <- expr[unname(gene_match$matches[genes]), cells, drop = FALSE]
-  if (identical(transform, "log1p_cp10k")) {
-    if (!identical(layer, "counts")) {
-      warning(study_id, " requested log1p_cp10k transform from non-count layer: ", layer)
+  matched_genes <- genes[genes %in% names(gene_match$matches)]
+  expr_dense <- matrix(NA_real_, nrow = length(cells), ncol = length(genes), dimnames = list(cells, genes))
+  if (length(matched_genes) > 0L) {
+    expr_sub <- expr[unname(gene_match$matches[matched_genes]), cells, drop = FALSE]
+    if (identical(transform, "log1p_cp10k")) {
+      if (!identical(layer, "counts")) {
+        warning(study_id, " requested log1p_cp10k transform from non-count layer: ", layer)
+      }
+      total_counts <- Matrix::colSums(expr[, cells, drop = FALSE])
+      expr_sub <- normalize_marker_counts_log1p_cp10k(expr_sub, total_counts)
     }
-    total_counts <- Matrix::colSums(expr[, cells, drop = FALSE])
-    expr_sub <- normalize_marker_counts_log1p_cp10k(expr_sub, total_counts)
+    expr_dense[, matched_genes] <- as.matrix(t(expr_sub))
   }
-  expr_dense <- as.matrix(t(expr_sub))
-  colnames(expr_dense) <- genes
   emb_sub <- emb[cells, , drop = FALSE]
   meta_sub <- meta[cells, , drop = FALSE]
   sample <- if (nzchar(sample_col) && sample_col %in% colnames(meta_sub)) as.character(meta_sub[[sample_col]]) else rep("", length(cells))
@@ -192,6 +196,9 @@ export_one_study <- function(row, genes, outdir, project_root) {
     output_path = out_path,
     n_cells = nrow(out),
     n_genes = length(genes),
+    n_genes_matched = length(matched_genes),
+    n_genes_missing = length(missing),
+    missing_genes = paste(missing, collapse = ","),
     stringsAsFactors = FALSE
   )
 }

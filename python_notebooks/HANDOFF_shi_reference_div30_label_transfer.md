@@ -287,13 +287,32 @@ New percent.mt < 10 branch requested on 2026-06-08:
     51519875 FAILED after 00:00:42, ExitCode 1:0.
       Cause: script generated the new post-QC violin before `sample_colors` was defined.
       Partial QC tables were written before failure.
-    51520086 SUBMITTED after patching scripts/05n_wang_2025_hnbmo_cellranger_seurat.R
+    51520086 COMPLETED, ExitCode 0:0, elapsed 00:07:53, MaxRSS ~11.1G.
+      Submitted after patching scripts/05n_wang_2025_hnbmo_cellranger_seurat.R
       to define `sample_colors` immediately after `sample_info`.
+
+  Result:
+    Cell Ranger filtered cells: 19,201
+    After added Seurat QC with nFeature_RNA < 6000 and percent.mt < 10: 17,860
+    Total removed by added Seurat QC: 1,341
+
+  Per-sample result:
+    BF_H9_D36      6,648 -> 6,149; removed 499
+    BF_H9_D63      4,115 -> 3,312; removed 803
+    BFCO_IMR_D63   8,438 -> 8,399; removed 39
+
+  Median post-QC metrics:
+    BF_H9_D36      median nFeature_RNA 2,642;   median nCount_RNA 7,133;   median percent.mt 5.28
+    BF_H9_D63      median nFeature_RNA 2,164.5; median nCount_RNA 5,777.5; median percent.mt 4.51
+    BFCO_IMR_D63   median nFeature_RNA 1,660;   median nCount_RNA 3,871;   median percent.mt 0.76
 
   Expected key plots when complete:
     plots/post_qc_violin_nFeature_nCount_by_sample.{png,pdf}
     plots/merged_vs_integrated_umap_by_sample.{png,pdf}
     plots/merged_vs_integrated_umap_qc_metrics_after_qc.{png,pdf}
+
+  User-requested violin plot:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/wang_2025_hnbmo_cellranger_seurat_exploratory_maxFeature6000_percentMT10/plots/post_qc_violin_nFeature_nCount_by_sample.png
 
   Check commands:
     squeue -j 51520086 -o '%.18i %.9P %.28j %.8u %.2t %.10M %.6D %R'
@@ -726,7 +745,7 @@ Slurm template:
 Current run label:
 
 ```text
-cross_study_marker_expression_v10
+cross_study_marker_expression_v12
 ```
 
 Data provenance and expression scale:
@@ -750,11 +769,20 @@ Data provenance and expression scale:
 
 Current marker panels:
 
-- ON-target genes:
+- Core ON-target genes:
   `DCX`, `GAD2`, `DLX5`, `LHX6`, `MAF`, `SST`, `PVALB`, `ERBB4`, `MEF2C`,
   `MAFB`, `LHX8`, `NKX2-1`.
-- OFF-target genes:
+- Core OFF-target genes:
   `SP8`, `PAX6`, `NEUROD2`, `ISL1`, `ACHE`, `NKX6-2`, `MKI67`.
+- PV Precursors genes:
+  `MAFB`, `MEF2C`, `ERBB4`, `ETV1`, `CRABP1`, `TAC1`, `ST18`, `PVALB`.
+- PV Precursors paired OFF-target genes:
+  `SP8`, `EBF1`, `NKX2-2`, `RAX`, `HMX3`, `DBH`.
+- The marker panels are defined in
+  `python_notebooks/src/mge_organoid_python/cross_study_marker_expression.py`
+  as named `MarkerGenePanel` objects. They are also exported to
+  `tables/cross_study_marker_expression_gene_panels.tsv`, so the exact panel
+  membership used by each run is auditable.
 
 Layout logic:
 
@@ -766,9 +794,9 @@ Layout logic:
   `Samarasinghe et al. 2021`.
 - Row labels include the number of cells plotted for that study.
 - All cells for each study are drawn in grey as the UMAP background.
-- Cells with expression greater than zero are overlaid using a grey-to-red
-  expression colormap, and each per-gene colorbar uses that same grey-to-red
-  scale.
+- Cells with expression greater than zero are overlaid using a Seurat-like
+  `whiteBlue` expression colormap, and each per-gene colorbar uses that same
+  white-to-blue scale.
 - Marker-expression v7 uses 3x larger dots than v6 for both the grey background
   layer and the colored expression overlay.
 - Marker-expression v8 adds an internal UMAP plotting filter for
@@ -780,8 +808,8 @@ Layout logic:
   for this figure rather than acting as a general user-facing plot option. The
   filter validates that only control samples remain and writes an audit table:
   `tables/cross_study_marker_expression_internal_plot_filter_summary.tsv`.
-- The combined ON/OFF plot draws a vertical divider between the last ON-target
-  gene (`NKX2-1`) and the first OFF-target gene (`SP8`).
+- Each combined panel draws a vertical divider between that panel's ON/PV
+  precursor genes and its paired OFF-target genes.
 - Each gene column has its own colorbar. That color scale is shared across all
   study rows for that gene, so comparisons are fair within a gene across
   studies. Do **not** interpret color intensity as directly comparable between
@@ -798,6 +826,16 @@ Layout logic:
   summarizes expression distributions/ranges by study and gene, including
   positive-cell counts, quantiles, raw maxima, per-gene colorbar maxima, and the
   number/percentage of values above the plotted colorbar maximum.
+- Marker-expression v11 keeps the original core ON/OFF plots and adds a second
+  named panel for `PV Precursors` plus its paired OFF-target genes. New plot
+  tokens are `pv_precursors_on_target`, `pv_precursors_off_target`, and
+  `pv_precursors_on_off_target`. The extraction gene table now contains the
+  unique union of all genes needed by both panels.
+- Marker-expression v12 tightens row and column spacing, switches the
+  expression overlay/colorbars to `whiteBlue`, removes `ZFHX3` from the PV
+  paired OFF-target panel, and sets the PV panel order to:
+  `MAFB`, `MEF2C`, `ERBB4`, `ETV1`, `CRABP1`, `TAC1`, `ST18`, `PVALB` /
+  `SP8`, `EBF1`, `NKX2-2`, `RAX`, `HMX3`, `DBH`.
 
 Plot-study toggle:
 
