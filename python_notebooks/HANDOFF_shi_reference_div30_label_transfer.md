@@ -760,11 +760,19 @@ Prediction UMAP aesthetic update on 2026-06-08:
   were complete before cancellation. The plot-only Slurm template has since been
   updated to call the new `plot-umap` command so future aesthetic rerenders only
   regenerate UMAP grids.
-- Prediction UMAP rerender job `51533477` completed after aligning the plotted
-  cohort with the marker-expression PV figure: `bershteyn_2025` is excluded from
-  prediction UMAP grids, and `samarasinghe_2021` is filtered internally to
-  control samples only. The filter audit table is:
+- Prediction UMAP rerender job `51536925` completed after adding
+  `bershteyn_2025` back into the prediction UMAP grids. `samarasinghe_2021`
+  remains filtered internally to control samples only. The filter audit table is:
   `tables/cross_study_shi_umap_internal_plot_filter_summary.tsv`.
+- Plot-filtered predicted-GW composition outputs were added for the paper-style
+  GW18 comparison across studies. The denominator is each study's cells passing
+  the internal plot filters, not a score-thresholded subset:
+  `tables/cross_study_shi_predicted_gw_label_counts_by_study_plot_filtered.tsv`,
+  `tables/cross_study_shi_predicted_gw_label_fractions_by_study_plot_filtered.tsv`,
+  and `tables/cross_study_shi_predicted_gw18_fraction_by_study_plot_filtered.tsv`.
+  Plots are:
+  `plots/summary/cross_study_shi_predicted_gw_label_fractions_by_study_plot_filtered.png`
+  and `plots/summary/cross_study_shi_predicted_gw18_fraction_by_study_plot_filtered.png`.
 - `Max label score` and `Max GW score` are no longer included as UMAP grid
   columns. There is no maximum-prediction-score threshold/filter for including
   cells in prediction UMAPs.
