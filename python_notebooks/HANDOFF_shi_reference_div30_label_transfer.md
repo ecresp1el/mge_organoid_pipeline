@@ -721,6 +721,46 @@ Current inclusion decision:
 - **Reference only:** Shi et al. 2019 is the label-transfer reference. Do not use
   Shi as a cross-study target UMAP/comparison dataset.
 
+## Cross-Study Shi Prediction Plot Workflow
+
+The prediction-score UMAP grids are handled separately from marker expression:
+
+```text
+Python module:
+  python_notebooks/src/mge_organoid_python/cross_study_shi_prediction_plots.py
+Notebook:
+  python_notebooks/notebooks/cross_study_shi_prediction_scores.ipynb
+CLI wrapper:
+  python_notebooks/scripts/run_cross_study_shi_prediction_plots.py
+Full finalizer Slurm template:
+  slurm_templates/28_finalize_cross_study_shi_prediction_plots.sbatch.template
+UMAP-only plot Slurm template:
+  slurm_templates/28_cross_study_shi_prediction_plots_plot_only.sbatch.template
+```
+
+Current prediction run label:
+
+```text
+cross_study_shi_seurat_label_transfer_v1
+```
+
+Prediction UMAP aesthetic update on 2026-06-08:
+
+- Continuous Shi prediction-score UMAP grids now use the same broad aesthetic as
+  the marker-expression v12 grids: studies as rows, score classes as columns,
+  tight row/column spacing, grey background cells, fixed-size whiteBlue score
+  overlays, and aligned 60%-width per-column colorbars.
+- Prediction scores keep their natural score scale of `0` to `1`; unlike
+  marker expression, they are not q99-scaled per feature.
+- The plotting code no longer sorts cells by score before drawing. Continuous
+  score overlays use table/cell order. Categorical predicted-label UMAPs also
+  draw cells in table/cell order rather than category order.
+- Plot-only Slurm job `51530906` wrote the refreshed UMAP grids and was then
+  canceled while it was spending extra time on summary plots. The UMAP outputs
+  were complete before cancellation. The plot-only Slurm template has since been
+  updated to call the new `plot-umap` command so future aesthetic rerenders only
+  regenerate UMAP grids.
+
 ## Cross-Study Marker Expression Plot Workflow
 
 This is the Python-side workflow for the first major cross-study marker-expression

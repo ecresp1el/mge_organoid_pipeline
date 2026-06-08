@@ -15,7 +15,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
-from matplotlib.colors import BoundaryNorm, ListedColormap, Normalize
+from matplotlib.colors import BoundaryNorm, LinearSegmentedColormap, ListedColormap, Normalize
 import numpy as np
 import pandas as pd
 
@@ -34,6 +34,8 @@ STUDY_ORDER = [
     "bershteyn_2023",
     "samarasinghe_2021",
 ]
+
+DEFAULT_EXCLUDED_PLOT_STUDY_IDS = {"bershteyn_2025"}
 
 STUDY_LABELS = {
     "varela_div30": "This Study, DIV 30",
@@ -88,6 +90,8 @@ LABEL_SCORE_MAP = {
     "OPC": "shi_seurat_full_prediction_score_OPC",
     "Endothelial": "shi_seurat_full_prediction_score_Endothelial",
 }
+
+WHITE_BLUE_CMAP = LinearSegmentedColormap.from_list("whiteBlue", ["#ffffff", "#0000ff"])
 
 BASE_COLUMNS = [
     "cell_id",
@@ -176,10 +180,20 @@ def count_tsv_rows(path: str | Path) -> int:
 
 
 def parse_gw_numeric(value: object) -> float:
+    match = re.search(r"GW\s*0*(\d+)", str(value), flags=re.IGNORECASE)
+    if match:
+        return float(int(match.group(1)))
     nums = re.findall(r"\d+", str(value))
     if not nums:
         return np.nan
-    return float(np.mean([int(num) for num in nums]))
+    return float(int(nums[0]))
+
+
+def canonical_gw_label(value: object) -> str:
+    numeric = parse_gw_numeric(value)
+    if not np.isfinite(numeric):
+        return str(value)
+    return f"GW{int(numeric):02d}"
 
 
 def study_table(project_root: str | Path | None = None, run_label: str = RUN_LABEL_DEFAULT) -> pd.DataFrame:
@@ -254,7 +268,45 @@ def label_from_score_col(col: str) -> str:
 
 
 def week_label_from_score_col(col: str) -> str:
-    return col.removeprefix("shi_seurat_full_week_prediction_score_")
+    return canonical_gw_label(col.removeprefix("shi_seurat_full_week_prediction_score_"))
+
+
+def canonical_week_score_column(label: object) -> str:
+    return "shi_seurat_full_week_prediction_score_" + canonical_gw_label(label)
+
+
+def collapse_duplicate_gw_score_columns(data: pd.DataFrame) -> pd.DataFrame:
+    """Collapse replicate Shi GW score columns into one summed score per GW."""
+    data = data.copy()
+    raw_cols = [
+        col
+        for col in data.columns
+        if col.startswith("shi_seurat_full_week_prediction_score_")
+        and col != "shi_seurat_full_week_prediction_score"
+    ]
+    grouped: dict[str, list[str]] = {}
+    for col in raw_cols:
+        grouped.setdefault(canonical_week_score_column(col), []).append(col)
+    for canonical_col, cols in grouped.items():
+        values = data[cols].apply(pd.to_numeric, errors="coerce")
+        data[canonical_col] = values.sum(axis=1, min_count=1)
+    drop_cols = [col for col in raw_cols if col not in grouped]
+    if drop_cols:
+        data = data.drop(columns=drop_cols)
+    canonical_cols = sorted(grouped, key=lambda col: (parse_gw_numeric(col), natural_sort_key(col)))
+    if canonical_cols:
+        score_matrix = data[canonical_cols].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+        all_missing = np.isnan(score_matrix).all(axis=1)
+        filled = np.where(np.isnan(score_matrix), -np.inf, score_matrix)
+        max_idx = np.argmax(filled, axis=1)
+        max_scores = filled[np.arange(filled.shape[0]), max_idx]
+        labels = np.asarray([week_label_from_score_col(col) for col in canonical_cols], dtype=object)
+        data["shi_seurat_full_week_prediction_score"] = np.where(all_missing, np.nan, max_scores)
+        data["shi_seurat_full_predicted_shi_week_label"] = np.where(all_missing, "", labels[max_idx])
+        data["shi_seurat_full_week_uncertainty_score"] = 1.0 - pd.to_numeric(
+            data["shi_seurat_full_week_prediction_score"], errors="coerce"
+        )
+    return data
 
 
 def normalize_obs_table(data: pd.DataFrame) -> pd.DataFrame:
@@ -287,7 +339,7 @@ def normalize_obs_table(data: pd.DataFrame) -> pd.DataFrame:
         data["shi_seurat_full_week_uncertainty_score"] = 1.0 - pd.to_numeric(
             data["shi_seurat_full_week_prediction_score"], errors="coerce"
         )
-    return data
+    return collapse_duplicate_gw_score_columns(data)
 
 
 def resolve_project_path(path: str | Path, project_root: str | Path | None = None) -> Path:
@@ -584,6 +636,59 @@ def downsample_by_study(data: pd.DataFrame, max_cells_per_study: int | None, ran
     return pd.concat(parts, ignore_index=True), pd.DataFrame(rows)
 
 
+def apply_internal_umap_plot_filters(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Apply figure-specific prediction UMAP filters to match marker-expression plots."""
+    rows = []
+    parts = []
+    for study_id, group in data.groupby("study_id", sort=False):
+        group = group.copy()
+        plot_filter = "none"
+        plot_filter_label = ""
+        if str(study_id) in DEFAULT_EXCLUDED_PLOT_STUDY_IDS:
+            rows.append(
+                {
+                    "study_id": study_id,
+                    "study_label": group["study_label"].iloc[0] if "study_label" in group.columns and not group.empty else STUDY_LABELS.get(str(study_id), str(study_id)),
+                    "plot_filter": "excluded_study",
+                    "plot_filter_label": "Excluded from plot",
+                    "n_cells_before_plot_filter": int(group.shape[0]),
+                    "n_cells_after_plot_filter": 0,
+                    "n_cells_removed_by_plot_filter": int(group.shape[0]),
+                    "sample_values_after_plot_filter": "",
+                }
+            )
+            continue
+        kept = group
+        if str(study_id) == "samarasinghe_2021":
+            sample_values = kept["sample"].astype(str)
+            control_mask = sample_values.str.contains("Ctrl", case=False, na=False)
+            kept = kept.loc[control_mask].copy()
+            if kept.empty:
+                raise ValueError("Samarasinghe control-only UMAP plot filter removed all cells.")
+            if not kept["sample"].astype(str).str.contains("Ctrl", case=False, na=False).all():
+                raise ValueError("Samarasinghe UMAP plot filter retained non-control sample values.")
+            plot_filter = "sample_contains_ctrl"
+            plot_filter_label = "Controls only"
+        kept["plot_filter"] = plot_filter
+        kept["plot_filter_label"] = plot_filter_label
+        rows.append(
+            {
+                "study_id": study_id,
+                "study_label": kept["study_label"].iloc[0] if "study_label" in kept.columns and not kept.empty else STUDY_LABELS.get(str(study_id), str(study_id)),
+                "plot_filter": plot_filter,
+                "plot_filter_label": plot_filter_label,
+                "n_cells_before_plot_filter": int(group.shape[0]),
+                "n_cells_after_plot_filter": int(kept.shape[0]),
+                "n_cells_removed_by_plot_filter": int(group.shape[0] - kept.shape[0]),
+                "sample_values_after_plot_filter": ";".join(sorted(kept["sample"].astype(str).unique())) if "sample" in kept.columns else "",
+            }
+        )
+        parts.append(kept)
+    if not parts:
+        raise ValueError("No prediction UMAP cells remain after internal plot filters.")
+    return pd.concat(parts, ignore_index=True), pd.DataFrame(rows)
+
+
 def _prep_axes(ax: plt.Axes) -> None:
     ax.set_xticks([])
     ax.set_yticks([])
@@ -605,6 +710,15 @@ def _study_subsets(data: pd.DataFrame) -> tuple[list[str], dict[str, pd.DataFram
         subsets[study_id] = subset
         counts[study_id] = subset.shape[0]
     return ids, subsets, counts
+
+
+def row_label_for_study(study_id: str, subset: pd.DataFrame, n_cells: int) -> str:
+    label = f"{STUDY_LABELS.get(study_id, study_id)}\n(n = {n_cells:,} cells)"
+    if "plot_filter_label" in subset.columns:
+        filter_labels = [value for value in subset["plot_filter_label"].dropna().astype(str).unique() if value]
+        if filter_labels:
+            label = f"{STUDY_LABELS.get(study_id, study_id)}\n{filter_labels[0]}\n(n = {n_cells:,} cells)"
+    return label
 
 
 def save_figure(fig: plt.Figure, output_path: str | Path, *, also_pdf: bool = True, also_svg: bool = False) -> list[Path]:
@@ -632,12 +746,18 @@ def plot_categorical_umap_grid(
     *,
     category_order: Sequence[str],
     colors: dict[str, str] | None = None,
-    point_size: float = 0.12,
-    background_point_size: float = 0.05,
+    point_size: float = 0.36,
+    background_point_size: float = 0.15,
 ) -> pd.DataFrame:
     study_ids, subsets, counts = _study_subsets(data)
     n_rows = len(study_ids)
-    fig, axes = plt.subplots(n_rows, 1, figsize=(4.4, max(1.65 * n_rows + 1.0, 5.0)), squeeze=False)
+    fig, axes = plt.subplots(
+        n_rows,
+        1,
+        figsize=(4.4, max(1.05 * n_rows + 1.05, 4.0)),
+        squeeze=False,
+        gridspec_kw={"wspace": 0.025, "hspace": 0.035},
+    )
     color_map = colors or {cat: plt.get_cmap("tab20")(idx % 20) for idx, cat in enumerate(category_order)}
     rows = []
     for row_idx, study_id in enumerate(study_ids):
@@ -647,13 +767,14 @@ def plot_categorical_umap_grid(
         y = pd.to_numeric(subset["umap_2"], errors="coerce").to_numpy()
         ax.scatter(x, y, s=background_point_size, c="#d7d7d7", linewidths=0, rasterized=True)
         values = subset[category_col].astype(str)
+        value_colors = [color_map.get(value, "#333333") for value in values]
+        if len(value_colors) > 0:
+            ax.scatter(x, y, s=point_size, c=value_colors, linewidths=0, rasterized=True)
         for cat in category_order:
             mask = values == str(cat)
-            if mask.any():
-                ax.scatter(x[mask], y[mask], s=point_size, c=[color_map.get(str(cat), "#333333")], linewidths=0, rasterized=True)
             rows.append({"study_id": study_id, "category": cat, "n_cells_plotted": int(mask.sum())})
         _prep_axes(ax)
-        ax.set_ylabel(f"{STUDY_LABELS.get(study_id, study_id)}\n(n = {counts[study_id]:,} cells)", fontsize=8, rotation=0, ha="right", va="center")
+        ax.set_ylabel(row_label_for_study(study_id, subset, counts[study_id]), fontsize=8, rotation=0, ha="right", va="center")
     axes[0, 0].set_title("Predicted Shi label", fontsize=9)
     handles = [
         plt.Line2D([0], [0], marker="o", color="none", markerfacecolor=color_map.get(cat, "#333333"), markersize=5, label=cat)
@@ -672,15 +793,21 @@ def plot_continuous_umap_grid(
     features: Sequence[tuple[str, str, float, float, str]],
     title: str,
     *,
-    point_size: float = 0.12,
-    background_point_size: float = 0.05,
+    point_size: float = 0.36,
+    background_point_size: float = 0.15,
 ) -> pd.DataFrame:
     study_ids, subsets, counts = _study_subsets(data)
     n_rows = len(study_ids)
     n_cols = len(features)
-    fig_width = max(1.35 * n_cols + 2.0, 6.0)
-    fig_height = max(1.65 * n_rows + 1.2, 5.0)
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(fig_width, fig_height), squeeze=False)
+    fig_width = max(0.82 * n_cols + 1.85, 5.8)
+    fig_height = max(1.05 * n_rows + 1.05, 4.0)
+    fig, axes = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(fig_width, fig_height),
+        squeeze=False,
+        gridspec_kw={"wspace": 0.025, "hspace": 0.035},
+    )
     rows = []
     for row_idx, study_id in enumerate(study_ids):
         subset = subsets[study_id]
@@ -692,13 +819,12 @@ def plot_continuous_umap_grid(
             finite = np.isfinite(values)
             ax.scatter(x, y, s=background_point_size, c="#d7d7d7", linewidths=0, rasterized=True)
             if finite.any():
-                order = np.argsort(values[finite])
                 ax.scatter(
-                    x[finite][order],
-                    y[finite][order],
+                    x[finite],
+                    y[finite],
                     s=point_size,
-                    c=np.clip(values[finite][order], vmin, vmax),
-                    cmap=cmap,
+                    c=np.clip(values[finite], vmin, vmax),
+                    cmap=WHITE_BLUE_CMAP if str(cmap) in {"whiteBlue", "magma"} else cmap,
                     norm=Normalize(vmin=vmin, vmax=vmax),
                     linewidths=0,
                     rasterized=True,
@@ -717,23 +843,25 @@ def plot_continuous_umap_grid(
                 }
             )
         axes[row_idx, 0].set_ylabel(
-            f"{STUDY_LABELS.get(study_id, study_id)}\n(n = {counts[study_id]:,} cells)",
+            row_label_for_study(study_id, subset, counts[study_id]),
             fontsize=8,
             rotation=0,
             ha="right",
             va="center",
-        )
+            )
     fig.suptitle(title, fontsize=12, y=0.995)
-    fig.tight_layout(rect=(0.16, 0.12, 0.995, 0.965))
+    fig.tight_layout(rect=(0.145, 0.15, 0.995, 0.965), w_pad=0.05, h_pad=0.08)
     fig.canvas.draw()
-    cbar_y = max(0.04, axes[-1, 0].get_position().y0 - 0.055)
+    cbar_y = max(0.040, axes[-1, 0].get_position().y0 - 0.072)
     for col_idx, (_, label, vmin, vmax, cmap) in enumerate(features):
         pos = axes[-1, col_idx].get_position()
-        cax = fig.add_axes([pos.x0, cbar_y, pos.x1 - pos.x0, 0.010])
-        sm = ScalarMappable(norm=Normalize(vmin=vmin, vmax=vmax), cmap=cmap)
+        width = (pos.x1 - pos.x0) * 0.60
+        x0 = pos.x0 + ((pos.x1 - pos.x0) - width) / 2
+        cax = fig.add_axes([x0, cbar_y, width, 0.008])
+        sm = ScalarMappable(norm=Normalize(vmin=vmin, vmax=vmax), cmap=WHITE_BLUE_CMAP if str(cmap) in {"whiteBlue", "magma"} else cmap)
         sm.set_array([])
         cbar = fig.colorbar(sm, cax=cax, orientation="horizontal")
-        cbar.ax.tick_params(labelsize=5.5, length=1.5, pad=1)
+        cbar.ax.tick_params(labelsize=4.8, length=1.2, pad=0.8)
         cbar.set_ticks([vmin, vmax])
         cbar.set_ticklabels([f"{vmin:g}", f"{vmax:g}"])
         cbar.outline.set_linewidth(0.4)
@@ -749,11 +877,16 @@ def plot_gw_umap_grid(data: pd.DataFrame, output_path: str | Path) -> pd.DataFra
     features = [
         ("shi_seurat_full_expected_shi_gw_numeric", "Expected Shi GW", "continuous_gw"),
         ("shi_seurat_full_predicted_shi_week_label", "Predicted Shi GW", "categorical_week"),
-        ("shi_seurat_full_week_prediction_score", "Max GW score", "continuous_score"),
     ]
     n_rows = len(study_ids)
     n_cols = len(features)
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6.3, max(1.65 * n_rows + 1.2, 5.0)), squeeze=False)
+    fig, axes = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(max(0.82 * n_cols + 1.85, 5.8), max(1.05 * n_rows + 1.05, 4.0)),
+        squeeze=False,
+        gridspec_kw={"wspace": 0.025, "hspace": 0.035},
+    )
     rows = []
     for row_idx, study_id in enumerate(study_ids):
         subset = subsets[study_id]
@@ -761,13 +894,12 @@ def plot_gw_umap_grid(data: pd.DataFrame, output_path: str | Path) -> pd.DataFra
         y = pd.to_numeric(subset["umap_2"], errors="coerce").to_numpy()
         for col_idx, (col, label, kind) in enumerate(features):
             ax = axes[row_idx, col_idx]
-            ax.scatter(x, y, s=0.05, c="#d7d7d7", linewidths=0, rasterized=True)
+            ax.scatter(x, y, s=0.15, c="#d7d7d7", linewidths=0, rasterized=True)
             if kind == "categorical_week":
                 values = subset[col].astype(str)
-                for week in week_labels:
-                    mask = values == week
-                    if mask.any():
-                        ax.scatter(x[mask], y[mask], s=0.12, c=[week_colors[week]], linewidths=0, rasterized=True)
+                value_colors = [week_colors.get(value, "#333333") for value in values]
+                if len(value_colors) > 0:
+                    ax.scatter(x, y, s=0.36, c=value_colors, linewidths=0, rasterized=True)
                 finite = values.notna().to_numpy()
             else:
                 values = pd.to_numeric(subset[col], errors="coerce").to_numpy(dtype=float)
@@ -777,47 +909,39 @@ def plot_gw_umap_grid(data: pd.DataFrame, output_path: str | Path) -> pd.DataFra
                         norm = Normalize(vmin=9, vmax=18)
                         cmap = "viridis"
                         clipped = np.clip(values[finite], 9, 18)
-                    else:
-                        norm = Normalize(vmin=0, vmax=1)
-                        cmap = "magma"
-                        clipped = np.clip(values[finite], 0, 1)
-                    order = np.argsort(values[finite])
-                    ax.scatter(x[finite][order], y[finite][order], s=0.12, c=clipped[order], cmap=cmap, norm=norm, linewidths=0, rasterized=True)
+                    ax.scatter(x[finite], y[finite], s=0.36, c=clipped, cmap=cmap, norm=norm, linewidths=0, rasterized=True)
             _prep_axes(ax)
             if row_idx == 0:
                 ax.set_title(label, fontsize=8)
             rows.append({"study_id": study_id, "feature": col, "n_cells_plotted": counts[study_id], "n_finite_values": int(np.sum(finite))})
         axes[row_idx, 0].set_ylabel(
-            f"{STUDY_LABELS.get(study_id, study_id)}\n(n = {counts[study_id]:,} cells)",
+            row_label_for_study(study_id, subset, counts[study_id]),
             fontsize=8,
             rotation=0,
             ha="right",
             va="center",
         )
     fig.suptitle("Cross-study Shi gestational-week predictions", fontsize=12, y=0.995)
-    fig.tight_layout(rect=(0.18, 0.15, 0.99, 0.965))
+    fig.tight_layout(rect=(0.145, 0.15, 0.995, 0.965), w_pad=0.05, h_pad=0.08)
     fig.canvas.draw()
-    y = max(0.04, axes[-1, 0].get_position().y0 - 0.055)
+    y = max(0.040, axes[-1, 0].get_position().y0 - 0.072)
     for col_idx, (_, _, kind) in enumerate(features):
         pos = axes[-1, col_idx].get_position()
-        cax = fig.add_axes([pos.x0, y, pos.x1 - pos.x0, 0.010])
+        width = (pos.x1 - pos.x0) * 0.60
+        x0 = pos.x0 + ((pos.x1 - pos.x0) - width) / 2
+        cax = fig.add_axes([x0, y, width, 0.008])
         if kind == "continuous_gw":
             sm = ScalarMappable(norm=Normalize(vmin=9, vmax=18), cmap="viridis")
             cbar = fig.colorbar(sm, cax=cax, orientation="horizontal")
             cbar.set_ticks([9, 18])
             cbar.set_ticklabels(["GW9", "GW18"])
-        elif kind == "continuous_score":
-            sm = ScalarMappable(norm=Normalize(vmin=0, vmax=1), cmap="magma")
-            cbar = fig.colorbar(sm, cax=cax, orientation="horizontal")
-            cbar.set_ticks([0, 1])
-            cbar.set_ticklabels(["0", "1"])
         else:
             cmap = ListedColormap([week_colors[label] for label in week_labels])
             norm = BoundaryNorm(np.arange(len(week_labels) + 1), cmap.N)
             sm = ScalarMappable(norm=norm, cmap=cmap)
             cbar = fig.colorbar(sm, cax=cax, orientation="horizontal", ticks=np.arange(len(week_labels)) + 0.5)
             cbar.set_ticklabels(week_labels)
-        cbar.ax.tick_params(labelsize=5.5, length=1.5, pad=1)
+        cbar.ax.tick_params(labelsize=4.8, length=1.2, pad=0.8)
         cbar.outline.set_linewidth(0.4)
     save_figure(fig, output_path, also_pdf=True, also_svg=False)
     return pd.DataFrame(rows)
@@ -917,7 +1041,9 @@ def make_umap_grids(
     *,
     max_cells_per_study: int | None = None,
 ) -> pd.DataFrame:
-    plot_data, downsample = downsample_by_study(data, max_cells_per_study)
+    filtered_data, plot_filter_summary = apply_internal_umap_plot_filters(data)
+    plot_filter_summary.to_csv(paths.table_dir / "cross_study_shi_umap_internal_plot_filter_summary.tsv", sep="\t", index=False)
+    plot_data, downsample = downsample_by_study(filtered_data, max_cells_per_study)
     if not downsample.empty:
         downsample.to_csv(paths.diagnostics_dir / "cross_study_shi_plot_downsampling.tsv", sep="\t", index=False)
     manifests = []
@@ -933,11 +1059,10 @@ def make_umap_grids(
     manifests.append(manifest)
 
     main_features = [
-        (LABEL_SCORE_MAP["MGE"], "MGE score", 0, 1, "magma"),
-        (LABEL_SCORE_MAP["LGE"], "LGE score", 0, 1, "magma"),
-        (LABEL_SCORE_MAP["CGE"], "CGE score", 0, 1, "magma"),
-        (LABEL_SCORE_MAP["progenitor"], "progenitor score", 0, 1, "magma"),
-        ("shi_seurat_full_prediction_score", "Max label score", 0, 1, "magma"),
+        (LABEL_SCORE_MAP["MGE"], "MGE score", 0, 1, "whiteBlue"),
+        (LABEL_SCORE_MAP["LGE"], "LGE score", 0, 1, "whiteBlue"),
+        (LABEL_SCORE_MAP["CGE"], "CGE score", 0, 1, "whiteBlue"),
+        (LABEL_SCORE_MAP["progenitor"], "progenitor score", 0, 1, "whiteBlue"),
     ]
     main_features = [feat for feat in main_features if feat[0] in plot_data.columns]
     manifest = plot_continuous_umap_grid(
@@ -949,7 +1074,7 @@ def make_umap_grids(
     manifest.insert(0, "plot_name", "label_score_grid")
     manifests.append(manifest)
 
-    all_features = [(col, label_from_score_col(col), 0, 1, "magma") for col in label_score_columns(plot_data)]
+    all_features = [(col, label_from_score_col(col), 0, 1, "whiteBlue") for col in label_score_columns(plot_data)]
     manifest = plot_continuous_umap_grid(
         plot_data,
         paths.umap_grid_dir / "cross_study_umap_shi_seurat_full_all_label_scores_grid.png",
@@ -966,7 +1091,7 @@ def make_umap_grids(
     manifest.insert(0, "plot_name", "gw_prediction_grid")
     manifests.append(manifest)
 
-    gw_features = [(col, week_label_from_score_col(col), 0, 1, "magma") for col in week_score_columns(plot_data)]
+    gw_features = [(col, week_label_from_score_col(col), 0, 1, "whiteBlue") for col in week_score_columns(plot_data)]
     manifest = plot_continuous_umap_grid(
         plot_data,
         paths.umap_grid_dir / "cross_study_umap_shi_seurat_full_individual_gw_scores_grid.png",
@@ -1047,6 +1172,17 @@ def plot_all(
     return {"data": data, "umap_manifest": umap_manifest, "summary_outputs": summary_outputs, "paths": paths}
 
 
+def plot_umap_only(
+    project_root: str | Path | None = None,
+    run_label: str = RUN_LABEL_DEFAULT,
+    max_cells_per_study: int | None = None,
+) -> dict[str, object]:
+    paths = ensure_output_dirs(project_root, run_label)
+    data = load_combined_table(project_root, run_label)
+    umap_manifest = make_umap_grids(data, paths, max_cells_per_study=max_cells_per_study)
+    return {"data": data, "umap_manifest": umap_manifest, "paths": paths}
+
+
 def print_final_report(paths: OutputPaths) -> None:
     plot_list = sorted([*paths.umap_grid_dir.glob("*.png"), *paths.summary_plot_dir.glob("*.png")])
     table_list = sorted(paths.table_dir.glob("cross_study_shi*.tsv*"))
@@ -1089,6 +1225,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     combine.add_argument("--study-id", action="append", default=[])
     plot = subparsers.add_parser("plot", help="Render UMAP grids and summary plots.")
     plot.add_argument("--max-cells-per-study", type=int, default=None)
+    plot_umap = subparsers.add_parser("plot-umap", help="Render only UMAP grids from existing prediction tables.")
+    plot_umap.add_argument("--max-cells-per-study", type=int, default=None)
     subparsers.add_parser("report", help="Print output root, plot/table lists, diagnostics, and rsync commands.")
     all_cmd = subparsers.add_parser("all", help="Run setup, combine, plot, and report.")
     all_cmd.add_argument("--max-cells-per-study", type=int, default=None)
@@ -1105,6 +1243,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         print(f"combined_obs_rows\t{data.shape[0]}", flush=True)
     elif args.command == "plot":
         result = plot_all(args.project_root, args.run_label, max_cells_per_study=args.max_cells_per_study)
+        print(result["umap_manifest"][["plot_name"]].drop_duplicates().to_string(index=False), flush=True)
+    elif args.command == "plot-umap":
+        result = plot_umap_only(args.project_root, args.run_label, max_cells_per_study=args.max_cells_per_study)
         print(result["umap_manifest"][["plot_name"]].drop_duplicates().to_string(index=False), flush=True)
     elif args.command == "report":
         print_final_report(output_paths(args.project_root, args.run_label))
