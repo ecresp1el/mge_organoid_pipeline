@@ -29,7 +29,7 @@ from scipy import sparse
 from .paths import resolve_project_root
 
 
-MARKER_EXPRESSION_SCHEMA_VERSION = "cross_study_marker_expression_v7"
+MARKER_EXPRESSION_SCHEMA_VERSION = "cross_study_marker_expression_v8"
 
 GREY_TO_RED_CMAP = LinearSegmentedColormap.from_list("grey_to_red_expression", ["#d0d0d0", "#d7301f"])
 
@@ -213,17 +213,17 @@ def exclude_specs(
     return [spec for spec in specs if spec.study_id not in excluded]
 
 
-def run_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v7") -> Path:
+def run_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v8") -> Path:
     """Return the run directory for this workflow."""
     return resolve_project_root(project_root) / "results" / "cross_study_marker_expression" / run_label
 
 
-def table_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v7") -> Path:
+def table_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v8") -> Path:
     """Return the table directory for this workflow."""
     return run_dir(project_root, run_label) / "tables"
 
 
-def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v7") -> Path:
+def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v8") -> Path:
     """Return the plot directory for this workflow."""
     return run_dir(project_root, run_label) / "plots"
 
@@ -231,13 +231,13 @@ def plot_dir(project_root: str | Path | None = None, run_label: str = "cross_stu
 def per_study_table_path(
     study_id: str,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v7",
+    run_label: str = "cross_study_marker_expression_v8",
 ) -> Path:
     """Return the standardized per-study marker table path."""
     return table_dir(project_root, run_label) / "per_study" / f"{study_id}_marker_expression.tsv.gz"
 
 
-def ensure_output_dirs(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v7") -> dict[str, Path]:
+def ensure_output_dirs(project_root: str | Path | None = None, run_label: str = "cross_study_marker_expression_v8") -> dict[str, Path]:
     """Create and return output directories."""
     paths = {
         "run_dir": run_dir(project_root, run_label),
@@ -614,7 +614,7 @@ def validate_marker_expression_table(
 def readiness_table(
     specs: Sequence[CrossStudyMarkerSpec] | None = None,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v7",
+    run_label: str = "cross_study_marker_expression_v8",
     genes: Sequence[str] = GENE_ORDER,
 ) -> pd.DataFrame:
     """Return readiness for source paths, H5AD caches, and Python marker tables."""
@@ -658,7 +658,7 @@ def readiness_table(
 
 def write_setup_tables(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v7",
+    run_label: str = "cross_study_marker_expression_v8",
     include_xiang: bool = False,
 ) -> dict[str, Path]:
     """Write canonical setup/readiness tables for the notebook."""
@@ -679,7 +679,7 @@ def write_setup_tables(
 
 def extract_available_h5ad_marker_tables(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v7",
+    run_label: str = "cross_study_marker_expression_v8",
     study_ids: Sequence[str] | None = None,
     include_xiang: bool = False,
 ) -> pd.DataFrame:
@@ -729,7 +729,7 @@ def extract_available_h5ad_marker_tables(
 def load_marker_expression_tables(
     specs: Sequence[CrossStudyMarkerSpec] | None = None,
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v7",
+    run_label: str = "cross_study_marker_expression_v8",
     genes: Sequence[str] = GENE_ORDER,
     require_all: bool = True,
 ) -> pd.DataFrame:
@@ -867,6 +867,43 @@ def _ordered_study_labels(data: pd.DataFrame, specs: Sequence[CrossStudyMarkerSp
     return list(pd.unique(data["study_label"].astype(str)))
 
 
+def _apply_internal_umap_plot_filters(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Apply hard-coded biological filters that define what each UMAP row shows."""
+    summaries = []
+    filtered_parts = []
+    for study_id, group in data.groupby("study_id", sort=False):
+        rule = "none"
+        kept = group
+        if study_id == "samarasinghe_2021":
+            rule = "samarasinghe_2021_controls_only"
+            control = group["sample"].astype(str).str.contains("Ctrl", case=False, na=False)
+            kept = group.loc[control].copy()
+            if kept.empty:
+                raise ValueError("Samarasinghe control-only UMAP filter removed all cells.")
+            non_control_samples = sorted(kept.loc[~kept["sample"].astype(str).str.contains("Ctrl", case=False, na=False), "sample"].unique())
+            if non_control_samples:
+                raise ValueError("Samarasinghe control-only UMAP filter retained non-control samples: " + ", ".join(non_control_samples))
+        summaries.append(
+            {
+                "study_id": study_id,
+                "study_label": str(group["study_label"].iloc[0]),
+                "plot_filter": rule,
+                "plot_filter_label": "Controls only" if rule == "samarasinghe_2021_controls_only" else "",
+                "n_cells_before_plot_filter": int(group.shape[0]),
+                "n_cells_after_plot_filter": int(kept.shape[0]),
+                "n_cells_removed_by_plot_filter": int(group.shape[0] - kept.shape[0]),
+                "sample_values_after_plot_filter": ";".join(sorted(kept["sample"].astype(str).unique())),
+            }
+        )
+        filtered_parts.append(kept)
+    filtered = pd.concat(filtered_parts, ignore_index=True)
+    summary = pd.DataFrame(summaries)
+    filtered_total = int(summary["n_cells_after_plot_filter"].sum())
+    if filtered_total != filtered.shape[0]:
+        raise ValueError(f"Internal UMAP plot filter count mismatch: summary={filtered_total}, data={filtered.shape[0]}")
+    return filtered, summary
+
+
 def plot_marker_umap_grid(
     data: pd.DataFrame,
     output_path: str | Path,
@@ -882,6 +919,8 @@ def plot_marker_umap_grid(
 ) -> pd.DataFrame:
     """Plot a study-by-gene UMAP grid from standardized marker tables."""
     genes = list(genes)
+    data, filter_summary = _apply_internal_umap_plot_filters(data)
+    filter_by_study = filter_summary.set_index("study_label").to_dict(orient="index")
     plot_data = downsample_by_study(data, max_cells_per_study, random_state=random_state)
     study_labels = _ordered_study_labels(plot_data, specs)
     if not study_labels:
@@ -953,6 +992,12 @@ def plot_marker_umap_grid(
                     "scale_group": gene,
                     "scale_basis": "per_gene",
                     "study_label": study_label,
+                    "plot_filter": filter_by_study[study_label]["plot_filter"],
+                    "plot_filter_label": filter_by_study[study_label]["plot_filter_label"],
+                    "n_cells_before_plot_filter": filter_by_study[study_label]["n_cells_before_plot_filter"],
+                    "n_cells_after_plot_filter": filter_by_study[study_label]["n_cells_after_plot_filter"],
+                    "n_cells_removed_by_plot_filter": filter_by_study[study_label]["n_cells_removed_by_plot_filter"],
+                    "sample_values_after_plot_filter": filter_by_study[study_label]["sample_values_after_plot_filter"],
                     "n_cells_plotted": study_counts[study_label],
                     "n_positive_cells": int(positive.sum()),
                     "vmax": vmax,
@@ -965,10 +1010,14 @@ def plot_marker_umap_grid(
 
     for row_idx, study_label in enumerate(study_labels):
         position = axes[row_idx, 0].get_position()
+        filter_label = filter_by_study[study_label]["plot_filter_label"]
+        row_label = f"{study_label}\n(n = {study_counts[study_label]:,} cells)"
+        if filter_label:
+            row_label = f"{study_label}\n{filter_label}\n(n = {study_counts[study_label]:,} cells)"
         fig.text(
             position.x0 - 0.012,
             (position.y0 + position.y1) / 2,
-            f"{study_label}\n(n = {study_counts[study_label]:,} cells)",
+            row_label,
             ha="right",
             va="center",
             fontsize=8,
@@ -1024,7 +1073,7 @@ def plot_marker_umap_grid(
 
 def plot_default_marker_grids(
     project_root: str | Path | None = None,
-    run_label: str = "cross_study_marker_expression_v7",
+    run_label: str = "cross_study_marker_expression_v8",
     max_cells_per_study: int | None = None,
     include_xiang: bool = False,
     exclude_study_ids: Sequence[str] | None = None,
@@ -1044,6 +1093,12 @@ def plot_default_marker_grids(
         data = data.loc[~data["study_id"].astype(str).isin(excluded)].copy()
     if data.empty:
         raise ValueError("No cells remain after applying plot study exclusions.")
+    _, plot_filter_summary = _apply_internal_umap_plot_filters(data)
+    plot_filter_summary.to_csv(
+        table_dir(project_root, run_label) / "cross_study_marker_expression_internal_plot_filter_summary.tsv",
+        sep="\t",
+        index=False,
+    )
     outputs = [
         ("on_target", ON_TARGET_GENES, "Cross-study ON-target marker expression"),
         ("off_target", OFF_TARGET_GENES, "Cross-study OFF-target marker expression"),
@@ -1081,7 +1136,7 @@ def _parse_study_ids(raw: Sequence[str] | None) -> list[str] | None:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", default=None)
-    parser.add_argument("--run-label", default="cross_study_marker_expression_v7")
+    parser.add_argument("--run-label", default="cross_study_marker_expression_v8")
     parser.add_argument("--include-xiang", action="store_true")
     subparsers = parser.add_subparsers(dest="command", required=True)
 

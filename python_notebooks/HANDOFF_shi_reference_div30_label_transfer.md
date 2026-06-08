@@ -538,7 +538,7 @@ Slurm template:
 Current run label:
 
 ```text
-cross_study_marker_expression_v7
+cross_study_marker_expression_v8
 ```
 
 Data provenance and expression scale:
@@ -583,6 +583,15 @@ Layout logic:
   scale.
 - Marker-expression v7 uses 3x larger dots than v6 for both the grey background
   layer and the colored expression overlay.
+- Marker-expression v8 adds an internal UMAP plotting filter for
+  `samarasinghe_2021`: only samples whose `sample` value contains `Ctrl` are
+  visualized. The row label is marked `Controls only`, and the cell count shown
+  on the figure is the post-filter control-cell count.
+- The Samarasinghe control-only filter is deliberately internal to
+  `cross_study_marker_expression.py`, because it defines the biological subset
+  for this figure rather than acting as a general user-facing plot option. The
+  filter validates that only control samples remain and writes an audit table:
+  `tables/cross_study_marker_expression_internal_plot_filter_summary.tsv`.
 - The combined ON/OFF plot draws a vertical divider between the last ON-target
   gene (`NKX2-1`) and the first OFF-target gene (`SP8`).
 - Each gene column has its own colorbar. That color scale is shared across all
