@@ -44,7 +44,7 @@ slurm_templates/01g_gse286235_sra_to_10x_fastqs_array.sbatch.template
 slurm_templates/05m_liu_2025_hnbmo_cellranger_count_array.sbatch.template
 ```
 
-Active Slurm jobs as of 2026-06-07 18:15 EDT:
+Active Slurm jobs as of 2026-06-08 status check:
 
 ```text
 FASTQ reconstruction array: 51484325
@@ -60,7 +60,9 @@ Original Cell Ranger count array: 51484326
 Corrected Cell Ranger count array: 51485738
   Submitted after patching slurm_templates/05m_liu_2025_hnbmo_cellranger_count_array.sbatch.template
   to relax nounset only around module load.
-  Status at update: PENDING with reason None.
+  51485738_1 BF_H9_D36      COMPLETED, ExitCode 0:0, elapsed 01:12:55
+  51485738_2 BF_H9_D63      COMPLETED, ExitCode 0:0, elapsed 01:27:43
+  51485738_3 BFCO_IMR_D63   COMPLETED, ExitCode 0:0, elapsed 02:08:48
 ```
 
 Check status later:
@@ -84,6 +86,19 @@ FASTQs:
 Cell Ranger outputs, once dependency releases:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/liu_2025_hnbmo_cellranger_counts/{BF_H9_D36,BF_H9_D63,BFCO_IMR_D63}/outs/filtered_feature_bc_matrix.h5
 ```
+
+Cell Ranger 6.1.2 called-cell counts:
+
+```text
+BF_H9_D36       6,648 cells
+BF_H9_D63       4,115 cells
+BFCO_IMR_D63    8,438 cells
+Total          19,201 cells
+```
+
+This is higher than the paper's reported 14,245 healthy cells, so the rerun is
+successful technically but not numerically identical to the authors' Cell
+Ranger v3.1/reference/filtering state.
 
 FASTQ reconstruction assumptions:
 
