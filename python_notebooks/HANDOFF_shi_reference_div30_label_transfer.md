@@ -368,6 +368,188 @@ Slurm template:
 slurm_templates/20_execute_shi_reference_div30_label_transfer.sbatch.template
 ```
 
+## Runtime Environment And Slurm Management
+
+Use the same project environment conventions as Notebook 00, the Seurat/AnnData
+inventory, marker-expression plotting, and the Schmitz staging workflow.
+
+Repo checkout:
+
+```text
+REPO_ROOT=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+```
+
+Large data/results root:
+
+```text
+PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+```
+
+Python/conda environment:
+
+```text
+CONDA_ENV_BIN=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin
+env=mge-organoid-python
+python=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+jupyter=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/jupyter
+kernel=mge-organoid-python
+```
+
+Required exports for direct CLI/debug runs:
+
+```bash
+export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+export PATH=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin:${PATH}
+export PYTHONPATH=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/python_notebooks/src:${PYTHONPATH:-}
+```
+
+Do not rely on the login shell's generic `python`; use the explicit
+`mge-organoid-python` interpreter or submit through Slurm templates.
+
+### Standalone DIV30 Shi kNN/Notebook Workflow
+
+Template:
+
+```text
+slurm_templates/20_execute_shi_reference_div30_label_transfer.sbatch.template
+```
+
+Prepared job file pattern:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/20_execute_shi_reference_div30_label_transfer.sbatch
+```
+
+Submit:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+mkdir -p /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs
+mkdir -p /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs
+
+cp slurm_templates/20_execute_shi_reference_div30_label_transfer.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/20_execute_shi_reference_div30_label_transfer.sbatch
+
+sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/20_execute_shi_reference_div30_label_transfer.sbatch
+```
+
+Template defaults:
+
+```text
+account: parent0
+partition: standard
+cpus-per-task: 8
+memory: 160G
+time: 16:00:00
+job name: shi-div30-xfer
+```
+
+Main environment variables accepted by the template:
+
+```text
+SHI_LABEL_TRANSFER_RESULTS_DIRNAME=shi_reference_div30_label_transfer
+SHI_LABEL_TRANSFER_RUN_LABEL=shi_reference_div30_label_transfer_v2
+SHI_LABEL_TRANSFER_QUERY_H5AD=$PROJECT_ROOT/results/python_anndata/varela_div30.h5ad
+SHI_LABEL_TRANSFER_REFERENCE_H5AD=$PROJECT_ROOT/results/python_anndata/shi_2019_paper_qc.h5ad
+SHI_LABEL_TRANSFER_TABLE_S2_XLSX=$PROJECT_ROOT/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s2.xlsx
+SHI_LABEL_TRANSFER_N_TOP_VARIABLE_GENES=3000
+SHI_LABEL_TRANSFER_N_PCS=50
+SHI_LABEL_TRANSFER_N_NEIGHBORS=31
+SHI_LABEL_TRANSFER_RESTRICTED_LABELS=MGE,LGE,CGE
+SHI_LABEL_TRANSFER_WRITE_H5AD=1
+SHI_LABEL_TRANSFER_SAVE_PLOTS=1
+```
+
+Expected executed notebook:
+
+```text
+$PROJECT_ROOT/results/shi_reference_div30_label_transfer/executed/shi_reference_div30_label_transfer.<RUN_LABEL>.executed.ipynb
+```
+
+Expected logs:
+
+```text
+$PROJECT_ROOT/logs/shi-label-transfer-shi-div30-xfer-<jobid>.out
+$PROJECT_ROOT/logs/shi-label-transfer-shi-div30-xfer-<jobid>.err
+```
+
+### Cross-Study Shi Seurat Transfer Workflow
+
+Templates:
+
+```text
+slurm_templates/26_cross_study_shi_seurat_label_transfer.sbatch.template
+slurm_templates/27_cross_study_shi_seurat_label_transfer_array.sbatch.template
+slurm_templates/28_finalize_cross_study_shi_prediction_plots.sbatch.template
+slurm_templates/28_cross_study_shi_prediction_plots_plot_only.sbatch.template
+```
+
+These Seurat-transfer jobs load the Great Lakes Seurat module:
+
+```text
+module load Bioinformatics
+SEURAT5_MODULE=r-seurat/5.1.0-R-4.4.1-c3m7yfq
+module load "$SEURAT5_MODULE"
+```
+
+Single-job submit pattern:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+cp slurm_templates/26_cross_study_shi_seurat_label_transfer.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/26_cross_study_shi_seurat_label_transfer.sbatch
+sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/26_cross_study_shi_seurat_label_transfer.sbatch
+```
+
+Array/finalizer pattern:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+cp slurm_templates/27_cross_study_shi_seurat_label_transfer_array.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/27_cross_study_shi_seurat_label_transfer_array.sbatch
+cp slurm_templates/28_finalize_cross_study_shi_prediction_plots.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/28_finalize_cross_study_shi_prediction_plots.sbatch
+
+array_job=$(sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/27_cross_study_shi_seurat_label_transfer_array.sbatch | awk '{print $4}')
+sbatch --dependency=afterok:${array_job} \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/28_finalize_cross_study_shi_prediction_plots.sbatch
+```
+
+Common cross-study environment variables:
+
+```text
+CROSS_STUDY_SHI_RUN_LABEL=cross_study_shi_seurat_label_transfer_v1
+CROSS_STUDY_SHI_STUDIES=varela_div30,varela_div90,siebert_2026,walsh,bershteyn_2025,bershteyn_2023,samarasinghe_2021
+CROSS_STUDY_SHI_REUSE_EXISTING=true
+CROSS_STUDY_SHI_FORCE_RERUN=false
+CROSS_STUDY_SHI_DIMS=50
+CROSS_STUDY_SHI_MIN_SHARED_FEATURES=500
+SHI_REFERENCE_RDS=$PROJECT_ROOT/results/shi_2019_paper_qc/shi_2019_seurat.rds
+SHI_REFERENCE_LABELS_TSV=$PROJECT_ROOT/results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1/seurat/shi_reference_labels_for_seurat.tsv
+```
+
+Expected cross-study logs:
+
+```text
+$PROJECT_ROOT/logs/cross-shi-transfer-cross-shi-transfer-<jobid>.out
+$PROJECT_ROOT/logs/cross-shi-transfer-cross-shi-transfer-<jobid>.err
+$PROJECT_ROOT/logs/cross-shi-xfer-array-<array_jobid>_<taskid>.out
+$PROJECT_ROOT/logs/cross-shi-xfer-array-<array_jobid>_<taskid>.err
+$PROJECT_ROOT/logs/cross-shi-final-<jobid>.out
+$PROJECT_ROOT/logs/cross-shi-final-<jobid>.err
+```
+
+### Monitoring Commands
+
+Use these checks for Shi-related Slurm jobs:
+
+```bash
+squeue -j <jobid> -o '%.20i %.9P %.30j %.8u %.2t %.10M %.6D %R'
+sacct -j <jobid> --format=JobID,JobName%28,State,ExitCode,Elapsed,MaxRSS,ReqMem -P
+tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/<logfile>.out
+tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/<logfile>.err
+```
+
 ## Inputs
 
 DIV30 query AnnData:
