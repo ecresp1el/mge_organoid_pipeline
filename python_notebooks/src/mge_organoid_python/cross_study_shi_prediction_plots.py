@@ -20,6 +20,14 @@ import numpy as np
 import pandas as pd
 
 from .paths import resolve_project_root
+from .shi_prediction_schema import (
+    PREDICTION_SCORE_COL,
+    UNCERTAINTY_SCORE_COL,
+    WEEK_PREDICTION_SCORE_COL,
+    WEEK_UNCERTAINTY_SCORE_COL,
+    sanitize_shi_label_token,
+    validate_canonical_prediction_scores,
+)
 
 
 RUN_LABEL_DEFAULT = "cross_study_shi_seurat_label_transfer_v1"
@@ -134,9 +142,7 @@ class OutputPaths:
 
 
 def safe_token(value: object) -> str:
-    token = re.sub(r"[^A-Za-z0-9]+", "_", str(value).strip())
-    token = re.sub(r"_+", "_", token).strip("_")
-    return token or "value"
+    return sanitize_shi_label_token(value)
 
 
 def natural_sort_key(value: object) -> list[object]:
@@ -346,7 +352,26 @@ def normalize_obs_table(data: pd.DataFrame) -> pd.DataFrame:
         data["shi_seurat_full_week_uncertainty_score"] = 1.0 - pd.to_numeric(
             data["shi_seurat_full_week_prediction_score"], errors="coerce"
         )
-    return collapse_duplicate_gw_score_columns(data)
+    data = collapse_duplicate_gw_score_columns(data)
+    label_scores = label_score_columns(data)
+    week_scores = week_score_columns(data)
+    if label_scores:
+        validate_canonical_prediction_scores(
+            data,
+            label_scores,
+            max_score_col=PREDICTION_SCORE_COL,
+            uncertainty_col=UNCERTAINTY_SCORE_COL,
+            context="cross-study Shi label scores",
+        )
+    if week_scores:
+        validate_canonical_prediction_scores(
+            data,
+            week_scores,
+            max_score_col=WEEK_PREDICTION_SCORE_COL,
+            uncertainty_col=WEEK_UNCERTAINTY_SCORE_COL,
+            context="cross-study Shi week scores",
+        )
+    return data
 
 
 def resolve_project_path(path: str | Path, project_root: str | Path | None = None) -> Path:

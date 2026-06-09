@@ -352,6 +352,54 @@ prediction_score_cols <- function(df) {
   setdiff(grep("^prediction\\.score\\.", colnames(df), value = TRUE), "prediction.score.max")
 }
 
+anchor_query_cell_count <- function(anchors) {
+  anchor_df <- as.data.frame(anchors@anchors)
+  if ("cell2" %in% colnames(anchor_df)) {
+    return(length(unique(anchor_df$cell2)))
+  }
+  NA_integer_
+}
+
+choose_transfer_k_weight <- function(n_anchors, requested = 50L) {
+  if (n_anchors <= requested) {
+    used <- max(1L, n_anchors - 1L)
+    reason <- paste0("lowered_from_", requested, "_because_anchor_count_was_", n_anchors)
+  } else {
+    used <- requested
+    reason <- "requested_k_weight_used"
+  }
+  list(used = used, reason = reason, requested = requested)
+}
+
+validate_transfer_predictions <- function(predictions, study_id, transfer_label) {
+  required <- c("cell_id", "predicted.id", "prediction.score.max")
+  missing <- setdiff(required, colnames(predictions))
+  if (length(missing) > 0) {
+    stop(study_id, " ", transfer_label, " TransferData output is missing: ", paste(missing, collapse = ", "), call. = FALSE)
+  }
+  score_cols <- prediction_score_cols(predictions)
+  if (length(score_cols) == 0) {
+    stop(study_id, " ", transfer_label, " TransferData returned no per-label score columns", call. = FALSE)
+  }
+  max_score <- as.numeric(predictions$prediction.score.max)
+  if (any(!is.finite(max_score))) {
+    stop(study_id, " ", transfer_label, " prediction.score.max contains non-finite values", call. = FALSE)
+  }
+  if (any(max_score < -1e-8 | max_score > 1 + 1e-8)) {
+    stop(study_id, " ", transfer_label, " prediction.score.max contains values outside [0,1]", call. = FALSE)
+  }
+  score_mat <- as.matrix(predictions[, score_cols, drop = FALSE])
+  storage.mode(score_mat) <- "double"
+  if (any(!is.finite(score_mat))) {
+    stop(study_id, " ", transfer_label, " per-label prediction scores contain non-finite values", call. = FALSE)
+  }
+  row_max <- apply(score_mat, 1, max)
+  if (any(abs(max_score - row_max) > 1e-8)) {
+    stop(study_id, " ", transfer_label, " prediction.score.max is not the row-wise max of per-label scores", call. = FALSE)
+  }
+  score_cols
+}
+
 rename_score_columns <- function(df, prefix, score_cols) {
   out <- df[, c("cell_id", score_cols), drop = FALSE]
   new_names <- colnames(out)
@@ -361,6 +409,15 @@ rename_score_columns <- function(df, prefix, score_cols) {
   }
   colnames(out) <- new_names
   out
+}
+
+score_delta_from_scores <- function(scores) {
+  score_cols <- setdiff(colnames(scores), "cell_id")
+  mat <- as.matrix(scores[, score_cols, drop = FALSE])
+  storage.mode(mat) <- "double"
+  if (ncol(mat) < 2L) return(rep(NA_real_, nrow(scores)))
+  sorted <- t(apply(mat, 1, sort, decreasing = TRUE))
+  sorted[, 1] - sorted[, 2]
 }
 
 expected_gw_from_scores <- function(scores, prefix) {
@@ -395,7 +452,24 @@ validate_score_range <- function(df, cols, study_id) {
   }
 }
 
-build_obs_table <- function(study, query, predictions, label_scores, week_predictions, week_scores) {
+validate_canonical_prediction_scores <- function(obs, score_cols, max_col, uncertainty_col, study_id, score_label) {
+  if (length(score_cols) == 0) stop(study_id, " has no canonical ", score_label, " score columns", call. = FALSE)
+  score_mat <- as.matrix(obs[, score_cols, drop = FALSE])
+  storage.mode(score_mat) <- "double"
+  max_score <- as.numeric(obs[[max_col]])
+  uncertainty <- as.numeric(obs[[uncertainty_col]])
+  if (any(!is.finite(score_mat)) || any(!is.finite(max_score)) || any(!is.finite(uncertainty))) {
+    stop(study_id, " has non-finite canonical ", score_label, " scores", call. = FALSE)
+  }
+  if (any(abs(max_score - apply(score_mat, 1, max)) > 1e-8)) {
+    stop(study_id, " ", max_col, " is not the row-wise max of canonical ", score_label, " score columns", call. = FALSE)
+  }
+  if (any(abs(uncertainty - (1 - max_score)) > 1e-8)) {
+    stop(study_id, " ", uncertainty_col, " is not 1 - ", max_col, call. = FALSE)
+  }
+}
+
+build_obs_table <- function(study, query, predictions, label_scores, week_predictions, week_scores, transfer_qc) {
   study_id <- study$study_id[[1]]
   meta <- query@meta.data
   if (!(study$reduction[[1]] %in% names(query@reductions))) {
@@ -439,6 +513,12 @@ build_obs_table <- function(study, query, predictions, label_scores, week_predic
   out <- merge(out, label_scores, by = "cell_id", all.x = TRUE, sort = FALSE)
   out <- merge(out, week_scores, by = "cell_id", all.x = TRUE, sort = FALSE)
   out <- merge(out, expected_gw_from_scores(week_scores, "shi_seurat_full_week_prediction_score_"), by = "cell_id", all.x = TRUE, sort = FALSE)
+  out$shi_seurat_full_score_delta <- score_delta_from_scores(label_scores)
+  out$shi_seurat_full_low_confidence_flag <- out$shi_seurat_full_prediction_score < 0.75
+  out$n_anchors <- transfer_qc$n_anchors
+  out$n_unique_query_anchor_cells <- transfer_qc$n_unique_query_anchor_cells
+  out$k_weight_used <- transfer_qc$k_weight_used
+  out$k_weight_reason <- transfer_qc$k_weight_reason
   out[match(cells, out$cell_id), , drop = FALSE]
 }
 
@@ -551,6 +631,22 @@ reuse_existing_obs <- function(study, table_per_study_dir, seurat_dir, project_r
   }
   label_score_cols <- grep("^shi_seurat_full_prediction_score_", colnames(obs), value = TRUE)
   validate_score_range(obs, c(label_score_cols, week_score_cols, "shi_seurat_full_prediction_score", "shi_seurat_full_week_prediction_score"), study$study_id[[1]])
+  validate_canonical_prediction_scores(
+    obs, label_score_cols,
+    "shi_seurat_full_prediction_score", "shi_seurat_full_uncertainty_score",
+    study$study_id[[1]], "major-label"
+  )
+  validate_canonical_prediction_scores(
+    obs, week_score_cols,
+    "shi_seurat_full_week_prediction_score", "shi_seurat_full_week_uncertainty_score",
+    study$study_id[[1]], "week"
+  )
+  if (!("shi_seurat_full_score_delta" %in% colnames(obs))) {
+    obs$shi_seurat_full_score_delta <- score_delta_from_scores(obs[, c("cell_id", label_score_cols), drop = FALSE])
+  }
+  if (!("shi_seurat_full_low_confidence_flag" %in% colnames(obs))) {
+    obs$shi_seurat_full_low_confidence_flag <- as.numeric(obs$shi_seurat_full_prediction_score) < 0.75
+  }
   out_path <- file.path(table_per_study_dir, paste0(study$study_id[[1]], "_shi_seurat_label_transfer_obs.tsv.gz"))
   write_tsv_gz(obs, out_path)
   raw_copied <- copy_existing_raw_exports(study, seurat_dir)
@@ -562,10 +658,17 @@ reuse_existing_obs <- function(study, table_per_study_dir, seurat_dir, project_r
     n_reference_cells = NA_integer_,
     n_shared_features = NA_integer_,
     n_anchors = NA_integer_,
+    n_unique_query_anchor_cells = NA_integer_,
+    k_weight_requested = NA_integer_,
+    k_weight_used = NA_integer_,
+    k_weight_reason = "reused_existing_table",
     transfer_k_weight = NA_integer_,
+    median_prediction_score_max = stats::median(as.numeric(obs$shi_seurat_full_prediction_score), na.rm = TRUE),
+    fraction_prediction_score_max_ge_0_75 = mean(as.numeric(obs$shi_seurat_full_prediction_score) >= 0.75, na.rm = TRUE),
     label_score_columns_exported = paste(label_score_cols, collapse = ","),
     week_score_columns_exported = paste(week_score_cols, collapse = ","),
     n_missing_prediction = sum(is.na(obs$shi_seurat_full_predicted_shi_label) | !nzchar(as.character(obs$shi_seurat_full_predicted_shi_label))),
+    winner_take_all_composition = paste(names(table(obs$shi_seurat_full_predicted_shi_label)), as.integer(table(obs$shi_seurat_full_predicted_shi_label)), sep = ":", collapse = ","),
     umap_reduction = study$reduction[[1]],
     sample_column_used = study$sample_col[[1]],
     cluster_column_used = study$cluster_col[[1]],
@@ -629,8 +732,16 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
   if (n_anchors < 2L) {
     stop(study_id, " produced too few transfer anchors: ", n_anchors, call. = FALSE)
   }
-  transfer_k_weight <- if (n_anchors < 100L) min(4L, n_anchors - 1L) else 50L
-  log_msg("TransferData k.weight for ", study_id, ": ", transfer_k_weight, " (anchors=", n_anchors, ")")
+  n_unique_query_anchor_cells <- anchor_query_cell_count(anchors)
+  transfer_k <- choose_transfer_k_weight(n_anchors, requested = 50L)
+  transfer_k_weight <- transfer_k$used
+  log_msg(
+    "TransferData k.weight for ", study_id, ": ", transfer_k_weight,
+    " (requested=", transfer_k$requested,
+    ", anchors=", n_anchors,
+    ", unique_query_anchor_cells=", n_unique_query_anchor_cells,
+    ", reason=", transfer_k$reason, ")"
+  )
 
   log_msg("TransferData major Shi labels for ", study_id)
   predictions <- as.data.frame(Seurat::TransferData(
@@ -641,8 +752,7 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
     verbose = TRUE
   ), stringsAsFactors = FALSE)
   predictions <- data.frame(cell_id = rownames(predictions), predictions, check.names = FALSE)
-  label_score_cols_raw <- prediction_score_cols(predictions)
-  if (length(label_score_cols_raw) == 0) stop(study_id, " TransferData returned no major-label score columns", call. = FALSE)
+  label_score_cols_raw <- validate_transfer_predictions(predictions, study_id, "major-label")
   label_scores <- rename_score_columns(predictions, "shi_seurat_full_prediction_score_", label_score_cols_raw)
 
   log_msg("TransferData Shi gestational-week labels for ", study_id)
@@ -654,14 +764,29 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
     verbose = TRUE
   ), stringsAsFactors = FALSE)
   week_predictions <- data.frame(cell_id = rownames(week_predictions), week_predictions, check.names = FALSE)
-  week_score_cols_raw <- prediction_score_cols(week_predictions)
-  if (length(week_score_cols_raw) == 0) stop(study_id, " TransferData returned no week score columns", call. = FALSE)
+  week_score_cols_raw <- validate_transfer_predictions(week_predictions, study_id, "week")
   week_scores <- rename_score_columns(week_predictions, "shi_seurat_full_week_prediction_score_", week_score_cols_raw)
 
-  obs <- build_obs_table(study, query, predictions, label_scores, week_predictions, week_scores)
+  transfer_qc <- list(
+    n_anchors = n_anchors,
+    n_unique_query_anchor_cells = n_unique_query_anchor_cells,
+    k_weight_used = transfer_k_weight,
+    k_weight_reason = transfer_k$reason
+  )
+  obs <- build_obs_table(study, query, predictions, label_scores, week_predictions, week_scores, transfer_qc)
   label_score_cols <- grep("^shi_seurat_full_prediction_score_", colnames(obs), value = TRUE)
   week_score_cols <- grep("^shi_seurat_full_week_prediction_score_", colnames(obs), value = TRUE)
   validate_score_range(obs, c(label_score_cols, week_score_cols, "shi_seurat_full_prediction_score", "shi_seurat_full_week_prediction_score"), study_id)
+  validate_canonical_prediction_scores(
+    obs, label_score_cols,
+    "shi_seurat_full_prediction_score", "shi_seurat_full_uncertainty_score",
+    study_id, "major-label"
+  )
+  validate_canonical_prediction_scores(
+    obs, week_score_cols,
+    "shi_seurat_full_week_prediction_score", "shi_seurat_full_week_uncertainty_score",
+    study_id, "week"
+  )
   gw_range <- range(parse_gw_numeric(sub("^shi_seurat_full_week_prediction_score_", "", week_score_cols)), na.rm = TRUE)
   expected <- obs$shi_seurat_full_expected_shi_gw_numeric
   if (any(!is.na(expected) & (expected < gw_range[[1]] - 1e-8 | expected > gw_range[[2]] + 1e-8))) {
@@ -684,10 +809,17 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
     n_reference_cells = ncol(reference),
     n_shared_features = length(shared_features),
     n_anchors = n_anchors,
+    n_unique_query_anchor_cells = n_unique_query_anchor_cells,
+    k_weight_requested = transfer_k$requested,
+    k_weight_used = transfer_k_weight,
+    k_weight_reason = transfer_k$reason,
     transfer_k_weight = transfer_k_weight,
+    median_prediction_score_max = stats::median(as.numeric(obs$shi_seurat_full_prediction_score), na.rm = TRUE),
+    fraction_prediction_score_max_ge_0_75 = mean(as.numeric(obs$shi_seurat_full_prediction_score) >= 0.75, na.rm = TRUE),
     label_score_columns_exported = paste(label_score_cols, collapse = ","),
     week_score_columns_exported = paste(week_score_cols, collapse = ","),
     n_missing_prediction = sum(is.na(obs$shi_seurat_full_predicted_shi_label) | !nzchar(as.character(obs$shi_seurat_full_predicted_shi_label))),
+    winner_take_all_composition = paste(names(table(obs$shi_seurat_full_predicted_shi_label)), as.integer(table(obs$shi_seurat_full_predicted_shi_label)), sep = ":", collapse = ","),
     umap_reduction = study$reduction[[1]],
     sample_column_used = select_first_metadata_col(query@meta.data, study$sample_col[[1]]),
     cluster_column_used = select_first_metadata_col(query@meta.data, study$cluster_col[[1]]),

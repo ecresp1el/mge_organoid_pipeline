@@ -31,6 +31,14 @@ from mge_organoid_python.shi_label_transfer import (
     shi_week_numeric_from_label,
     summarize_predictions_by_cluster,
 )
+from mge_organoid_python.shi_prediction_schema import (
+    PREDICTION_SCORE_COL,
+    UNCERTAINTY_SCORE_COL,
+    WEEK_PREDICTION_SCORE_COL,
+    WEEK_UNCERTAINTY_SCORE_COL,
+    sanitize_shi_label_token,
+    validate_canonical_prediction_scores,
+)
 from scipy.stats import gaussian_kde
 
 
@@ -57,7 +65,7 @@ def env_bool(name: str, default: bool) -> bool:
 
 
 def sanitize_score_label(label: str) -> str:
-    return safe_token(label).replace("__", "_")
+    return sanitize_shi_label_token(label)
 
 
 def prepare_reference_labels(
@@ -660,6 +668,20 @@ def main() -> None:
     week_predictions = load_week_predictions(week_prediction_path)
     aligned_week = align_predictions_to_adata(adata, week_predictions)
     week_score_cols = add_week_predictions_to_obs(adata, aligned_week)
+    validate_canonical_prediction_scores(
+        adata.obs,
+        score_cols,
+        max_score_col=PREDICTION_SCORE_COL,
+        uncertainty_col=UNCERTAINTY_SCORE_COL,
+        context="Shi Seurat smoke label scores",
+    )
+    validate_canonical_prediction_scores(
+        adata.obs,
+        week_score_cols,
+        max_score_col=WEEK_PREDICTION_SCORE_COL,
+        uncertainty_col=WEEK_UNCERTAINTY_SCORE_COL,
+        context="Shi Seurat smoke week scores",
+    )
     if "cell_id" in adata.obs.columns:
         adata.obs["cell_id_for_join"] = adata.obs["cell_id"].astype(str)
     else:

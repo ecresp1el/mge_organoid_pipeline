@@ -634,6 +634,7 @@ scripts/13_run_cross_study_shi_seurat_label_transfer.R
 python_notebooks/scripts/seurat_shi_label_transfer_export.R
 python_notebooks/scripts/run_shi_seurat_label_transfer_smoke.py
 python_notebooks/src/mge_organoid_python/cross_study_shi_prediction_plots.py
+python_notebooks/src/mge_organoid_python/shi_prediction_schema.py
 ```
 
 Exact Seurat-side score syntax:
@@ -684,6 +685,55 @@ neighbors voting for the winning label after sparse scaling, SVD projection, and
 cosine kNN. It is retained only to explain the completed
 `shi_reference_div30_label_transfer_v2` run and now requires an explicit
 `allow_legacy_knn_scoring=True` opt-in in code.
+
+2026-06-09 implementation update:
+
+```text
+Codex refactored the active Shi scoring paths so the canonical score contract is
+now enforced close to export/plot entry points.
+
+Files changed:
+  scripts/13_run_cross_study_shi_seurat_label_transfer.R
+  python_notebooks/scripts/seurat_shi_label_transfer_export.R
+  python_notebooks/scripts/run_shi_seurat_label_transfer_smoke.py
+  python_notebooks/src/mge_organoid_python/cross_study_shi_prediction_plots.py
+  python_notebooks/src/mge_organoid_python/shi_label_transfer.py
+  python_notebooks/src/mge_organoid_python/shi_prediction_schema.py
+
+New/strengthened invariants:
+  - `predicted.id` and `prediction.score.max` must be present after TransferData.
+  - At least one Seurat `prediction.score.<label>` column must be present.
+  - `prediction.score.max` must be finite, in [0,1], and equal to the row-wise
+    maximum of the per-label support scores.
+  - `shi_seurat_full_uncertainty_score` must equal
+    `1 - shi_seurat_full_prediction_score`.
+  - Canonical exported score columns must use
+    `shi_seurat_full_prediction_score_<label_token>`.
+  - Python plotting/smoke code now uses the same label-token sanitizer via
+    `shi_prediction_schema.py`.
+  - Reused/old tables are validated against the canonical identities before
+    plotting, so stale kNN-style or raw-Seurat-named score tables may now fail
+    early instead of silently flowing into plots.
+
+QC-only additions:
+  - `shi_seurat_full_score_delta`
+  - `shi_seurat_full_low_confidence_flag`
+  - `n_anchors`
+  - `n_unique_query_anchor_cells`
+  - `k_weight_used`
+  - `k_weight_reason`
+
+Diagnostics now also log:
+  - `k_weight_requested`
+  - `k_weight_used`
+  - `k_weight_reason`
+  - `median_prediction_score_max`
+  - `fraction_prediction_score_max_ge_0_75`
+  - winner-take-all composition by top transferred Shi label
+
+The 0.75 field is a confidence/QC metric only. It is not used as a default
+composition or plotting filter.
+```
 
 ## Legacy v2 Method
 
@@ -1030,7 +1080,7 @@ Prediction UMAP aesthetic update on 2026-06-08:
   columns. There is no maximum-prediction-score threshold/filter for including
   cells in prediction UMAPs.
 
-Prediction-score decision still needed:
+Prediction-score policy after 2026-06-09 refactor:
 
 - The exported Shi scores come from Seurat `TransferData` output: `predicted.id`,
   `prediction.score.max`, and the per-class `prediction.score.<label>` columns.
@@ -1040,11 +1090,10 @@ Prediction-score decision still needed:
   `"Unassigned"` for lower-confidence cells.
 - Current UMAP plots therefore show all cells that pass the plot-level filters
   using the raw Seurat prediction/support scores. There is no score cutoff.
-- Decision to make before final interpretation: keep the raw `TransferData`
-  labels/scores for all plotted cells, or add an explicit confidence policy
-  such as `score >= 0.75` / `"Unassigned"` / study-specific audit threshold.
-  If this changes, it should be documented as an interpretation/filtering
-  decision rather than a change to the underlying Seurat score formula.
+- Winner-take-all `TransferData` labels/scores are the default composition
+  logic. Confidence-filtered outputs such as `score >= 0.75` must remain
+  explicitly labeled QC/sensitivity outputs and must not replace the default
+  published-style composition unless requested.
 - For gestational-week score panels, duplicate Shi week classes are collapsed
   after Seurat transfer by summing default per-class support scores that map to
   the same canonical GW label, e.g. `GW12`, `GW12_01`, and `GW12_02` become
@@ -2164,6 +2213,110 @@ sample-level summary-plot phase was cancelled after hanging. The existing
 summary plots and cross_study_shi_seurat_label_transfer_complete.tsv should be
 treated as stale until summary plotting is split or optimized. The UMAP grid
 manifest is current and includes all seven studies.
+```
+
+## 2026-06-09 Shi TransferData Score-Schema Refactor
+
+Reason:
+
+```text
+The active workflows needed one enforced Shi prediction-score schema. The only
+active prediction-score source should be Seurat TransferData anchor-weighted
+support scores, not the legacy Scanpy/kNN vote fraction. This may affect any
+downstream code that expects raw `prediction.score.<label>` score-matrix column
+names or stale tables where max score/uncertainty do not match the canonical
+per-label score matrix.
+```
+
+Code changes:
+
+```text
+scripts/13_run_cross_study_shi_seurat_label_transfer.R
+  - validates TransferData output immediately after major-label and GW transfer
+  - exports canonical `shi_seurat_full_prediction_score_<label_token>` columns
+  - validates max-score and uncertainty identities before writing/plotting
+  - logs k.weight request/use/reason, anchors, unique query anchor cells, median
+    max score, fraction with max score >= 0.75, and winner-take-all composition
+  - adds per-cell QC columns: score delta, low-confidence flag, anchor/k.weight QC
+
+python_notebooks/scripts/seurat_shi_label_transfer_export.R
+  - uses the same canonical score-matrix naming and identity checks for the
+    standalone/smoke Seurat export path
+
+python_notebooks/src/mge_organoid_python/shi_prediction_schema.py
+  - centralizes Python-side canonical column names, label-token sanitization,
+    and score identity validation
+
+python_notebooks/src/mge_organoid_python/cross_study_shi_prediction_plots.py
+python_notebooks/scripts/run_shi_seurat_label_transfer_smoke.py
+python_notebooks/src/mge_organoid_python/shi_label_transfer.py
+  - now reuse the shared token/validation helper
+  - legacy `run_knn_label_transfer()` still raises unless
+    `allow_legacy_knn_scoring=True`
+```
+
+Local verification before Slurm submission:
+
+```text
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/Rscript parse check: OK
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python -m py_compile: OK
+git diff --check: OK
+Legacy kNN guard check: OK
+Repo search:
+  no active GetTransferPredictions
+  no score.filter
+  no allow_legacy_knn_scoring=True outside the guard message
+```
+
+Submission plan:
+
+```text
+Submit the cross-study array workflow rather than the single serial template.
+The array template force-reruns the five non-Varela target transfers:
+  siebert_2026
+  walsh
+  bershteyn_2025
+  bershteyn_2023
+  samarasinghe_2021
+
+Then submit the finalizer with afterok dependency on the array job. The reused
+Varela DIV30/DIV90 tables are still validated during final combine/plot, so this
+run should expose both fresh-transfer and reused-table schema implications.
+```
+
+Submitted Slurm jobs:
+
+```text
+Array job:
+  51559750
+
+Finalizer job:
+  51559751
+  Dependency:
+    afterok:51559750
+
+Immediate status after submission:
+  51559750_[1-5]  PENDING on largemem
+  51559751        PENDING on standard, Dependency
+
+Prepared job files:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/27_cross_study_shi_seurat_label_transfer_array.sbatch
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/28_finalize_cross_study_shi_prediction_plots.sbatch
+```
+
+Monitor:
+
+```bash
+squeue -j 51559750,51559751 -o '%.20i %.9P %.30j %.8u %.2t %.10M %.6D %R'
+
+sacct -j 51559750,51559751 \
+  --format=JobID,JobName%30,State,ExitCode,Elapsed,MaxRSS,ReqMem -P
+
+for i in 1 2 3 4 5; do
+  tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-xfer-array-51559750_${i}.err
+done
+
+tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-final-51559751.err
 ```
 
 ## New Adjacent Reference Direction: Schmitz 2022

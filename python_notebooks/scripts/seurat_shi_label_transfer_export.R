@@ -151,6 +151,93 @@ ensure_log_normalized <- function(obj, assay, nfeatures, verbose = FALSE) {
   obj
 }
 
+sanitize_token <- function(x) {
+  y <- gsub("[^A-Za-z0-9]+", "_", trimws(as.character(x)))
+  y <- gsub("_+", "_", y)
+  y <- gsub("^_|_$", "", y)
+  ifelse(nzchar(y), y, "value")
+}
+
+prediction_score_cols <- function(df) {
+  setdiff(grep("^prediction\\.score\\.", colnames(df), value = TRUE), "prediction.score.max")
+}
+
+rename_score_columns <- function(df, prefix, score_cols) {
+  out <- df[, c("cell_id", score_cols), drop = FALSE]
+  new_names <- colnames(out)
+  for (col in score_cols) {
+    label <- sub("^prediction\\.score\\.", "", col)
+    new_names[new_names == col] <- paste0(prefix, sanitize_token(label))
+  }
+  colnames(out) <- new_names
+  out
+}
+
+anchor_query_cell_count <- function(anchors) {
+  anchor_df <- as.data.frame(anchors@anchors)
+  if ("cell2" %in% colnames(anchor_df)) {
+    return(length(unique(anchor_df$cell2)))
+  }
+  NA_integer_
+}
+
+choose_transfer_k_weight <- function(n_anchors, requested = 50L) {
+  if (n_anchors <= requested) {
+    used <- max(1L, n_anchors - 1L)
+    reason <- paste0("lowered_from_", requested, "_because_anchor_count_was_", n_anchors)
+  } else {
+    used <- requested
+    reason <- "requested_k_weight_used"
+  }
+  list(used = used, reason = reason, requested = requested)
+}
+
+validate_transfer_predictions <- function(predictions, transfer_label) {
+  required <- c("cell_id", "predicted.id", "prediction.score.max")
+  missing <- setdiff(required, colnames(predictions))
+  if (length(missing) > 0) {
+    stop(transfer_label, " TransferData output is missing: ", paste(missing, collapse = ", "), call. = FALSE)
+  }
+  score_cols <- prediction_score_cols(predictions)
+  if (length(score_cols) == 0) {
+    stop(transfer_label, " TransferData returned no per-label score columns", call. = FALSE)
+  }
+  max_score <- as.numeric(predictions$prediction.score.max)
+  if (any(!is.finite(max_score))) {
+    stop(transfer_label, " prediction.score.max contains non-finite values", call. = FALSE)
+  }
+  if (any(max_score < -1e-8 | max_score > 1 + 1e-8)) {
+    stop(transfer_label, " prediction.score.max contains values outside [0,1]", call. = FALSE)
+  }
+  score_mat <- as.matrix(predictions[, score_cols, drop = FALSE])
+  storage.mode(score_mat) <- "double"
+  if (any(!is.finite(score_mat))) {
+    stop(transfer_label, " per-label prediction scores contain non-finite values", call. = FALSE)
+  }
+  if (any(abs(max_score - apply(score_mat, 1, max)) > 1e-8)) {
+    stop(transfer_label, " prediction.score.max is not the row-wise max of per-label scores", call. = FALSE)
+  }
+  score_cols
+}
+
+validate_canonical_scores <- function(scores, max_score, uncertainty, score_label) {
+  score_cols <- setdiff(colnames(scores), "cell_id")
+  if (length(score_cols) == 0) stop("No canonical ", score_label, " score columns to validate", call. = FALSE)
+  score_mat <- as.matrix(scores[, score_cols, drop = FALSE])
+  storage.mode(score_mat) <- "double"
+  max_score <- as.numeric(max_score)
+  uncertainty <- as.numeric(uncertainty)
+  if (any(!is.finite(score_mat)) || any(!is.finite(max_score)) || any(!is.finite(uncertainty))) {
+    stop("Non-finite canonical ", score_label, " scores", call. = FALSE)
+  }
+  if (any(abs(max_score - apply(score_mat, 1, max)) > 1e-8)) {
+    stop("Canonical ", score_label, " max score is not the row-wise max of per-label scores", call. = FALSE)
+  }
+  if (any(abs(uncertainty - (1 - max_score)) > 1e-8)) {
+    stop("Canonical ", score_label, " uncertainty is not 1 - max score", call. = FALSE)
+  }
+}
+
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
 required <- c("reference", "query", "labels", "outdir")
 for (name in required) {
@@ -255,26 +342,41 @@ anchors <- Seurat::FindTransferAnchors(
   dims = dims_use,
   verbose = TRUE
 )
+n_anchors <- nrow(anchors@anchors)
+if (n_anchors < 2L) stop("Produced too few transfer anchors: ", n_anchors, call. = FALSE)
+n_unique_query_anchor_cells <- anchor_query_cell_count(anchors)
+transfer_k <- choose_transfer_k_weight(n_anchors, requested = 50L)
+log_msg(
+  "TransferData k.weight: ", transfer_k$used,
+  " (requested=", transfer_k$requested,
+  ", anchors=", n_anchors,
+  ", unique_query_anchor_cells=", n_unique_query_anchor_cells,
+  ", reason=", transfer_k$reason, ")"
+)
 
 log_msg("Running TransferData for Shi labels")
 predictions <- Seurat::TransferData(
   anchorset = anchors,
   refdata = reference$shi_transfer_label,
   dims = dims_use,
+  k.weight = transfer_k$used,
   verbose = TRUE
 )
 predictions <- as.data.frame(predictions, stringsAsFactors = FALSE)
 predictions <- data.frame(cell_id = rownames(predictions), predictions, check.names = FALSE)
+score_cols <- validate_transfer_predictions(predictions, "major-label")
 
 log_msg("Running TransferData for Shi gestational week labels")
 week_predictions <- Seurat::TransferData(
   anchorset = anchors,
   refdata = reference$shi_transfer_week_label,
   dims = dims_use,
+  k.weight = transfer_k$used,
   verbose = TRUE
 )
 week_predictions <- as.data.frame(week_predictions, stringsAsFactors = FALSE)
 week_predictions <- data.frame(cell_id = rownames(week_predictions), week_predictions, check.names = FALSE)
+week_score_cols <- validate_transfer_predictions(week_predictions, "week")
 
 prediction_path <- file.path(opt$outdir, paste0(opt$output_prefix, "_shi_seurat_full_predictions.tsv.gz"))
 score_path <- file.path(opt$outdir, paste0(opt$output_prefix, "_shi_seurat_full_prediction_scores.tsv.gz"))
@@ -282,12 +384,20 @@ week_prediction_path <- file.path(opt$outdir, paste0(opt$output_prefix, "_shi_se
 week_score_path <- file.path(opt$outdir, paste0(opt$output_prefix, "_shi_seurat_full_week_prediction_scores.tsv.gz"))
 diagnostics_path <- file.path(opt$outdir, paste0(opt$output_prefix, "_shi_seurat_full_transfer_diagnostics.tsv"))
 
-score_cols <- grep("^prediction\\.score\\.", colnames(predictions), value = TRUE)
-score_cols <- setdiff(score_cols, "prediction.score.max")
-scores <- predictions[, c("cell_id", score_cols), drop = FALSE]
-week_score_cols <- grep("^prediction\\.score\\.", colnames(week_predictions), value = TRUE)
-week_score_cols <- setdiff(week_score_cols, "prediction.score.max")
-week_scores <- week_predictions[, c("cell_id", week_score_cols), drop = FALSE]
+scores <- rename_score_columns(predictions, "shi_seurat_full_prediction_score_", score_cols)
+week_scores <- rename_score_columns(week_predictions, "shi_seurat_full_week_prediction_score_", week_score_cols)
+validate_canonical_scores(
+  scores,
+  predictions$prediction.score.max,
+  1 - as.numeric(predictions$prediction.score.max),
+  "major-label"
+)
+validate_canonical_scores(
+  week_scores,
+  week_predictions$prediction.score.max,
+  1 - as.numeric(week_predictions$prediction.score.max),
+  "week"
+)
 
 log_msg("Writing predictions: ", prediction_path)
 write_tsv_gz(predictions, prediction_path)
@@ -316,6 +426,12 @@ diagnostics <- data.frame(
     "shared_features_used",
     "pca_components_used",
     "anchors",
+    "unique_query_anchor_cells",
+    "k_weight_requested",
+    "k_weight_used",
+    "k_weight_reason",
+    "median_prediction_score_max",
+    "fraction_prediction_score_max_ge_0_75_qc_only",
     "reference_assay",
     "query_assay",
     "normalization_method",
@@ -327,7 +443,13 @@ diagnostics <- data.frame(
     as.character(ncol(query)),
     as.character(length(variable_features)),
     as.character(length(dims_use)),
-    as.character(nrow(anchors@anchors)),
+    as.character(n_anchors),
+    as.character(n_unique_query_anchor_cells),
+    as.character(transfer_k$requested),
+    as.character(transfer_k$used),
+    transfer_k$reason,
+    as.character(stats::median(as.numeric(predictions$prediction.score.max), na.rm = TRUE)),
+    as.character(mean(as.numeric(predictions$prediction.score.max) >= 0.75, na.rm = TRUE)),
     opt$reference_assay,
     opt$query_assay,
     opt$normalization_method,

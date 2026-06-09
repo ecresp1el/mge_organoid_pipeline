@@ -22,6 +22,8 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler, normalize
 
+from .shi_prediction_schema import sanitize_shi_label_token
+
 
 DEFAULT_NON_NEURAL_LABELS = {"Microglia", "OPC", "Endothelial"}
 DEFAULT_REGIONAL_LABELS = {"MGE", "LGE", "CGE"}
@@ -47,9 +49,7 @@ class LabelTransferConfig:
 
 def safe_token(value: object) -> str:
     """Return a stable token suitable for filenames and column names."""
-    token = re.sub(r"[^A-Za-z0-9]+", "_", str(value).strip())
-    token = re.sub(r"_+", "_", token).strip("_")
-    return token or "value"
+    return sanitize_shi_label_token(value)
 
 
 def natural_sort_key(value: object) -> list[object]:
