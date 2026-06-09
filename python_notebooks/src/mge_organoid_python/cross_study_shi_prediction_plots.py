@@ -712,7 +712,14 @@ def ordered_gw_labels(data: pd.DataFrame) -> list[str]:
     return known + [label for label in labels if label not in known]
 
 
-def plot_predicted_gw_fraction_stacked_bar(table: pd.DataFrame, output_path: str | Path, gw_labels: Sequence[str]) -> None:
+def plot_predicted_gw_fraction_stacked_bar(
+    table: pd.DataFrame,
+    output_path: str | Path,
+    gw_labels: Sequence[str],
+    *,
+    title: str = "Predicted Shi gestational-week fractions by study",
+    ylabel: str = "Fraction of plotted cells",
+) -> None:
     names = table["study_label"].astype(str).tolist()
     x = np.arange(len(table))
     fig, ax = plt.subplots(figsize=(max(7.2, 0.72 * len(names) + 2.0), 4.1))
@@ -731,14 +738,20 @@ def plot_predicted_gw_fraction_stacked_bar(table: pd.DataFrame, output_path: str
     ax.set_xticks(x)
     ax.set_xticklabels(names, rotation=35, ha="right", fontsize=8)
     ax.set_ylim(0, 1)
-    ax.set_ylabel("Fraction of plotted cells")
-    ax.set_title("Predicted Shi gestational-week fractions by study")
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
     ax.legend(frameon=False, fontsize=8, ncol=max(1, min(5, len(gw_labels))), bbox_to_anchor=(0.5, -0.32), loc="upper center")
     fig.tight_layout()
     save_figure(fig, output_path, also_pdf=True)
 
 
-def plot_gw18_fraction_by_study(table: pd.DataFrame, output_path: str | Path) -> None:
+def plot_gw18_fraction_by_study(
+    table: pd.DataFrame,
+    output_path: str | Path,
+    *,
+    title: str = "Fraction of plotted cells predicted as Shi GW18",
+    ylabel: str = "Fraction predicted GW18",
+) -> None:
     names = table["study_label"].astype(str).tolist()
     vals = pd.to_numeric(table["fraction_predicted_gw18"], errors="coerce").fillna(0).to_numpy(dtype=float)
     fig, ax = plt.subplots(figsize=(max(7.2, 0.72 * len(names) + 2.0), 4.0))
@@ -749,8 +762,8 @@ def plot_gw18_fraction_by_study(table: pd.DataFrame, output_path: str | Path) ->
     ax.set_xticks(np.arange(len(table)))
     ax.set_xticklabels(names, rotation=35, ha="right", fontsize=8)
     ax.set_ylim(0, 1)
-    ax.set_ylabel("Fraction predicted GW18")
-    ax.set_title("Fraction of plotted cells predicted as Shi GW18")
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
     for bar, value in zip(bars, vals, strict=False):
         ax.text(bar.get_x() + bar.get_width() / 2, min(value + 0.025, 0.97), f"{value:.1%}", ha="center", va="bottom", fontsize=7)
     fig.tight_layout()
@@ -762,48 +775,85 @@ def make_plot_filtered_gw_prediction_outputs(data: pd.DataFrame, paths: OutputPa
     filtered_data, plot_filter_summary = apply_internal_umap_plot_filters(data)
     plot_filter_summary.to_csv(paths.table_dir / "cross_study_shi_umap_internal_plot_filter_summary.tsv", sep="\t", index=False)
     filtered_data = filtered_data.copy()
-    filtered_data["predicted_shi_gw_canonical"] = canonical_predicted_gw_labels(filtered_data)
-    gw_labels = ordered_gw_labels(filtered_data)
-    group_cols = ["study_id", "study_label", "plot_filter", "plot_filter_label"]
-    counts = (
-        filtered_data.groupby(group_cols + ["predicted_shi_gw_canonical"], sort=False, observed=False)
-        .size()
-        .unstack("predicted_shi_gw_canonical", fill_value=0)
+
+    def write_outputs(
+        subset: pd.DataFrame,
+        *,
+        stem: str,
+        denominator_note: str,
+        title_suffix: str,
+    ) -> dict[str, Path]:
+        subset = subset.copy()
+        subset["predicted_shi_gw_canonical"] = canonical_predicted_gw_labels(subset)
+        gw_labels = ordered_gw_labels(subset)
+        group_cols = ["study_id", "study_label", "plot_filter", "plot_filter_label"]
+        counts = (
+            subset.groupby(group_cols + ["predicted_shi_gw_canonical"], sort=False, observed=False)
+            .size()
+            .unstack("predicted_shi_gw_canonical", fill_value=0)
+        )
+        counts = counts.reindex(columns=gw_labels, fill_value=0).reset_index()
+        counts.insert(len(group_cols), "n_cells_plotted", counts[gw_labels].sum(axis=1).astype(int))
+        counts_path = paths.table_dir / f"cross_study_shi_predicted_gw_label_counts_by_study_{stem}.tsv"
+        counts.to_csv(counts_path, sep="\t", index=False)
+
+        fractions = counts.copy()
+        denom = fractions["n_cells_plotted"].replace(0, np.nan)
+        fractions[gw_labels] = fractions[gw_labels].div(denom, axis=0).fillna(0)
+        fractions_path = paths.table_dir / f"cross_study_shi_predicted_gw_label_fractions_by_study_{stem}.tsv"
+        fractions.to_csv(fractions_path, sep="\t", index=False)
+
+        gw18 = counts[["study_id", "study_label", "plot_filter", "plot_filter_label", "n_cells_plotted"]].copy()
+        gw18["n_cells_predicted_gw18"] = counts["GW18"] if "GW18" in counts.columns else 0
+        gw18["fraction_predicted_gw18"] = np.where(
+            gw18["n_cells_plotted"] > 0,
+            gw18["n_cells_predicted_gw18"] / gw18["n_cells_plotted"],
+            np.nan,
+        )
+        gw18["percent_predicted_gw18"] = gw18["fraction_predicted_gw18"] * 100.0
+        gw18["denominator_note"] = denominator_note
+        gw18_path = paths.table_dir / f"cross_study_shi_predicted_gw18_fraction_by_study_{stem}.tsv"
+        gw18.to_csv(gw18_path, sep="\t", index=False)
+
+        stacked_path = paths.summary_plot_dir / f"cross_study_shi_predicted_gw_label_fractions_by_study_{stem}.png"
+        plot_predicted_gw_fraction_stacked_bar(
+            fractions,
+            stacked_path,
+            gw_labels,
+            title=f"Predicted Shi gestational-week fractions by study ({title_suffix})",
+            ylabel="Fraction of denominator cells",
+        )
+        gw18_plot_path = paths.summary_plot_dir / f"cross_study_shi_predicted_gw18_fraction_by_study_{stem}.png"
+        plot_gw18_fraction_by_study(
+            gw18,
+            gw18_plot_path,
+            title=f"Fraction predicted as Shi GW18 ({title_suffix})",
+            ylabel="Fraction of denominator cells predicted GW18",
+        )
+        return {
+            f"predicted_gw_counts_by_study_{stem}": counts_path,
+            f"predicted_gw_fractions_by_study_{stem}": fractions_path,
+            f"predicted_gw18_fraction_by_study_{stem}": gw18_path,
+            f"predicted_gw_fractions_plot_{stem}": stacked_path,
+            f"predicted_gw18_fraction_plot_{stem}": gw18_plot_path,
+        }
+
+    outputs = write_outputs(
+        filtered_data,
+        stem="plot_filtered",
+        denominator_note="Cells passing internal plot filters; Samarasinghe controls only.",
+        title_suffix="all plotted cells",
     )
-    counts = counts.reindex(columns=gw_labels, fill_value=0).reset_index()
-    counts.insert(len(group_cols), "n_cells_plotted", counts[gw_labels].sum(axis=1).astype(int))
-    counts_path = paths.table_dir / "cross_study_shi_predicted_gw_label_counts_by_study_plot_filtered.tsv"
-    counts.to_csv(counts_path, sep="\t", index=False)
-
-    fractions = counts.copy()
-    denom = fractions["n_cells_plotted"].replace(0, np.nan)
-    fractions[gw_labels] = fractions[gw_labels].div(denom, axis=0).fillna(0)
-    fractions_path = paths.table_dir / "cross_study_shi_predicted_gw_label_fractions_by_study_plot_filtered.tsv"
-    fractions.to_csv(fractions_path, sep="\t", index=False)
-
-    gw18 = counts[["study_id", "study_label", "plot_filter", "plot_filter_label", "n_cells_plotted"]].copy()
-    gw18["n_cells_predicted_gw18"] = counts["GW18"] if "GW18" in counts.columns else 0
-    gw18["fraction_predicted_gw18"] = np.where(
-        gw18["n_cells_plotted"] > 0,
-        gw18["n_cells_predicted_gw18"] / gw18["n_cells_plotted"],
-        np.nan,
+    mge_data = filtered_data.loc[filtered_data["shi_seurat_full_predicted_shi_label"].astype(str) == "MGE"].copy()
+    outputs.update(
+        write_outputs(
+            mge_data,
+            stem="mge_predicted_plot_filtered",
+            denominator_note="Cells passing internal plot filters and predicted as Shi major label MGE; no prediction-score cutoff.",
+            title_suffix="predicted MGE cells",
+        )
     )
-    gw18["percent_predicted_gw18"] = gw18["fraction_predicted_gw18"] * 100.0
-    gw18["denominator_note"] = "Cells passing internal plot filters; Samarasinghe controls only."
-    gw18_path = paths.table_dir / "cross_study_shi_predicted_gw18_fraction_by_study_plot_filtered.tsv"
-    gw18.to_csv(gw18_path, sep="\t", index=False)
-
-    stacked_path = paths.summary_plot_dir / "cross_study_shi_predicted_gw_label_fractions_by_study_plot_filtered.png"
-    plot_predicted_gw_fraction_stacked_bar(fractions, stacked_path, gw_labels)
-    gw18_plot_path = paths.summary_plot_dir / "cross_study_shi_predicted_gw18_fraction_by_study_plot_filtered.png"
-    plot_gw18_fraction_by_study(gw18, gw18_plot_path)
-    return {
-        "predicted_gw_counts_by_study_plot_filtered": counts_path,
-        "predicted_gw_fractions_by_study_plot_filtered": fractions_path,
-        "predicted_gw18_fraction_by_study_plot_filtered": gw18_path,
-        "predicted_gw_fractions_plot": stacked_path,
-        "predicted_gw18_fraction_plot": gw18_plot_path,
-    }
+    return outputs
 
 
 def _prep_axes(ax: plt.Axes) -> None:

@@ -773,6 +773,14 @@ Prediction UMAP aesthetic update on 2026-06-08:
   Plots are:
   `plots/summary/cross_study_shi_predicted_gw_label_fractions_by_study_plot_filtered.png`
   and `plots/summary/cross_study_shi_predicted_gw18_fraction_by_study_plot_filtered.png`.
+- A second denominator-matched version was added for cells whose top transferred
+  Shi major label is `MGE`. This is still not score-thresholded. Tables are:
+  `tables/cross_study_shi_predicted_gw_label_counts_by_study_mge_predicted_plot_filtered.tsv`,
+  `tables/cross_study_shi_predicted_gw_label_fractions_by_study_mge_predicted_plot_filtered.tsv`,
+  and `tables/cross_study_shi_predicted_gw18_fraction_by_study_mge_predicted_plot_filtered.tsv`.
+  Plots are:
+  `plots/summary/cross_study_shi_predicted_gw_label_fractions_by_study_mge_predicted_plot_filtered.png`
+  and `plots/summary/cross_study_shi_predicted_gw18_fraction_by_study_mge_predicted_plot_filtered.png`.
 - `Max label score` and `Max GW score` are no longer included as UMAP grid
   columns. There is no maximum-prediction-score threshold/filter for including
   cells in prediction UMAPs.
