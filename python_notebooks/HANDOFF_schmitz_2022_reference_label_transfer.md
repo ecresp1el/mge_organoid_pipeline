@@ -52,6 +52,141 @@ Notebook:
 python_notebooks/notebooks/schmitz_2022_reference_metadata_umap.ipynb
 ```
 
+Slurm template:
+
+```text
+slurm_templates/29_fetch_schmitz_2022_metadata_umap.sbatch.template
+```
+
+## Runtime Environment
+
+Run this workflow from the repo checkout:
+
+```text
+/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+```
+
+Large runtime data and outputs live under:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+```
+
+Use the project conda environment:
+
+```text
+CONDA_ENV_BIN=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin
+python=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+env=mge-organoid-python
+```
+
+Required shell exports for direct command-line runs:
+
+```bash
+export PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+export PYTHONPATH=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/python_notebooks/src:${PYTHONPATH:-}
+export PATH=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin:${PATH}
+```
+
+Do not rely on the login shell's generic `python`; on this system it may be
+missing or too old. Use the explicit conda-env Python path above.
+
+## Slurm Management
+
+Use Slurm for normal Schmitz metadata/UMAP reruns so the environment, logs, and
+outputs follow the rest of the project.
+
+Default Slurm template:
+
+```text
+slurm_templates/29_fetch_schmitz_2022_metadata_umap.sbatch.template
+```
+
+Prepared job file:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/29_fetch_schmitz_2022_metadata_umap.sbatch
+```
+
+Prepare and submit:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+mkdir -p /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs
+mkdir -p /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs
+
+cp slurm_templates/29_fetch_schmitz_2022_metadata_umap.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/29_fetch_schmitz_2022_metadata_umap.sbatch
+
+sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/29_fetch_schmitz_2022_metadata_umap.sbatch
+```
+
+Template defaults:
+
+```text
+account: parent0
+partition: standard
+cpus-per-task: 4
+memory: 32G
+time: 04:00:00
+job name: schmitz-ref-umap
+```
+
+Environment variables accepted by the template:
+
+```text
+REPO_ROOT=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+CONDA_ENV_BIN=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin
+SCHMITZ_2022_RUN_LABEL=schmitz_2022_reference_metadata_umap_v1
+SCHMITZ_2022_OVERWRITE=0
+```
+
+Use `SCHMITZ_2022_OVERWRITE=1` only when intentionally redownloading staged
+metadata/config/coordinate files:
+
+```bash
+sbatch --export=ALL,SCHMITZ_2022_OVERWRITE=1 \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/29_fetch_schmitz_2022_metadata_umap.sbatch
+```
+
+Expected logs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/schmitz-ref-umap-schmitz-ref-umap-<jobid>.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/schmitz-ref-umap-schmitz-ref-umap-<jobid>.err
+```
+
+Monitor:
+
+```bash
+squeue -j <jobid> -o '%.18i %.9P %.28j %.8u %.2t %.10M %.6D %R'
+sacct -j <jobid> --format=JobID,JobName%28,State,ExitCode,Elapsed,MaxRSS,ReqMem -P
+tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/schmitz-ref-umap-schmitz-ref-umap-<jobid>.out
+tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/schmitz-ref-umap-schmitz-ref-umap-<jobid>.err
+```
+
+The Slurm job runs:
+
+```bash
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python \
+  python_notebooks/scripts/fetch_schmitz_2022_metadata_umap.py \
+  --project-root "$PROJECT_ROOT" \
+  --run-label "$SCHMITZ_2022_RUN_LABEL"
+```
+
+It writes the standardized table registry, UMAP plot manifest, and completion
+table to stdout at the end of the job.
+
+Current execution status:
+
+```text
+The current `schmitz_2022_reference_metadata_umap_v1` outputs were generated
+with the same conda environment by direct CLI execution while developing the
+workflow. The Slurm template and prepared job file are in place for future
+reruns, but no duplicate Slurm rerun has been submitted yet.
+```
+
 ## Data Staged
 
 Scope:
@@ -84,6 +219,11 @@ metadata/schmitz_macaque_dev.metadata_with_umap.tsv.gz
 metadata/schmitz_mouse_dev.metadata_with_umap.tsv.gz
 metadata/schmitz_mouse_adult.metadata_with_umap.tsv.gz
 
+tables/per_dataset/schmitz_macaque_dev_schmitz_reference_umap_cells.tsv.gz
+tables/per_dataset/schmitz_mouse_dev_schmitz_reference_umap_cells.tsv.gz
+tables/per_dataset/schmitz_mouse_adult_schmitz_reference_umap_cells.tsv.gz
+tables/schmitz_2022_reference_umap_cells.tsv.gz
+
 coords/{dataset_id}/{coord_name}.coords.bin
 coords/{dataset_id}/{coord_name}.coords.tsv.gz
 
@@ -98,6 +238,64 @@ UMAP coordinates were decoded from UCSC Cell Browser UInt16 `coords.bin` files.
 The output tables include raw browser UInt16 coordinates and normalized 0..1
 browser-scale coordinates. These are good for reproducing the browser UMAP
 geometry, but they are not the original Scanpy UMAP coordinate units.
+```
+
+## Standardized Cell Tables
+
+The staging script now writes cross-study-style standardized cell tables for
+each Schmitz dataset and one combined table.
+
+Standardized table columns:
+
+```text
+cell_id
+study_id
+dataset_id
+species
+study_label
+sample
+batch_name
+dataset_name
+region
+timepoint
+class
+cluster
+leiden
+hires_leiden
+phase
+latent_time
+expressed_genes
+umi_count
+coord_name
+umap_1
+umap_2
+umap_1_u16
+umap_2_u16
+```
+
+Important Schmitz-specific rule:
+
+```text
+Keep `species` and `dataset_id` attached to every cell. Unlike most other
+cross-study objects, Schmitz is not one single-species UMAP. The combined table
+contains macaque and mouse rows, but the UMAP coordinates are dataset-local and
+should be plotted as facets/per-dataset panels, not overlaid as one shared
+embedding.
+```
+
+Standardized table registry:
+
+```text
+tables/schmitz_2022_standardized_cell_tables.tsv
+```
+
+Current standardized table row counts:
+
+```text
+schmitz_macaque_dev   109,111
+schmitz_mouse_dev      76,804
+schmitz_mouse_adult   141,069
+combined              326,984
 ```
 
 ## Metadata And Annotation Columns
@@ -192,8 +390,49 @@ tables/schmitz_2022_metadata_value_counts.tsv
 tables/schmitz_2022_class_composition.tsv
 tables/schmitz_2022_reference_label_summary.tsv
 tables/schmitz_2022_umap_files.tsv
+tables/schmitz_2022_standardized_cell_tables.tsv
+tables/schmitz_2022_umap_plot_manifest.tsv
 tables/schmitz_2022_reference_metadata_umap_complete.tsv
 tables/previews/*.tsv
+```
+
+## UMAP Plots
+
+UMAP output directory:
+
+```text
+plots/umap/
+```
+
+Current plot manifest:
+
+```text
+tables/schmitz_2022_umap_plot_manifest.tsv
+```
+
+Plots generated:
+
+```text
+plots/umap/schmitz_2022_umap_facets_by_species_dataset.png
+
+plots/umap/schmitz_macaque_dev/schmitz_macaque_dev_umap_by_class.png
+plots/umap/schmitz_macaque_dev/schmitz_macaque_dev_umap_by_region.png
+plots/umap/schmitz_macaque_dev/schmitz_macaque_dev_umap_by_timepoint.png
+
+plots/umap/schmitz_mouse_dev/schmitz_mouse_dev_umap_by_class.png
+plots/umap/schmitz_mouse_dev/schmitz_mouse_dev_umap_by_region.png
+plots/umap/schmitz_mouse_dev/schmitz_mouse_dev_umap_by_timepoint.png
+
+plots/umap/schmitz_mouse_adult/schmitz_mouse_adult_umap_by_class.png
+plots/umap/schmitz_mouse_adult/schmitz_mouse_adult_umap_by_region.png
+plots/umap/schmitz_mouse_adult/schmitz_mouse_adult_umap_by_timepoint.png
+```
+
+Plot interpretation:
+
+```text
+The species/dataset overview is faceted by Schmitz dataset. Do not interpret it
+as a joint integrated mouse-macaque embedding.
 ```
 
 Completion table:

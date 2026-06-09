@@ -2001,6 +2001,13 @@ Dedicated metadata/UMAP staging code:
 python_notebooks/src/mge_organoid_python/schmitz_reference.py
 python_notebooks/scripts/fetch_schmitz_2022_metadata_umap.py
 python_notebooks/notebooks/schmitz_2022_reference_metadata_umap.ipynb
+slurm_templates/29_fetch_schmitz_2022_metadata_umap.sbatch.template
+```
+
+Prepared Slurm job file:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/29_fetch_schmitz_2022_metadata_umap.sbatch
 ```
 
 Completed staging run:
@@ -2016,6 +2023,26 @@ coordinates for:
 schmitz_macaque_dev   109,111 cells
 schmitz_mouse_dev      76,804 cells
 schmitz_mouse_adult   141,069 cells
+```
+
+The Schmitz staging run now also writes cross-study-style standardized cell
+tables and UMAP plots:
+
+```text
+tables/per_dataset/*_schmitz_reference_umap_cells.tsv.gz
+tables/schmitz_2022_reference_umap_cells.tsv.gz
+tables/schmitz_2022_standardized_cell_tables.tsv
+tables/schmitz_2022_umap_plot_manifest.tsv
+plots/umap/
+```
+
+Schmitz-specific plotting rule:
+
+```text
+Track `species` and `dataset_id` explicitly. The combined Schmitz table contains
+macaque and mouse rows, but the Cell Browser UMAP coordinates are dataset-local.
+Use per-dataset/faceted UMAP panels rather than overlaying macaque and mouse as
+one shared embedding.
 ```
 
 Primary Schmitz annotation column:

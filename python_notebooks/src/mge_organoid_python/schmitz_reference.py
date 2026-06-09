@@ -13,7 +13,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+import matplotlib
+
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from .paths import resolve_project_root
 
@@ -50,6 +56,9 @@ def output_paths(project_root: str | Path | None = None, run_label: str = RUN_LA
         "metadata": root / "metadata",
         "coords": root / "coords",
         "tables": root / "tables",
+        "per_dataset_tables": root / "tables" / "per_dataset",
+        "plots": root / "plots",
+        "umap_plots": root / "plots" / "umap",
     }
 
 
@@ -134,6 +143,14 @@ def metadata_umap_path(paths: dict[str, Path], dataset: SchmitzDataset) -> Path:
     return paths["metadata"] / f"{dataset.dataset_id}.metadata_with_umap.tsv.gz"
 
 
+def standardized_cell_table_path(paths: dict[str, Path], dataset: SchmitzDataset) -> Path:
+    return paths["per_dataset_tables"] / f"{dataset.dataset_id}_schmitz_reference_umap_cells.tsv.gz"
+
+
+def combined_cell_table_path(paths: dict[str, Path]) -> Path:
+    return paths["tables"] / "schmitz_2022_reference_umap_cells.tsv.gz"
+
+
 def iter_meta_rows(path: Path):
     with gzip.open(str(path), "rt") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
@@ -215,6 +232,88 @@ def write_metadata_with_umap(paths: dict[str, Path], dataset: SchmitzDataset, da
                 writer.writerow(row)
                 n_rows += 1
     return n_rows
+
+
+def sample_value(dataset: SchmitzDataset, row: dict[str, str]) -> str:
+    if dataset.dataset_id == "schmitz_mouse_adult":
+        return row.get("dataset_name") or row.get("batch_name") or dataset.dataset_id
+    return row.get("batch_name") or row.get("file_name") or dataset.dataset_id
+
+
+def cluster_value(row: dict[str, str]) -> str:
+    return row.get("hires_leiden") or row.get("leiden") or ""
+
+
+def write_standardized_cell_tables(paths: dict[str, Path]) -> dict[str, int]:
+    rows_by_dataset = {}
+    combined_path = combined_cell_table_path(paths)
+    fieldnames = [
+        "cell_id",
+        "study_id",
+        "dataset_id",
+        "species",
+        "study_label",
+        "sample",
+        "batch_name",
+        "dataset_name",
+        "region",
+        "timepoint",
+        "class",
+        "cluster",
+        "leiden",
+        "hires_leiden",
+        "phase",
+        "latent_time",
+        "expressed_genes",
+        "umi_count",
+        "coord_name",
+        "umap_1",
+        "umap_2",
+        "umap_1_u16",
+        "umap_2_u16",
+    ]
+    combined_path.parent.mkdir(parents=True, exist_ok=True)
+    with gzip.open(str(combined_path), "wt", newline="") as combined_handle:
+        combined_writer = csv.DictWriter(combined_handle, fieldnames=fieldnames, delimiter="\t")
+        combined_writer.writeheader()
+        for dataset in DATASETS:
+            n_rows = 0
+            out_path = standardized_cell_table_path(paths, dataset)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            with gzip.open(str(out_path), "wt", newline="") as dataset_handle:
+                writer = csv.DictWriter(dataset_handle, fieldnames=fieldnames, delimiter="\t")
+                writer.writeheader()
+                for row in iter_meta_rows(metadata_umap_path(paths, dataset)):
+                    out_row = {
+                        "cell_id": row.get("cellId", ""),
+                        "study_id": dataset.dataset_id,
+                        "dataset_id": dataset.dataset_id,
+                        "species": dataset.species,
+                        "study_label": dataset.label,
+                        "sample": sample_value(dataset, row),
+                        "batch_name": row.get("batch_name", ""),
+                        "dataset_name": row.get("dataset_name", ""),
+                        "region": row.get("region", ""),
+                        "timepoint": row.get("timepoint", ""),
+                        "class": row.get("class", ""),
+                        "cluster": cluster_value(row),
+                        "leiden": row.get("leiden", ""),
+                        "hires_leiden": row.get("hires_leiden", ""),
+                        "phase": row.get("phase", ""),
+                        "latent_time": row.get("latent_time", ""),
+                        "expressed_genes": row.get("Expressed Genes", ""),
+                        "umi_count": row.get("UMI Count", ""),
+                        "coord_name": "coords_0",
+                        "umap_1": row.get("coords_0_umap_1_norm", ""),
+                        "umap_2": row.get("coords_0_umap_2_norm", ""),
+                        "umap_1_u16": row.get("coords_0_umap_1_u16", ""),
+                        "umap_2_u16": row.get("coords_0_umap_2_u16", ""),
+                    }
+                    writer.writerow(out_row)
+                    combined_writer.writerow(out_row)
+                    n_rows += 1
+            rows_by_dataset[dataset.dataset_id] = n_rows
+    return rows_by_dataset
 
 
 def write_dataset_table(paths: dict[str, Path], datasets_by_id: dict[str, dict]) -> None:
@@ -449,6 +548,177 @@ def write_coord_summary(paths: dict[str, Path], datasets_by_id: dict[str, dict],
     )
 
 
+def write_standardized_table_summary(paths: dict[str, Path], rows_by_dataset: dict[str, int]) -> None:
+    rows = []
+    for dataset in DATASETS:
+        rows.append(
+            {
+                "dataset_id": dataset.dataset_id,
+                "species": dataset.species,
+                "standardized_cell_table_path": str(standardized_cell_table_path(paths, dataset)),
+                "n_rows": rows_by_dataset[dataset.dataset_id],
+            }
+        )
+    rows.append(
+        {
+            "dataset_id": "combined",
+            "species": "mixed",
+            "standardized_cell_table_path": str(combined_cell_table_path(paths)),
+            "n_rows": sum(rows_by_dataset.values()),
+        }
+    )
+    write_rows(
+        paths["tables"] / "schmitz_2022_standardized_cell_tables.tsv",
+        rows,
+        ["dataset_id", "species", "standardized_cell_table_path", "n_rows"],
+    )
+
+
+def category_palette(values: list[str]) -> dict[str, object]:
+    cmap_names = ["tab20", "tab20b", "tab20c", "Set3", "Dark2", "Accent"]
+    colors = []
+    for cmap_name in cmap_names:
+        cmap = plt.get_cmap(cmap_name)
+        if hasattr(cmap, "colors"):
+            colors.extend(cmap.colors)
+        else:
+            colors.extend(cmap(np.linspace(0, 1, 20)))
+    unique = list(dict.fromkeys(str(value) for value in values))
+    return {value: colors[idx % len(colors)] for idx, value in enumerate(unique)}
+
+
+def plot_categorical_umap(data: pd.DataFrame, color_col: str, out_path: Path, title: str) -> None:
+    values = data[color_col].fillna("NA").astype(str)
+    palette = category_palette(sorted(values.unique()))
+    fig, ax = plt.subplots(figsize=(7.5, 6.5))
+    for value in sorted(values.unique()):
+        mask = values == value
+        ax.scatter(
+            data.loc[mask, "umap_1"],
+            data.loc[mask, "umap_2"],
+            s=1.0,
+            c=[palette[value]],
+            linewidths=0,
+            alpha=0.85,
+            rasterized=True,
+            label=value,
+        )
+    ax.set_title(title)
+    ax.set_xlabel("UMAP 1, Cell Browser normalized")
+    ax.set_ylabel("UMAP 2, Cell Browser normalized")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_aspect("equal", adjustable="box")
+    if len(palette) <= 60:
+        ax.legend(markerscale=5, fontsize=6, loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=250, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_numeric_umap(data: pd.DataFrame, color_col: str, out_path: Path, title: str) -> None:
+    values = pd.to_numeric(data[color_col], errors="coerce")
+    fig, ax = plt.subplots(figsize=(7.5, 6.5))
+    scatter = ax.scatter(
+        data["umap_1"],
+        data["umap_2"],
+        s=1.0,
+        c=values,
+        cmap="viridis",
+        linewidths=0,
+        alpha=0.85,
+        rasterized=True,
+    )
+    ax.set_title(title)
+    ax.set_xlabel("UMAP 1, Cell Browser normalized")
+    ax.set_ylabel("UMAP 2, Cell Browser normalized")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_aspect("equal", adjustable="box")
+    fig.colorbar(scatter, ax=ax, fraction=0.046, pad=0.04, label=color_col)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=250, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_species_dataset_facets(data: pd.DataFrame, out_path: Path) -> None:
+    fig, axes = plt.subplots(1, len(DATASETS), figsize=(5.2 * len(DATASETS), 5.2), squeeze=False)
+    species_colors = {"Rhesus macaque": "#8c510a", "Mouse": "#01665e"}
+    for ax, dataset in zip(axes[0], DATASETS):
+        subset = data.loc[data["dataset_id"] == dataset.dataset_id]
+        ax.scatter(
+            subset["umap_1"],
+            subset["umap_2"],
+            s=0.8,
+            c=species_colors.get(dataset.species, "#555555"),
+            linewidths=0,
+            alpha=0.8,
+            rasterized=True,
+        )
+        ax.set_title(f"{dataset.species}\n{dataset.dataset_id}\n{len(subset):,} cells", fontsize=10)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_aspect("equal", adjustable="box")
+    fig.supxlabel("UMAP 1, Cell Browser normalized")
+    fig.supylabel("UMAP 2, Cell Browser normalized")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=250, bbox_inches="tight")
+    plt.close(fig)
+
+
+def write_umap_plots(paths: dict[str, Path]) -> None:
+    manifest_rows = []
+    combined = pd.read_csv(combined_cell_table_path(paths), sep="\t", low_memory=False)
+    combined["umap_1"] = pd.to_numeric(combined["umap_1"], errors="coerce")
+    combined["umap_2"] = pd.to_numeric(combined["umap_2"], errors="coerce")
+    facet_path = paths["umap_plots"] / "schmitz_2022_umap_facets_by_species_dataset.png"
+    plot_species_dataset_facets(combined, facet_path)
+    manifest_rows.append(
+        {
+            "plot_id": "facets_by_species_dataset",
+            "dataset_id": "combined",
+            "species": "mixed",
+            "color_by": "species",
+            "plot_path": str(facet_path),
+            "notes": "Faceted by Schmitz dataset because mouse and macaque UMAP coordinates are not one shared embedding.",
+        }
+    )
+    for dataset in DATASETS:
+        data = pd.read_csv(standardized_cell_table_path(paths, dataset), sep="\t", low_memory=False)
+        data["umap_1"] = pd.to_numeric(data["umap_1"], errors="coerce")
+        data["umap_2"] = pd.to_numeric(data["umap_2"], errors="coerce")
+        for color_col in ["class", "region"]:
+            out_path = paths["umap_plots"] / dataset.dataset_id / f"{dataset.dataset_id}_umap_by_{color_col}.png"
+            plot_categorical_umap(data, color_col, out_path, f"{dataset.label}: {color_col}")
+            manifest_rows.append(
+                {
+                    "plot_id": f"{dataset.dataset_id}_by_{color_col}",
+                    "dataset_id": dataset.dataset_id,
+                    "species": dataset.species,
+                    "color_by": color_col,
+                    "plot_path": str(out_path),
+                    "notes": "One UMAP per Schmitz dataset; species tracked explicitly.",
+                }
+            )
+        out_path = paths["umap_plots"] / dataset.dataset_id / f"{dataset.dataset_id}_umap_by_timepoint.png"
+        plot_numeric_umap(data, "timepoint", out_path, f"{dataset.label}: timepoint")
+        manifest_rows.append(
+            {
+                "plot_id": f"{dataset.dataset_id}_by_timepoint",
+                "dataset_id": dataset.dataset_id,
+                "species": dataset.species,
+                "color_by": "timepoint",
+                "plot_path": str(out_path),
+                "notes": "Timepoint plotted as numeric metadata.",
+            }
+        )
+    write_rows(
+        paths["tables"] / "schmitz_2022_umap_plot_manifest.tsv",
+        manifest_rows,
+        ["plot_id", "dataset_id", "species", "color_by", "plot_path", "notes"],
+    )
+
+
 def write_previews(paths: dict[str, Path], n_rows: int = 25) -> None:
     preview_dir = paths["tables"] / "previews"
     preview_dir.mkdir(parents=True, exist_ok=True)
@@ -500,7 +770,11 @@ Key tables:
 - `tables/schmitz_2022_class_composition.tsv`
 - `tables/schmitz_2022_reference_label_summary.tsv`
 - `tables/schmitz_2022_umap_files.tsv`
+- `tables/schmitz_2022_standardized_cell_tables.tsv`
+- `tables/schmitz_2022_umap_plot_manifest.tsv`
 - `metadata/*metadata_with_umap.tsv.gz`
+- `tables/per_dataset/*_schmitz_reference_umap_cells.tsv.gz`
+- `plots/umap/**/*.png`
 """
     (paths["run"] / "README_schmitz_2022_reference_metadata_umap.md").write_text(content)
 
@@ -537,12 +811,16 @@ def fetch_inventory(
         metadata_rows[dataset.dataset_id] = write_metadata_with_umap(paths, dataset, conf)
 
     log("Writing Schmitz inventory tables")
+    rows_by_dataset = write_standardized_cell_tables(paths)
     write_dataset_table(paths, datasets_by_id)
     write_metadata_fields(paths, datasets_by_id)
     write_metadata_value_counts(paths)
     write_class_composition(paths)
     write_reference_label_summary(paths)
     write_coord_summary(paths, datasets_by_id, coord_rows_by_key)
+    write_standardized_table_summary(paths, rows_by_dataset)
+    log("Writing Schmitz UMAP plots")
+    write_umap_plots(paths)
     write_previews(paths)
     write_completion(paths, datasets_by_id, metadata_rows)
     write_readme(paths)
