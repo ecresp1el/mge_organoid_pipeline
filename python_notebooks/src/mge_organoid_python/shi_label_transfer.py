@@ -1,4 +1,9 @@
-"""Shi reference label-transfer helpers for standalone notebook workflows."""
+"""Shi reference label-transfer helpers for standalone notebook workflows.
+
+The kNN label-transfer functions in this module are legacy provenance for the
+completed Scanpy-side DIV30 run. Current Shi prediction scores must come from
+Seurat TransferData exports, not from neighbor-vote fractions.
+"""
 
 from __future__ import annotations
 
@@ -591,8 +596,18 @@ def run_knn_label_transfer(
     random_state: int = 0,
     n_jobs: int = 1,
     reference_week_obs: pd.DataFrame | None = None,
+    allow_legacy_knn_scoring: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
     """Run one reference-to-query kNN label-transfer comparison."""
+    if not allow_legacy_knn_scoring:
+        raise RuntimeError(
+            "run_knn_label_transfer() uses legacy Scanpy-side neighbor-vote "
+            "prediction scores. Current Shi prediction scoring must use Seurat "
+            "TransferData exports: prediction.score.max and prediction.score.<label>. "
+            "Pass allow_legacy_knn_scoring=True only to reproduce the completed "
+            "shi_reference_div30_label_transfer_v2 provenance run."
+        )
+
     label_series = reference_label_obs["shi_label"].astype("string")
     ref_mask = label_series.isin(sorted(allowed_labels)).to_numpy()
     if int(ref_mask.sum()) < 10:

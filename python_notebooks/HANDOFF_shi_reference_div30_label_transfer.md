@@ -440,6 +440,69 @@ This is intentionally compared against the full-reference result to identify
 cells whose MGE/LGE/CGE label is potentially being forced by removing other
 developmental states.
 
+## Prediction Score Source of Truth
+
+Use only the Seurat `TransferData` score contract for current Shi prediction
+scores.
+
+Authoritative implementation paths:
+
+```text
+scripts/13_run_cross_study_shi_seurat_label_transfer.R
+python_notebooks/scripts/seurat_shi_label_transfer_export.R
+python_notebooks/scripts/run_shi_seurat_label_transfer_smoke.py
+python_notebooks/src/mge_organoid_python/cross_study_shi_prediction_plots.py
+```
+
+Exact Seurat-side score syntax:
+
+```r
+predictions <- as.data.frame(Seurat::TransferData(
+  anchorset = anchors,
+  refdata = reference@meta.data[[label_col]],
+  dims = dims_use,
+  k.weight = transfer_k_weight,
+  verbose = TRUE
+), stringsAsFactors = FALSE)
+
+shi_seurat_full_prediction_score <- as.numeric(predictions$prediction.score.max)
+shi_seurat_full_uncertainty_score <- 1 - shi_seurat_full_prediction_score
+
+label_score_cols_raw <- setdiff(
+  grep("^prediction\\.score\\.", colnames(predictions), value = TRUE),
+  "prediction.score.max"
+)
+```
+
+The per-label score columns are exported from Seurat's
+`prediction.score.<label>` columns and renamed to
+`shi_seurat_full_prediction_score_<label_token>`. The winning-label score is
+`prediction.score.max`, i.e. Seurat's max anchor-weighted support score across
+the returned label score columns.
+
+Gestational-week scores use the same `TransferData` contract with
+`refdata = <Shi week label>`. Downstream plotting may collapse duplicate Shi GW
+score columns by canonical GW label and sum their support, then recompute the
+canonical max GW label/score. That is a week-label granularity correction, not a
+different prediction-score formula.
+
+Do not use `GetTransferPredictions()` for this workflow unless an explicit
+confidence policy is added. Current outputs intentionally do not apply its
+default `score.filter = 0.75` unassignment behavior.
+
+Non-authoritative legacy score path:
+
+```text
+python_notebooks/src/mge_organoid_python/shi_label_transfer.py::run_knn_label_transfer
+python_notebooks/notebooks/shi_reference_div30_label_transfer.ipynb
+```
+
+That legacy path computes `prediction_score` as the fraction of k nearest Shi
+neighbors voting for the winning label after sparse scaling, SVD projection, and
+cosine kNN. It is retained only to explain the completed
+`shi_reference_div30_label_transfer_v2` run and now requires an explicit
+`allow_legacy_knn_scoring=True` opt-in in code.
+
 ## Legacy v2 Method
 
 This describes the completed `shi_reference_div30_label_transfer_v2` run only.
