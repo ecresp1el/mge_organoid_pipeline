@@ -1920,3 +1920,60 @@ summary plots and cross_study_shi_seurat_label_transfer_complete.tsv should be
 treated as stale until summary plotting is split or optimized. The UMAP grid
 manifest is current and includes all seven studies.
 ```
+
+## New Adjacent Reference Direction: Schmitz 2022
+
+Schmitz et al. 2022 will be developed as a separate reference workflow where
+Schmitz is the reference, not a target dataset for Shi prediction plots.
+
+Dedicated handoff:
+
+```text
+python_notebooks/HANDOFF_schmitz_2022_reference_label_transfer.md
+```
+
+Dedicated metadata/UMAP staging code:
+
+```text
+python_notebooks/src/mge_organoid_python/schmitz_reference.py
+python_notebooks/scripts/fetch_schmitz_2022_metadata_umap.py
+python_notebooks/notebooks/schmitz_2022_reference_metadata_umap.ipynb
+```
+
+Completed staging run:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/schmitz_2022_reference_metadata_umap/schmitz_2022_reference_metadata_umap_v1
+```
+
+The run downloaded Cell Browser configs, cell-level metadata, and decoded UMAP
+coordinates for:
+
+```text
+schmitz_macaque_dev   109,111 cells
+schmitz_mouse_dev      76,804 cells
+schmitz_mouse_adult   141,069 cells
+```
+
+Primary Schmitz annotation column:
+
+```text
+class
+```
+
+This is the Cell Browser/public metadata version of the author-script
+`supervised_name` labels. Use `class` as the initial Schmitz reference label
+column; keep `leiden` and `hires_leiden` as unsupervised cluster IDs.
+
+Important caveat:
+
+```text
+The public UCSC `exprMatrix.tsv.gz` files are Float32 processed expression
+matrices with negative centered values. They were not downloaded in the staging
+run. Do not run Seurat-style Schmitz label transfer until the expression source
+is explicitly chosen and validated.
+```
+
+Do not add Schmitz to `cross_study_shi_prediction_plots.py` yet. The Schmitz
+reference has different labels, species choices, and expression-source caveats,
+so it needs its own output namespace and notebook/module path.
