@@ -2520,8 +2520,9 @@ Slurm templates updated for this addition:
 slurm_templates/27_cross_study_shi_seurat_label_transfer_array.sbatch.template
   now runs all seven studies, including Varela DIV30/DIV90, under the v2 run
   label with --reuse-existing false --force-rerun true. The array walltime is
-  6 hours per task; the previous 48-hour ceiling was unnecessarily conservative
-  and could make scheduling/backfill slower.
+  3 hours per task on the standard partition with 160G. The previous
+  largemem/240G request was unnecessarily conservative after observed peak RSS
+  from the v2 run.
 
 slurm_templates/28_finalize_cross_study_shi_prediction_plots.sbatch.template
   defaults to the v2 run label and validates both whole-Shi and GE-only week
@@ -2599,6 +2600,12 @@ Targeted Slurm repair chain submitted, rerunning only array tasks 5-6:
 
   plot_job 51648987
     dependency: afterok:51648986
+
+Live repair resource correction:
+
+  repair_job 51648985 was updated from largemem/240G/6h to
+  standard/128G/2h after the failed Bershteyn attempts showed peak RSS of
+  ~65G for 2023 and ~89G for 2025.
 ```
 
 ## New Adjacent Reference Direction: Schmitz 2022
