@@ -40,6 +40,8 @@ STUDIES = [
     ("samarasinghe_2021", "Samarasinghe\n2021"),
 ]
 
+CONTROL_ONLY_STUDIES = {"samarasinghe_2021"}
+
 SHI_LABELS = [
     "MGE",
     "LGE",
@@ -91,12 +93,33 @@ def output_paths(project_root: Path, run_label: str) -> tuple[Path, Path, Path, 
     return per_study_dir, table_dir, plot_dir, age_plot_dir
 
 
+def filter_analysis_obs(study_id: str, obs: pd.DataFrame) -> pd.DataFrame:
+    """Apply study-specific analysis filters before calculating fractions."""
+    if study_id not in CONTROL_ONLY_STUDIES:
+        return obs
+    sample_text = (
+        obs.get("sample", pd.Series("", index=obs.index)).fillna("").astype(str)
+        + " "
+        + obs.get("sample_label", pd.Series("", index=obs.index)).fillna("").astype(str)
+    )
+    keep = sample_text.str.contains("Ctrl", case=False, na=False)
+    if not bool(keep.any()):
+        raise ValueError(f"{study_id}: control-only filter removed all cells.")
+    return obs.loc[keep].copy()
+
+
 def read_study_obs(per_study_dir: Path, study_id: str, labels: list[str]) -> pd.DataFrame:
     path = per_study_dir / f"{study_id}_shi_seurat_label_transfer_obs.tsv.gz"
     if not path.exists():
         raise FileNotFoundError(f"Missing per-study Shi obs table: {path}")
-    cols = ["shi_seurat_full_predicted_shi_label", *[score_col(label) for label in labels]]
-    return pd.read_csv(path, sep="\t", usecols=cols)
+    cols = [
+        "sample",
+        "sample_label",
+        "shi_seurat_full_predicted_shi_label",
+        *[score_col(label) for label in labels],
+    ]
+    obs = pd.read_csv(path, sep="\t", usecols=cols)
+    return filter_analysis_obs(study_id, obs)
 
 
 def canonical_gw_label(value: object) -> str:
@@ -147,6 +170,7 @@ def load_group_tradeoff_summary(
                 "call_mode_winner": "winner_take_all",
                 "call_mode_threshold": f"score{int(threshold * 100):02d}_cutoff",
                 "score_scope": group_label,
+                "analysis_filter": "control_only" if study_id in CONTROL_ONLY_STUDIES else "all_cells",
                 "total_cells": total_cells,
                 "winner_take_all_cells": int(winner_group.sum()),
                 "winner_take_all_fraction": float(winner_group.mean()),
@@ -184,6 +208,7 @@ def load_all_label_summary(per_study_dir: Path, threshold: float) -> pd.DataFram
                     "call_mode_winner": "winner_take_all",
                     "call_mode_threshold": f"score{int(threshold * 100):02d}_cutoff",
                     "score_scope": "all_shi_major_labels",
+                    "analysis_filter": "control_only" if study_id in CONTROL_ONLY_STUDIES else "all_cells",
                     "total_cells": total_cells,
                     "winner_take_all_cells": int(winner_label.sum()),
                     "winner_take_all_fraction": float(winner_label.mean()),
@@ -342,6 +367,7 @@ def load_predicted_age_sample_composition(per_study_dir: Path) -> pd.DataFrame:
             sep="\t",
             usecols=["sample", "sample_label", "shi_seurat_full_predicted_shi_week_label"],
         )
+        obs = filter_analysis_obs(study_id, obs)
         obs["study_id"] = study_id
         obs["study_label"] = study_plot_label.replace("\n", " ")
         obs["study_plot_label"] = study_plot_label
@@ -361,6 +387,7 @@ def load_predicted_age_sample_composition(per_study_dir: Path) -> pd.DataFrame:
         sample_totals = counts.groupby(["study_id", "sample"], observed=True)["n_cells"].transform("sum")
         counts["fraction_of_sample"] = counts["n_cells"] / sample_totals
         counts["call_mode"] = "winner_take_all_predicted_age"
+        counts["analysis_filter"] = "control_only" if study_id in CONTROL_ONLY_STUDIES else "all_cells"
         rows.append(counts)
     return pd.concat(rows, ignore_index=True)
 
