@@ -2514,6 +2514,75 @@ The 0.90 cutoff remains a separate major-label support analysis. It is not used
 to threshold week/age calls in the stacked age-composition plots.
 ```
 
+Workflow map:
+
+```text
+Step 1: Per-study Seurat label transfer
+  code:
+    scripts/13_run_cross_study_shi_seurat_label_transfer.R
+  Slurm:
+    slurm_templates/27_cross_study_shi_seurat_label_transfer_array.sbatch.template
+    slurm_templates/26_cross_study_shi_seurat_label_transfer.sbatch.template
+  what runs:
+    - whole-Shi major-label FindTransferAnchors/TransferData
+    - whole-Shi GW/week TransferData on the same whole-Shi anchors
+    - GE-only FindTransferAnchors/TransferData after subsetting the Shi
+      reference to MGE/LGE/CGE cells
+  outputs:
+    results/cross_study_shi_seurat_label_transfer/
+      cross_study_shi_seurat_label_transfer_v2_ge_only_age/
+        tables/per_study/*_shi_seurat_label_transfer_obs.tsv.gz
+        seurat/per_study/*_shi_seurat_full_predictions.tsv.gz
+        seurat/per_study/*_shi_seurat_full_prediction_scores.tsv.gz
+        seurat/per_study/*_shi_seurat_full_week_predictions.tsv.gz
+        seurat/per_study/*_shi_seurat_full_week_prediction_scores.tsv.gz
+        seurat/per_study/*_shi_seurat_ge_only_week_predictions.tsv.gz
+        seurat/per_study/*_shi_seurat_ge_only_week_prediction_scores.tsv.gz
+        diagnostics/shi_ge_only_reference_labels_by_week_used_by_seurat.tsv
+
+Step 2: Combine/validate tables and draw cross-study UMAP grids
+  code:
+    python_notebooks/src/mge_organoid_python/cross_study_shi_prediction_plots.py
+    python_notebooks/scripts/run_cross_study_shi_prediction_plots.py
+  Slurm:
+    slurm_templates/28_finalize_cross_study_shi_prediction_plots.sbatch.template
+  what runs:
+    - reads all per-study obs tables
+    - validates canonical max score and uncertainty for whole-Shi major labels,
+      whole-Shi weeks, and GE-only weeks
+    - writes combined/long score tables
+    - renders cross-study UMAP grids
+  outputs:
+    results/cross_study_shi_seurat_label_transfer/
+      cross_study_shi_seurat_label_transfer_v2_ge_only_age/
+        tables/cross_study_shi_seurat_label_transfer_obs.tsv.gz
+        tables/cross_study_shi_seurat_label_scores_long.tsv.gz
+        tables/cross_study_shi_seurat_week_scores_long.tsv.gz
+        tables/cross_study_shi_seurat_ge_only_week_scores_long.tsv.gz
+        tables/cross_study_shi_transfer_diagnostics_summary.tsv
+        plots/umap_grids/
+
+Step 3: Winner/90% tradeoff and predicted-age sample composition plots
+  code:
+    python_notebooks/scripts/plot_shi_mge_threshold_tradeoff.py
+  Slurm:
+    slurm_templates/30_shi_threshold_tradeoff_plots.sbatch.template
+  what runs:
+    - winner-take-all versus 0.90 major-label support summaries
+    - predicted-age stacked bars by sample
+    - all_shi_major_labels uses shi_seurat_full_predicted_shi_week_label
+    - mge and mge_lge_cge use shi_seurat_ge_only_predicted_shi_week_label
+  outputs:
+    results/cross_study_shi_seurat_label_transfer/
+      cross_study_shi_seurat_label_transfer_v2_ge_only_age/
+        plots/summary/threshold_tradeoff/
+        plots/summary/predicted_age_sample_composition/all_shi_major_labels/
+        plots/summary/predicted_age_sample_composition/mge/
+        plots/summary/predicted_age_sample_composition/mge_lge_cge/
+        tables/threshold_tradeoff/
+        tables/predicted_age_sample_composition/
+```
+
 Slurm templates updated for this addition:
 
 ```text

@@ -20,6 +20,18 @@ Predicted-age sample-composition plots:
   age composition uses the whole-Shi week classifier. MGE and MGE/LGE/CGE age
   composition use the GE-only week classifier, which is produced by rerunning
   week TransferData against only Shi reference MGE/LGE/CGE cells.
+
+Inputs:
+  Reads per-study obs tables from
+  results/cross_study_shi_seurat_label_transfer/<run_label>/tables/per_study/.
+
+Outputs:
+  Writes winner/threshold plots under
+  plots/summary/threshold_tradeoff/ and predicted-age sample composition under
+  plots/summary/predicted_age_sample_composition/{all_shi_major_labels,mge,mge_lge_cge}/.
+
+Slurm entry point:
+  slurm_templates/30_shi_threshold_tradeoff_plots.sbatch.template
 """
 
 from __future__ import annotations

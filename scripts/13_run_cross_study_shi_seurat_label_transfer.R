@@ -1,5 +1,28 @@
 #!/usr/bin/env Rscript
 
+# Cross-study Shi Seurat label transfer.
+#
+# This is the computation step for the v2 GE-only age run. For each target
+# study, the script writes one per-cell obs table under:
+#   results/cross_study_shi_seurat_label_transfer/<run_label>/tables/per_study/
+#
+# Classifiers produced here:
+#   1. Whole-Shi major-label TransferData against all Shi reference labels.
+#      Columns: shi_seurat_full_predicted_shi_label,
+#               shi_seurat_full_prediction_score*
+#   2. Whole-Shi week TransferData against all Shi reference cells.
+#      Columns: shi_seurat_full_predicted_shi_week_label,
+#               shi_seurat_full_week_prediction_score*
+#   3. GE-only week TransferData after subsetting the Shi reference to
+#      MGE/LGE/CGE cells. This reruns FindTransferAnchors/TransferData; it is
+#      not derived by filtering the whole-Shi week scores.
+#      Columns: shi_seurat_ge_only_predicted_shi_week_label,
+#               shi_seurat_ge_only_week_prediction_score*
+#
+# Slurm entry points:
+#   slurm_templates/27_cross_study_shi_seurat_label_transfer_array.sbatch.template
+#   slurm_templates/26_cross_study_shi_seurat_label_transfer.sbatch.template
+
 suppressPackageStartupMessages({
   library(Seurat)
   library(SeuratObject)

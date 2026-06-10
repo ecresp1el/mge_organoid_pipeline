@@ -1,4 +1,23 @@
-"""Cross-study Shi Seurat label-transfer table preparation and plotting."""
+"""Cross-study Shi Seurat label-transfer table preparation and plotting.
+
+This is the finalizer step for the v2 GE-only age run. It reads per-study obs
+tables written by scripts/13_run_cross_study_shi_seurat_label_transfer.R,
+combines them, validates the whole-Shi and GE-only score schemas, writes long
+score tables, and renders cross-study UMAP/summary outputs.
+
+Key output root:
+  results/cross_study_shi_seurat_label_transfer/<run_label>/
+
+Important outputs:
+  tables/cross_study_shi_seurat_label_transfer_obs.tsv.gz
+  tables/cross_study_shi_seurat_label_scores_long.tsv.gz
+  tables/cross_study_shi_seurat_week_scores_long.tsv.gz
+  tables/cross_study_shi_seurat_ge_only_week_scores_long.tsv.gz
+  plots/umap_grids/
+
+Slurm entry point:
+  slurm_templates/28_finalize_cross_study_shi_prediction_plots.sbatch.template
+"""
 
 from __future__ import annotations
 
