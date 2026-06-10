@@ -2319,6 +2319,46 @@ done
 tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-final-51559751.err
 ```
 
+Follow-up status:
+
+```text
+Transfer array 51559750:
+  All five non-Varela transfer tasks completed successfully.
+
+Finalizer 51559751:
+  FAILED quickly, ExitCode 1:0.
+  Cause:
+    New Python score validation had a NumPy broadcasting bug when checking
+    one max-score vector against the per-label score matrix:
+      operands could not be broadcast together with shapes (454731,) (454731,10)
+
+Patch:
+  python_notebooks/src/mge_organoid_python/shi_prediction_schema.py
+  now checks max-score range and per-label score-matrix range separately.
+
+Important execution note:
+  A direct local `combine` command was run once after the failed finalizer to
+  validate the patch against the full table and completed successfully:
+    combined_obs_rows 454731
+  For the official handoff-style run, continue using Slurm jobs.
+
+Official Slurm finalizer rerun after schema patch:
+  51638316
+  Job file:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/28_finalize_cross_study_shi_prediction_plots.schema_fix_rerun.sbatch
+  Immediate status:
+    PENDING on standard
+```
+
+Monitor rerun:
+
+```bash
+squeue -j 51638316 -o '%.20i %.9P %.35j %.8u %.2t %.10M %.6D %R'
+sacct -j 51638316 --format=JobID,JobName%35,State,ExitCode,Elapsed,MaxRSS,ReqMem -P
+tail -n 120 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-final-51638316.err
+tail -n 120 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-final-51638316.out
+```
+
 ## New Adjacent Reference Direction: Schmitz 2022
 
 Schmitz et al. 2022 will be developed as a separate reference workflow where

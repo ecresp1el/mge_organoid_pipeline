@@ -54,7 +54,9 @@ def validate_canonical_prediction_scores(
     uncertainty = pd.to_numeric(data[uncertainty_col], errors="coerce").to_numpy(dtype=float)
     if not np.isfinite(score_matrix).all() or not np.isfinite(max_score).all() or not np.isfinite(uncertainty).all():
         raise ValueError(f"{context}: score columns contain non-finite values.")
-    if ((max_score < -atol) | (max_score > 1.0 + atol) | (score_matrix < -atol) | (score_matrix > 1.0 + atol)).any():
+    bad_max = (max_score < -atol) | (max_score > 1.0 + atol)
+    bad_scores = (score_matrix < -atol) | (score_matrix > 1.0 + atol)
+    if bad_max.any() or bad_scores.any():
         raise ValueError(f"{context}: score columns contain values outside [0,1].")
     if not np.allclose(max_score, score_matrix.max(axis=1), atol=atol):
         raise ValueError(f"{context}: max score is not the row-wise maximum of per-label scores.")
