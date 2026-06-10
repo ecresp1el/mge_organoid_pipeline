@@ -2519,11 +2519,13 @@ Slurm templates updated for this addition:
 ```text
 slurm_templates/27_cross_study_shi_seurat_label_transfer_array.sbatch.template
   now runs all seven studies, including Varela DIV30/DIV90, under the v2 run
-  label with --reuse-existing false --force-rerun true.
+  label with --reuse-existing false --force-rerun true. The array walltime is
+  6 hours per task; the previous 48-hour ceiling was unnecessarily conservative
+  and could make scheduling/backfill slower.
 
 slurm_templates/28_finalize_cross_study_shi_prediction_plots.sbatch.template
   defaults to the v2 run label and validates both whole-Shi and GE-only week
-  score schemas.
+  score schemas. The finalizer walltime is 4 hours.
 
 slurm_templates/28_cross_study_shi_prediction_plots_plot_only.sbatch.template
   defaults to the v2 run label for any plot-only rerender from existing tables.

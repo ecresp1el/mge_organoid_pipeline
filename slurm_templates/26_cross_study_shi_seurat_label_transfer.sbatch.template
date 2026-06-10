@@ -12,7 +12,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=240G
-#SBATCH --time=48:00:00
+#SBATCH --time=06:00:00
 #SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-transfer-%x-%j.out
 #SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-transfer-%x-%j.err
 
