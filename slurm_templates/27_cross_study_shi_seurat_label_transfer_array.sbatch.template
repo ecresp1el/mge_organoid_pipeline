@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=240G
 #SBATCH --time=48:00:00
-#SBATCH --array=1-5%2
+#SBATCH --array=1-7%2
 #SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-xfer-array-%A_%a.out
 #SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-xfer-array-%A_%a.err
 
@@ -25,17 +25,19 @@ module load "${SEURAT5_MODULE}"
 
 REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
 PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
-CROSS_STUDY_SHI_RUN_LABEL="${CROSS_STUDY_SHI_RUN_LABEL:-cross_study_shi_seurat_label_transfer_v1}"
+CROSS_STUDY_SHI_RUN_LABEL="${CROSS_STUDY_SHI_RUN_LABEL:-cross_study_shi_seurat_label_transfer_v2_ge_only_age}"
 CROSS_STUDY_SHI_DIMS="${CROSS_STUDY_SHI_DIMS:-50}"
 CROSS_STUDY_SHI_MIN_SHARED_FEATURES="${CROSS_STUDY_SHI_MIN_SHARED_FEATURES:-500}"
 SHI_REFERENCE_RDS="${SHI_REFERENCE_RDS:-${PROJECT_ROOT}/results/shi_2019_paper_qc/shi_2019_seurat.rds}"
 SHI_REFERENCE_LABELS_TSV="${SHI_REFERENCE_LABELS_TSV:-${PROJECT_ROOT}/results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1/seurat/shi_reference_labels_for_seurat.tsv}"
 
 STUDIES=(
+  "varela_div30"
+  "varela_div90"
   "siebert_2026"
   "walsh"
-  "bershteyn_2025"
   "bershteyn_2023"
+  "bershteyn_2025"
   "samarasinghe_2021"
 )
 
@@ -55,6 +57,7 @@ echo "Host: $(hostname)"
 echo "Array job: ${SLURM_ARRAY_JOB_ID:-NA}_${SLURM_ARRAY_TASK_ID:-NA}"
 echo "Study: ${STUDY_ID}"
 echo "Run dir: ${RUN_DIR}"
+echo "Classifier addition: whole-Shi major/week transfer plus GE-only MGE/LGE/CGE week transfer"
 echo "Seurat module: ${SEURAT5_MODULE}"
 echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
 

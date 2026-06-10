@@ -19,6 +19,11 @@ WEEK_PREDICTION_SCORE_COL = "shi_seurat_full_week_prediction_score"
 WEEK_UNCERTAINTY_SCORE_COL = "shi_seurat_full_week_uncertainty_score"
 WEEK_SCORE_PREFIX = "shi_seurat_full_week_prediction_score_"
 
+GE_ONLY_PREDICTED_WEEK_LABEL_COL = "shi_seurat_ge_only_predicted_shi_week_label"
+GE_ONLY_WEEK_PREDICTION_SCORE_COL = "shi_seurat_ge_only_week_prediction_score"
+GE_ONLY_WEEK_UNCERTAINTY_SCORE_COL = "shi_seurat_ge_only_week_uncertainty_score"
+GE_ONLY_WEEK_SCORE_PREFIX = "shi_seurat_ge_only_week_prediction_score_"
+
 
 def sanitize_shi_label_token(value: object) -> str:
     """Return the stable suffix used by R and Python Shi score exports."""

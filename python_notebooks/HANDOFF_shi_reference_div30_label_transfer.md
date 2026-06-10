@@ -2446,6 +2446,132 @@ Those outputs live in subfolders under:
   plots/summary/predicted_age_sample_composition/
 ```
 
+## GE-Only Age Classifier Addition
+
+Major classifier logic change:
+
+```text
+Run label:
+  cross_study_shi_seurat_label_transfer_v2_ge_only_age
+
+Whole-Shi transfer outputs remain in the existing namespace:
+  shi_seurat_full_predicted_shi_label
+  shi_seurat_full_prediction_score*
+  shi_seurat_full_predicted_shi_week_label
+  shi_seurat_full_week_prediction_score*
+
+New GE-only age classifier outputs use a separate namespace:
+  shi_seurat_ge_only_predicted_shi_week_label
+  shi_seurat_ge_only_week_prediction_score
+  shi_seurat_ge_only_week_uncertainty_score
+  shi_seurat_ge_only_week_prediction_score_*
+  shi_seurat_ge_only_expected_shi_gw_numeric
+  shi_seurat_ge_only_expected_shi_gw_even
+```
+
+Classifier inventory for this run:
+
+```text
+1. Whole-Shi major-label classifier
+   reference classes: all Shi major cell-type labels
+   target columns: shi_seurat_full_predicted_shi_label,
+                   shi_seurat_full_prediction_score*
+
+2. Whole-Shi week/age classifier
+   reference classes: Shi GW09, GW12, GW13, GW16, GW18 across the full
+   reference object
+   target columns: shi_seurat_full_predicted_shi_week_label,
+                   shi_seurat_full_week_prediction_score*
+
+3. GE-only week/age classifier
+   reference classes: Shi GW09, GW12, GW13, GW16, GW18 after subsetting the
+   reference to major labels MGE, LGE, and CGE only
+   target columns: shi_seurat_ge_only_predicted_shi_week_label,
+                   shi_seurat_ge_only_week_prediction_score*
+```
+
+Computation:
+
+```text
+The R transfer script now creates a Shi reference subset containing only
+reference cells whose major label is MGE, LGE, or CGE. It reruns
+FindTransferAnchors/TransferData for Shi gestational-week labels against this
+GE-only reference. This is a distinct classifier, not a post-hoc subset of the
+whole-Shi week scores.
+
+The original major-label classifier is still whole-Shi and still provides the
+denominator filters:
+  all_shi_major_labels
+  mge
+  mge_lge_cge
+
+Predicted-age sample-composition plotting now uses:
+  all_shi_major_labels -> whole-Shi week classifier
+  mge                  -> GE-only week classifier
+  mge_lge_cge          -> GE-only week classifier
+
+The 0.90 cutoff remains a separate major-label support analysis. It is not used
+to threshold week/age calls in the stacked age-composition plots.
+```
+
+Slurm templates updated for this addition:
+
+```text
+slurm_templates/27_cross_study_shi_seurat_label_transfer_array.sbatch.template
+  now runs all seven studies, including Varela DIV30/DIV90, under the v2 run
+  label with --reuse-existing false --force-rerun true.
+
+slurm_templates/28_finalize_cross_study_shi_prediction_plots.sbatch.template
+  defaults to the v2 run label and validates both whole-Shi and GE-only week
+  score schemas.
+
+slurm_templates/28_cross_study_shi_prediction_plots_plot_only.sbatch.template
+  defaults to the v2 run label for any plot-only rerender from existing tables.
+
+slurm_templates/30_shi_threshold_tradeoff_plots.sbatch.template
+  defaults to the v2 run label. Age-composition outputs for MGE and MGE/LGE/CGE
+  use the GE-only week classifier.
+```
+
+Submit the v2 run:
+
+```bash
+cp slurm_templates/27_cross_study_shi_seurat_label_transfer_array.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/27_cross_study_shi_seurat_label_transfer_array.v2_ge_only_age.sbatch
+cp slurm_templates/28_finalize_cross_study_shi_prediction_plots.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/28_finalize_cross_study_shi_prediction_plots.v2_ge_only_age.sbatch
+cp slurm_templates/30_shi_threshold_tradeoff_plots.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/30_shi_threshold_tradeoff_plots.v2_ge_only_age.sbatch
+
+array_job=$(sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/27_cross_study_shi_seurat_label_transfer_array.v2_ge_only_age.sbatch | awk '{print $4}')
+final_job=$(sbatch --dependency=afterok:${array_job} \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/28_finalize_cross_study_shi_prediction_plots.v2_ge_only_age.sbatch | awk '{print $4}')
+plot_job=$(sbatch --dependency=afterok:${final_job} \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/30_shi_threshold_tradeoff_plots.v2_ge_only_age.sbatch | awk '{print $4}')
+```
+
+Monitor:
+
+```bash
+squeue -j ${array_job},${final_job},${plot_job} -o '%.20i %.9P %.35j %.8u %.2t %.10M %.6D %R'
+sacct -j ${array_job},${final_job},${plot_job} --format=JobID,JobName%35,State,ExitCode,Elapsed,MaxRSS,ReqMem -P
+```
+
+Submitted v2 GE-only age classifier Slurm chain:
+
+```text
+array_job 51644156
+  cross-shi-xfer-array
+  seven-study array: Varela DIV30, Varela DIV90, Siebert 2026, Walsh 2025,
+  Bershteyn 2023, Bershteyn 2025, Samarasinghe 2021
+
+final_job 51644157
+  dependency: afterok:51644156
+
+plot_job 51644158
+  dependency: afterok:51644157
+```
+
 ## New Adjacent Reference Direction: Schmitz 2022
 
 Schmitz et al. 2022 will be developed as a separate reference workflow where

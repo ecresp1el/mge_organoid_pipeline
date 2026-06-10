@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
-"""Plot Shi label call modes and predicted-age sample composition.
+"""Plot Shi label-transfer score tradeoffs and predicted-age composition.
 
-Two call modes are used throughout this script:
-  1. winner_take_all: the top transferred Shi label, with no score cutoff.
-  2. score90_cutoff: an absolute support-score cutoff, defaulting to 0.90.
+Upstream score source:
+  Seurat TransferData is run twice in the R pipeline, once for Shi major labels
+  and once for Shi gestational-week labels. For each cell, TransferData exports
+  one score per reference class plus prediction.score.max. The R/Python schema
+  checks require prediction.score.max to equal the row-wise maximum of the
+  per-class scores, and uncertainty is defined as 1 - prediction.score.max.
 
-Three score scopes are summarized:
-  1. all Shi major labels, one label at a time.
-  2. MGE/LGE/CGE, using the summed support of those three labels.
-  3. MGE only, using the MGE-specific support score.
+Major-label tradeoff summaries:
+  1. winner_take_all: cell membership is the top transferred Shi major label.
+  2. score90_cutoff: cell membership is support score >= the cutoff, default
+     0.90. For MGE this is the MGE score; for MGE/LGE/CGE this is the sum of
+     those three major-label support scores; for all-label heatmaps this is each
+     Shi major label evaluated separately.
+
+Predicted-age sample-composition plots:
+  These are winner-take-all week-label plots, not score90-cutoff plots. All-Shi
+  age composition uses the whole-Shi week classifier. MGE and MGE/LGE/CGE age
+  composition use the GE-only week classifier, which is produced by rerunning
+  week TransferData against only Shi reference MGE/LGE/CGE cells.
 """
 
 from __future__ import annotations
@@ -27,7 +38,7 @@ import re
 
 
 PROJECT_ROOT_DEFAULT = Path("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder")
-RUN_LABEL_DEFAULT = "cross_study_shi_seurat_label_transfer_v1"
+RUN_LABEL_DEFAULT = "cross_study_shi_seurat_label_transfer_v2_ge_only_age"
 RESULTS_DIRNAME = "cross_study_shi_seurat_label_transfer"
 
 STUDIES = [
@@ -61,9 +72,33 @@ LABEL_SETS = {
 }
 
 AGE_CELL_SETS = [
-    ("all_shi_major_labels", "All Shi major-label cells", SHI_LABELS),
-    ("mge", "MGE winner-take-all cells", ["MGE"]),
-    ("mge_lge_cge", "MGE/LGE/CGE winner-take-all cells", ["MGE", "LGE", "CGE"]),
+    # These age-composition sets are denominator filters based on the winning
+    # Shi major label. They do not apply the 0.90 support-score cutoff. The GE
+    # subsets use the GE-only week classifier rather than whole-Shi week scores.
+    (
+        "all_shi_major_labels",
+        "All Shi major-label cells",
+        SHI_LABELS,
+        "whole_shi_week_classifier",
+        "Whole-Shi week classifier",
+        "shi_seurat_full_predicted_shi_week_label",
+    ),
+    (
+        "mge",
+        "MGE winner-take-all cells",
+        ["MGE"],
+        "ge_only_week_classifier",
+        "GE-only week classifier",
+        "shi_seurat_ge_only_predicted_shi_week_label",
+    ),
+    (
+        "mge_lge_cge",
+        "MGE/LGE/CGE winner-take-all cells",
+        ["MGE", "LGE", "CGE"],
+        "ge_only_week_classifier",
+        "GE-only week classifier",
+        "shi_seurat_ge_only_predicted_shi_week_label",
+    ),
 ]
 
 WINNER_COLOR = "#2f6f73"
@@ -227,15 +262,16 @@ def load_group_tradeoff_summary(
         obs = read_study_obs(per_study_dir, study_id, group_labels)
         total_cells = int(obs.shape[0])
 
-        # Winner-take-all group membership asks whether the winning transferred
-        # Shi major label is inside this group. This is the default composition
-        # logic and does not impose any absolute score threshold.
+        # Winner-take-all group membership uses only the transferred major-label
+        # class with the largest Seurat support score. No absolute score cutoff
+        # is imposed in this mode.
         winner_group = obs["shi_seurat_full_predicted_shi_label"].astype(str).isin(group_labels)
 
-        # Thresholded group membership asks whether the support assigned to this
-        # group reaches the cutoff. For a multi-label group such as MGE/LGE/CGE,
-        # the group support is the sum of the Seurat per-label supports for the
-        # labels in that group; for MGE alone, this is simply the MGE score.
+        # Thresholded group membership ignores which label won and asks whether
+        # the Seurat support assigned to this group reaches the cutoff. For a
+        # multi-label group such as MGE/LGE/CGE, group support is the sum of the
+        # per-label support scores in that group; for MGE alone, it is the MGE
+        # support score. This cutoff is on major-label support, not GW support.
         group_score = sum(
             pd.to_numeric(obs[score_col(label)], errors="coerce").fillna(0.0)
             for label in group_labels
@@ -281,6 +317,8 @@ def load_all_label_summary(per_study_dir: Path, threshold: float) -> pd.DataFram
         total_cells = int(obs.shape[0])
         predicted = obs["shi_seurat_full_predicted_shi_label"].astype(str)
         for label in SHI_LABELS:
+            # In the all-label view, the 0.90 threshold is applied separately to
+            # each Shi major label's own Seurat support score.
             winner_label = predicted.eq(label)
             label_score = pd.to_numeric(obs[score_col(label)], errors="coerce")
             threshold_label = label_score.ge(threshold)
@@ -448,6 +486,9 @@ def load_predicted_age_sample_composition(
     cell_set_slug: str,
     cell_set_label: str,
     major_labels: list[str],
+    age_classifier_slug: str,
+    age_classifier_label: str,
+    predicted_week_col: str,
 ) -> pd.DataFrame:
     rows: list[pd.DataFrame] = []
     for study_id, study_plot_label in STUDIES:
@@ -459,10 +500,13 @@ def load_predicted_age_sample_composition(
                 "sample",
                 "sample_label",
                 "shi_seurat_full_predicted_shi_label",
-                "shi_seurat_full_predicted_shi_week_label",
+                predicted_week_col,
             ],
         )
         obs = filter_analysis_obs(study_id, obs)
+        # Age-composition subsets use the winner-take-all major-label call as
+        # the denominator filter. They intentionally do not require the major
+        # label support to be >= 0.90, and they do not threshold week scores.
         if set(major_labels) != set(SHI_LABELS):
             obs = obs.loc[obs["shi_seurat_full_predicted_shi_label"].astype(str).isin(major_labels)].copy()
         if obs.empty:
@@ -472,9 +516,11 @@ def load_predicted_age_sample_composition(
         obs["study_plot_label"] = study_plot_label
         obs["age_cell_set_slug"] = cell_set_slug
         obs["age_cell_set_label"] = cell_set_label
+        obs["age_classifier_slug"] = age_classifier_slug
+        obs["age_classifier_label"] = age_classifier_label
         obs["sample"] = obs["sample"].astype(str)
         obs["sample_label"] = obs["sample_label"].fillna(obs["sample"]).astype(str)
-        obs["predicted_age"] = obs["shi_seurat_full_predicted_shi_week_label"].map(canonical_gw_label)
+        obs["predicted_age"] = obs[predicted_week_col].map(canonical_gw_label)
 
         sample_meta = obs[["sample", "sample_label"]].drop_duplicates().copy()
         sample_records = [
@@ -487,9 +533,9 @@ def load_predicted_age_sample_composition(
         sample_meta["sample_plot_id"] = study_id + "::" + sample_meta["sample"]
         obs = obs.merge(sample_meta, on=["sample", "sample_label"], how="left", validate="many_to_one")
 
-        # This composition is also winner-take-all: each cell contributes to the
-        # single Shi gestational-age label that won the week-level TransferData
-        # call. It is not thresholded by age score.
+        # After the denominator filter above, each remaining cell contributes to
+        # the single Shi gestational-age label that won the week-level
+        # TransferData call. These stacked bars are not 0.90-cutoff age plots.
         counts = (
             obs.groupby(
                 [
@@ -498,6 +544,8 @@ def load_predicted_age_sample_composition(
                     "study_plot_label",
                     "age_cell_set_slug",
                     "age_cell_set_label",
+                    "age_classifier_slug",
+                    "age_classifier_label",
                     "sample",
                     "sample_label",
                     "sample_display_label",
@@ -515,6 +563,7 @@ def load_predicted_age_sample_composition(
         sample_totals = counts.groupby(["study_id", "sample"], observed=True)["n_cells"].transform("sum")
         counts["fraction_of_sample"] = counts["n_cells"] / sample_totals
         counts["call_mode"] = "winner_take_all_predicted_age"
+        counts["predicted_week_source_column"] = predicted_week_col
         counts["major_label_filter"] = ",".join(major_labels)
         counts["analysis_filter"] = "control_only" if study_id in CONTROL_ONLY_STUDIES else "all_cells"
         rows.append(counts)
@@ -529,6 +578,7 @@ def plot_age_composition_one_study(age_summary: pd.DataFrame, study_id: str, age
         raise ValueError(f"No predicted-age composition rows for {study_id}")
     cell_set_slug = str(data["age_cell_set_slug"].iloc[0])
     cell_set_label = str(data["age_cell_set_label"].iloc[0])
+    age_classifier_label = str(data["age_classifier_label"].iloc[0])
     order = (
         data.groupby(
             ["sample_plot_id", "sample_display_label", "sample_age_order", "sample_order_within_study"],
@@ -565,7 +615,7 @@ def plot_age_composition_one_study(age_summary: pd.DataFrame, study_id: str, age
     ax.set_ylim(0, 100)
     ax.set_yticks(np.arange(0, 101, 20))
     ax.set_ylabel("% by predicted cell stage")
-    ax.set_title(f"Sample composition\nby predicted cell stage\n{cell_set_label}")
+    ax.set_title(f"Sample composition\nby predicted cell stage\n{cell_set_label}\n{age_classifier_label}")
     ax.legend(title="Predicted stage", frameon=False, ncol=min(len(GW_ORDER), 5), loc="lower center", bbox_to_anchor=(0.5, 1.02))
     ax.grid(axis="y", color="#d8d8d8", linewidth=0.7)
     ax.set_axisbelow(True)
@@ -579,6 +629,7 @@ def plot_age_composition_all_studies(age_summary: pd.DataFrame, age_plot_dir: Pa
     data = age_summary.copy()
     cell_set_slug = str(data["age_cell_set_slug"].iloc[0])
     cell_set_label = str(data["age_cell_set_label"].iloc[0])
+    age_classifier_label = str(data["age_classifier_label"].iloc[0])
     order = (
         data.groupby(
             [
@@ -656,7 +707,7 @@ def plot_age_composition_all_studies(age_summary: pd.DataFrame, age_plot_dir: Pa
     ax.set_yticks(np.arange(0, 101, 20))
     ax.set_ylabel("% by predicted cell stage")
     handles, legend_labels = ax.get_legend_handles_labels()
-    fig.suptitle(f"Sample composition\nby predicted cell stage\n{cell_set_label}", y=0.985)
+    fig.suptitle(f"Sample composition\nby predicted cell stage\n{cell_set_label}\n{age_classifier_label}", y=0.985)
     fig.legend(
         handles,
         legend_labels,
@@ -664,11 +715,11 @@ def plot_age_composition_all_studies(age_summary: pd.DataFrame, age_plot_dir: Pa
         frameon=False,
         ncol=min(len(GW_ORDER), 5),
         loc="upper center",
-        bbox_to_anchor=(0.5, 0.875),
+        bbox_to_anchor=(0.5, 0.855),
     )
     ax.grid(axis="y", color="#d8d8d8", linewidth=0.7)
     ax.set_axisbelow(True)
-    fig.subplots_adjust(left=0.055, right=0.995, bottom=0.42, top=0.70)
+    fig.subplots_adjust(left=0.055, right=0.995, bottom=0.42, top=0.68)
     path = age_plot_dir / f"all_studies_{cell_set_slug}_shi_predicted_age_sample_composition_stacked_bar"
     save_figure(fig, path)
     return path.with_suffix(".png")
@@ -680,12 +731,22 @@ def write_predicted_age_sample_composition_outputs(
     age_plot_dir: Path,
 ) -> list[Path]:
     outputs: list[Path] = []
-    for cell_set_slug, cell_set_label, major_labels in AGE_CELL_SETS:
+    for (
+        cell_set_slug,
+        cell_set_label,
+        major_labels,
+        age_classifier_slug,
+        age_classifier_label,
+        predicted_week_col,
+    ) in AGE_CELL_SETS:
         age_summary = load_predicted_age_sample_composition(
             per_study_dir,
             cell_set_slug,
             cell_set_label,
             major_labels,
+            age_classifier_slug,
+            age_classifier_label,
+            predicted_week_col,
         )
         table_path = table_dir / f"cross_study_shi_predicted_age_sample_composition_{cell_set_slug}.tsv"
         cell_set_plot_dir = age_plot_dir / cell_set_slug

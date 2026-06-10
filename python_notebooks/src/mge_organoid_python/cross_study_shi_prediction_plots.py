@@ -21,16 +21,21 @@ import pandas as pd
 
 from .paths import resolve_project_root
 from .shi_prediction_schema import (
+    GE_ONLY_PREDICTED_WEEK_LABEL_COL,
+    GE_ONLY_WEEK_PREDICTION_SCORE_COL,
+    GE_ONLY_WEEK_SCORE_PREFIX,
+    GE_ONLY_WEEK_UNCERTAINTY_SCORE_COL,
     PREDICTION_SCORE_COL,
     UNCERTAINTY_SCORE_COL,
     WEEK_PREDICTION_SCORE_COL,
+    WEEK_SCORE_PREFIX,
     WEEK_UNCERTAINTY_SCORE_COL,
     sanitize_shi_label_token,
     validate_canonical_prediction_scores,
 )
 
 
-RUN_LABEL_DEFAULT = "cross_study_shi_seurat_label_transfer_v1"
+RUN_LABEL_DEFAULT = "cross_study_shi_seurat_label_transfer_v2_ge_only_age"
 RESULTS_DIRNAME = "cross_study_shi_seurat_label_transfer"
 
 STUDY_ORDER = [
@@ -38,8 +43,8 @@ STUDY_ORDER = [
     "varela_div90",
     "siebert_2026",
     "walsh",
-    "bershteyn_2025",
     "bershteyn_2023",
+    "bershteyn_2025",
     "samarasinghe_2021",
 ]
 
@@ -125,6 +130,11 @@ BASE_COLUMNS = [
     "shi_seurat_full_week_uncertainty_score",
     "shi_seurat_full_expected_shi_gw_numeric",
     "shi_seurat_full_expected_shi_gw_even",
+    GE_ONLY_PREDICTED_WEEK_LABEL_COL,
+    GE_ONLY_WEEK_PREDICTION_SCORE_COL,
+    GE_ONLY_WEEK_UNCERTAINTY_SCORE_COL,
+    "shi_seurat_ge_only_expected_shi_gw_numeric",
+    "shi_seurat_ge_only_expected_shi_gw_even",
 ]
 
 
@@ -264,13 +274,17 @@ def label_score_columns(data: pd.DataFrame) -> list[str]:
 
 
 def week_score_columns(data: pd.DataFrame) -> list[str]:
-    cols = [
-        col
-        for col in data.columns
-        if col.startswith("shi_seurat_full_week_prediction_score_")
-        and col != "shi_seurat_full_week_prediction_score"
-    ]
+    cols = prefixed_week_score_columns(data, WEEK_SCORE_PREFIX, WEEK_PREDICTION_SCORE_COL)
     return sorted(cols, key=lambda col: (parse_gw_numeric(col), natural_sort_key(col)))
+
+
+def ge_only_week_score_columns(data: pd.DataFrame) -> list[str]:
+    cols = prefixed_week_score_columns(data, GE_ONLY_WEEK_SCORE_PREFIX, GE_ONLY_WEEK_PREDICTION_SCORE_COL)
+    return sorted(cols, key=lambda col: (parse_gw_numeric(col), natural_sort_key(col)))
+
+
+def prefixed_week_score_columns(data: pd.DataFrame, prefix: str, max_score_col: str) -> list[str]:
+    return [col for col in data.columns if col.startswith(prefix) and col != max_score_col]
 
 
 def label_from_score_col(col: str) -> str:
@@ -281,25 +295,56 @@ def label_from_score_col(col: str) -> str:
 
 
 def week_label_from_score_col(col: str) -> str:
-    return canonical_gw_label(col.removeprefix("shi_seurat_full_week_prediction_score_"))
+    return canonical_gw_label(col.removeprefix(WEEK_SCORE_PREFIX))
+
+
+def ge_only_week_label_from_score_col(col: str) -> str:
+    return canonical_gw_label(col.removeprefix(GE_ONLY_WEEK_SCORE_PREFIX))
 
 
 def canonical_week_score_column(label: object) -> str:
-    return "shi_seurat_full_week_prediction_score_" + canonical_gw_label(label)
+    return WEEK_SCORE_PREFIX + canonical_gw_label(label)
+
+
+def canonical_ge_only_week_score_column(label: object) -> str:
+    return GE_ONLY_WEEK_SCORE_PREFIX + canonical_gw_label(label)
 
 
 def collapse_duplicate_gw_score_columns(data: pd.DataFrame) -> pd.DataFrame:
-    """Collapse replicate Shi GW score columns into one summed score per GW."""
+    """Collapse replicate whole-Shi GW score columns into one summed score per GW."""
+    return collapse_duplicate_week_score_columns(
+        data,
+        raw_prefix=WEEK_SCORE_PREFIX,
+        max_score_col=WEEK_PREDICTION_SCORE_COL,
+        predicted_label_col="shi_seurat_full_predicted_shi_week_label",
+        uncertainty_col=WEEK_UNCERTAINTY_SCORE_COL,
+    )
+
+
+def collapse_duplicate_ge_only_gw_score_columns(data: pd.DataFrame) -> pd.DataFrame:
+    """Collapse replicate GE-only Shi GW score columns into one summed score per GW."""
+    return collapse_duplicate_week_score_columns(
+        data,
+        raw_prefix=GE_ONLY_WEEK_SCORE_PREFIX,
+        max_score_col=GE_ONLY_WEEK_PREDICTION_SCORE_COL,
+        predicted_label_col=GE_ONLY_PREDICTED_WEEK_LABEL_COL,
+        uncertainty_col=GE_ONLY_WEEK_UNCERTAINTY_SCORE_COL,
+    )
+
+
+def collapse_duplicate_week_score_columns(
+    data: pd.DataFrame,
+    raw_prefix: str,
+    max_score_col: str,
+    predicted_label_col: str,
+    uncertainty_col: str,
+) -> pd.DataFrame:
+    """Collapse replicate Shi GW score columns into one summed score per canonical GW."""
     data = data.copy()
-    raw_cols = [
-        col
-        for col in data.columns
-        if col.startswith("shi_seurat_full_week_prediction_score_")
-        and col != "shi_seurat_full_week_prediction_score"
-    ]
+    raw_cols = [col for col in data.columns if col.startswith(raw_prefix) and col != max_score_col]
     grouped: dict[str, list[str]] = {}
     for col in raw_cols:
-        grouped.setdefault(canonical_week_score_column(col), []).append(col)
+        grouped.setdefault(raw_prefix + canonical_gw_label(col.removeprefix(raw_prefix)), []).append(col)
     for canonical_col, cols in grouped.items():
         values = data[cols].apply(pd.to_numeric, errors="coerce")
         data[canonical_col] = values.sum(axis=1, min_count=1)
@@ -313,12 +358,10 @@ def collapse_duplicate_gw_score_columns(data: pd.DataFrame) -> pd.DataFrame:
         filled = np.where(np.isnan(score_matrix), -np.inf, score_matrix)
         max_idx = np.argmax(filled, axis=1)
         max_scores = filled[np.arange(filled.shape[0]), max_idx]
-        labels = np.asarray([week_label_from_score_col(col) for col in canonical_cols], dtype=object)
-        data["shi_seurat_full_week_prediction_score"] = np.where(all_missing, np.nan, max_scores)
-        data["shi_seurat_full_predicted_shi_week_label"] = np.where(all_missing, "", labels[max_idx])
-        data["shi_seurat_full_week_uncertainty_score"] = 1.0 - pd.to_numeric(
-            data["shi_seurat_full_week_prediction_score"], errors="coerce"
-        )
+        labels = np.asarray([canonical_gw_label(col.removeprefix(raw_prefix)) for col in canonical_cols], dtype=object)
+        data[max_score_col] = np.where(all_missing, np.nan, max_scores)
+        data[predicted_label_col] = np.where(all_missing, "", labels[max_idx])
+        data[uncertainty_col] = 1.0 - pd.to_numeric(data[max_score_col], errors="coerce")
     return data
 
 
@@ -352,9 +395,18 @@ def normalize_obs_table(data: pd.DataFrame) -> pd.DataFrame:
         data["shi_seurat_full_week_uncertainty_score"] = 1.0 - pd.to_numeric(
             data["shi_seurat_full_week_prediction_score"], errors="coerce"
         )
+    data[GE_ONLY_WEEK_UNCERTAINTY_SCORE_COL] = pd.to_numeric(
+        data[GE_ONLY_WEEK_UNCERTAINTY_SCORE_COL], errors="coerce"
+    )
+    if data[GE_ONLY_WEEK_UNCERTAINTY_SCORE_COL].isna().all():
+        data[GE_ONLY_WEEK_UNCERTAINTY_SCORE_COL] = 1.0 - pd.to_numeric(
+            data[GE_ONLY_WEEK_PREDICTION_SCORE_COL], errors="coerce"
+        )
     data = collapse_duplicate_gw_score_columns(data)
+    data = collapse_duplicate_ge_only_gw_score_columns(data)
     label_scores = label_score_columns(data)
     week_scores = week_score_columns(data)
+    ge_week_scores = ge_only_week_score_columns(data)
     if label_scores:
         validate_canonical_prediction_scores(
             data,
@@ -370,6 +422,14 @@ def normalize_obs_table(data: pd.DataFrame) -> pd.DataFrame:
             max_score_col=WEEK_PREDICTION_SCORE_COL,
             uncertainty_col=WEEK_UNCERTAINTY_SCORE_COL,
             context="cross-study Shi week scores",
+        )
+    if ge_week_scores:
+        validate_canonical_prediction_scores(
+            data,
+            ge_week_scores,
+            max_score_col=GE_ONLY_WEEK_PREDICTION_SCORE_COL,
+            uncertainty_col=GE_ONLY_WEEK_UNCERTAINTY_SCORE_COL,
+            context="cross-study Shi GE-only week scores",
         )
     return data
 
@@ -439,11 +499,34 @@ def augment_reused_varela_from_h5ad(
 
 
 def compute_expected_gw(data: pd.DataFrame) -> pd.DataFrame:
+    data = compute_expected_gw_for_prefix(
+        data,
+        week_score_columns(data),
+        week_label_from_score_col,
+        "shi_seurat_full_expected_shi_gw_numeric",
+        "shi_seurat_full_expected_shi_gw_even",
+    )
+    data = compute_expected_gw_for_prefix(
+        data,
+        ge_only_week_score_columns(data),
+        ge_only_week_label_from_score_col,
+        "shi_seurat_ge_only_expected_shi_gw_numeric",
+        "shi_seurat_ge_only_expected_shi_gw_even",
+    )
+    return data
+
+
+def compute_expected_gw_for_prefix(
+    data: pd.DataFrame,
+    cols: list[str],
+    label_from_col,
+    numeric_col: str,
+    even_col: str,
+) -> pd.DataFrame:
     data = data.copy()
-    cols = week_score_columns(data)
     if not cols:
         return data
-    labels = [week_label_from_score_col(col) for col in cols]
+    labels = [label_from_col(col) for col in cols]
     numeric = np.asarray([parse_gw_numeric(label) for label in labels], dtype=float)
     if np.isnan(numeric).any():
         bad = [label for label, value in zip(labels, numeric, strict=True) if np.isnan(value)]
@@ -454,8 +537,8 @@ def compute_expected_gw(data: pd.DataFrame) -> pd.DataFrame:
     with np.errstate(invalid="ignore", divide="ignore"):
         expected_numeric = np.nansum(scores * numeric[None, :], axis=1) / denom
         expected_even = np.nansum(scores * even_values[None, :], axis=1) / denom
-    data["shi_seurat_full_expected_shi_gw_numeric"] = np.where(np.isfinite(expected_numeric), expected_numeric, np.nan)
-    data["shi_seurat_full_expected_shi_gw_even"] = np.where(np.isfinite(expected_even), expected_even, np.nan)
+    data[numeric_col] = np.where(np.isfinite(expected_numeric), expected_numeric, np.nan)
+    data[even_col] = np.where(np.isfinite(expected_even), expected_even, np.nan)
     return data
 
 
@@ -466,7 +549,9 @@ def validate_combined(data: pd.DataFrame, require_studies: Sequence[str] | None 
     score_cols = (
         label_score_columns(data)
         + week_score_columns(data)
+        + ge_only_week_score_columns(data)
         + ["shi_seurat_full_prediction_score", "shi_seurat_full_week_prediction_score"]
+        + [GE_ONLY_WEEK_PREDICTION_SCORE_COL]
     )
     for col in score_cols:
         values = pd.to_numeric(data[col], errors="coerce")
@@ -534,6 +619,19 @@ def write_long_score_tables(data: pd.DataFrame, paths: OutputPaths) -> tuple[pd.
     week_long["shi_week_numeric"] = week_long["shi_week_label"].map(parse_gw_numeric)
     week_long = week_long.sort_values(["study_id", "cell_id", "shi_week_numeric"])
     week_long.to_csv(paths.table_dir / "cross_study_shi_seurat_week_scores_long.tsv.gz", sep="\t", index=False)
+
+    ge_week_cols = ge_only_week_score_columns(data)
+    if ge_week_cols:
+        ge_week_long = data[id_cols + ge_week_cols].melt(
+            id_vars=id_cols,
+            value_vars=ge_week_cols,
+            var_name="score_column",
+            value_name="prediction_score",
+        )
+        ge_week_long["shi_week_label"] = ge_week_long["score_column"].map(ge_only_week_label_from_score_col)
+        ge_week_long["shi_week_numeric"] = ge_week_long["shi_week_label"].map(parse_gw_numeric)
+        ge_week_long = ge_week_long.sort_values(["study_id", "cell_id", "shi_week_numeric"])
+        ge_week_long.to_csv(paths.table_dir / "cross_study_shi_seurat_ge_only_week_scores_long.tsv.gz", sep="\t", index=False)
     return label_long, week_long
 
 
@@ -586,6 +684,11 @@ def write_summary_tables(data: pd.DataFrame, paths: OutputPaths) -> dict[str, Pa
                 expected_gw_even_mean=("shi_seurat_full_expected_shi_gw_even", "mean"),
                 expected_gw_even_median=("shi_seurat_full_expected_shi_gw_even", "median"),
                 max_gw_score_mean=("shi_seurat_full_week_prediction_score", "mean"),
+                ge_only_expected_gw_numeric_mean=("shi_seurat_ge_only_expected_shi_gw_numeric", "mean"),
+                ge_only_expected_gw_numeric_median=("shi_seurat_ge_only_expected_shi_gw_numeric", "median"),
+                ge_only_expected_gw_even_mean=("shi_seurat_ge_only_expected_shi_gw_even", "mean"),
+                ge_only_expected_gw_even_median=("shi_seurat_ge_only_expected_shi_gw_even", "median"),
+                ge_only_max_gw_score_mean=(GE_ONLY_WEEK_PREDICTION_SCORE_COL, "mean"),
             )
             .reset_index()
         )
@@ -1386,6 +1489,7 @@ def plot_umap_only(
 def print_final_report(paths: OutputPaths) -> None:
     plot_list = sorted([*paths.umap_grid_dir.glob("*.png"), *paths.summary_plot_dir.glob("*.png")])
     table_list = sorted(paths.table_dir.glob("cross_study_shi*.tsv*"))
+    download_dir = f"/Users/ecrespo/Downloads/{paths.run_dir.name}"
     print(f"output_root\t{paths.run_dir}", flush=True)
     print("completed_plot_list", flush=True)
     for path in plot_list:
@@ -1398,19 +1502,19 @@ def print_final_report(paths: OutputPaths) -> None:
         print("diagnostics_summary", flush=True)
         print(pd.read_csv(diag, sep="\t").to_string(index=False), flush=True)
     print("rsync_commands", flush=True)
-    print("mkdir -p /Users/ecrespo/Downloads/cross_study_shi_seurat_label_transfer_v1", flush=True)
+    print(f"mkdir -p {download_dir}/plots {download_dir}/tables", flush=True)
     print(
         "rsync -avh --progress "
         "elcrespo@greatlakes.arc-ts.umich.edu:"
         f"{paths.run_dir}/plots/ "
-        "/Users/ecrespo/Downloads/cross_study_shi_seurat_label_transfer_v1/plots/",
+        f"{download_dir}/plots/",
         flush=True,
     )
     print(
         "rsync -avh --progress "
         "elcrespo@greatlakes.arc-ts.umich.edu:"
         f"{paths.run_dir}/tables/ "
-        "/Users/ecrespo/Downloads/cross_study_shi_seurat_label_transfer_v1/tables/",
+        f"{download_dir}/tables/",
         flush=True,
     )
 

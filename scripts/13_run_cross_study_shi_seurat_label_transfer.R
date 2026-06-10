@@ -6,13 +6,14 @@ suppressPackageStartupMessages({
   library(Matrix)
 })
 
-RUN_LABEL_DEFAULT <- "cross_study_shi_seurat_label_transfer_v1"
+RUN_LABEL_DEFAULT <- "cross_study_shi_seurat_label_transfer_v2_ge_only_age"
 PROJECT_ROOT_DEFAULT <- "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 REFERENCE_DEFAULT <- file.path(PROJECT_ROOT_DEFAULT, "results/shi_2019_paper_qc/shi_2019_seurat.rds")
 MAJOR_LABELS <- c(
   "MGE", "LGE", "CGE", "progenitor", "Excitatory IPC", "Excitatory neuron",
   "Thalamic neurons", "Microglia", "OPC", "Endothelial"
 )
+GE_LABELS <- c("MGE", "LGE", "CGE")
 
 timestamp <- function() format(Sys.time(), "%Y-%m-%d %H:%M:%S")
 log_msg <- function(...) message("[", timestamp(), "] ", paste0(..., collapse = ""))
@@ -141,20 +142,20 @@ default_studies <- function(project_root) {
   data.frame(
     study_id = c(
       "varela_div30", "varela_div90", "siebert_2026", "walsh",
-      "bershteyn_2025", "bershteyn_2023", "samarasinghe_2021"
+      "bershteyn_2023", "bershteyn_2025", "samarasinghe_2021"
     ),
     study_label = c(
       "This Study, DIV 30", "This Study, DIV 90", "Siebert et al. 2026",
-      "Walsh et al. 2025", "Bershteyn et al. 2025",
-      "Bershteyn et al. 2023", "Samarasinghe et al. 2021"
+      "Walsh et al. 2025", "Bershteyn et al. 2023",
+      "Bershteyn et al. 2025", "Samarasinghe et al. 2021"
     ),
     object_path = c(
       "results/varela_this_paper/varela_this_paper_seurat.rds",
       "/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds",
       "results/siebert_2026/siebert_2026_seurat.rds",
       "results/walsh_day75/walsh_day75_final_annotated.rds",
-      "results/bershteyn_2025/bershteyn_2025_seurat.rds",
       "results/bershteyn_2023/bershteyn_2023_seurat.rds",
+      "results/bershteyn_2025/bershteyn_2025_seurat.rds",
       "results/samarasinghe_2021_zenodo_processed_object/samarasinghe_2021_zenodo_seurat.rds"
     ),
     reduction = c("umap", "umap", "umap", "umap_sel", "umap", "umap", "umap"),
@@ -420,7 +421,7 @@ score_delta_from_scores <- function(scores) {
   sorted[, 1] - sorted[, 2]
 }
 
-expected_gw_from_scores <- function(scores, prefix) {
+expected_gw_from_scores <- function(scores, prefix, output_prefix = "shi_seurat_full") {
   score_cols <- setdiff(colnames(scores), "cell_id")
   labels <- sub(paste0("^", prefix), "", score_cols)
   gw_numeric <- parse_gw_numeric(labels)
@@ -438,8 +439,13 @@ expected_gw_from_scores <- function(scores, prefix) {
   expected_even[!is.finite(expected_even)] <- NA_real_
   data.frame(
     cell_id = scores$cell_id,
-    shi_seurat_full_expected_shi_gw_numeric = expected_numeric,
-    shi_seurat_full_expected_shi_gw_even = expected_even,
+    stats::setNames(
+      list(expected_numeric, expected_even),
+      c(
+        paste0(output_prefix, "_expected_shi_gw_numeric"),
+        paste0(output_prefix, "_expected_shi_gw_even")
+      )
+    ),
     stringsAsFactors = FALSE
   )
 }
@@ -531,6 +537,8 @@ copy_existing_raw_exports <- function(study, seurat_dir) {
     "_shi_seurat_full_prediction_scores.tsv.gz",
     "_shi_seurat_full_week_predictions.tsv.gz",
     "_shi_seurat_full_week_prediction_scores.tsv.gz",
+    "_shi_seurat_ge_only_week_predictions.tsv.gz",
+    "_shi_seurat_ge_only_week_prediction_scores.tsv.gz",
     "_shi_seurat_full_transfer_diagnostics.tsv"
   )
   ok <- TRUE
@@ -679,7 +687,7 @@ reuse_existing_obs <- function(study, table_per_study_dir, seurat_dir, project_r
   diagnostics
 }
 
-run_transfer_one <- function(study, reference, label_col, week_col, opt, table_per_study_dir, seurat_dir) {
+run_transfer_one <- function(study, reference, ge_reference, label_col, week_col, opt, table_per_study_dir, seurat_dir) {
   study_id <- study$study_id[[1]]
   object_path <- resolve_path(study$object_path[[1]], opt$project_root)
   if (!file.exists(object_path)) stop(study_id, " target object not found: ", object_path, call. = FALSE)
@@ -693,7 +701,9 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
   }
 
   reference <- join_layers_if_needed(reference, "RNA")
+  ge_reference <- join_layers_if_needed(ge_reference, "RNA")
   reference <- ensure_log_normalized(reference, "RNA")
+  ge_reference <- ensure_log_normalized(ge_reference, "RNA")
   query <- ensure_log_normalized(query, "RNA")
   ref_features <- rownames(reference[["RNA"]])
   query_features <- rownames(query[["RNA"]])
@@ -767,6 +777,61 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
   week_score_cols_raw <- validate_transfer_predictions(week_predictions, study_id, "week")
   week_scores <- rename_score_columns(week_predictions, "shi_seurat_full_week_prediction_score_", week_score_cols_raw)
 
+  ge_ref_features <- rownames(ge_reference[["RNA"]])
+  ge_shared_features <- intersect(ge_ref_features, query_features)
+  if (length(ge_shared_features) < min_shared) {
+    stop(study_id, " has too few shared RNA features with GE-only Shi reference: ", length(ge_shared_features), " < ", min_shared, call. = FALSE)
+  }
+  if (length(ge_shared_features) <= dims_n) {
+    stop(study_id, " has only ", length(ge_shared_features), " shared GE-only features; dims=", dims_n, " requires more features", call. = FALSE)
+  }
+  if (ncol(ge_reference) <= dims_n) {
+    stop(study_id, " has too few GE-only reference cells for dims=", dims_n, " (reference=", ncol(ge_reference), ")", call. = FALSE)
+  }
+  log_msg("Scaling GE-only Shi reference and running PCA for ", study_id, " with ", length(ge_shared_features), " shared features")
+  ge_reference <- Seurat::ScaleData(ge_reference, assay = "RNA", features = ge_shared_features, verbose = FALSE)
+  ge_reference <- Seurat::RunPCA(ge_reference, assay = "RNA", features = ge_shared_features, npcs = dims_n, verbose = FALSE)
+
+  log_msg("Finding GE-only transfer anchors for ", study_id)
+  ge_anchors <- Seurat::FindTransferAnchors(
+    reference = ge_reference,
+    query = query,
+    normalization.method = opt$normalization_method,
+    reference.assay = "RNA",
+    query.assay = "RNA",
+    features = ge_shared_features,
+    reference.reduction = "pca",
+    reduction = "pcaproject",
+    dims = dims_use,
+    verbose = TRUE
+  )
+  ge_n_anchors <- nrow(ge_anchors@anchors)
+  if (ge_n_anchors < 2L) {
+    stop(study_id, " produced too few GE-only transfer anchors: ", ge_n_anchors, call. = FALSE)
+  }
+  ge_n_unique_query_anchor_cells <- anchor_query_cell_count(ge_anchors)
+  ge_transfer_k <- choose_transfer_k_weight(ge_n_anchors, requested = 50L)
+  ge_transfer_k_weight <- ge_transfer_k$used
+  log_msg(
+    "GE-only TransferData k.weight for ", study_id, ": ", ge_transfer_k_weight,
+    " (requested=", ge_transfer_k$requested,
+    ", anchors=", ge_n_anchors,
+    ", unique_query_anchor_cells=", ge_n_unique_query_anchor_cells,
+    ", reason=", ge_transfer_k$reason, ")"
+  )
+
+  log_msg("TransferData GE-only Shi gestational-week labels for ", study_id)
+  ge_week_predictions <- as.data.frame(Seurat::TransferData(
+    anchorset = ge_anchors,
+    refdata = ge_reference@meta.data[[week_col]],
+    dims = dims_use,
+    k.weight = ge_transfer_k_weight,
+    verbose = TRUE
+  ), stringsAsFactors = FALSE)
+  ge_week_predictions <- data.frame(cell_id = rownames(ge_week_predictions), ge_week_predictions, check.names = FALSE)
+  ge_week_score_cols_raw <- validate_transfer_predictions(ge_week_predictions, study_id, "GE-only week")
+  ge_week_scores <- rename_score_columns(ge_week_predictions, "shi_seurat_ge_only_week_prediction_score_", ge_week_score_cols_raw)
+
   transfer_qc <- list(
     n_anchors = n_anchors,
     n_unique_query_anchor_cells = n_unique_query_anchor_cells,
@@ -774,9 +839,45 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
     k_weight_reason = transfer_k$reason
   )
   obs <- build_obs_table(study, query, predictions, label_scores, week_predictions, week_scores, transfer_qc)
+  ge_week_predictions <- ge_week_predictions[match(obs$cell_id, ge_week_predictions$cell_id), , drop = FALSE]
+  ge_week_scores <- ge_week_scores[match(obs$cell_id, ge_week_scores$cell_id), , drop = FALSE]
+  ge_week_out <- data.frame(
+    cell_id = ge_week_predictions$cell_id,
+    shi_seurat_ge_only_predicted_shi_week_label = as.character(ge_week_predictions$predicted.id),
+    shi_seurat_ge_only_week_prediction_score = as.numeric(ge_week_predictions$prediction.score.max),
+    shi_seurat_ge_only_week_uncertainty_score = 1 - as.numeric(ge_week_predictions$prediction.score.max),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  obs <- merge(obs, ge_week_out, by = "cell_id", all.x = TRUE, sort = FALSE)
+  obs <- merge(obs, ge_week_scores, by = "cell_id", all.x = TRUE, sort = FALSE)
+  obs <- merge(
+    obs,
+    expected_gw_from_scores(
+      ge_week_scores,
+      "shi_seurat_ge_only_week_prediction_score_",
+      "shi_seurat_ge_only"
+    ),
+    by = "cell_id",
+    all.x = TRUE,
+    sort = FALSE
+  )
+  obs <- obs[match(colnames(query), obs$cell_id), , drop = FALSE]
   label_score_cols <- grep("^shi_seurat_full_prediction_score_", colnames(obs), value = TRUE)
   week_score_cols <- grep("^shi_seurat_full_week_prediction_score_", colnames(obs), value = TRUE)
-  validate_score_range(obs, c(label_score_cols, week_score_cols, "shi_seurat_full_prediction_score", "shi_seurat_full_week_prediction_score"), study_id)
+  ge_week_score_cols <- grep("^shi_seurat_ge_only_week_prediction_score_", colnames(obs), value = TRUE)
+  validate_score_range(
+    obs,
+    c(
+      label_score_cols,
+      week_score_cols,
+      ge_week_score_cols,
+      "shi_seurat_full_prediction_score",
+      "shi_seurat_full_week_prediction_score",
+      "shi_seurat_ge_only_week_prediction_score"
+    ),
+    study_id
+  )
   validate_canonical_prediction_scores(
     obs, label_score_cols,
     "shi_seurat_full_prediction_score", "shi_seurat_full_uncertainty_score",
@@ -786,6 +887,11 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
     obs, week_score_cols,
     "shi_seurat_full_week_prediction_score", "shi_seurat_full_week_uncertainty_score",
     study_id, "week"
+  )
+  validate_canonical_prediction_scores(
+    obs, ge_week_score_cols,
+    "shi_seurat_ge_only_week_prediction_score", "shi_seurat_ge_only_week_uncertainty_score",
+    study_id, "GE-only week"
   )
   gw_range <- range(parse_gw_numeric(sub("^shi_seurat_full_week_prediction_score_", "", week_score_cols)), na.rm = TRUE)
   expected <- obs$shi_seurat_full_expected_shi_gw_numeric
@@ -797,6 +903,8 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
   write_tsv_gz(label_scores, file.path(seurat_dir, paste0(study_id, "_shi_seurat_full_prediction_scores.tsv.gz")))
   write_tsv_gz(week_predictions, file.path(seurat_dir, paste0(study_id, "_shi_seurat_full_week_predictions.tsv.gz")))
   write_tsv_gz(week_scores, file.path(seurat_dir, paste0(study_id, "_shi_seurat_full_week_prediction_scores.tsv.gz")))
+  write_tsv_gz(ge_week_predictions, file.path(seurat_dir, paste0(study_id, "_shi_seurat_ge_only_week_predictions.tsv.gz")))
+  write_tsv_gz(ge_week_scores, file.path(seurat_dir, paste0(study_id, "_shi_seurat_ge_only_week_prediction_scores.tsv.gz")))
   write_tsv_gz(obs, file.path(table_per_study_dir, paste0(study_id, "_shi_seurat_label_transfer_obs.tsv.gz")))
 
   zero_labels <- setdiff(MAJOR_LABELS, unique(as.character(obs$shi_seurat_full_predicted_shi_label)))
@@ -807,17 +915,27 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
     transfer_source = "new_seurat_transfer",
     n_query_cells = ncol(query),
     n_reference_cells = ncol(reference),
+    n_ge_only_reference_cells = ncol(ge_reference),
     n_shared_features = length(shared_features),
+    n_ge_only_shared_features = length(ge_shared_features),
     n_anchors = n_anchors,
+    n_ge_only_anchors = ge_n_anchors,
     n_unique_query_anchor_cells = n_unique_query_anchor_cells,
+    n_ge_only_unique_query_anchor_cells = ge_n_unique_query_anchor_cells,
     k_weight_requested = transfer_k$requested,
     k_weight_used = transfer_k_weight,
     k_weight_reason = transfer_k$reason,
     transfer_k_weight = transfer_k_weight,
+    ge_only_k_weight_requested = ge_transfer_k$requested,
+    ge_only_k_weight_used = ge_transfer_k_weight,
+    ge_only_k_weight_reason = ge_transfer_k$reason,
+    ge_only_transfer_k_weight = ge_transfer_k_weight,
     median_prediction_score_max = stats::median(as.numeric(obs$shi_seurat_full_prediction_score), na.rm = TRUE),
     fraction_prediction_score_max_ge_0_75 = mean(as.numeric(obs$shi_seurat_full_prediction_score) >= 0.75, na.rm = TRUE),
+    median_ge_only_week_prediction_score_max = stats::median(as.numeric(obs$shi_seurat_ge_only_week_prediction_score), na.rm = TRUE),
     label_score_columns_exported = paste(label_score_cols, collapse = ","),
     week_score_columns_exported = paste(week_score_cols, collapse = ","),
+    ge_only_week_score_columns_exported = paste(ge_week_score_cols, collapse = ","),
     n_missing_prediction = sum(is.na(obs$shi_seurat_full_predicted_shi_label) | !nzchar(as.character(obs$shi_seurat_full_predicted_shi_label))),
     winner_take_all_composition = paste(names(table(obs$shi_seurat_full_predicted_shi_label)), as.integer(table(obs$shi_seurat_full_predicted_shi_label)), sep = ":", collapse = ","),
     umap_reduction = study$reduction[[1]],
@@ -827,7 +945,7 @@ run_transfer_one <- function(study, reference, label_col, week_col, opt, table_p
     stringsAsFactors = FALSE
   )
   write_tsv(diagnostics, file.path(seurat_dir, paste0(study_id, "_shi_seurat_full_transfer_diagnostics.tsv")))
-  rm(query, anchors, predictions, week_predictions, label_scores, week_scores, obs)
+  rm(query, anchors, ge_anchors, predictions, week_predictions, ge_week_predictions, label_scores, week_scores, ge_week_scores, obs)
   gc()
   diagnostics
 }
@@ -929,10 +1047,20 @@ main <- function() {
   }
   write_tsv(as.data.frame(table(reference@meta.data[[label_col]])), file.path(opt$outdir, "diagnostics/shi_reference_labels_used_by_seurat.tsv"))
   write_tsv(as.data.frame(table(reference@meta.data[[week_col]])), file.path(opt$outdir, "diagnostics/shi_reference_weeks_used_by_seurat.tsv"))
+  ge_reference_cells <- colnames(reference)[as.character(reference@meta.data[[label_col]]) %in% GE_LABELS]
+  if (length(ge_reference_cells) < 50) {
+    stop("Too few Shi reference GE cells for GE-only age classifier: ", length(ge_reference_cells), call. = FALSE)
+  }
+  ge_reference <- subset(reference, cells = ge_reference_cells)
+  ge_reference@meta.data[[week_col]] <- factor(as.character(ge_reference@meta.data[[week_col]]))
+  write_tsv(
+    as.data.frame(table(ge_reference@meta.data[[label_col]], ge_reference@meta.data[[week_col]])),
+    file.path(opt$outdir, "diagnostics/shi_ge_only_reference_labels_by_week_used_by_seurat.tsv")
+  )
 
   for (idx in seq_len(nrow(pending_studies))) {
     study <- pending_studies[idx, , drop = FALSE]
-    diagnostics[[length(diagnostics) + 1L]] <- run_transfer_one(study, reference, label_col, week_col, opt, table_per_study_dir, seurat_dir)
+    diagnostics[[length(diagnostics) + 1L]] <- run_transfer_one(study, reference, ge_reference, label_col, week_col, opt, table_per_study_dir, seurat_dir)
   }
   summary <- do.call(rbind, diagnostics)
   write_tsv(summary, file.path(opt$outdir, "diagnostics/cross_study_shi_transfer_diagnostics_summary.tsv"))
