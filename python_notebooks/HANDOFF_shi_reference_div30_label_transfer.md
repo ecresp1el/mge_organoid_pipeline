@@ -2574,6 +2574,33 @@ plot_job 51644158
   dependency: afterok:51644157
 ```
 
+Repair note:
+
+```text
+Initial v2 array 51644156 completed five studies but failed on the two
+Bershteyn tasks after Seurat TransferData completed:
+
+  51644156_5 bershteyn_2023 failed: missing configured sample column `sample`
+  51644156_6 bershteyn_2025 failed: missing configured sample column `orig.ident`
+
+The default study metadata config had the Bershteyn sample columns swapped.
+The transfer script now uses:
+
+  bershteyn_2023 sample_col = orig.ident|samples
+  bershteyn_2025 sample_col = sample
+
+Targeted Slurm repair chain submitted, rerunning only array tasks 5-6:
+
+  repair_job 51648985
+    submitted with --array=5-6%2
+
+  final_job 51648986
+    dependency: afterok:51648985
+
+  plot_job 51648987
+    dependency: afterok:51648986
+```
+
 ## New Adjacent Reference Direction: Schmitz 2022
 
 Schmitz et al. 2022 will be developed as a separate reference workflow where

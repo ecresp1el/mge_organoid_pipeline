@@ -159,7 +159,7 @@ default_studies <- function(project_root) {
       "results/samarasinghe_2021_zenodo_processed_object/samarasinghe_2021_zenodo_seurat.rds"
     ),
     reduction = c("umap", "umap", "umap", "umap_sel", "umap", "umap", "umap"),
-    sample_col = c("orig.ident", "orig.ident", "orig.ident|sample", "sample_id", "sample", "orig.ident", "orig.ident"),
+    sample_col = c("orig.ident", "orig.ident", "orig.ident|sample", "sample_id", "orig.ident|samples", "sample", "orig.ident"),
     cluster_col = rep("seurat_clusters", 7),
     existing_obs_path = c(
       file.path(project_root, "results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1/tables/div30_shi_seurat_label_transfer_obs.tsv.gz"),
