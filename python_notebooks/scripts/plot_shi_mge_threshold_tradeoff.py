@@ -31,12 +31,12 @@ RUN_LABEL_DEFAULT = "cross_study_shi_seurat_label_transfer_v1"
 RESULTS_DIRNAME = "cross_study_shi_seurat_label_transfer"
 
 STUDIES = [
-    ("varela_div30", "This study\nDIV30"),
-    ("varela_div90", "This study\nDIV90"),
+    ("varela_div30", "Varela et al.\nthis paper\nDIV30"),
+    ("varela_div90", "Varela et al.\nthis paper\nDIV90"),
     ("siebert_2026", "Siebert\n2026"),
-    ("walsh", "Walsh"),
-    ("bershteyn_2025", "Bershteyn\n2025"),
+    ("walsh", "Walsh\n2025"),
     ("bershteyn_2023", "Bershteyn\n2023"),
+    ("bershteyn_2025", "Bershteyn\n2025"),
     ("samarasinghe_2021", "Samarasinghe\n2021"),
 ]
 
@@ -60,17 +60,63 @@ LABEL_SETS = {
     "mge_lge_cge": ("mge_lge_cge", "MGE/LGE/CGE", ["MGE", "LGE", "CGE"]),
 }
 
+AGE_CELL_SETS = [
+    ("all_shi_major_labels", "All Shi major-label cells", SHI_LABELS),
+    ("mge", "MGE winner-take-all cells", ["MGE"]),
+    ("mge_lge_cge", "MGE/LGE/CGE winner-take-all cells", ["MGE", "LGE", "CGE"]),
+]
+
 WINNER_COLOR = "#2f6f73"
 THRESHOLD_COLOR = "#d9893d"
 LOST_COLOR = "#b8b8b8"
 GW_ORDER = ["GW09", "GW12", "GW13", "GW16", "GW18"]
 GW_COLORS = {
-    "GW09": "#4c6a9c",
-    "GW12": "#56a0a6",
-    "GW13": "#7dbd69",
-    "GW16": "#e5b54a",
-    "GW18": "#c45b45",
+    "GW09": "#231611",
+    "GW12": "#3F1C6A",
+    "GW13": "#A02E6B",
+    "GW16": "#EB5840",
+    "GW18": "#FCC031",
 }
+
+BERSHTEYN_2023_SAMPLE_INFO = {
+    # GSE208672 plus study design notes: D0 hESCs, D14 MGE progenitors,
+    # and week-6 End-of-Process cells (6 * 7 = DIV42). S/U denotes sorted
+    # or unsorted, respectively.
+    "D0": ("DIV0 hESC", 0.0, 0.0),
+    "D14": ("DIV14 MGE progenitor", 14.0, 0.0),
+    "MB460": ("DIV42 EOP L1 U (MB460)", 42.0, 1.1),
+    "MB461": ("DIV42 EOP L1 S (MB461)", 42.0, 1.2),
+    "MB279": ("DIV42 EOP L2 U (MB279)", 42.0, 2.1),
+    "MB280": ("DIV42 EOP L2 S (MB280)", 42.0, 2.2),
+    "MB527": ("DIV42 EOP L3 U (MB527)", 42.0, 3.1),
+    "MB528": ("DIV42 EOP L3 S (MB528)", 42.0, 3.2),
+    "MS35mock": ("DIV42 EOP B4 U (MS35mock)", 42.0, 4.0),
+    "MS35r41": ("DIV42 EOP B5 U (MS35r41)", 42.0, 5.0),
+    "mockv2dw": ("DIV42 EOP B6 U (mockv2dw)", 42.0, 6.0),
+    "mockv2ym": ("DIV42 EOP B7 U (mockv2ym)", 42.0, 7.0),
+    "r41v2dw": ("DIV42 EOP B8 U (r41v2dw)", 42.0, 8.0),
+    "r41v2ym": ("DIV42 EOP B9 U (r41v2ym)", 42.0, 9.0),
+}
+
+BERSHTEYN_2025_SAMPLE_INFO = {
+    # GSE283775 series matrix: all samples are sorted End-of-Process batches.
+    "200319S": ("DIV unknown EOP batch 1 (200319S)", 999.0, 1.0),
+    "010519S1": ("DIV unknown EOP batch 2 (010519S1)", 999.0, 2.0),
+    "010519S2": ("DIV unknown EOP batch 3 (010519S2)", 999.0, 3.0),
+    "111219S": ("DIV unknown EOP batch 4 (111219S)", 999.0, 4.0),
+    "251219S": ("DIV unknown EOP batch 5 (251219S)", 999.0, 5.0),
+    "150120S": ("DIV unknown EOP batch 6 (150120S)", 999.0, 6.0),
+    "200520S1": ("DIV unknown EOP batch 7 (200520S1)", 999.0, 7.0),
+    "200520S2": ("DIV unknown EOP batch 8 (200520S2)", 999.0, 8.0),
+    "100620S": ("DIV unknown EOP batch 9 (100620S)", 999.0, 9.0),
+    "010720S": ("DIV unknown EOP batch 10 (010720S)", 999.0, 10.0),
+    "220720S1": ("DIV unknown EOP batch 11 (220720S1)", 999.0, 11.0),
+    "220720S2": ("DIV unknown EOP batch 12 (220720S2)", 999.0, 12.0),
+    "070120S": ("DIV unknown EOP batch 13 (070120S)", 999.0, 13.0),
+    "280120S": ("DIV unknown EOP batch 14 (280120S)", 999.0, 14.0),
+}
+
+STUDY_ORDER = {study_id: idx for idx, (study_id, _) in enumerate(STUDIES)}
 
 
 def label_token(label: str) -> str:
@@ -128,6 +174,45 @@ def canonical_gw_label(value: object) -> str:
     if not match:
         return "unknown"
     return f"GW{int(match.group(1)):02d}"
+
+
+def first_number(pattern: str, text: str, default: float = 9999.0) -> float:
+    match = re.search(pattern, text, flags=re.IGNORECASE)
+    if not match:
+        return default
+    return float(match.group(1))
+
+
+def sample_display_and_order(study_id: str, sample: object, sample_label: object) -> tuple[str, float, float]:
+    sample_text = str(sample)
+    label_text = str(sample_label) if pd.notna(sample_label) else sample_text
+    display = label_text if label_text and label_text.lower() != "nan" else sample_text
+
+    if study_id == "bershteyn_2023" and sample_text in BERSHTEYN_2023_SAMPLE_INFO:
+        return BERSHTEYN_2023_SAMPLE_INFO[sample_text]
+    if study_id == "bershteyn_2025" and sample_text in BERSHTEYN_2025_SAMPLE_INFO:
+        return BERSHTEYN_2025_SAMPLE_INFO[sample_text]
+
+    if study_id == "varela_div30":
+        return f"DIV30 {sample_text}", 30.0, first_number(r"MW-(\d+)", sample_text)
+    if study_id == "varela_div90":
+        return f"DIV90 {sample_text}", 90.0, first_number(r"MW-(\d+)", sample_text)
+
+    if study_id == "siebert_2026":
+        age_order = 51.0 if sample_text.startswith("Young") else 164.0 if sample_text.startswith("Old") else 9999.0
+        div_label = f"likely DIV{int(age_order)}" if age_order < 9999 else "DIV unknown"
+        return f"{div_label} {sample_text}", age_order, first_number(r"_(\d+)", sample_text)
+
+    if study_id == "walsh":
+        within_order = 1.0 if "dFB" in label_text else 2.0 if "vFB" in label_text else first_number(r"GSM(\d+)", sample_text)
+        div = first_number(r"d(\d+)", label_text, 75.0)
+        return f"DIV{int(div)} {label_text.replace('_', ' ')}", div, within_order
+
+    if study_id == "samarasinghe_2021":
+        div = first_number(r"D(\d+)", display)
+        return f"DIV{int(div)} {display}" if div < 9999 else f"DIV unknown {display}", div, first_number(r"_(\d+)_seurat", display)
+
+    return display, first_number(r"D(?:IV)?\s*([0-9]+)", display), first_number(r"(\d+)", display)
 
 
 def load_group_tradeoff_summary(
@@ -358,28 +443,71 @@ def plot_all_label_heatmap(
     return path.with_suffix(".png")
 
 
-def load_predicted_age_sample_composition(per_study_dir: Path) -> pd.DataFrame:
+def load_predicted_age_sample_composition(
+    per_study_dir: Path,
+    cell_set_slug: str,
+    cell_set_label: str,
+    major_labels: list[str],
+) -> pd.DataFrame:
     rows: list[pd.DataFrame] = []
     for study_id, study_plot_label in STUDIES:
         path = per_study_dir / f"{study_id}_shi_seurat_label_transfer_obs.tsv.gz"
         obs = pd.read_csv(
             path,
             sep="\t",
-            usecols=["sample", "sample_label", "shi_seurat_full_predicted_shi_week_label"],
+            usecols=[
+                "sample",
+                "sample_label",
+                "shi_seurat_full_predicted_shi_label",
+                "shi_seurat_full_predicted_shi_week_label",
+            ],
         )
         obs = filter_analysis_obs(study_id, obs)
+        if set(major_labels) != set(SHI_LABELS):
+            obs = obs.loc[obs["shi_seurat_full_predicted_shi_label"].astype(str).isin(major_labels)].copy()
+        if obs.empty:
+            continue
         obs["study_id"] = study_id
         obs["study_label"] = study_plot_label.replace("\n", " ")
         obs["study_plot_label"] = study_plot_label
+        obs["age_cell_set_slug"] = cell_set_slug
+        obs["age_cell_set_label"] = cell_set_label
         obs["sample"] = obs["sample"].astype(str)
         obs["sample_label"] = obs["sample_label"].fillna(obs["sample"]).astype(str)
         obs["predicted_age"] = obs["shi_seurat_full_predicted_shi_week_label"].map(canonical_gw_label)
+
+        sample_meta = obs[["sample", "sample_label"]].drop_duplicates().copy()
+        sample_records = [
+            sample_display_and_order(study_id, row.sample, row.sample_label)
+            for row in sample_meta.itertuples(index=False)
+        ]
+        sample_meta["sample_display_label"] = [record[0] for record in sample_records]
+        sample_meta["sample_age_order"] = [record[1] for record in sample_records]
+        sample_meta["sample_order_within_study"] = [record[2] for record in sample_records]
+        sample_meta["sample_plot_id"] = study_id + "::" + sample_meta["sample"]
+        obs = obs.merge(sample_meta, on=["sample", "sample_label"], how="left", validate="many_to_one")
 
         # This composition is also winner-take-all: each cell contributes to the
         # single Shi gestational-age label that won the week-level TransferData
         # call. It is not thresholded by age score.
         counts = (
-            obs.groupby(["study_id", "study_label", "study_plot_label", "sample", "sample_label", "predicted_age"], observed=True)
+            obs.groupby(
+                [
+                    "study_id",
+                    "study_label",
+                    "study_plot_label",
+                    "age_cell_set_slug",
+                    "age_cell_set_label",
+                    "sample",
+                    "sample_label",
+                    "sample_display_label",
+                    "sample_age_order",
+                    "sample_order_within_study",
+                    "sample_plot_id",
+                    "predicted_age",
+                ],
+                observed=True,
+            )
             .size()
             .rename("n_cells")
             .reset_index()
@@ -387,8 +515,11 @@ def load_predicted_age_sample_composition(per_study_dir: Path) -> pd.DataFrame:
         sample_totals = counts.groupby(["study_id", "sample"], observed=True)["n_cells"].transform("sum")
         counts["fraction_of_sample"] = counts["n_cells"] / sample_totals
         counts["call_mode"] = "winner_take_all_predicted_age"
+        counts["major_label_filter"] = ",".join(major_labels)
         counts["analysis_filter"] = "control_only" if study_id in CONTROL_ONLY_STUDIES else "all_cells"
         rows.append(counts)
+    if not rows:
+        raise ValueError(f"No predicted-age composition rows for cell set {cell_set_slug}")
     return pd.concat(rows, ignore_index=True)
 
 
@@ -396,48 +527,149 @@ def plot_age_composition_one_study(age_summary: pd.DataFrame, study_id: str, age
     data = age_summary.loc[age_summary["study_id"] == study_id].copy()
     if data.empty:
         raise ValueError(f"No predicted-age composition rows for {study_id}")
-    study_label = str(data["study_label"].iloc[0])
-    sample_order = (
-        data.groupby(["sample", "sample_label"], observed=True)["n_cells"]
+    cell_set_slug = str(data["age_cell_set_slug"].iloc[0])
+    cell_set_label = str(data["age_cell_set_label"].iloc[0])
+    order = (
+        data.groupby(
+            ["sample_plot_id", "sample_display_label", "sample_age_order", "sample_order_within_study"],
+            observed=True,
+            as_index=False,
+        )["n_cells"]
         .sum()
-        .sort_values(ascending=False)
-        .reset_index()["sample_label"]
-        .tolist()
+        .sort_values(["sample_age_order", "sample_order_within_study", "sample_display_label"], kind="stable")
     )
     pivot = (
         data.pivot_table(
-            index="sample_label",
+            index="sample_plot_id",
             columns="predicted_age",
             values="fraction_of_sample",
             aggfunc="sum",
             fill_value=0.0,
             observed=True,
         )
-        .reindex(index=sample_order)
+        .reindex(index=order["sample_plot_id"].tolist())
+        .reindex(columns=GW_ORDER, fill_value=0.0)
+    )
+    labels = order["sample_display_label"].tolist()
+
+    width = max(7.5, 0.42 * len(pivot.index) + 2.6)
+    fig, ax = plt.subplots(figsize=(width, 5.2))
+    bottom = np.zeros(len(pivot.index), dtype=float)
+    x = np.arange(len(pivot.index))
+    for gw in GW_ORDER:
+        values = pivot[gw].to_numpy(dtype=float) * 100.0
+        ax.bar(x, values, bottom=bottom, color=GW_COLORS[gw], label=gw, width=0.82)
+        bottom += values
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=90, ha="center", va="top", fontsize=8)
+    ax.set_ylim(0, 100)
+    ax.set_yticks(np.arange(0, 101, 20))
+    ax.set_ylabel("% by predicted cell stage")
+    ax.set_title(f"Sample composition\nby predicted cell stage\n{cell_set_label}")
+    ax.legend(title="Predicted stage", frameon=False, ncol=min(len(GW_ORDER), 5), loc="lower center", bbox_to_anchor=(0.5, 1.02))
+    ax.grid(axis="y", color="#d8d8d8", linewidth=0.7)
+    ax.set_axisbelow(True)
+    fig.tight_layout()
+    path = age_plot_dir / f"{study_id}_{cell_set_slug}_shi_predicted_age_sample_composition_stacked_bar"
+    save_figure(fig, path)
+    return path.with_suffix(".png")
+
+
+def plot_age_composition_all_studies(age_summary: pd.DataFrame, age_plot_dir: Path) -> Path:
+    data = age_summary.copy()
+    cell_set_slug = str(data["age_cell_set_slug"].iloc[0])
+    cell_set_label = str(data["age_cell_set_label"].iloc[0])
+    order = (
+        data.groupby(
+            [
+                "study_id",
+                "study_label",
+                "study_plot_label",
+                "sample_plot_id",
+                "sample_display_label",
+                "sample_age_order",
+                "sample_order_within_study",
+            ],
+            observed=True,
+            as_index=False,
+        )["n_cells"]
+        .sum()
+    )
+    order["study_plot_order"] = order["study_id"].map(STUDY_ORDER)
+    order = order.sort_values(
+        ["study_plot_order", "sample_age_order", "sample_order_within_study", "sample_display_label"],
+        kind="stable",
+    ).reset_index(drop=True)
+    pivot = (
+        data.pivot_table(
+            index="sample_plot_id",
+            columns="predicted_age",
+            values="fraction_of_sample",
+            aggfunc="sum",
+            fill_value=0.0,
+            observed=True,
+        )
+        .reindex(index=order["sample_plot_id"].tolist())
         .reindex(columns=GW_ORDER, fill_value=0.0)
     )
 
-    height = max(4.2, 0.34 * len(pivot.index) + 1.8)
-    fig, ax = plt.subplots(figsize=(9.2, height))
-    left = np.zeros(len(pivot.index), dtype=float)
-    y = np.arange(len(pivot.index))
+    study_gap = 1.6
+    x_positions: list[float] = []
+    current_x = 0.0
+    previous_study: str | None = None
+    for study_id in order["study_id"].tolist():
+        if previous_study is not None and study_id != previous_study:
+            current_x += study_gap
+        x_positions.append(current_x)
+        current_x += 1.0
+        previous_study = study_id
+    x = np.array(x_positions, dtype=float)
+
+    width = max(13.0, 0.28 * float(x.max() + 1.0) + 3.2)
+    fig, ax = plt.subplots(figsize=(width, 6.2))
+    bottom = np.zeros(len(pivot.index), dtype=float)
     for gw in GW_ORDER:
-        values = pivot[gw].to_numpy(dtype=float)
-        ax.barh(y, values, left=left, color=GW_COLORS[gw], label=gw, height=0.78)
-        left += values
-    ax.set_yticks(y)
-    ax.set_yticklabels(pivot.index, fontsize=8)
-    ax.invert_yaxis()
-    ax.set_xlim(0, 1.0)
-    ax.set_xticks(np.linspace(0, 1, 6))
-    ax.set_xticklabels([f"{tick:.0%}" for tick in np.linspace(0, 1, 6)])
-    ax.set_xlabel("Percent of sample cells")
-    ax.set_title(f"{study_label}: winner-take-all predicted Shi age by sample")
-    ax.legend(title="Predicted age", frameon=False, ncol=min(len(GW_ORDER), 5), loc="lower center", bbox_to_anchor=(0.5, 1.02))
-    ax.grid(axis="x", color="#d8d8d8", linewidth=0.7)
+        values = pivot[gw].to_numpy(dtype=float) * 100.0
+        ax.bar(x, values, bottom=bottom, color=GW_COLORS[gw], label=gw, width=0.84)
+        bottom += values
+
+    boundaries = np.flatnonzero(order["study_id"].to_numpy()[1:] != order["study_id"].to_numpy()[:-1]) + 1
+    for boundary in boundaries:
+        ax.axvline(float(np.mean([x[boundary - 1], x[boundary]])), color="#4a4a4a", linewidth=0.8)
+
+    for _, group in order.groupby("study_id", sort=False):
+        center = float(np.mean(x[group.index.to_numpy()]))
+        ax.text(
+            center,
+            1.02,
+            str(group["study_label"].iloc[0]),
+            transform=ax.get_xaxis_transform(),
+            ha="center",
+            va="bottom",
+            fontsize=8.5,
+        )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(order["sample_display_label"].tolist(), rotation=90, ha="center", va="top", fontsize=6.4)
+    ax.set_xlim(x.min() - 1.0, x.max() + 1.0)
+    ax.set_ylim(0, 100)
+    ax.set_yticks(np.arange(0, 101, 20))
+    ax.set_ylabel("% by predicted cell stage")
+    handles, legend_labels = ax.get_legend_handles_labels()
+    fig.suptitle(f"Sample composition\nby predicted cell stage\n{cell_set_label}", y=0.985)
+    fig.legend(
+        handles,
+        legend_labels,
+        title="Predicted stage",
+        frameon=False,
+        ncol=min(len(GW_ORDER), 5),
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.875),
+    )
+    ax.grid(axis="y", color="#d8d8d8", linewidth=0.7)
     ax.set_axisbelow(True)
-    fig.tight_layout()
-    path = age_plot_dir / f"{study_id}_shi_predicted_age_sample_composition_stacked_bar"
+    fig.subplots_adjust(left=0.055, right=0.995, bottom=0.42, top=0.70)
+    path = age_plot_dir / f"all_studies_{cell_set_slug}_shi_predicted_age_sample_composition_stacked_bar"
     save_figure(fig, path)
     return path.with_suffix(".png")
 
@@ -447,12 +679,24 @@ def write_predicted_age_sample_composition_outputs(
     table_dir: Path,
     age_plot_dir: Path,
 ) -> list[Path]:
-    age_summary = load_predicted_age_sample_composition(per_study_dir)
-    table_path = table_dir / "cross_study_shi_predicted_age_sample_composition.tsv"
-    age_summary.drop(columns=["study_plot_label"]).to_csv(table_path, sep="\t", index=False)
-    outputs = [table_path]
-    for study_id, _ in STUDIES:
-        outputs.append(plot_age_composition_one_study(age_summary, study_id, age_plot_dir))
+    outputs: list[Path] = []
+    for cell_set_slug, cell_set_label, major_labels in AGE_CELL_SETS:
+        age_summary = load_predicted_age_sample_composition(
+            per_study_dir,
+            cell_set_slug,
+            cell_set_label,
+            major_labels,
+        )
+        table_path = table_dir / f"cross_study_shi_predicted_age_sample_composition_{cell_set_slug}.tsv"
+        cell_set_plot_dir = age_plot_dir / cell_set_slug
+        cell_set_plot_dir.mkdir(parents=True, exist_ok=True)
+        age_summary.drop(columns=["study_plot_label"]).to_csv(table_path, sep="\t", index=False)
+        outputs.append(table_path)
+        for study_id, _ in STUDIES:
+            if not age_summary["study_id"].eq(study_id).any():
+                continue
+            outputs.append(plot_age_composition_one_study(age_summary, study_id, cell_set_plot_dir))
+        outputs.append(plot_age_composition_all_studies(age_summary, cell_set_plot_dir))
     return outputs
 
 

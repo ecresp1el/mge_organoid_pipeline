@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Regenerate Shi winner/threshold tradeoff plots and predicted-age composition bars.
+#
+# Submit:
+#   cp slurm_templates/30_shi_threshold_tradeoff_plots.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/30_shi_threshold_tradeoff_plots.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/30_shi_threshold_tradeoff_plots.sbatch
+
+#SBATCH --job-name=shi-threshold-plots
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=32G
+#SBATCH --time=01:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-threshold-plots-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-threshold-plots-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+CROSS_STUDY_SHI_RUN_LABEL="${CROSS_STUDY_SHI_RUN_LABEL:-cross_study_shi_seurat_label_transfer_v1}"
+SHI_SCORE_THRESHOLD="${SHI_SCORE_THRESHOLD:-0.90}"
+SHI_THRESHOLD_WHICH="${SHI_THRESHOLD_WHICH:-all}"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export CROSS_STUDY_SHI_RUN_LABEL
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+echo "Shi threshold/stage plotting job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${CROSS_STUDY_SHI_RUN_LABEL}"
+echo "Threshold: ${SHI_SCORE_THRESHOLD}"
+echo "Plot set: ${SHI_THRESHOLD_WHICH}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" -m py_compile python_notebooks/scripts/plot_shi_mge_threshold_tradeoff.py
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/plot_shi_mge_threshold_tradeoff.py \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${CROSS_STUDY_SHI_RUN_LABEL}" \
+  --threshold "${SHI_SCORE_THRESHOLD}" \
+  --which "${SHI_THRESHOLD_WHICH}"
+
+echo "Shi threshold/stage plotting job finished: $(date)"

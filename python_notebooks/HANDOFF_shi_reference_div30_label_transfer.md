@@ -2359,6 +2359,93 @@ tail -n 120 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross
 tail -n 120 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-final-51638316.out
 ```
 
+## Shi Threshold/Stage Composition Plot Reruns
+
+Dedicated Slurm template:
+
+```text
+slurm_templates/30_shi_threshold_tradeoff_plots.sbatch.template
+```
+
+This regenerates `python_notebooks/scripts/plot_shi_mge_threshold_tradeoff.py`
+through Slurm, including:
+
+```text
+winner-take-all versus score cutoff summaries
+MGE-only, MGE/LGE/CGE, and all Shi major-label score scopes
+predicted-stage sample-composition stacked bars
+combined all-study predicted-stage sample-composition stacked bar
+```
+
+Important sample-label/order note:
+
+```text
+The transfer obs tables carry raw sample IDs for Bershteyn 2023. The plotting
+script now relabels and reorders those samples from GSE208672 metadata:
+  DIV0 hESC
+  DIV14 MGE progenitor
+  DIV42 EOP lots 1..3 as paired U/S samples
+  additional GSE DIV42 EOP batches 4..9 kept visible as U samples
+
+GSE208672 gives explicit D0/D14 annotations and marks the remaining samples as
+"End of Process"; study-design notes indicate these EOP cells are week 6, which
+is plotted as DIV42. S/U denotes sorted/unsorted. They are ordered after D14 by
+lot/batch rather than by cell-count abundance.
+
+Bershteyn 2025 samples from GSE283775 are also "End of Process" sorted batches.
+No explicit DIV was found in that GEO metadata, so those plot labels are marked
+"DIV unknown EOP" and ordered batch 1..14 rather than assigned an invented DIV.
+```
+
+The predicted-stage stacked bars use the fixed Shi reference-panel palette:
+
+```text
+GW09 #231611
+GW12 #3F1C6A
+GW13 #A02E6B
+GW16 #EB5840
+GW18 #FCC031
+```
+
+Submit:
+
+```bash
+cp slurm_templates/30_shi_threshold_tradeoff_plots.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/30_shi_threshold_tradeoff_plots.sbatch
+sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/30_shi_threshold_tradeoff_plots.sbatch
+```
+
+Completed Slurm reruns after adding Bershteyn sample relabeling/order and the
+combined all-study predicted-stage plot:
+
+```text
+51641793  COMPLETED  first generated combined all-study plot
+51641821  COMPLETED  corrected combined-plot title/legend/study-label spacing
+51642033  COMPLETED  converted Bershteyn 2023 week-6 labels to DIV42 and S/U
+51643511  COMPLETED  repeated predicted-age plots for all Shi, MGE, MGE/LGE/CGE
+```
+
+Current display/order choices:
+
+```text
+Varela samples are labeled as "Varela et al. / this paper / DIV30" and
+"Varela et al. / this paper / DIV90".
+
+The combined predicted-stage composition plot leaves an explicit x-axis gap
+between studies and draws the study name/year above each group.
+
+Bershteyn 2023 is plotted before Bershteyn 2025.
+
+Predicted-age composition plots are now repeated for three winner-take-all
+major-label cell sets:
+  all_shi_major_labels
+  mge
+  mge_lge_cge
+
+Those outputs live in subfolders under:
+  plots/summary/predicted_age_sample_composition/
+```
+
 ## New Adjacent Reference Direction: Schmitz 2022
 
 Schmitz et al. 2022 will be developed as a separate reference workflow where
