@@ -101,7 +101,7 @@ def read_study_obs(per_study_dir: Path, study_id: str, labels: list[str]) -> pd.
 
 def canonical_gw_label(value: object) -> str:
     """Collapse labels such as GW12_01 and GW12_02 to the plotted GW12 age bin."""
-    match = re.search(r"GW\\s*([0-9]+)", str(value).upper())
+    match = re.search(r"GW\s*([0-9]+)", str(value).upper())
     if not match:
         return "unknown"
     return f"GW{int(match.group(1)):02d}"
