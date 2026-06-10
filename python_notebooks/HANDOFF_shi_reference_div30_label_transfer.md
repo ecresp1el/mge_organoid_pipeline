@@ -2675,6 +2675,13 @@ Live repair resource correction:
   repair_job 51648985 was updated from largemem/240G/6h to
   standard/128G/2h after the failed Bershteyn attempts showed peak RSS of
   ~65G for 2023 and ~89G for 2025.
+
+Plot-job dependency correction:
+
+  plot_job 51648987 was released from its finalizer dependency after all seven
+  per-study obs tables existed. The threshold/age plot script reads
+  tables/per_study/*_shi_seurat_label_transfer_obs.tsv.gz directly, so it does
+  not need to wait for the UMAP-grid finalizer.
 ```
 
 ## New Adjacent Reference Direction: Schmitz 2022
