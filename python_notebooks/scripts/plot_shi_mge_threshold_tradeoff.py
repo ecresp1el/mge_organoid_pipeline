@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Plot Shi label winner-take-all calls versus score-threshold subsets."""
+"""Plot Shi label call modes and predicted-age sample composition.
+
+Two call modes are used throughout this script:
+  1. winner_take_all: the top transferred Shi label, with no score cutoff.
+  2. score90_cutoff: an absolute support-score cutoff, defaulting to 0.90.
+
+Three score scopes are summarized:
+  1. all Shi major labels, one label at a time.
+  2. MGE/LGE/CGE, using the summed support of those three labels.
+  3. MGE only, using the MGE-specific support score.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +23,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import re
 
 
 PROJECT_ROOT_DEFAULT = Path("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder")
@@ -50,6 +61,14 @@ LABEL_SETS = {
 WINNER_COLOR = "#2f6f73"
 THRESHOLD_COLOR = "#d9893d"
 LOST_COLOR = "#b8b8b8"
+GW_ORDER = ["GW09", "GW12", "GW13", "GW16", "GW18"]
+GW_COLORS = {
+    "GW09": "#4c6a9c",
+    "GW12": "#56a0a6",
+    "GW13": "#7dbd69",
+    "GW16": "#e5b54a",
+    "GW18": "#c45b45",
+}
 
 
 def label_token(label: str) -> str:
@@ -60,14 +79,16 @@ def score_col(label: str) -> str:
     return "shi_seurat_full_prediction_score_" + label_token(label)
 
 
-def output_paths(project_root: Path, run_label: str) -> tuple[Path, Path, Path]:
+def output_paths(project_root: Path, run_label: str) -> tuple[Path, Path, Path, Path]:
     run_dir = project_root / "results" / RESULTS_DIRNAME / run_label
     per_study_dir = run_dir / "tables" / "per_study"
     table_dir = run_dir / "tables"
     plot_dir = run_dir / "plots" / "summary"
+    age_plot_dir = plot_dir / "predicted_age_sample_composition"
     table_dir.mkdir(parents=True, exist_ok=True)
     plot_dir.mkdir(parents=True, exist_ok=True)
-    return per_study_dir, table_dir, plot_dir
+    age_plot_dir.mkdir(parents=True, exist_ok=True)
+    return per_study_dir, table_dir, plot_dir, age_plot_dir
 
 
 def read_study_obs(per_study_dir: Path, study_id: str, labels: list[str]) -> pd.DataFrame:
@@ -76,6 +97,14 @@ def read_study_obs(per_study_dir: Path, study_id: str, labels: list[str]) -> pd.
         raise FileNotFoundError(f"Missing per-study Shi obs table: {path}")
     cols = ["shi_seurat_full_predicted_shi_label", *[score_col(label) for label in labels]]
     return pd.read_csv(path, sep="\t", usecols=cols)
+
+
+def canonical_gw_label(value: object) -> str:
+    """Collapse labels such as GW12_01 and GW12_02 to the plotted GW12 age bin."""
+    match = re.search(r"GW\\s*([0-9]+)", str(value).upper())
+    if not match:
+        return "unknown"
+    return f"GW{int(match.group(1)):02d}"
 
 
 def load_group_tradeoff_summary(
@@ -115,6 +144,9 @@ def load_group_tradeoff_summary(
                 "label_set": group_label,
                 "label_set_slug": group_slug,
                 "labels_in_set": ",".join(group_labels),
+                "call_mode_winner": "winner_take_all",
+                "call_mode_threshold": f"score{int(threshold * 100):02d}_cutoff",
+                "score_scope": group_label,
                 "total_cells": total_cells,
                 "winner_take_all_cells": int(winner_group.sum()),
                 "winner_take_all_fraction": float(winner_group.mean()),
@@ -149,6 +181,9 @@ def load_all_label_summary(per_study_dir: Path, threshold: float) -> pd.DataFram
                     "study_label": study_plot_label.replace("\n", " "),
                     "study_plot_label": study_plot_label,
                     "shi_label": label,
+                    "call_mode_winner": "winner_take_all",
+                    "call_mode_threshold": f"score{int(threshold * 100):02d}_cutoff",
+                    "score_scope": "all_shi_major_labels",
                     "total_cells": total_cells,
                     "winner_take_all_cells": int(winner_label.sum()),
                     "winner_take_all_fraction": float(winner_label.mean()),
@@ -298,6 +333,102 @@ def plot_all_label_heatmap(
     return path.with_suffix(".png")
 
 
+def load_predicted_age_sample_composition(per_study_dir: Path) -> pd.DataFrame:
+    rows: list[pd.DataFrame] = []
+    for study_id, study_plot_label in STUDIES:
+        path = per_study_dir / f"{study_id}_shi_seurat_label_transfer_obs.tsv.gz"
+        obs = pd.read_csv(
+            path,
+            sep="\t",
+            usecols=["sample", "sample_label", "shi_seurat_full_predicted_shi_week_label"],
+        )
+        obs["study_id"] = study_id
+        obs["study_label"] = study_plot_label.replace("\n", " ")
+        obs["study_plot_label"] = study_plot_label
+        obs["sample"] = obs["sample"].astype(str)
+        obs["sample_label"] = obs["sample_label"].fillna(obs["sample"]).astype(str)
+        obs["predicted_age"] = obs["shi_seurat_full_predicted_shi_week_label"].map(canonical_gw_label)
+
+        # This composition is also winner-take-all: each cell contributes to the
+        # single Shi gestational-age label that won the week-level TransferData
+        # call. It is not thresholded by age score.
+        counts = (
+            obs.groupby(["study_id", "study_label", "study_plot_label", "sample", "sample_label", "predicted_age"], observed=True)
+            .size()
+            .rename("n_cells")
+            .reset_index()
+        )
+        sample_totals = counts.groupby(["study_id", "sample"], observed=True)["n_cells"].transform("sum")
+        counts["fraction_of_sample"] = counts["n_cells"] / sample_totals
+        counts["call_mode"] = "winner_take_all_predicted_age"
+        rows.append(counts)
+    return pd.concat(rows, ignore_index=True)
+
+
+def plot_age_composition_one_study(age_summary: pd.DataFrame, study_id: str, age_plot_dir: Path) -> Path:
+    data = age_summary.loc[age_summary["study_id"] == study_id].copy()
+    if data.empty:
+        raise ValueError(f"No predicted-age composition rows for {study_id}")
+    study_label = str(data["study_label"].iloc[0])
+    sample_order = (
+        data.groupby(["sample", "sample_label"], observed=True)["n_cells"]
+        .sum()
+        .sort_values(ascending=False)
+        .reset_index()["sample_label"]
+        .tolist()
+    )
+    pivot = (
+        data.pivot_table(
+            index="sample_label",
+            columns="predicted_age",
+            values="fraction_of_sample",
+            aggfunc="sum",
+            fill_value=0.0,
+            observed=True,
+        )
+        .reindex(index=sample_order)
+        .reindex(columns=GW_ORDER, fill_value=0.0)
+    )
+
+    height = max(4.2, 0.34 * len(pivot.index) + 1.8)
+    fig, ax = plt.subplots(figsize=(9.2, height))
+    left = np.zeros(len(pivot.index), dtype=float)
+    y = np.arange(len(pivot.index))
+    for gw in GW_ORDER:
+        values = pivot[gw].to_numpy(dtype=float)
+        ax.barh(y, values, left=left, color=GW_COLORS[gw], label=gw, height=0.78)
+        left += values
+    ax.set_yticks(y)
+    ax.set_yticklabels(pivot.index, fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlim(0, 1.0)
+    ax.set_xticks(np.linspace(0, 1, 6))
+    ax.set_xticklabels([f"{tick:.0%}" for tick in np.linspace(0, 1, 6)])
+    ax.set_xlabel("Percent of sample cells")
+    ax.set_title(f"{study_label}: winner-take-all predicted Shi age by sample")
+    ax.legend(title="Predicted age", frameon=False, ncol=min(len(GW_ORDER), 5), loc="lower center", bbox_to_anchor=(0.5, 1.02))
+    ax.grid(axis="x", color="#d8d8d8", linewidth=0.7)
+    ax.set_axisbelow(True)
+    fig.tight_layout()
+    path = age_plot_dir / f"{study_id}_shi_predicted_age_sample_composition_stacked_bar"
+    save_figure(fig, path)
+    return path.with_suffix(".png")
+
+
+def write_predicted_age_sample_composition_outputs(
+    per_study_dir: Path,
+    table_dir: Path,
+    age_plot_dir: Path,
+) -> list[Path]:
+    age_summary = load_predicted_age_sample_composition(per_study_dir)
+    table_path = table_dir / "cross_study_shi_predicted_age_sample_composition.tsv"
+    age_summary.drop(columns=["study_plot_label"]).to_csv(table_path, sep="\t", index=False)
+    outputs = [table_path]
+    for study_id, _ in STUDIES:
+        outputs.append(plot_age_composition_one_study(age_summary, study_id, age_plot_dir))
+    return outputs
+
+
 def write_group_outputs(
     per_study_dir: Path,
     table_dir: Path,
@@ -363,7 +494,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--threshold", type=float, default=0.90)
     parser.add_argument(
         "--which",
-        choices=["all", "mge", "mge-lge-cge", "all-labels"],
+        choices=["all", "mge", "mge-lge-cge", "all-labels", "predicted-age"],
         default="all",
         help="Which tradeoff plot set to generate.",
     )
@@ -372,7 +503,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    per_study_dir, table_dir, plot_dir = output_paths(args.project_root, args.run_label)
+    per_study_dir, table_dir, plot_dir, age_plot_dir = output_paths(args.project_root, args.run_label)
     outputs: list[Path] = []
     if args.which in {"all", "mge"}:
         outputs.extend(write_group_outputs(per_study_dir, table_dir, plot_dir, args.threshold, *LABEL_SETS["mge"]))
@@ -380,6 +511,8 @@ def main() -> None:
         outputs.extend(write_group_outputs(per_study_dir, table_dir, plot_dir, args.threshold, *LABEL_SETS["mge_lge_cge"]))
     if args.which in {"all", "all-labels"}:
         outputs.extend(write_all_label_outputs(per_study_dir, table_dir, plot_dir, args.threshold))
+    if args.which in {"all", "predicted-age"}:
+        outputs.extend(write_predicted_age_sample_composition_outputs(per_study_dir, table_dir, age_plot_dir))
 
     for path in outputs:
         kind = "summary_table" if path.suffix == ".tsv" else "plot"
