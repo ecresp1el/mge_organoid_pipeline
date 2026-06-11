@@ -298,6 +298,47 @@ Current/default URD parameters:
 | flood processing | stability_div | min(10, n_floods) | Default is 10 for the current 20-flood run. |
 | seed | seed | 7 | Seed set before PCA/diffusion/flood steps. |
 
+### Current Runtime Diagnosis
+
+The long-running step is not input export, URD object creation, normalization, variable-gene selection, or PCA. Those completed on the 30k run.
+
+The bottleneck is:
+
+```text
+URD::calcDM(urd, knn = 100, sigma = "local")
+```
+
+In URD 1.1.1, `calcDM()` does not use the PCA coordinates produced by `calcPCA()`. Its source code does:
+
+```r
+data.use <- t(object@logupx.data[genes.use, cells.use])
+data.use <- as.matrix(data.use)
+dm <- DiffusionMap(data.use, sigma = sigma.use, k = knn, ...)
+```
+
+Because `genes.use` defaults to `object@var.genes`, the current run computes the diffusion map on:
+
+```text
+30,000 cells x 3,000 variable genes
+```
+
+rather than on:
+
+```text
+30,000 cells x 48 stored PCs
+```
+
+This explains the observed behavior:
+
+```text
+calcPCA completed.
+calcDM is still running.
+The R process uses about one CPU core.
+Memory use is modest relative to the 160G request.
+```
+
+Main issue: the current URD diffusion-map implementation densifies the selected log-normalized expression matrix and calls `destiny::DiffusionMap()` on 3,000 genes with `k=100`. The slowdown is algorithmic/single-threaded, not a Slurm memory problem and not something fixed by simply requesting more CPUs.
+
 Stage 2 outputs:
 
 ```text
@@ -415,6 +456,197 @@ PCA completed; 24 PCs exceeded 2x the Marchenko-Pastur null upper bound and 48 P
 The job then entered calcDM(knn = 100, sigma = "local").
 ```
 
+## Parallel Smoke URD Submission
+
+Submitted a separate smoke run while leaving job `51670320` running.
+
+Smoke job:
+
+```text
+51674431
+```
+
+Submission command:
+
+```text
+sbatch \
+  --job-name=div30_urd_sm5k \
+  --export=ALL,RUN_LABEL=div30_first_urd_paper_radial_glia_smoke5k_knn100_v1,MAX_CELLS=5000,SEED=7,URD_SEED=7,ROOT_LABEL="Radial glia",URD_KNN=100 \
+  slurm_templates/31_div30_first_urd.sbatch.template
+```
+
+What stays biologically the same:
+
+```text
+Same source DIV30 RNA counts export.
+Same paper/manual Radial glia root definition.
+Same paper/Jia/Shi metadata sidecars.
+Same URD_KNN=100.
+Same default URD filters, PCA parameter, flood count, and flood processing parameters.
+```
+
+What changes only to make it a smoke test:
+
+```text
+RUN_LABEL=div30_first_urd_paper_radial_glia_smoke5k_knn100_v1
+MAX_CELLS=5000
+```
+
+Immediate queue state after submission:
+
+```text
+Initially PENDING on standard, reason: Priority.
+Then RUNNING on standard node gl3398.
+Completed successfully with ExitCode 0:0 after 00:11:55.
+```
+
+Expected smoke log path:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51674431.log
+```
+
+Expected smoke output root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/
+```
+
+Smoke outputs generated:
+
+```text
+tables/div30_first_urd_parameters.tsv
+tables/div30_first_urd_pseudotime.tsv
+tables/div30_first_urd_summary.tsv
+tables/div30_first_urd_marker_correlations.tsv
+tables/div30_first_urd_pseudotime_by_paper_cluster.tsv
+plots/div30_first_urd_umap_pseudotime.png
+plots/div30_first_urd_pseudotime_by_paper_cluster.png
+div30_first_urd_object.rds
+```
+
+Smoke result summary:
+
+```text
+n_cells_urd       5000
+n_root_cells_urd  2040
+n_variable_genes  3000
+knn               100
+sigma             local
+n_floods          20
+finite pseudotime 5000/5000
+pseudotime range  0.0000 to 0.5440
+```
+
+Median smoke pseudotime by paper/manual annotation:
+
+| Paper/manual annotation | Median URD pseudotime | Cells |
+|---|---:|---:|
+| Radial glia | 0.000 | 2040 |
+| Inhibitory progenitors | 0.159 | 204 |
+| SST+ cIN | 0.294 | 1043 |
+| MGE subpallial neurons | 0.335 | 954 |
+| PV neuron precursor | 0.354 | 759 |
+
+Smoke marker/program correlations with URD pseudotime:
+
+| Feature | Spearman rho |
+|---|---:|
+| `jia_score_RGC1` | -0.677 |
+| `jia_score_RGC2` | -0.797 |
+| `jia_score_IPC` | 0.438 |
+| `logupx_DLX2` | 0.268 |
+| `logupx_ASCL1` | -0.204 |
+| `logupx_DCX` | 0.423 |
+| `neuronal_maturation_score` | 0.607 |
+| `shi_seurat_full_prediction_score_MGE` | 0.860 |
+| `shi_seurat_full_prediction_score_progenitor` | -0.887 |
+| `shi_seurat_full_expected_shi_week_numeric` | -0.185 |
+
+Initial interpretation: the 5k smoke run did not fail. The paper/manual Radial glia root has pseudotime 0, RGC scores decrease with pseudotime, IPC/DCX/neuronal maturation increase with pseudotime, and later neuronal paper/manual annotations have higher median pseudotime than Radial glia. This supports the workflow mechanics and suggests the root is biologically plausible in this smoke run, but the full 30k run is still needed for the larger pilot.
+
+### Smoke Lineage Decision-Tree Report
+
+Report script:
+
+```text
+scripts/15_div30_urd_lineage_decision_report.R
+```
+
+Command run on the completed smoke URD object:
+
+```text
+Rscript scripts/15_div30_urd_lineage_decision_report.R \
+  --urd-rds /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/div30_first_urd_object.rds \
+  --outdir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/lineage_decision_report \
+  --annotation-col paper_cluster_annotation \
+  --top-n 50 \
+  --correlation-genes variable
+```
+
+Report output root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/lineage_decision_report/
+```
+
+Report outputs:
+
+```text
+lineage_decision_tree_report.md
+tables/root_annotation_composition.tsv
+tables/pseudotime_ordering_by_annotation.tsv
+tables/top_negative_pseudotime_genes.tsv
+tables/top_positive_pseudotime_genes.tsv
+tables/branch_structure_status.tsv
+tables/decision_genes_between_branches.tsv
+tables/flood_stability_summary.tsv
+tables/gene_cascade_heatmap_matrix.tsv
+plots/umap_pseudotime.png
+plots/diffusion_map_pseudotime.png
+plots/diffusion_map_annotation.png
+plots/flood_stability.png
+plots/tree_visualization.png
+plots/gene_cascade_heatmap.png
+plots/lineage_decision_tree.png
+```
+
+Branch status:
+
+```text
+The URD object has a `tree` slot, but it is empty (`tree_length = 0`).
+This object contains flood pseudotime, not a reconstructed URD branch tree.
+Therefore branch-specific decision genes are not available yet.
+```
+
+Top root-associated genes by negative Spearman correlation with pseudotime:
+
+```text
+NOTCH1, SPARC, ADGRV1, TTYH1, FKBP10, FGFR2, TEAD2, HES5
+```
+
+Top terminal-associated genes by positive Spearman correlation with pseudotime:
+
+```text
+LRRC7, CELF3, GAD1, L1CAM, AKAP6, FNBP1L, GPC2, KALRN
+```
+
+These are the current smoke-run transition-driving genes because they are ranked directly by Spearman correlation between expression and URD pseudotime across the variable genes used in the diffusion map. Negative genes are root-associated; positive genes are terminal/late-associated.
+
+Flood stability summary: pseudotime estimates converge smoothly as walks per cell increase. Spearman correlation to the final pseudotime rises from 0.917 at 2 walks/cell to 1.000 at 20 walks/cell; median absolute delta falls from 0.0194 to 0.
+
+Requested validation layers now generated:
+
+```text
+1. UMAP pseudotime: plots/umap_pseudotime.png
+2. Pseudotime by annotation: tables/pseudotime_ordering_by_annotation.tsv and plots/lineage_decision_tree.png
+3. Diffusion map plots: plots/diffusion_map_pseudotime.png and plots/diffusion_map_annotation.png
+4. Flood stability: tables/flood_stability_summary.tsv and plots/flood_stability.png
+5. Tree visualization: plots/tree_visualization.png
+6. Branch-specific genes: tables/decision_genes_between_branches.tsv documents not available because no populated tree exists
+7. Gene cascade heatmap: plots/gene_cascade_heatmap.png and tables/gene_cascade_heatmap_matrix.tsv
+```
+
 ## Interpretation Checks for First URD
 
 After the first URD pseudotime exists, evaluate whether pseudotime increases from root/progenitor toward neuronal states by comparing:
@@ -432,3 +664,190 @@ shi_seurat_full_developmental_class
 ```
 
 The desired pattern for a coherent developmental ordering is high root/RGC signal at low pseudotime, increasing IPC/progenitor transition signal after the root, and increasing neuronal/maturation markers later in pseudotime.
+
+## Actual URD Tree Smoke Run
+
+Goal for this step: stop adding pseudotime-only visualizations and ask whether the three neuronal paper/manual populations form distinct URD branches after the radial glia-rooted pseudotime has been established.
+
+Tree build scripts:
+
+```text
+scripts/16_div30_urd_build_lineage_tree.R
+scripts/17_div30_urd_finalize_lineage_tree_report.R
+```
+
+Why two scripts: `buildTree()` and random-walk processing can leave a large in-memory URD object. The build script now stops cleanly after saving the tree RDS and writes a `finalize_lineage_tree_report.command.txt`. The finalizer then starts a fresh R process to make tables, branch-gene summaries, and lightweight tree plots from the saved tree object. This avoids carrying the random-walk/buildTree memory footprint into plotting and branch-gene reporting.
+
+Tree Slurm template:
+
+```text
+slurm_templates/32_div30_urd_lineage_tree.sbatch.template
+```
+
+The first URD Slurm template now also runs the smoke panel automatically after `div30_first_urd_object.rds` is saved:
+
+```text
+slurm_templates/31_div30_first_urd.sbatch.template
+```
+
+Every future first-URD run should therefore emit:
+
+```text
+lineage_decision_report/plots/umap_pseudotime.png
+lineage_decision_report/plots/diffusion_map_pseudotime.png
+lineage_decision_report/plots/diffusion_map_annotation.png
+lineage_decision_report/plots/flood_stability.png
+lineage_decision_report/plots/gene_cascade_heatmap.png
+lineage_decision_report/tables/top_positive_pseudotime_genes.tsv
+lineage_decision_report/tables/top_negative_pseudotime_genes.tsv
+```
+
+Tree root and tips used:
+
+| Role | Annotation | URD tree ID |
+|---|---|---:|
+| Root | Radial glia | root cells, not a tip |
+| Tip | SST+ cIN | 1 |
+| Tip | PV neuron precursor | 2 |
+| Tip | MGE subpallial neurons | 3 |
+
+Numeric tip IDs are intentional. URD's tree internals convert segment names to numeric values in `buildTree()`, so the biological labels are stored in `tables/tree_tip_mapping.tsv` while the actual tree uses IDs `1`, `2`, and `3`.
+
+Tree command run on the completed 5k smoke URD object:
+
+```text
+Rscript scripts/16_div30_urd_build_lineage_tree.R \
+  --urd-rds /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/div30_first_urd_object.rds \
+  --outdir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/lineage_tree_radial_glia_tips_v1 \
+  --annotation-col paper_cluster_annotation \
+  --pseudotime-name paper_radial_glia_root \
+  --root-label "Radial glia" \
+  --tip-labels "SST+ cIN,PV neuron precursor,MGE subpallial neurons" \
+  --n-per-tip 5000 \
+  --seed 7
+```
+
+Finalizer command run from the saved tree object:
+
+```text
+Rscript scripts/17_div30_urd_finalize_lineage_tree_report.R \
+  --tree-rds /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/lineage_tree_radial_glia_tips_v1/div30_urd_lineage_tree_object.rds \
+  --outdir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/lineage_tree_radial_glia_tips_v1 \
+  --annotation-col paper_cluster_annotation \
+  --pseudotime-name paper_radial_glia_root \
+  --tip-mapping /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/lineage_tree_radial_glia_tips_v1/tables/tree_tip_mapping.tsv \
+  --top-n-branch-genes 50
+```
+
+Tree output root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/lineage_tree_radial_glia_tips_v1/
+```
+
+Tree outputs now generated:
+
+```text
+div30_urd_lineage_tree_object.rds
+div30_urd_tip_random_walks.rds
+finalize_lineage_tree_report.command.txt
+urd_lineage_tree_report.md
+tables/lineage_tree_parameters.tsv
+tables/pseudotime_logistic_parameters.tsv
+tables/tree_tip_mapping.tsv
+tables/tree_status.tsv
+tables/tree_segment_joins.tsv
+tables/tree_tip_composition.tsv
+tables/branch_specific_genes.tsv
+plots/pseudotime_logistic.png
+plots/breakpoint_decisions-1.pdf
+plots/breakpoint_decisions-3.pdf
+plots/urd_tree_annotation.png
+plots/urd_tree_pseudotime.png
+```
+
+Core URD calls completed:
+
+```text
+pseudotimeDetermineLogistic()
+pseudotimeWeightTransitionMatrix()
+simulateRandomWalksFromTips()
+processRandomWalksFromTips()
+buildTree()
+```
+
+Important tree parameters imposed:
+
+| Parameter | Value |
+|---|---:|
+| `n.per.tip` | 5000 |
+| `optimal.cells.forward` | 100 |
+| `max.cells.back` | 40 |
+| `pseudotime.direction` | `<` |
+| `minimum.visits` | 10 |
+| `visit.threshold` | 0.7 |
+| `cells.per.pseudotime.bin` | 80 |
+| `bins.per.pseudotime.window` | 5 |
+| `divergence.method` | `ks` |
+
+Tree result:
+
+```text
+tree_slot_length      18
+n_requested_tips      3
+n_segment_joins       4
+n_segments            5
+has_distinct_branching TRUE
+```
+
+Segment joins:
+
+| Parent | Child | Pseudotime |
+|---:|---:|---:|
+| 4 | 2 | 0.1626288 |
+| 4 | 3 | 0.1626288 |
+| 5 | 1 | 0.0000000 |
+| 5 | 4 | 0.0000000 |
+
+Interpretation of the smoke tree: PV neuron precursor (`2`) and MGE subpallial neurons (`3`) form a shared branch at pseudotime ~0.163. SST+ cIN (`1`) joins at pseudotime 0 in this smoke tree. So the first URD tree does support some separation of neuronal populations, but the cleanest split is PV precursor plus MGE subpallial versus SST+ cIN rather than three independent terminal branches.
+
+URD warnings to remember:
+
+```text
+No obvious breakpoint between 1 and 3.
+1144 cells were not visited by a branch that exists at their pseudotime and were not assigned.
+```
+
+These warnings do not mean the tree failed. They mean that at least one branch comparison is not sharply separable in this 5k smoke tree, and a substantial subset of cells did not receive a branch assignment under the current visit threshold.
+
+Tip composition after correcting NA-safe tip counting:
+
+| Tip ID | Annotation | Cells | Median pseudotime |
+|---:|---|---:|---:|
+| 1 | SST+ cIN | 1043 | 0.294 |
+| 2 | PV neuron precursor | 759 | 0.354 |
+| 3 | MGE subpallial neurons | 954 | 0.335 |
+
+Top branch-specific genes from the smoke tree finalizer:
+
+| Tip | Annotation | Top genes |
+|---:|---|---|
+| 1 | SST+ cIN | `PLS3`, `GALNT14`, `ERO1B`, `ASCL1`, `NFIB` |
+| 2 | PV neuron precursor | `MEGF10`, `GBX1`, `GLCE`, `SLC2A13`, `ASIC1` |
+| 3 | MGE subpallial neurons | `CDH23`, `SPOCK1`, `CDH13`, `ZFHX3`, `VAT1L` |
+
+Branch-specific genes are computed after the tree exists by contrasting each requested tip against the other requested tips across URD variable genes. The finalizer reports mean logUPX, expression fraction, log2 fold change, expression-fraction delta, and a branch-specificity score.
+
+## Current Full 30k URD Status
+
+The original 30k job is still running as of the last check:
+
+```text
+JOBID     51670320
+STATE     RUNNING
+ELAPSED   4:22:09
+NODE      gl3327
+STAGE     calcDM(knn = 100, sigma = "local")
+```
+
+Do not stop it unless explicitly deciding to abandon the full diffusion-map run. The 5k smoke object is currently the completed object used for the tree proof of workflow.

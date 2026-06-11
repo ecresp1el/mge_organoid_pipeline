@@ -122,3 +122,17 @@ Rscript "${REPO_ROOT}/scripts/14_div30_first_urd.R" \
   --flood-minimum-cells "${URD_FLOOD_MINIMUM_CELLS}" \
   --flood-max-frac-na "${URD_FLOOD_MAX_FRAC_NA}" \
   --flood-stability-div "${URD_FLOOD_STABILITY_DIV:-}"
+
+# Post hoc validation panel. This does not alter the URD object; it reads the
+# saved RDS and writes the expected smoke-panel artifacts for every run:
+# UMAP pseudotime, diffusion-map pseudotime, diffusion-map annotation, flood
+# stability, top pseudotime gene cascade, and positive/negative pseudotime
+# gene tables.
+Rscript "${REPO_ROOT}/scripts/15_div30_urd_lineage_decision_report.R" \
+  --urd-rds "${RUN_ROOT}/div30_first_urd_object.rds" \
+  --outdir "${RUN_ROOT}/lineage_decision_report" \
+  --annotation-col "paper_cluster_annotation" \
+  --pseudotime-name "paper_radial_glia_root" \
+  --root-col "urd_root_candidate" \
+  --top-n "50" \
+  --correlation-genes "variable"
