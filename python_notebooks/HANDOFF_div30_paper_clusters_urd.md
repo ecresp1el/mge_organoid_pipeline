@@ -32,6 +32,72 @@ UMAP table used for plotting the mapped labels:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div30_2f0j5mwk/umap.tsv
 ```
 
+The `python_anndata/varela_div30_2f0j5mwk/` directory is the Matrix Market export directory created during the Seurat-to-AnnData conversion job, not an independent data source. Its count matrix traces back to the same DIV30 Seurat object:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds
+```
+
+That project-local Seurat object is documented in `WORKFLOW.md` as a true copy of the original legacy DIV30 object:
+
+```text
+/nfs/turbo/umms-parent/mgeo_scRNAseq/day30_old/Day30.rds
+```
+
+Conversion log:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/08_convert_python_anndata_50452847.log
+```
+
+The log records this exact conversion command:
+
+```text
+Rscript python_notebooks/scripts/seurat_export_for_anndata.R \
+  --seurat /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds \
+  --outdir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div30_2f0j5mwk \
+  --assay RNA \
+  --reduction umap \
+  --expression_layer data
+```
+
+The export manifest beside the matrix says:
+
+```text
+assay                  RNA
+expression_layer_requested data
+layer_used_data        data
+layer_used_counts      counts
+reduction              umap
+n_features             18082
+n_cells                90631
+```
+
+Therefore `matrix_counts.mtx` is the Seurat `RNA` assay `counts` layer from the DIV30 Seurat object, exported as features x cells. The parallel `matrix_data.mtx` and legacy `matrix.mtx` files are the Seurat `RNA` assay `data` layer, but the URD input exporter intentionally uses `matrix_counts.mtx`.
+
+Important integration clarification:
+
+```text
+The UMAP coordinates are taken as-is from the Seurat object's existing `umap`
+reduction. That UMAP may reflect the prior Seurat processing/integration/batch
+handling used to build the object.
+
+The URD expression input is different: it is the Seurat `RNA` assay `counts`
+layer exported from that same object after SeuratObject::JoinLayers().
+These are raw count values stored in the post-QC/post-processing Seurat object,
+not an integrated or batch-corrected count matrix. Seurat integration changes
+the low-dimensional/reduction space or integrated assay/data representation; it
+does not create "integrated raw counts" in the RNA counts layer.
+```
+
+So this first URD run uses:
+
+```text
+UMAP for plotting/context: existing Seurat umap reduction
+Expression for URD: RNA counts layer
+Metadata/root labels: sidecar annotations joined by cell_id
+```
+
 Shi Seurat label-transfer metadata available for later root comparison:
 
 ```text
