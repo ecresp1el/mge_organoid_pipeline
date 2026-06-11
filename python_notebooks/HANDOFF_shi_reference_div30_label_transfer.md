@@ -2514,6 +2514,98 @@ The 0.90 cutoff remains a separate major-label support analysis. It is not used
 to threshold week/age calls in the stacked age-composition plots.
 ```
 
+Important PCA/anchor caveat:
+
+```text
+The current v2 GE-only implementation recomputes PCA after subsetting the Shi
+reference to MGE/LGE/CGE cells. That was done to make the GE-only week
+classifier a fully separate Seurat reference-space classifier:
+
+  subset reference to MGE/LGE/CGE cells
+  recompute ScaleData/RunPCA on that subset
+  recompute FindTransferAnchors from GE-only reference to each query
+  TransferData only Shi GW/week labels from those GE-only anchors
+
+This is not a minor downstream filter. Recomputing PCA on the GE subset changes
+the reference coordinate system used to find anchors. Axes that separated
+whole-Shi broad classes are removed/reweighted, and GE-internal variation can
+dominate the anchor space. That can improve a GE-focused age classifier in
+principle, but it can also make results worse if the whole-Shi PCA provided a
+more stable or better-calibrated cross-study alignment.
+
+Current interpretation of v2:
+  shi_seurat_ge_only_* columns answer:
+    "What week does this query cell resemble when the reference and anchors are
+     rebuilt using only Shi MGE/LGE/CGE cells?"
+
+They do not answer:
+    "Among cells called MGE/LGE/CGE by the old classifier, what is the old
+     whole-Shi week score?"
+
+If the GE-only PCA makes the biology look worse, the next candidate logic should
+be documented as a separate v3 mode, for example:
+  - keep the whole-Shi anchor/PCA space and only change which cells are included
+    in age summaries; or
+  - test a GE-cell reference subset without recomputing a GE-specific PCA, if
+    Seurat supports the intended reduction cleanly; or
+  - use whole-Shi week predictions for all age plots and treat MGE/MGE-LGE-CGE
+    only as denominator filters.
+```
+
+Current function/file map:
+
+```text
+Main computation file:
+  scripts/13_run_cross_study_shi_seurat_label_transfer.R
+
+Reference setup:
+  main()
+    - loads Shi reference RDS
+    - attaches/chooses major-label metadata column
+    - chooses GW/week metadata column
+    - filters reference cells with both major label and week
+    - writes:
+        diagnostics/shi_reference_labels_used_by_seurat.tsv
+        diagnostics/shi_reference_weeks_used_by_seurat.tsv
+    - creates ge_reference by:
+        ge_reference_cells <- cells with major label in MGE/LGE/CGE
+        ge_reference <- subset(reference, cells = ge_reference_cells)
+    - writes:
+        diagnostics/shi_ge_only_reference_labels_by_week_used_by_seurat.tsv
+
+Per-study transfer:
+  run_transfer_one(study, reference, ge_reference, ...)
+    - loads target Seurat object
+    - joins Assay5 RNA layers if needed
+    - ensures reference/query RNA data layer exists
+
+Whole-Shi anchor path:
+  run_transfer_one()
+    - shared_features <- intersect(full reference genes, query genes)
+    - ScaleData(reference, features = shared_features)
+    - RunPCA(reference, features = shared_features)
+    - FindTransferAnchors(reference = reference, query = query, ...)
+    - TransferData(anchorset = anchors, refdata = major labels)
+    - TransferData(anchorset = anchors, refdata = GW/week labels)
+    - writes shi_seurat_full_* columns
+
+GE-only anchor path:
+  run_transfer_one()
+    - ge_shared_features <- intersect(GE-only reference genes, query genes)
+    - ScaleData(ge_reference, features = ge_shared_features)
+    - RunPCA(ge_reference, features = ge_shared_features)
+    - FindTransferAnchors(reference = ge_reference, query = query, ...)
+    - TransferData(anchorset = ge_anchors, refdata = GW/week labels)
+    - writes shi_seurat_ge_only_* columns
+
+Final table/UMAP plotting:
+  python_notebooks/src/mge_organoid_python/cross_study_shi_prediction_plots.py
+  python_notebooks/scripts/run_cross_study_shi_prediction_plots.py
+
+Threshold and age-composition plotting:
+  python_notebooks/scripts/plot_shi_mge_threshold_tradeoff.py
+```
+
 Workflow map:
 
 ```text

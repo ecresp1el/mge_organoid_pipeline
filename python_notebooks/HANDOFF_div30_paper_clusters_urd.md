@@ -113,6 +113,12 @@ The first URD pass is intended to produce a root-specific diffusion/flood pseudo
 
 with pseudotime and summary tables/plots under that run directory.
 
+The URD runner now writes the imposed parameter table before doing heavy work:
+
+```text
+tables/div30_first_urd_parameters.tsv
+```
+
 This first pass is intentionally a stratified pilot by default:
 
 ```text
@@ -137,6 +143,110 @@ slurm_templates/31_div30_first_urd.sbatch.template
 
 The exporter reads the existing Matrix Market count export from the AnnData conversion rather than reopening the large Seurat object. The URD runner reads only plain Matrix Market counts plus cell metadata, which avoids mixing Seurat-dependent R packages with the older URD package.
 
+## URD Processing Logic and Imposed Parameters
+
+The workflow is split into two explicit stages.
+
+### Stage 1: Python input export
+
+Script:
+
+```text
+python_notebooks/scripts/export_div30_first_urd_inputs.py
+```
+
+Inputs:
+
+```text
+results/python_anndata/varela_div30_2f0j5mwk/matrix_counts.mtx
+results/python_anndata/varela_div30_2f0j5mwk/barcodes.tsv
+results/python_anndata/varela_div30_2f0j5mwk/features.tsv
+results/python_anndata/varela_div30_2f0j5mwk/umap.tsv
+results/div30_paper_cluster_annotations/div30_paper_cluster_annotations_v1/tables/div30_jia_scores_with_paper_cluster_annotations.tsv.gz
+results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1/tables/div30_shi_seurat_label_transfer_obs.tsv.gz
+```
+
+Logic imposed by the exporter:
+
+```text
+Join key: cell_id
+Matrix orientation: features x cells
+Default selection: stratified pilot capped at MAX_CELLS=30000
+Stratification column: paper_cluster_annotation
+Sampling seed: SEED=7
+Root candidate flag: urd_root_candidate = paper_cluster_annotation == "Radial glia"
+```
+
+The exporter does not normalize expression, choose variable genes, compute PCA, compute diffusion maps, or run pseudotime. It only writes a plain input bundle and a manifest.
+
+Stage 1 outputs:
+
+```text
+inputs/div30_first_urd_counts.mtx
+inputs/div30_first_urd_features.tsv
+inputs/div30_first_urd_barcodes.tsv
+inputs/div30_first_urd_cell_metadata.tsv
+inputs/div30_first_urd_input_manifest.tsv
+```
+
+### Stage 2: R/URD lineage run
+
+Script:
+
+```text
+scripts/14_div30_first_urd.R
+```
+
+The R script has been refactored into named processing functions so the lineage logic is isolated:
+
+```text
+build_config()
+parameter_table()
+read_urd_input_bundle()
+create_filtered_urd()
+select_variable_genes()
+run_urd_geometry()
+run_flood_pseudotime()
+build_pseudotime_table()
+write_tables()
+write_plots()
+run_pipeline()
+```
+
+Current/default URD parameters:
+
+| Stage | Parameter | Value | Meaning |
+|---|---:|---:|---|
+| root | root_label | Radial glia | Root candidates are cells flagged by the exporter from paper/manual annotations. |
+| filter | min_genes | 500 | `createURD()` keeps cells with at least this many detected genes. |
+| filter | min_cells | 3 | `createURD()` keeps genes detected in at least this many cells. |
+| filter | min_counts | 10 | `createURD()` keeps genes with at least this many total counts. |
+| variable genes | num_variable_genes | 3000 | Top variance genes from `urd@logupx.data` stored in `urd@var.genes`. |
+| PCA | pca_mp_factor | 2 | `calcPCA(mp.factor = 2)`. |
+| diffusion map | knn | 100 | `calcDM(knn = 100)`. |
+| diffusion map | sigma | local | `calcDM(sigma = "local")`. |
+| flood pseudotime | n_floods | 20 | `floodPseudotime(n = 20)`. |
+| flood pseudotime | minimum_cells_flooded | 2 | `floodPseudotime(minimum.cells.flooded = 2)`. |
+| flood processing | max_frac_NA | 0.4 | `floodPseudotimeProcess(max.frac.NA = 0.4)`. |
+| flood processing | pseudotime_fun | mean | Flood replicate pseudotimes are summarized with `mean`. |
+| flood processing | stability_div | min(10, n_floods) | Default is 10 for the current 20-flood run. |
+| seed | seed | 7 | Seed set before PCA/diffusion/flood steps. |
+
+Stage 2 outputs:
+
+```text
+tables/div30_first_urd_parameters.tsv
+tables/div30_first_urd_pseudotime.tsv
+tables/div30_first_urd_summary.tsv
+tables/div30_first_urd_marker_correlations.tsv
+tables/div30_first_urd_pseudotime_by_paper_cluster.tsv
+plots/div30_first_urd_umap_pseudotime.png
+plots/div30_first_urd_pseudotime_by_paper_cluster.png
+div30_first_urd_object.rds
+```
+
+Note: job `51670320` was already running when the code was refactored to write `div30_first_urd_parameters.tsv`, so that specific job may not emit the new parameter table unless rerun. The parameters above document the effective defaults used for the submitted job.
+
 ## URD Environment Status
 
 URD was not installed in the conda R environment:
@@ -145,12 +255,20 @@ URD was not installed in the conda R environment:
 /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/Rscript
 ```
 
-Installing there failed because the conda environment does not have the compiler wrapper executables needed for source packages:
+The first install attempt there failed because the conda environment did not expose the compiler wrapper executables needed for source packages at that time:
 
 ```text
 x86_64-conda-linux-gnu-cc
 x86_64-conda-linux-gnu-c++
 x86_64-conda-linux-gnu-gfortran
+```
+
+A later check showed those wrapper paths are now visible inside `mge-organoid-python`, so the conda R route may be viable after resolving `destiny`:
+
+```text
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/x86_64-conda-linux-gnu-cc
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/x86_64-conda-linux-gnu-c++
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/x86_64-conda-linux-gnu-gfortran
 ```
 
 The Great Lakes module R path does expose working compilers:
@@ -167,6 +285,68 @@ The current URD installation attempt uses the official GitHub package:
 
 ```text
 farrellja/URD@v1.1.1
+```
+
+Resolved package blocker:
+
+```text
+module load R/4.4.3
+URD 1.1.1
+destiny 2.14.0
+Matrix 1.7.2
+ggplot2 4.0.3
+```
+
+`destiny` was installed from the Bioconductor 3.9 source archive and patched to remove the hard `VIM::hotdeck` import. That keeps this first URD run aligned with URD's older dependency era and avoids the modern `VIM`/`xgboost` dependency chain. The input matrix is expected to contain no missing values, so the removed imputation path should not be used for this workflow.
+
+The first submission attempt failed before job creation because `standard` nodes advertise about 184 GB memory and the initial template requested `--mem=220G`. The template now requests `--mem=160G`, matching the memory profile used by the other large DIV30/Seurat jobs in this repo.
+
+## First URD Submission
+
+Submitted job:
+
+```text
+51670320
+```
+
+Submission command:
+
+```text
+cp slurm_templates/31_div30_first_urd.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/31_div30_first_urd.sbatch
+sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/31_div30_first_urd.sbatch
+```
+
+Immediate queue state after submission:
+
+```text
+Initially PENDING on standard, reason: Priority.
+Then RUNNING on standard node gl3327.
+```
+
+Expected log path once the job starts:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51670320.log
+```
+
+Observed launch progress:
+
+```text
+Export completed with selected_cells=30000.
+Selected paper/manual annotation counts:
+  Radial glia               12246
+  SST+ cIN                   6258
+  MGE subpallial neurons     5722
+  PV neuron precursor        4551
+  Inhibitory progenitors     1223
+
+The R package gate passed for Matrix, URD, and ggplot2.
+The URD script reached count loading and createURD().
+createURD() completed.
+Root cells retained after filtering: 12246.
+Variable genes stored in URD object: 3000.
+PCA completed; 24 PCs exceeded 2x the Marchenko-Pastur null upper bound and 48 PCs were stored.
+The job then entered calcDM(knn = 100, sigma = "local").
 ```
 
 ## Interpretation Checks for First URD

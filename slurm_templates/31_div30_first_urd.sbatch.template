@@ -2,6 +2,13 @@
 # Export DIV30 paper/manual cluster annotations into URD inputs and run the
 # first URD flood-pseudotime pass rooted in paper Radial glia cells.
 #
+# Pipeline logic:
+#   1. Use conda Python to export a stratified Matrix Market bundle from the
+#      existing AnnData-derived DIV30 count matrix plus metadata sidecars.
+#   2. Use module R/4.4.3 to run URD on only that plain input bundle.
+#   3. Record all imposed URD parameters in
+#      tables/div30_first_urd_parameters.tsv in the run directory.
+#
 # Submit:
 #   cp slurm_templates/31_div30_first_urd.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/31_div30_first_urd.sbatch
 #   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/31_div30_first_urd.sbatch
@@ -9,7 +16,7 @@
 #SBATCH --job-name=div30_urd1
 #SBATCH --time=48:00:00
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=220G
+#SBATCH --mem=160G
 #SBATCH --nodes=1
 #SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_%j.log
 #SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_%j.log
@@ -28,10 +35,18 @@ RUN_LABEL="${RUN_LABEL:-div30_first_urd_paper_radial_glia_v1}"
 ROOT_LABEL="${ROOT_LABEL:-Radial glia}"
 MAX_CELLS="${MAX_CELLS:-30000}"
 SEED="${SEED:-7}"
+URD_SEED="${URD_SEED:-${SEED}}"
+URD_MIN_GENES="${URD_MIN_GENES:-500}"
+URD_MIN_CELLS="${URD_MIN_CELLS:-3}"
+URD_MIN_COUNTS="${URD_MIN_COUNTS:-10}"
+URD_PCA_MP_FACTOR="${URD_PCA_MP_FACTOR:-2}"
 URD_KNN="${URD_KNN:-100}"
 URD_SIGMA="${URD_SIGMA:-local}"
 URD_N_FLOODS="${URD_N_FLOODS:-20}"
 URD_NUM_VARIABLE_GENES="${URD_NUM_VARIABLE_GENES:-3000}"
+URD_FLOOD_MINIMUM_CELLS="${URD_FLOOD_MINIMUM_CELLS:-2}"
+URD_FLOOD_MAX_FRAC_NA="${URD_FLOOD_MAX_FRAC_NA:-0.4}"
+URD_FLOOD_STABILITY_DIV="${URD_FLOOD_STABILITY_DIV:-}"
 
 RUN_ROOT="${PROJECT_ROOT}/results/div30_first_urd/${RUN_LABEL}"
 INPUT_DIR="${RUN_ROOT}/inputs"
@@ -52,10 +67,19 @@ echo "R_MODULE=${R_MODULE}"
 echo "RUN_LABEL=${RUN_LABEL}"
 echo "ROOT_LABEL=${ROOT_LABEL}"
 echo "MAX_CELLS=${MAX_CELLS}"
+echo "SEED=${SEED}"
+echo "URD_SEED=${URD_SEED}"
+echo "URD_MIN_GENES=${URD_MIN_GENES}"
+echo "URD_MIN_CELLS=${URD_MIN_CELLS}"
+echo "URD_MIN_COUNTS=${URD_MIN_COUNTS}"
+echo "URD_PCA_MP_FACTOR=${URD_PCA_MP_FACTOR}"
 echo "URD_KNN=${URD_KNN}"
 echo "URD_SIGMA=${URD_SIGMA}"
 echo "URD_N_FLOODS=${URD_N_FLOODS}"
 echo "URD_NUM_VARIABLE_GENES=${URD_NUM_VARIABLE_GENES}"
+echo "URD_FLOOD_MINIMUM_CELLS=${URD_FLOOD_MINIMUM_CELLS}"
+echo "URD_FLOOD_MAX_FRAC_NA=${URD_FLOOD_MAX_FRAC_NA}"
+echo "URD_FLOOD_STABILITY_DIV=${URD_FLOOD_STABILITY_DIV:-auto_min_10_n_floods}"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV}"
@@ -86,7 +110,15 @@ Rscript "${REPO_ROOT}/scripts/14_div30_first_urd.R" \
   --outdir "${RUN_ROOT}" \
   --run-label "${RUN_LABEL}" \
   --root-label "${ROOT_LABEL}" \
+  --seed "${URD_SEED}" \
+  --min-genes "${URD_MIN_GENES}" \
+  --min-cells "${URD_MIN_CELLS}" \
+  --min-counts "${URD_MIN_COUNTS}" \
+  --pca-mp-factor "${URD_PCA_MP_FACTOR}" \
   --knn "${URD_KNN}" \
   --sigma "${URD_SIGMA}" \
   --n-floods "${URD_N_FLOODS}" \
-  --num-variable-genes "${URD_NUM_VARIABLE_GENES}"
+  --num-variable-genes "${URD_NUM_VARIABLE_GENES}" \
+  --flood-minimum-cells "${URD_FLOOD_MINIMUM_CELLS}" \
+  --flood-max-frac-na "${URD_FLOOD_MAX_FRAC_NA}" \
+  --flood-stability-div "${URD_FLOOD_STABILITY_DIV:-}"
