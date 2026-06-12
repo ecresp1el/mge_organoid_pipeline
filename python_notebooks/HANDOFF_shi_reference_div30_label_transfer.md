@@ -2933,6 +2933,22 @@ logs:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/bersh-score-inventory-51682246.err
 ```
 
+Follow-up full metadata schema job:
+
+```text
+job_id: 51685282
+state: COMPLETED
+exit: 0:0
+elapsed: 00:00:33
+MaxRSS: 5742920K
+node: gl3010
+memory requested: 16G
+
+logs:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/bersh-meta-schema-51685282.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/bersh-meta-schema-51685282.err
+```
+
 Inputs:
 
 ```text
@@ -2950,6 +2966,8 @@ Audit outputs:
 
 bershteyn_2025_author_vs_our_shi_prediction_summary.tsv
 bershteyn_2025_author_score_like_object_inventory.tsv
+bershteyn_2025_author_metadata_schema.tsv
+bershteyn_2025_author_object_top_level_slots.tsv
 bershteyn_2025_author_vs_our_shi_prediction_distributions.tsv
 bershteyn_2025_author_vs_our_shi_prediction_coarse_comparison.tsv
 bershteyn_2025_author_vs_our_shi_prediction_cell_level_confusion.tsv
@@ -2990,6 +3008,23 @@ Only these author prediction-like entries were found:
 No author score matrices or per-class author score columns were found in this
 object-level inventory. The downloaded object appears to contain final author
 labels, not the underlying author prediction-score vectors.
+
+The full metadata-schema dump independently confirmed that the only numeric
+metadata columns in the author object are QC fields:
+  nCount_RNA
+  nFeature_RNA
+  percent.mt
+  percent.ribo
+
+The author prediction fields are character/factor labels, not numeric scores.
+Top-level object slots are:
+  assays: RNA
+  reductions: pca, umap
+  graphs: integrated_nn, integrated_snn
+  tools: Integration
+  commands: FindIntegrationAnchors, withCallingHandlers, ScaleData.integrated,
+            RunPCA.integrated, RunTSNE, FindNeighbors.integrated.pca,
+            FindClusters, RunUMAP.integrated.pca
 ```
 
 Main result:

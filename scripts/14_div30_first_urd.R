@@ -28,6 +28,7 @@ parse_args <- function(args) {
     outdir = NULL,
     `run-label` = Sys.getenv("RUN_LABEL", "div30_first_urd_paper_radial_glia_v1"),
     `root-label` = Sys.getenv("ROOT_LABEL", "Radial glia"),
+    `pseudotime-name` = Sys.getenv("URD_PSEUDOTIME_NAME", "paper_radial_glia_root"),
     seed = Sys.getenv("URD_SEED", Sys.getenv("SEED", "7")),
     knn = Sys.getenv("URD_KNN", "100"),
     sigma = Sys.getenv("URD_SIGMA", "local"),
@@ -72,6 +73,7 @@ print_usage <- function() {
     "",
     "Core imposed parameters:",
     "  --root-label <label>              Metadata label used to select root cells",
+    "  --pseudotime-name <name>          Name assigned to flood pseudotime",
     "  --min-genes <int>                 URD createURD cell filter",
     "  --min-cells <int>                 URD createURD gene filter",
     "  --min-counts <int>                URD createURD gene/count filter",
@@ -167,7 +169,7 @@ build_config <- function(opt) {
     flood_minimum_cells = as_int(opt$`flood-minimum-cells`, "flood-minimum-cells"),
     flood_max_frac_na = as_num(opt$`flood-max-frac-na`, "flood-max-frac-na"),
     flood_stability_div = stability_div,
-    pseudotime_name = "paper_radial_glia_root"
+    pseudotime_name = opt$`pseudotime-name`
   )
 }
 
