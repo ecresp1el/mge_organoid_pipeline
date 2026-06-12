@@ -152,6 +152,13 @@ squeue -j 51699299,51699477
 sacct -j 51699299,51699300,51699477 --format=JobID,JobName%32,State,ExitCode,Elapsed,AllocCPUS,ReqMem,MaxRSS,NodeList
 ```
 
+Live check: 2026-06-12 09:57 EDT
+
+| Dataset | Job ID | State | Elapsed at check | Node | Note |
+|---|---:|---|---:|---|---|
+| DIV30 | 51699299 | RUNNING | 00:02:41 | gl3252 | `root_score_program_marker_summary.tsv` already written under the top-10% root run `tables/` directory; candidate scoring completed/underway before reflood/report stages. |
+| DIV90 | 51699477 | RUNNING | 00:01:09 | gl3262 | Resubmission started successfully and reached the R URD build step; exporter already wrote `inputs/root_score_program_marker_summary.tsv`. |
+
 ## Logs
 
 ```text
