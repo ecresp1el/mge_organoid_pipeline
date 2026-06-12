@@ -378,3 +378,32 @@ plots/div30_progenitor_jia_score_umap_overlays.png
 Only proceed to lineage-committed progenitor reclustering if the Phase 1
 clusters convincingly reproduce the expected RGC1/VZ-RGC, RGC2/SVZ-RGC, and
 IPC structure.
+
+## Next-Step Note: Batch Correction
+
+The Phase 1 reclustering intentionally used the existing DIV30 workflow without
+creating a new integration workflow. However, the post hoc metadata UMAPs should
+be reviewed for sample/cell-line structure before interpreting biology.
+
+If reclusters track strongly with `orig.ident` / sample ID or with derived cell
+line labels (`H9`, `79B`, `2E`), the next reclustering pass should explicitly
+test sample-aware correction/integration on the same progenitor-only input
+cells before accepting the three Jia-style progenitor groups.
+
+Required comparison before next biological decision:
+
+```text
+Uncorrected progenitor UMAP/reclusters
+vs.
+Sample/batch-corrected progenitor UMAP/reclusters
+```
+
+The batch-corrected pass should still preserve the same biological guardrails:
+
+```text
+Input cells: DIV30 clusters 0,3,6,7 only
+Do not use Jia scores for cell selection
+Do not use Jia scores for clustering
+Use Jia scores only after clustering for validation
+Stop before lineage-committed progenitor reclustering
+```
