@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Inventory metadata, sample IDs, clusters, reductions, and Shi-reference
+# feature overlap for cross-study Seurat objects before extending prediction
+# score transfer beyond Varela DIV30/DIV90.
+#
+# Submit:
+#   cp slurm_templates/22_cross_study_prediction_inventory.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/22_cross_study_prediction_inventory.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/22_cross_study_prediction_inventory.sbatch
+
+#SBATCH --job-name=cross-study-inv
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=160G
+#SBATCH --time=06:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-study-inventory-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-study-inventory-%x-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CROSS_STUDY_INVENTORY_RESULTS_DIRNAME="${CROSS_STUDY_INVENTORY_RESULTS_DIRNAME:-cross_study_prediction_inventory}"
+CROSS_STUDY_INVENTORY_RUN_LABEL="${CROSS_STUDY_INVENTORY_RUN_LABEL:-cross_study_prediction_inventory_v1}"
+SHI_REFERENCE_RDS="${SHI_REFERENCE_RDS:-${PROJECT_ROOT}/results/shi_2019_paper_qc/shi_2019_seurat.rds}"
+DIV30_SHI_TRANSFER_OBS="${DIV30_SHI_TRANSFER_OBS:-${PROJECT_ROOT}/results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1/tables/div30_shi_seurat_label_transfer_obs.tsv.gz}"
+DIV90_SHI_TRANSFER_OBS="${DIV90_SHI_TRANSFER_OBS:-${PROJECT_ROOT}/results/shi_reference_div90_seurat_label_transfer/shi_reference_div90_seurat_label_transfer_v1/tables/div90_shi_seurat_label_transfer_obs.tsv.gz}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export CROSS_STUDY_INVENTORY_RESULTS_DIRNAME
+export CROSS_STUDY_INVENTORY_RUN_LABEL
+export SHI_REFERENCE_RDS
+export DIV30_SHI_TRANSFER_OBS
+export DIV90_SHI_TRANSFER_OBS
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${CROSS_STUDY_INVENTORY_RUN_LABEL}"
+echo "Results dirname: ${CROSS_STUDY_INVENTORY_RESULTS_DIRNAME}"
+echo "Shi reference RDS: ${SHI_REFERENCE_RDS}"
+echo "DIV30 Shi-transfer obs: ${DIV30_SHI_TRANSFER_OBS}"
+echo "DIV90 Shi-transfer obs: ${DIV90_SHI_TRANSFER_OBS}"
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript "${REPO_ROOT}/scripts/07_cross_study_prediction_inventory.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${CROSS_STUDY_INVENTORY_RUN_LABEL}" \
+  --results-dirname "${CROSS_STUDY_INVENTORY_RESULTS_DIRNAME}"
+
+echo "Job finished: $(date)"

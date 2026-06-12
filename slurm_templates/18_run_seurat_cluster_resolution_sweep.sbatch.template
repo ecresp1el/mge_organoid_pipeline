@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Run Seurat cluster-resolution sweeps for DIV30 and DIV90 as Slurm array tasks.
+#
+# Submit:
+#   cp slurm_templates/18_run_seurat_cluster_resolution_sweep.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/18_run_seurat_cluster_resolution_sweep.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/18_run_seurat_cluster_resolution_sweep.sbatch
+
+#SBATCH --job-name=seurat-res-sweep
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=160G
+#SBATCH --time=12:00:00
+#SBATCH --array=0-1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/seurat-resolution-sweep-%A_%a.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/seurat-resolution-sweep-%A_%a.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+SEURAT_RESOLUTION_SWEEP_RESULTS_DIRNAME="${SEURAT_RESOLUTION_SWEEP_RESULTS_DIRNAME:-seurat_cluster_resolution_sweep}"
+SEURAT_RESOLUTION_SWEEP_RUN_LABEL="${SEURAT_RESOLUTION_SWEEP_RUN_LABEL:-seurat_cluster_resolution_sweep_v1}"
+SEURAT_RESOLUTION_SWEEP_RESOLUTIONS="${SEURAT_RESOLUTION_SWEEP_RESOLUTIONS:-0.1,0.2,0.3,0.4,0.5,0.6,0.8,1.0,1.2}"
+SEURAT_RESOLUTION_SWEEP_GRAPH="${SEURAT_RESOLUTION_SWEEP_GRAPH:-RNA_snn}"
+SEURAT_RESOLUTION_SWEEP_REDUCTION="${SEURAT_RESOLUTION_SWEEP_REDUCTION:-umap}"
+SEURAT_RESOLUTION_SWEEP_ALGORITHM="${SEURAT_RESOLUTION_SWEEP_ALGORITHM:-1}"
+SEURAT_RESOLUTION_SWEEP_RANDOM_SEED="${SEURAT_RESOLUTION_SWEEP_RANDOM_SEED:-0}"
+SEURAT_RESOLUTION_SWEEP_OVERWRITE="${SEURAT_RESOLUTION_SWEEP_OVERWRITE:-0}"
+
+study_ids=(
+  "varela_div30"
+  "varela_div90"
+)
+
+study_id="${study_ids[${SLURM_ARRAY_TASK_ID}]}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+export RSCRIPT="${CONDA_ENV_BIN}/Rscript"
+export SEURAT_RESOLUTION_SWEEP_RESULTS_DIRNAME
+export SEURAT_RESOLUTION_SWEEP_RUN_LABEL
+export SEURAT_RESOLUTION_SWEEP_RESOLUTIONS
+export SEURAT_RESOLUTION_SWEEP_GRAPH
+export SEURAT_RESOLUTION_SWEEP_REDUCTION
+export SEURAT_RESOLUTION_SWEEP_ALGORITHM
+export SEURAT_RESOLUTION_SWEEP_RANDOM_SEED
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Array job/task: ${SLURM_ARRAY_JOB_ID:-}/${SLURM_ARRAY_TASK_ID:-}"
+echo "Study ID: ${study_id}"
+echo "Run label: ${SEURAT_RESOLUTION_SWEEP_RUN_LABEL}"
+echo "Resolutions: ${SEURAT_RESOLUTION_SWEEP_RESOLUTIONS}"
+echo "Graph: ${SEURAT_RESOLUTION_SWEEP_GRAPH}"
+echo "Reduction: ${SEURAT_RESOLUTION_SWEEP_REDUCTION}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Repo root: ${REPO_ROOT}"
+echo "Overwrite: ${SEURAT_RESOLUTION_SWEEP_OVERWRITE}"
+
+args=(
+  "${REPO_ROOT}/python_notebooks/scripts/run_seurat_cluster_resolution_sweep_for_study.py"
+  --study-id "${study_id}"
+  --project-root "${PROJECT_ROOT}"
+  --results-dirname "${SEURAT_RESOLUTION_SWEEP_RESULTS_DIRNAME}"
+  --run-label "${SEURAT_RESOLUTION_SWEEP_RUN_LABEL}"
+  --resolutions "${SEURAT_RESOLUTION_SWEEP_RESOLUTIONS}"
+  --graph "${SEURAT_RESOLUTION_SWEEP_GRAPH}"
+  --reduction "${SEURAT_RESOLUTION_SWEEP_REDUCTION}"
+  --algorithm "${SEURAT_RESOLUTION_SWEEP_ALGORITHM}"
+  --random-seed "${SEURAT_RESOLUTION_SWEEP_RANDOM_SEED}"
+)
+
+if [[ "${SEURAT_RESOLUTION_SWEEP_OVERWRITE}" == "1" || "${SEURAT_RESOLUTION_SWEEP_OVERWRITE}" == "true" ]]; then
+  args+=(--overwrite)
+fi
+
+"${CONDA_ENV_BIN}/python" "${args[@]}"
+
+echo "Job finished: $(date)"

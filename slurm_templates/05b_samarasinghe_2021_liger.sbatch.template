@@ -13,14 +13,55 @@
 
 REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+CONTROL_ONLY="${CONTROL_ONLY:-false}"
+SEURAT_MODULE="${SEURAT_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+LIGER_EXTRA_MODULES="${LIGER_EXTRA_MODULES:-gcc/13.2.0 hdf5/1.10.8}"
+LIGER_R_LIBS="${LIGER_R_LIBS:-${PROJECT_ROOT}/software/Rlibs/samarasinghe_liger_R4.4}"
 
-# Activate the Bioinformatics stack, then load Seurat (brings its own R 4.2.0)
+# Keep this job independent of interactive conda state. These changes are local
+# to the batch process and do not modify the submit shell.
+unset CONDA_DEFAULT_ENV CONDA_EXE CONDA_PREFIX CONDA_PROMPT_MODIFIER CONDA_PYTHON_EXE
+unset CONDA_SHLVL _CE_CONDA _CE_M
+PATH="$(printf '%s' "${PATH}" | tr ':' '\n' | grep -v '/miniconda[0-9]*/' | grep -v '/conda/' | paste -sd ':' -)"
+export PATH
+
+# Activate the Bioinformatics stack, then load Seurat and any site-provided
+# LIGER wrapper modules. The R script intentionally does not install packages.
+module purge
 module load Bioinformatics
-module load r-seurat/4.1.1-R-4.2.0-5z5hgo7
+if [[ -n "${LIGER_EXTRA_MODULES}" ]]; then
+  for extra_module in ${LIGER_EXTRA_MODULES}; do
+    if ! module load "${extra_module}"; then
+      echo "ERROR: failed to load LIGER extra module: ${extra_module}"
+      exit 1
+    fi
+  done
+fi
+if ! module load "${SEURAT_MODULE}"; then
+  echo "ERROR: failed to load SEURAT_MODULE=${SEURAT_MODULE}"
+  exit 1
+fi
+export R_LIBS_USER="${LIGER_R_LIBS}${R_LIBS_USER:+:${R_LIBS_USER}}"
 
 set -euo pipefail
 
 mkdir -p "${PROJECT_ROOT}/logs"
 
 export PROJECT_ROOT
-Rscript "${REPO_ROOT}/scripts/05b_samarasinghe_2021_liger.R" --project-root "${PROJECT_ROOT}"
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Control-only mode: ${CONTROL_ONLY}"
+echo "Seurat module: ${SEURAT_MODULE}"
+echo "LIGER extra modules: ${LIGER_EXTRA_MODULES}"
+echo "LIGER R library: ${LIGER_R_LIBS}"
+echo "Conda prefix: ${CONDA_PREFIX:-<unset>}"
+echo "Conda env: ${CONDA_DEFAULT_ENV:-<unset>}"
+echo "Python: $(command -v python 2>/dev/null || echo '<not found>')"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+Rscript -e 'missing <- c("SeuratWrappers", "rliger")[!vapply(c("SeuratWrappers", "rliger"), requireNamespace, logical(1), quietly = TRUE)]; if (length(missing)) { cat("ERROR: missing R package(s):", paste(missing, collapse = ", "), "\n"); cat("Current .libPaths():\n"); cat(paste(.libPaths(), collapse = "\n"), "\n"); quit(status = 1) } else { cat("LIGER package preflight OK\n") }'
+Rscript "${REPO_ROOT}/scripts/05b_samarasinghe_2021_liger.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --control-only "${CONTROL_ONLY}"
+echo "Job finished: $(date)"

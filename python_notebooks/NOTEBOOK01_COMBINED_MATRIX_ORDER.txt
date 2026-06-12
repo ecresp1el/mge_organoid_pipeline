@@ -1,0 +1,205 @@
+Notebook 01 combined-data matrix order
+Updated source defaults as of 2026-06-02
+
+Important source object
+-----------------------
+combined_adata is loaded from:
+
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook00/cellranger_filtered_manual_ec_div30_core_samples_freeze/h5ad/manual_ec_filtered_normalized_log1p.h5ad
+
+At load time:
+
+combined_adata.X
+  = normalized/log1p expression from Notebook 00
+
+combined_adata.layers["counts"]
+  = raw filtered counts copied before Notebook 00 normalization/log1p
+  = used for Seurat-v3 HVG selection
+  = not changed by regress_out, scale, PCA, UMAP, or Leiden
+
+Shared combined setup
+---------------------
+combined_adata = sc.read_h5ad(input_paths.combined_normalized_log1p)
+
+selection = select_cell_cycle_genes(combined_adata.var_names)
+score_cell_cycle_and_ccdifference(
+    combined_adata,
+    selection=selection,
+    ccdifference_key="CCDifference",
+)
+
+This adds:
+
+combined_adata.obs["S_score"]
+combined_adata.obs["G2M_score"]
+combined_adata.obs["phase"]
+combined_adata.obs["CCDifference"]
+
+
+Combined not_regressed branch
+-----------------------------
+branch_adata = combined_adata.copy()
+
+# No regression is applied.
+# branch_adata.X remains normalized/log1p full gene matrix.
+
+sc.pp.highly_variable_genes(
+    branch_adata,
+    flavor="seurat_v3",
+    n_top_genes=4000,
+    layer="counts",
+    batch_key=None,
+    subset=False,
+)
+
+hvg_mask = branch_adata.var["highly_variable"].fillna(False).to_numpy(dtype=bool)
+branch_adata = branch_adata[:, hvg_mask].copy()
+
+sc.pp.scale(branch_adata, max_value=10.0)
+
+sc.pp.pca(
+    branch_adata,
+    n_comps=10,
+    svd_solver="arpack",
+    random_state=0,
+)
+
+sc.pp.neighbors(
+    branch_adata,
+    n_neighbors=20,
+    n_pcs=10,
+    use_rep="X_pca",
+    random_state=0,
+)
+
+sc.tl.umap(
+    branch_adata,
+    random_state=0,
+)
+
+sc.tl.leiden(
+    branch_adata,
+    resolution=0.8,
+    key_added="leiden",
+    random_state=0,
+)
+
+After not_regressed:
+
+branch_adata.X
+  = scaled normalized/log1p expression for 4000 HVGs
+
+branch_adata.layers["counts"]
+  = raw counts for the same 4000 HVGs
+
+branch_adata.obsm["X_pca"]
+  = PCA coordinates with 10 PCs by default
+
+branch_adata.uns["neighbors"], branch_adata.obsp["distances"], branch_adata.obsp["connectivities"]
+  = neighbor graph from branch_adata.obsm["X_pca"] using n_neighbors=20 and n_pcs=10
+
+branch_adata.obsm["X_umap"]
+  = UMAP coordinates from the neighbor graph
+
+branch_adata.obs["leiden"]
+  = Leiden labels from the neighbor graph at resolution 0.8
+
+
+Combined regressed_ccdifference branch
+--------------------------------------
+branch_adata = combined_adata.copy()
+
+sc.pp.regress_out(
+    branch_adata,
+    keys=["CCDifference"],
+)
+
+# branch_adata.X is now CCDifference-regressed residuals for the full gene matrix.
+
+sc.pp.highly_variable_genes(
+    branch_adata,
+    flavor="seurat_v3",
+    n_top_genes=4000,
+    layer="counts",
+    batch_key=None,
+    subset=False,
+)
+
+hvg_mask = branch_adata.var["highly_variable"].fillna(False).to_numpy(dtype=bool)
+branch_adata = branch_adata[:, hvg_mask].copy()
+
+sc.pp.scale(branch_adata, max_value=10.0)
+
+sc.pp.pca(
+    branch_adata,
+    n_comps=10,
+    svd_solver="arpack",
+    random_state=0,
+)
+
+sc.pp.neighbors(
+    branch_adata,
+    n_neighbors=20,
+    n_pcs=10,
+    use_rep="X_pca",
+    random_state=0,
+)
+
+sc.tl.umap(
+    branch_adata,
+    random_state=0,
+)
+
+sc.tl.leiden(
+    branch_adata,
+    resolution=0.8,
+    key_added="leiden",
+    random_state=0,
+)
+
+After regressed_ccdifference:
+
+branch_adata.X
+  = scaled CCDifference-regressed residuals for 4000 HVGs
+
+branch_adata.layers["counts"]
+  = raw counts for the same 4000 HVGs
+
+branch_adata.obsm["X_pca"]
+  = PCA coordinates with 10 PCs by default
+
+branch_adata.uns["neighbors"], branch_adata.obsp["distances"], branch_adata.obsp["connectivities"]
+  = neighbor graph from branch_adata.obsm["X_pca"] using n_neighbors=20 and n_pcs=10
+
+branch_adata.obsm["X_umap"]
+  = UMAP coordinates from the neighbor graph
+
+branch_adata.obs["leiden"]
+  = Leiden labels from the neighbor graph at resolution 0.8
+
+
+Final h5ad save behavior
+------------------------
+By default, only the regressed_ccdifference branch is saved as h5ad:
+
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/notebook01/<RUN_LABEL>/h5ad/combined/regressed_ccdifference/analysis_hvg_scaled_umap.h5ad
+
+The not_regressed branch is used for comparison plots/tables and is not saved as a carry-forward h5ad unless NOTEBOOK01_WRITE_BRANCH_H5AD_BRANCHES is changed.
+
+
+Comparison plot behavior
+------------------------
+Individual branch UMAPs are still saved under:
+
+plots/combined/not_regressed/
+plots/combined/regressed_ccdifference/
+
+The notebook also saves side-by-side branch comparison figures under:
+
+plots/combined/comparison/
+
+Example:
+
+plots/combined/comparison/umap_compare_CCDifference.png
+
+These comparison figures place not_regressed on the left and regressed_ccdifference on the right. They are side-by-side rather than overlaid because each branch has its own independently computed PCA, neighbor graph, and UMAP coordinate system.

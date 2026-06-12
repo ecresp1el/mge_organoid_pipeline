@@ -1,0 +1,10 @@
+feature	feature_type	direction	formula_sign	notes
+RGC1_score	jia_program	positive	1	progenitor program from DIV30 Jia scoring workflow; compute for DIV90 if absent
+RGC2_score	jia_program	positive	1	progenitor program from DIV30 Jia scoring workflow; compute for DIV90 if absent
+HES1	gene	positive	1	VZ/progenitor marker
+VIM	gene	positive	1	radial glia/progenitor marker
+NES	gene	positive	1	neural stem/progenitor marker
+IPC_score	jia_program	negative	-1	penalize IPC-like cells in root
+DLX1	gene	negative	-1	penalize neurogenic/interneuron precursor identity
+DLX2	gene	negative	-1	penalize IPC/neurogenic identity
+ASCL1	gene	negative	-1	penalize neurogenic precursor identity

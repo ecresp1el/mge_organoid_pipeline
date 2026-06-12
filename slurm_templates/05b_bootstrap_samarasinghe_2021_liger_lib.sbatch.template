@@ -1,0 +1,60 @@
+#!/bin/bash
+#SBATCH --job-name=samar_liger_lib
+#SBATCH --time=04:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05b_bootstrap_samarasinghe_liger_lib_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05b_bootstrap_samarasinghe_liger_lib_%j.log
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+SEURAT_MODULE="${SEURAT_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+BOOTSTRAP_EXTRA_MODULES="${BOOTSTRAP_EXTRA_MODULES:-gcc/13.2.0 hdf5/1.10.8 cmake/3.26.3}"
+LIGER_R_LIBS="${LIGER_R_LIBS:-${PROJECT_ROOT}/software/Rlibs/samarasinghe_liger_R4.4}"
+
+# Keep this job independent of interactive conda state. These changes are local
+# to the batch process and do not modify the submit shell.
+unset CONDA_DEFAULT_ENV CONDA_EXE CONDA_PREFIX CONDA_PROMPT_MODIFIER CONDA_PYTHON_EXE
+unset CONDA_SHLVL _CE_CONDA _CE_M
+PATH="$(printf '%s' "${PATH}" | tr ':' '\n' | grep -v '/miniconda[0-9]*/' | grep -v '/conda/' | paste -sd ':' -)"
+export PATH
+
+module purge
+module load Bioinformatics
+if [[ -n "${BOOTSTRAP_EXTRA_MODULES}" ]]; then
+  for extra_module in ${BOOTSTRAP_EXTRA_MODULES}; do
+    if ! module load "${extra_module}"; then
+      echo "ERROR: failed to load bootstrap extra module: ${extra_module}"
+      exit 1
+    fi
+  done
+fi
+if ! module load "${SEURAT_MODULE}"; then
+  echo "ERROR: failed to load SEURAT_MODULE=${SEURAT_MODULE}"
+  exit 1
+fi
+
+set -euo pipefail
+
+mkdir -p "${PROJECT_ROOT}/logs" "${LIGER_R_LIBS}"
+export PROJECT_ROOT
+export R_LIBS_USER="${LIGER_R_LIBS}"
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Seurat module: ${SEURAT_MODULE}"
+echo "Bootstrap extra modules: ${BOOTSTRAP_EXTRA_MODULES}"
+echo "LIGER R library: ${LIGER_R_LIBS}"
+echo "Conda prefix: ${CONDA_PREFIX:-<unset>}"
+echo "Conda env: ${CONDA_DEFAULT_ENV:-<unset>}"
+echo "Python: $(command -v python 2>/dev/null || echo '<not found>')"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+Rscript "${REPO_ROOT}/scripts/05b_bootstrap_samarasinghe_liger_lib.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --lib-path "${LIGER_R_LIBS}"
+echo "Job finished: $(date)"

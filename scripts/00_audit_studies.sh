@@ -78,11 +78,11 @@ bers23_seu="${results_dir}/bershteyn_2023/bershteyn_2023_seurat.rds"
 bers23_umap="${results_dir}/bershteyn_2023/plots/umap_by_cluster.png"
 echo "| Bershteyn 2023 (GSE208672) | $(yn_file "$bers23_raw") | $(yn_file "$bers23_seu") | $(yn_file "$bers23_umap") | canonical copy saved in results/bershteyn_2023 |"
 
-# Samarasinghe 2021 (GSE165577) counts
-samar_raw="${raw_dir}/samarasinghe_2021_geo_files/suppl/GSE165577_Filtered_counts_all_samples.csv.gz"
-samar_seu="${results_dir}/samarasinghe_2021/samarasinghe_2021_seurat.rds"
-samar_umap="${results_dir}/samarasinghe_2021/plots/umap_by_cluster.png"
-echo "| Samarasinghe 2021 (GSE165577) | $(yn_file "$samar_raw") | $(yn_file "$samar_seu") | $(yn_file "$samar_umap") | seurat+umap not generated yet |"
+# Samarasinghe 2021 official processed Seurat object (Zenodo 5732813)
+samar_raw="${raw_dir}/samarasinghe_2021_zenodo/Samarasinghe_2021_seurat_object.RData"
+samar_seu="${results_dir}/samarasinghe_2021_zenodo_processed_object/samarasinghe_2021_zenodo_seurat.rds"
+samar_umap="${results_dir}/samarasinghe_2021_zenodo_processed_object/plots/zenodo_umap_by_celltype.png"
+echo "| Samarasinghe 2021 (Zenodo 5732813 / GSE165577) | $(yn_file "$samar_raw") | $(yn_file "$samar_seu") | $(yn_file "$samar_umap") | official processed datExpr object; GEO reconstruction scripts are provenance-only |"
 
 # Siebert 2026 (cleaned Seurat object + NeMO metadata)
 siebert_meta="${raw_dir}/siebert_2026_nemo/metadata.json"

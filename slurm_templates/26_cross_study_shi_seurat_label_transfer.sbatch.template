@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Run cross-study Shi-reference Seurat label transfer and prediction-score plots.
+#
+# Submit:
+#   cp slurm_templates/26_cross_study_shi_seurat_label_transfer.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/26_cross_study_shi_seurat_label_transfer.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/26_cross_study_shi_seurat_label_transfer.sbatch
+
+#SBATCH --job-name=cross-shi-transfer
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=160G
+#SBATCH --time=06:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-transfer-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/cross-shi-transfer-%x-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+CROSS_STUDY_SHI_RUN_LABEL="${CROSS_STUDY_SHI_RUN_LABEL:-cross_study_shi_seurat_label_transfer_v2_ge_only_age}"
+CROSS_STUDY_SHI_STUDIES="${CROSS_STUDY_SHI_STUDIES:-varela_div30,varela_div90,siebert_2026,walsh,bershteyn_2023,bershteyn_2025,samarasinghe_2021}"
+CROSS_STUDY_SHI_REUSE_EXISTING="${CROSS_STUDY_SHI_REUSE_EXISTING:-false}"
+CROSS_STUDY_SHI_FORCE_RERUN="${CROSS_STUDY_SHI_FORCE_RERUN:-true}"
+CROSS_STUDY_SHI_DIMS="${CROSS_STUDY_SHI_DIMS:-50}"
+CROSS_STUDY_SHI_MIN_SHARED_FEATURES="${CROSS_STUDY_SHI_MIN_SHARED_FEATURES:-500}"
+CROSS_STUDY_SHI_MAX_CELLS_PER_STUDY="${CROSS_STUDY_SHI_MAX_CELLS_PER_STUDY:-}"
+SHI_REFERENCE_RDS="${SHI_REFERENCE_RDS:-${PROJECT_ROOT}/results/shi_2019_paper_qc/shi_2019_seurat.rds}"
+SHI_REFERENCE_LABELS_TSV="${SHI_REFERENCE_LABELS_TSV:-${PROJECT_ROOT}/results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1/seurat/shi_reference_labels_for_seurat.tsv}"
+
+RUN_DIR="${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/${CROSS_STUDY_SHI_RUN_LABEL}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${RUN_DIR}"
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export CROSS_STUDY_SHI_RUN_LABEL
+export CROSS_STUDY_SHI_REUSE_EXISTING
+export CROSS_STUDY_SHI_FORCE_RERUN
+export SHI_REFERENCE_RDS
+export SHI_REFERENCE_LABELS_TSV
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${CROSS_STUDY_SHI_RUN_LABEL}"
+echo "Classifier addition: whole-Shi major/week transfer plus GE-only MGE/LGE/CGE week transfer"
+echo "Studies: ${CROSS_STUDY_SHI_STUDIES}"
+echo "Reuse existing Varela tables: ${CROSS_STUDY_SHI_REUSE_EXISTING}"
+echo "Force rerun: ${CROSS_STUDY_SHI_FORCE_RERUN}"
+echo "Dims: ${CROSS_STUDY_SHI_DIMS}"
+echo "Reference: ${SHI_REFERENCE_RDS}"
+echo "Reference labels TSV: ${SHI_REFERENCE_LABELS_TSV}"
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/run_cross_study_shi_prediction_plots.py \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${CROSS_STUDY_SHI_RUN_LABEL}" \
+  setup
+
+Rscript scripts/13_run_cross_study_shi_seurat_label_transfer.R \
+  --project-root "${PROJECT_ROOT}" \
+  --reference "${SHI_REFERENCE_RDS}" \
+  --reference-labels-tsv "${SHI_REFERENCE_LABELS_TSV}" \
+  --outdir "${RUN_DIR}" \
+  --run-label "${CROSS_STUDY_SHI_RUN_LABEL}" \
+  --study-id "${CROSS_STUDY_SHI_STUDIES}" \
+  --dims "${CROSS_STUDY_SHI_DIMS}" \
+  --min-shared-features "${CROSS_STUDY_SHI_MIN_SHARED_FEATURES}" \
+  --reuse-existing "${CROSS_STUDY_SHI_REUSE_EXISTING}" \
+  --force-rerun "${CROSS_STUDY_SHI_FORCE_RERUN}"
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/run_cross_study_shi_prediction_plots.py \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${CROSS_STUDY_SHI_RUN_LABEL}" \
+  all \
+  --max-cells-per-study "${CROSS_STUDY_SHI_MAX_CELLS_PER_STUDY:-0}"
+
+echo "Job finished: $(date)"

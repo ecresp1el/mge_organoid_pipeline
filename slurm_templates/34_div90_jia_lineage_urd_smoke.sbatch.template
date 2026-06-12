@@ -1,0 +1,229 @@
+#!/bin/bash
+# DIV90 Jia-lineage-driven URD smoke pipeline.
+#
+# This run mirrors the DIV30 smoke artifact set while using DIV90-specific
+# biology:
+#   - Root: top RootScore cells inside cluster 12 Dividing cells.
+#   - Tips: Jia endpoint approximations, not broad SST/PV/MGE labels.
+#   - v4 final-inclusion smoke: glial endpoints are now explicit tips.
+#     Clusters 4 and 10 are combined as one astrocyte tip, and cluster 9 is
+#     an OPC tip. Stressed clusters 6 and 7 remain excluded.
+#   - Tip correction from v2 remains: cluster 2 is the CRABP1/ANGPT2-like tip,
+#     while clusters 3 and 11 stay in the manifold as retained unassigned
+#     candidates.
+#   - Outputs: first-URD pseudotime object, smoke panel, URD tree, tree report,
+#     branch/tip tables, and Jia Fig. S11-style marker-expression validation.
+#   - Every run writes R stage timings plus Slurm resource heartbeats for
+#     troubleshooting larger full-cell submissions.
+#
+# Submit:
+#   sbatch slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+
+#SBATCH --job-name=div90_jia_urd
+#SBATCH --time=04:00:00
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=32G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+set -euo pipefail
+set -x
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+CONDA_BASE="/home/elcrespo/miniconda3"
+CONDA_ENV="${CONDA_ENV:-mge-organoid-python}"
+R_MODULE="${R_MODULE:-R/4.4.3}"
+
+RUN_LABEL="${RUN_LABEL:-div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips}"
+MAX_CELLS="${MAX_CELLS:-5000}"
+SEED="${SEED:-7}"
+URD_SEED="${URD_SEED:-${SEED}}"
+DIV90_ROOT_TOP_PERCENT="${DIV90_ROOT_TOP_PERCENT:-2}"
+DIV90_ROOT_MIN_CELLS="${DIV90_ROOT_MIN_CELLS:-8}"
+DIV90_RETAIN_CLUSTERS="${DIV90_RETAIN_CLUSTERS:-0,1,2,3,4,5,8,9,10,11,12}"
+
+URD_MIN_GENES="${URD_MIN_GENES:-500}"
+URD_MIN_CELLS="${URD_MIN_CELLS:-3}"
+URD_MIN_COUNTS="${URD_MIN_COUNTS:-10}"
+URD_PCA_MP_FACTOR="${URD_PCA_MP_FACTOR:-2}"
+URD_KNN="${URD_KNN:-100}"
+URD_SIGMA="${URD_SIGMA:-local}"
+URD_N_FLOODS="${URD_N_FLOODS:-20}"
+URD_NUM_VARIABLE_GENES="${URD_NUM_VARIABLE_GENES:-3000}"
+URD_FLOOD_MINIMUM_CELLS="${URD_FLOOD_MINIMUM_CELLS:-2}"
+URD_FLOOD_MAX_FRAC_NA="${URD_FLOOD_MAX_FRAC_NA:-0.4}"
+URD_FLOOD_STABILITY_DIV="${URD_FLOOD_STABILITY_DIV:-}"
+URD_PSEUDOTIME_NAME="${URD_PSEUDOTIME_NAME:-div90_jia_rootscore_root}"
+
+TREE_N_PER_TIP="${TREE_N_PER_TIP:-5000}"
+TREE_PROCESS_N_SUBSAMPLE="${TREE_PROCESS_N_SUBSAMPLE:-10}"
+TREE_CELLS_PER_PSEUDOTIME_BIN="${TREE_CELLS_PER_PSEUDOTIME_BIN:-80}"
+TREE_BINS_PER_PSEUDOTIME_WINDOW="${TREE_BINS_PER_PSEUDOTIME_WINDOW:-5}"
+TREE_MINIMUM_VISITS="${TREE_MINIMUM_VISITS:-10}"
+TREE_VISIT_THRESHOLD="${TREE_VISIT_THRESHOLD:-0.7}"
+TREE_P_THRESH="${TREE_P_THRESH:-0.01}"
+TREE_MIN_CELLS_PER_SEGMENT="${TREE_MIN_CELLS_PER_SEGMENT:-1}"
+TREE_MIN_PSEUDOTIME_PER_SEGMENT="${TREE_MIN_PSEUDOTIME_PER_SEGMENT:-0.01}"
+HEARTBEAT_INTERVAL_SECONDS="${HEARTBEAT_INTERVAL_SECONDS:-300}"
+
+RUN_ROOT="${PROJECT_ROOT}/results/div90_jia_lineage_urd/${RUN_LABEL}"
+INPUT_DIR="${RUN_ROOT}/inputs"
+TREE_DIR="${RUN_ROOT}/lineage_tree_jia_endpoint_tips_v1"
+TREE_CLUSTER_NAME_DIR="${RUN_ROOT}/lineage_tree_cluster_number_name_v1"
+S11_DIR="${RUN_ROOT}/jia_fig_s11_style_marker_validation_v1"
+CANDIDATE_MARKER_DIR="${RUN_ROOT}/candidate_pv_marker_projection_v1"
+TABLE_DIR="${RUN_ROOT}/tables"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${RUN_ROOT}" "${INPUT_DIR}" "${TREE_DIR}" "${TREE_CLUSTER_NAME_DIR}" "${S11_DIR}" "${CANDIDATE_MARKER_DIR}" "${TABLE_DIR}"
+
+HEARTBEAT_LOG="${TABLE_DIR}/slurm_resource_heartbeat.tsv"
+monitor_resources() {
+  printf "timestamp\telapsed_seconds\tslurm_step\tave_cpu\tmax_rss\tave_rss\tmax_vmsize\trun_root_bytes\trun_root_files\n" > "${HEARTBEAT_LOG}"
+  while true; do
+    ts="$(date '+%F %T')"
+    slurm_step="${SLURM_JOB_ID:-}.batch"
+    stat_line="$(sstat -j "${slurm_step}" --noheader --format=AveCPU,MaxRSS,AveRSS,MaxVMSize -P 2>/dev/null | tail -n 1 || true)"
+    if [[ -z "${stat_line}" ]]; then
+      stat_line="NA|NA|NA|NA"
+    fi
+    bytes="$(du -sb "${RUN_ROOT}" 2>/dev/null | awk '{print $1}' || true)"
+    files="$(find "${RUN_ROOT}" -type f 2>/dev/null | wc -l | awk '{print $1}' || true)"
+    printf "%s\t%s\t%s\t%s\t%s\t%s\n" "${ts}" "${SECONDS}" "${slurm_step}" "${stat_line//|/$'\t'}" "${bytes:-NA}" "${files:-NA}" >> "${HEARTBEAT_LOG}"
+    sleep "${HEARTBEAT_INTERVAL_SECONDS}"
+  done
+}
+
+monitor_resources &
+MONITOR_PID=$!
+trap 'kill "${MONITOR_PID}" 2>/dev/null || true' EXIT
+
+echo "=== DIV90 Jia-lineage URD smoke Slurm context ==="
+date
+hostname
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-}"
+echo "SLURM_MEM_PER_NODE=${SLURM_MEM_PER_NODE:-}"
+echo "RUN_LABEL=${RUN_LABEL}"
+echo "MAX_CELLS=${MAX_CELLS}"
+echo "DIV90_RETAIN_CLUSTERS=${DIV90_RETAIN_CLUSTERS}"
+echo "DIV90_ROOT_TOP_PERCENT=${DIV90_ROOT_TOP_PERCENT}"
+echo "DIV90_ROOT_MIN_CELLS=${DIV90_ROOT_MIN_CELLS}"
+echo "URD_KNN=${URD_KNN}"
+echo "URD_PSEUDOTIME_NAME=${URD_PSEUDOTIME_NAME}"
+echo "HEARTBEAT_INTERVAL_SECONDS=${HEARTBEAT_INTERVAL_SECONDS}"
+echo "HEARTBEAT_LOG=${HEARTBEAT_LOG}"
+
+source "${CONDA_BASE}/etc/profile.d/conda.sh"
+conda activate "${CONDA_ENV}"
+python --version
+which python
+
+python "${REPO_ROOT}/python_notebooks/scripts/export_div90_jia_lineage_urd_inputs.py" \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${RUN_LABEL}" \
+  --outdir "${INPUT_DIR}" \
+  --max-cells "${MAX_CELLS}" \
+  --seed "${SEED}" \
+  --retain-clusters "${DIV90_RETAIN_CLUSTERS}" \
+  --root-cluster "12" \
+  --root-top-percent "${DIV90_ROOT_TOP_PERCENT}" \
+  --root-min-cells "${DIV90_ROOT_MIN_CELLS}"
+
+conda deactivate
+
+module load "${R_MODULE}"
+module list 2>&1
+Rscript --version
+which Rscript
+
+Rscript -e 'pkgs <- c("Matrix", "URD", "ggplot2", "cowplot"); status <- sapply(pkgs, requireNamespace, quietly=TRUE); print(data.frame(package=pkgs, installed=status), row.names=FALSE); quit(status=ifelse(all(status), 0, 1))'
+
+Rscript "${REPO_ROOT}/scripts/14_div30_first_urd.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --input-dir "${INPUT_DIR}" \
+  --outdir "${RUN_ROOT}" \
+  --run-label "${RUN_LABEL}" \
+  --root-label "DIV90 Jia RootScore top ${DIV90_ROOT_TOP_PERCENT}% in cluster 12" \
+  --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
+  --seed "${URD_SEED}" \
+  --min-genes "${URD_MIN_GENES}" \
+  --min-cells "${URD_MIN_CELLS}" \
+  --min-counts "${URD_MIN_COUNTS}" \
+  --pca-mp-factor "${URD_PCA_MP_FACTOR}" \
+  --knn "${URD_KNN}" \
+  --sigma "${URD_SIGMA}" \
+  --n-floods "${URD_N_FLOODS}" \
+  --num-variable-genes "${URD_NUM_VARIABLE_GENES}" \
+  --flood-minimum-cells "${URD_FLOOD_MINIMUM_CELLS}" \
+  --flood-max-frac-na "${URD_FLOOD_MAX_FRAC_NA}" \
+  --flood-stability-div "${URD_FLOOD_STABILITY_DIV:-}"
+
+Rscript "${REPO_ROOT}/scripts/15_div30_urd_lineage_decision_report.R" \
+  --urd-rds "${RUN_ROOT}/div30_first_urd_object.rds" \
+  --outdir "${RUN_ROOT}/lineage_decision_report" \
+  --annotation-col "cluster_number_name" \
+  --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
+  --root-col "urd_root_candidate" \
+  --dataset-label "DIV90 Jia-lineage/glia-tip smoke" \
+  --top-n "50" \
+  --correlation-genes "variable"
+
+Rscript "${REPO_ROOT}/scripts/16_div30_urd_build_lineage_tree.R" \
+  --urd-rds "${RUN_ROOT}/div30_first_urd_object.rds" \
+  --outdir "${TREE_DIR}" \
+  --annotation-col "div90_jia_tip_group" \
+  --root-label "DIV90 Jia RootScore top ${DIV90_ROOT_TOP_PERCENT}% in cluster 12" \
+  --root-col "urd_root_candidate" \
+  --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
+  --tip-labels "tip_lhx8_isl1,tip_lhx6_nfia,tip_crabp1_angpt2,tip_astrocytes,tip_opc" \
+  --n-per-tip "${TREE_N_PER_TIP}" \
+  --process-n-subsample "${TREE_PROCESS_N_SUBSAMPLE}" \
+  --cells-per-pseudotime-bin "${TREE_CELLS_PER_PSEUDOTIME_BIN}" \
+  --bins-per-pseudotime-window "${TREE_BINS_PER_PSEUDOTIME_WINDOW}" \
+  --minimum-visits "${TREE_MINIMUM_VISITS}" \
+  --visit-threshold "${TREE_VISIT_THRESHOLD}" \
+  --p-thresh "${TREE_P_THRESH}" \
+  --min-cells-per-segment "${TREE_MIN_CELLS_PER_SEGMENT}" \
+  --min-pseudotime-per-segment "${TREE_MIN_PSEUDOTIME_PER_SEGMENT}" \
+  --top-n-branch-genes "50"
+
+Rscript "${REPO_ROOT}/scripts/17_div30_urd_finalize_lineage_tree_report.R" \
+  --tree-rds "${TREE_DIR}/div30_urd_lineage_tree_object.rds" \
+  --outdir "${TREE_DIR}" \
+  --annotation-col "div90_jia_tip_group" \
+  --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
+  --dataset-label "DIV90 Jia-lineage/glia-tip smoke" \
+  --root-label "DIV90 Jia RootScore top ${DIV90_ROOT_TOP_PERCENT}% in cluster 12" \
+  --tip-mapping "${TREE_DIR}/tables/tree_tip_mapping.tsv" \
+  --top-n-branch-genes "50"
+
+Rscript "${REPO_ROOT}/scripts/17_div30_urd_finalize_lineage_tree_report.R" \
+  --tree-rds "${TREE_DIR}/div30_urd_lineage_tree_object.rds" \
+  --outdir "${TREE_CLUSTER_NAME_DIR}" \
+  --annotation-col "cluster_number_name" \
+  --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
+  --dataset-label "DIV90 cluster-name-colored smoke" \
+  --root-label "DIV90 Jia RootScore top ${DIV90_ROOT_TOP_PERCENT}% in cluster 12" \
+  --tip-mapping "${TREE_DIR}/tables/tree_tip_mapping.tsv" \
+  --top-n-branch-genes "50"
+
+Rscript "${REPO_ROOT}/scripts/25_div30_urd_jia_fig_s11_marker_validation.R" \
+  --tree-rds "${TREE_DIR}/div30_urd_lineage_tree_object.rds" \
+  --outdir "${S11_DIR}"
+
+Rscript "${REPO_ROOT}/scripts/27_div90_urd_project_candidate_lineage_markers.R" \
+  --tree-rds "${TREE_DIR}/div30_urd_lineage_tree_object.rds" \
+  --outdir "${CANDIDATE_MARKER_DIR}" \
+  --annotation-col "cluster_number_name" \
+  --cluster-col "cluster_id_numeric" \
+  --tip-group-col "div90_jia_tip_group" \
+  --candidate-clusters "3,11" \
+  --marker-genes "MEF2C,EPHA5,LHX6,CRABP1,LHX8,NR2F1,NR2F2"
+
+echo "=== DIV90 Jia-lineage URD smoke complete ==="
+date
+find "${RUN_ROOT}" -maxdepth 3 -type f | sort

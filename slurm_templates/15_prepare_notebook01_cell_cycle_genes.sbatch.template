@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=prep-nb01-ccgenes
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=32G
+#SBATCH --time=00:30:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prepare-notebook01-ccgenes-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/prepare-notebook01-ccgenes-%x-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+NOTEBOOK01_NOTEBOOK00_RUN_LABEL="${NOTEBOOK01_NOTEBOOK00_RUN_LABEL:-cellranger_filtered_manual_ec_div30_core_samples_freeze}"
+NOTEBOOK01_RUN_LABEL="${NOTEBOOK01_RUN_LABEL:-${NOTEBOOK01_NOTEBOOK00_RUN_LABEL}_ccdifference_seurat_order_v1}"
+
+mkdir -p "${PROJECT_ROOT}/logs"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export NOTEBOOK01_NOTEBOOK00_RUN_LABEL
+export NOTEBOOK01_RUN_LABEL
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Notebook 00 input run label: ${NOTEBOOK01_NOTEBOOK00_RUN_LABEL}"
+echo "Notebook 01 run label: ${NOTEBOOK01_RUN_LABEL}"
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/prepare_notebook01_cell_cycle_genes.py
+
+echo "Job finished: $(date)"

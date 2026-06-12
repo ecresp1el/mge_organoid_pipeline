@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Run source Seurat object inventory as one Slurm array task per study.
+#
+# Submit:
+#   cp slurm_templates/17a_run_seurat_inventory_array.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/17a_run_seurat_inventory_array.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/17a_run_seurat_inventory_array.sbatch
+
+#SBATCH --job-name=seurat-inv-array
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=160G
+#SBATCH --time=12:00:00
+#SBATCH --array=0-2
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/seurat-inventory-array-%A_%a.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/seurat-inventory-array-%A_%a.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+SEURAT_INVENTORY_RESULTS_DIRNAME="${SEURAT_INVENTORY_RESULTS_DIRNAME:-seurat_anndata_umap_inventory}"
+SEURAT_INVENTORY_RUN_LABEL="${SEURAT_INVENTORY_RUN_LABEL:-seurat_anndata_umap_inventory_v1}"
+SEURAT_INVENTORY_OVERWRITE_R="${SEURAT_INVENTORY_OVERWRITE_R:-0}"
+
+study_ids=(
+  "shi_2019_paper_qc"
+  "varela_div30"
+  "varela_div90"
+)
+
+study_id="${study_ids[${SLURM_ARRAY_TASK_ID}]}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+export RSCRIPT="${CONDA_ENV_BIN}/Rscript"
+export SEURAT_INVENTORY_RESULTS_DIRNAME
+export SEURAT_INVENTORY_RUN_LABEL
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Array job/task: ${SLURM_ARRAY_JOB_ID:-}/${SLURM_ARRAY_TASK_ID:-}"
+echo "Study ID: ${study_id}"
+echo "Run label: ${SEURAT_INVENTORY_RUN_LABEL}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Repo root: ${REPO_ROOT}"
+echo "Overwrite R inventory: ${SEURAT_INVENTORY_OVERWRITE_R}"
+
+args=(
+  "${REPO_ROOT}/python_notebooks/scripts/run_seurat_inventory_for_study.py"
+  --study-id "${study_id}"
+  --project-root "${PROJECT_ROOT}"
+  --results-dirname "${SEURAT_INVENTORY_RESULTS_DIRNAME}"
+  --run-label "${SEURAT_INVENTORY_RUN_LABEL}"
+)
+
+if [[ "${SEURAT_INVENTORY_OVERWRITE_R}" == "1" || "${SEURAT_INVENTORY_OVERWRITE_R}" == "true" ]]; then
+  args+=(--overwrite)
+fi
+
+"${CONDA_ENV_BIN}/python" "${args[@]}"
+
+echo "Job finished: $(date)"

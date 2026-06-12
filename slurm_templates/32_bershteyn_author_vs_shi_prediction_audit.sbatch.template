@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Audit Bershteyn author metadata against our cross-study Shi TransferData outputs.
+#
+# Submit:
+#   cp slurm_templates/32_bershteyn_author_vs_shi_prediction_audit.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/32_bershteyn_author_vs_shi_prediction_audit.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/32_bershteyn_author_vs_shi_prediction_audit.sbatch
+
+#SBATCH --job-name=bersh-author-shi-audit
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=160G
+#SBATCH --time=01:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/bersh-author-shi-audit-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/bersh-author-shi-audit-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CROSS_STUDY_SHI_RUN_LABEL="${CROSS_STUDY_SHI_RUN_LABEL:-cross_study_shi_seurat_label_transfer_v2_ge_only_age}"
+
+SEURAT_OBJECT="${SEURAT_OBJECT:-${PROJECT_ROOT}/results/bershteyn_2025/bershteyn_2025_seurat.rds}"
+OBS_TABLE="${OBS_TABLE:-${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/${CROSS_STUDY_SHI_RUN_LABEL}/tables/per_study/bershteyn_2025_shi_seurat_label_transfer_obs.tsv.gz}"
+OUTDIR="${OUTDIR:-${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/${CROSS_STUDY_SHI_RUN_LABEL}/tables/author_comparison}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${OUTDIR}"
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export CROSS_STUDY_SHI_RUN_LABEL
+
+echo "Bershteyn author-vs-Shi audit started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${CROSS_STUDY_SHI_RUN_LABEL}"
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Seurat object: ${SEURAT_OBJECT}"
+echo "Our Shi obs table: ${OBS_TABLE}"
+echo "Output dir: ${OUTDIR}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript scripts/15_bershteyn_author_vs_shi_prediction_audit.R \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${CROSS_STUDY_SHI_RUN_LABEL}" \
+  --seurat "${SEURAT_OBJECT}" \
+  --obs "${OBS_TABLE}" \
+  --outdir "${OUTDIR}"
+
+echo "Bershteyn author-vs-Shi audit finished: $(date)"

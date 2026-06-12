@@ -1,0 +1,6 @@
+module	core_genes	associated_genes	interpretation
+LHX8_ISL1	LHX8;ISL1	ZIC4;HMGA1;ZIC1;HEY1;ID4;JUN	subpallial cholinergic inhibitory neuron lineage
+NR2F1_NR2F2	NR2F1;NR2F2	SOX3;E2F1;FOXP2;RARB;EMX2	subpallial GABAergic inhibitory neuron lineage
+EPHA5_MEF2C	EPHA5;MEF2C	ARX;SOX11;HMGA2;ASCL1;ELF2;PBX1;NRF1;BCL11A;PBX3;DLX5;DLX2;DLX1	SVZ-derived cortex-bound inhibitory neuron lineage
+LHX6_NFIA	LHX6;NFIA	ARX;SOX4;TCF4;NFIB;NFIC;POU3F2;POU3F4;NFAT5;TAF1;ZNF713;RFX4;PROX1;SOX5	SVZ-derived cortical inhibitory neuron lineage
+CRABP1_ANGPT2	CRABP1;ANGPT2	SPOCK1;DSCAM;RIPOR2;RBP1;BRCA1;ETV1;PURA;ZEB1;FOXO3;KLF12	SVZ-derived subpallial GABAergic inhibitory neuron lineage

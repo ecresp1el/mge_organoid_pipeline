@@ -2,12 +2,10 @@
 #SBATCH --job-name=samarasinghe_seurat
 #SBATCH --time=08:00:00
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=64G
+#SBATCH --mem=128G
 #SBATCH --nodes=1
 #SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05_samarasinghe_2021_%j.log
 #SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/05_samarasinghe_2021_%j.log
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=your_email@umich.edu
 #SBATCH --account=parent0
 #SBATCH --partition=standard
 
@@ -16,11 +14,19 @@ PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 
 # Activate the Bioinformatics stack, then load Seurat (brings its own R).
 module load Bioinformatics
-module load r-seurat/4.1.1-R-4.2.0-5z5hgo7
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
 
 set -euo pipefail
 
 mkdir -p "${PROJECT_ROOT}/logs"
 
 export PROJECT_ROOT
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
 Rscript "${REPO_ROOT}/scripts/05_samarasinghe_2021_seurat.R" --project-root "${PROJECT_ROOT}"
+echo "Job finished: $(date)"
