@@ -2301,6 +2301,18 @@ Dedicated DIV90 handoff:
 python_notebooks/HANDOFF_div90_jia_lineage_urd_plan.md
 ```
 
+First DIV90 Jia-lineage smoke run submitted:
+
+```text
+Slurm job: 51685516
+Template: slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+Run label: div90_urd_jia_lineage_smoke5k_knn100_v1
+Output root: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v1/
+Log: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51685516.log
+```
+
+The submitted run should emit the same smoke-panel outputs as DIV30 under `lineage_decision_report/`, then build the Jia endpoint-tip tree under `lineage_tree_jia_endpoint_tips_v1/`, then run the Jia Fig. S11-style marker validation under `jia_fig_s11_style_marker_validation_v1/`.
+
 #### DIV90 root
 
 Use cluster `12 - Dividing cells` as the root candidate pool, then derive a Jia-style progenitor root inside that pool.

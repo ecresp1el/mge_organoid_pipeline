@@ -21,6 +21,7 @@ parse_args <- function(args) {
     `annotation-col` = "paper_cluster_annotation",
     `pseudotime-name` = "",
     `root-col` = "urd_root_candidate",
+    `dataset-label` = "DIV30",
     `top-n` = "50",
     `correlation-genes` = "variable",
     help = FALSE
@@ -193,7 +194,7 @@ branch_status <- function(object) {
   )
 }
 
-make_decision_figure <- function(ordering, neg_genes, pos_genes, status, plot_path) {
+make_decision_figure <- function(ordering, neg_genes, pos_genes, status, plot_path, dataset_label) {
   ordering <- ordering[order(ordering$median_pseudotime), , drop = FALSE]
   ordering$x <- ordering$median_pseudotime
   ordering$y <- 0
@@ -232,7 +233,7 @@ make_decision_figure <- function(ordering, neg_genes, pos_genes, status, plot_pa
       plot.subtitle = element_text(color = "black"),
       plot.margin = margin(20, 30, 50, 30)
     ) +
-    labs(title = "DIV30 URD Lineage Decision-Tree Report", subtitle = subtitle)
+    labs(title = paste(dataset_label, "URD Lineage Decision-Tree Report"), subtitle = subtitle)
   ggsave(plot_path, p, width = 12, height = 5, dpi = 240, bg = "white")
 }
 
@@ -391,7 +392,7 @@ plot_gene_cascade_heatmap <- function(cascade_df, plot_path) {
 
 write_markdown_report <- function(path, cfg, status, root_comp, ordering, neg, pos, outputs) {
   lines <- c(
-    "# DIV30 URD Lineage Decision-Tree Report",
+    paste0("# ", cfg$dataset_label, " URD Lineage Decision-Tree Report"),
     "",
     paste0("- URD object: `", cfg$urd_rds, "`"),
     paste0("- Annotation column: `", cfg$annotation_col, "`"),
@@ -452,6 +453,7 @@ cfg <- list(
   annotation_col = opt$`annotation-col`,
   pseudotime_name = opt$`pseudotime-name`,
   root_col = opt$`root-col`,
+  dataset_label = opt$`dataset-label`,
   top_n = as_int(opt$`top-n`, "top-n"),
   correlation_genes = opt$`correlation-genes`
 )
@@ -525,7 +527,7 @@ invisible(plot_diffusion_maps(dm_df, paths[["dm_pseudotime"]], paths[["dm_annota
 invisible(plot_flood_stability(stability_df, paths[["flood_stability_plot"]]))
 invisible(plot_tree_status(status, paths[["tree_visualization"]]))
 invisible(plot_gene_cascade_heatmap(cascade_df, paths[["cascade_plot"]]))
-make_decision_figure(ordering, neg, pos, status, paths[["figure"]])
+make_decision_figure(ordering, neg, pos, status, paths[["figure"]], cfg$dataset_label)
 write_markdown_report(paths[["report"]], cfg, status, root_comp, ordering, neg, pos, unname(paths))
 
 log_msg("Wrote report: ", paths[["report"]])

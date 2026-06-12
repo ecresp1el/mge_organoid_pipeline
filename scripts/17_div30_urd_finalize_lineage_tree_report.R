@@ -18,6 +18,8 @@ parse_args <- function(args) {
     `annotation-col` = "paper_cluster_annotation",
     `pseudotime-name` = "paper_radial_glia_root",
     `tip-mapping` = "",
+    `dataset-label` = "DIV30",
+    `root-label` = "Radial glia",
     `top-n-branch-genes` = "50",
     help = FALSE
   )
@@ -195,12 +197,12 @@ plot_tree_layout <- function(object, label_values, label_name, path) {
   ggsave(path, p, width = 8, height = 7, dpi = 240, bg = "white")
 }
 
-write_report <- function(path, tree_rds, status, tip_mapping, tip_comp, joins, branch_gene_path) {
+write_report <- function(path, tree_rds, dataset_label, root_label, status, tip_mapping, tip_comp, joins, branch_gene_path) {
   lines <- c(
-    "# DIV30 URD Lineage Tree Report",
+    paste0("# ", dataset_label, " URD Lineage Tree Report"),
     "",
     paste0("- Tree object: `", tree_rds, "`"),
-    "- Root: `Radial glia`",
+    paste0("- Root: `", root_label, "`"),
     "- Tip group column: `paper_tree_tip_id`",
     "",
     "## Tip Mapping",
@@ -264,6 +266,8 @@ plot_tree_layout(urd, pt, "pseudotime", file.path(plot_dir, "urd_tree_pseudotime
 write_report(
   file.path(opt$outdir, "urd_lineage_tree_report.md"),
   opt$`tree-rds`,
+  opt$`dataset-label`,
+  opt$`root-label`,
   status,
   tip_mapping,
   tip_comp,

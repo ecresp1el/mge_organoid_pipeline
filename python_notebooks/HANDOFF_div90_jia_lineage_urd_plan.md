@@ -2,7 +2,7 @@
 
 Date: 2026-06-11
 
-Status: planned, not yet run.
+Status: first DIV90 Jia-lineage smoke run submitted.
 
 This handoff records the DIV90 URD plan after the DIV90 UMAP/metadata audit. It is intentionally aligned with the DIV30 URD workflow, but the DIV90 biological question is different because the DIV90 object has real terminal cluster labels.
 
@@ -70,6 +70,25 @@ metadata/div90_jia_lineage_urd_plan.tsv
 metadata/div90_jia_rootscore_markers.tsv
 metadata/jia_lineage_modules.tsv
 ```
+
+Run scripts added for the first smoke execution:
+
+```text
+python_notebooks/scripts/export_div90_jia_lineage_urd_inputs.py
+slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+```
+
+The Slurm run reuses the existing DIV30 URD runner/reporting scripts where the computational logic should match DIV30:
+
+```text
+scripts/14_div30_first_urd.R
+scripts/15_div30_urd_lineage_decision_report.R
+scripts/16_div30_urd_build_lineage_tree.R
+scripts/17_div30_urd_finalize_lineage_tree_report.R
+scripts/25_div30_urd_jia_fig_s11_marker_validation.R
+```
+
+Compatibility note: the DIV90 exporter writes input-bundle files with the legacy `div30_first_urd_*` names because `scripts/14_div30_first_urd.R` consumes that bundle format. The run directory, metadata, root column, pseudotime column, reports, and manifest identify this as DIV90.
 
 ## DIV90 Cluster Mapping
 
@@ -166,6 +185,65 @@ processRandomWalksFromTips()
 buildTree()
 ```
 
+### Submitted Smoke Run
+
+Submitted: 2026-06-11
+
+Slurm job:
+
+```text
+51685516
+```
+
+Template:
+
+```text
+slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+```
+
+Run label:
+
+```text
+div90_urd_jia_lineage_smoke5k_knn100_v1
+```
+
+Output root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v1/
+```
+
+Log:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51685516.log
+```
+
+Submitted parameters:
+
+| Parameter | Value |
+|---|---|
+| `MAX_CELLS` | `5000` |
+| retained clusters | `0,1,2,3,5,8,11,12` |
+| excluded first-smoke clusters | `4,6,7,9,10` |
+| root cluster | `12 - Dividing cells` |
+| root score top percent | `2` |
+| root minimum cells | `8` |
+| pseudotime name | `div90_jia_rootscore_root` |
+| URD KNN | `100` |
+| URD variable genes | `3000` |
+| URD floods | `20` |
+| tree tips | `tip_lhx8_isl1`, `tip_epha5_mef2c`, `tip_lhx6_nfia` |
+| random walks per tip | `5000` |
+
+Pre-submit exporter smoke check:
+
+```text
+/tmp/div90_jia_urd_export_test/
+```
+
+The exporter smoke check selected 800 cells with all 358 cluster-12 dividing cells retained, and selected 8 RootScore root cells. R read the exported `urd_root_candidate` column as logical, so the root column format is valid for URD.
+
 ## Required Outputs
 
 Every DIV90 smoke/full run should write:
@@ -177,6 +255,56 @@ tip composition table
 tree tip mapping table
 tree segment table
 run parameter table
+```
+
+Expected first-URD outputs:
+
+```text
+div30_first_urd_object.rds
+tables/div30_first_urd_parameters.tsv
+tables/div30_first_urd_pseudotime.tsv
+tables/div30_first_urd_summary.tsv
+tables/div30_first_urd_marker_correlations.tsv
+plots/div30_first_urd_umap_pseudotime.png
+lineage_decision_report/
+```
+
+Expected smoke-panel outputs matching the DIV30 smoke panel:
+
+```text
+lineage_decision_report/plots/umap_pseudotime.png
+lineage_decision_report/plots/diffusion_map_pseudotime.png
+lineage_decision_report/plots/diffusion_map_annotation.png
+lineage_decision_report/plots/flood_stability.png
+lineage_decision_report/plots/gene_cascade_heatmap.png
+lineage_decision_report/plots/tree_visualization.png
+lineage_decision_report/plots/lineage_decision_tree.png
+lineage_decision_report/tables/top_positive_pseudotime_genes.tsv
+lineage_decision_report/tables/top_negative_pseudotime_genes.tsv
+lineage_decision_report/tables/pseudotime_ordering_by_annotation.tsv
+lineage_decision_report/tables/root_annotation_composition.tsv
+```
+
+Expected tree outputs:
+
+```text
+lineage_tree_jia_endpoint_tips_v1/div30_urd_lineage_tree_object.rds
+lineage_tree_jia_endpoint_tips_v1/tables/tree_tip_mapping.tsv
+lineage_tree_jia_endpoint_tips_v1/tables/tree_tip_composition.tsv
+lineage_tree_jia_endpoint_tips_v1/tables/tree_segment_joins.tsv
+lineage_tree_jia_endpoint_tips_v1/tables/branch_specific_genes.tsv
+lineage_tree_jia_endpoint_tips_v1/plots/pseudotime_logistic.png
+lineage_tree_jia_endpoint_tips_v1/plots/urd_tree_annotation.png
+lineage_tree_jia_endpoint_tips_v1/plots/urd_tree_pseudotime.png
+```
+
+Expected Jia Fig. S11-style validation outputs:
+
+```text
+jia_fig_s11_style_marker_validation_v1/plots/jia_fig_s11_style_urd_marker_validation.png
+jia_fig_s11_style_marker_validation_v1/tables/jia_fig_s11_marker_order.tsv
+jia_fig_s11_style_marker_validation_v1/tables/jia_fig_s11_marker_expression_long.tsv.gz
+jia_fig_s11_style_marker_validation_v1/tables/jia_fig_s11_marker_expression_summary.tsv
 ```
 
 Required smoke validation figures:

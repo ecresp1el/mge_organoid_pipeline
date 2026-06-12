@@ -133,6 +133,7 @@ Rscript "${REPO_ROOT}/scripts/15_div30_urd_lineage_decision_report.R" \
   --annotation-col "cluster_number_name" \
   --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
   --root-col "urd_root_candidate" \
+  --dataset-label "DIV90 Jia-lineage smoke" \
   --top-n "50" \
   --correlation-genes "variable"
 
@@ -160,6 +161,8 @@ Rscript "${REPO_ROOT}/scripts/17_div30_urd_finalize_lineage_tree_report.R" \
   --outdir "${TREE_DIR}" \
   --annotation-col "div90_jia_tip_group" \
   --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
+  --dataset-label "DIV90 Jia-lineage smoke" \
+  --root-label "DIV90 Jia RootScore top ${DIV90_ROOT_TOP_PERCENT}% in cluster 12" \
   --tip-mapping "${TREE_DIR}/tables/tree_tip_mapping.tsv" \
   --top-n-branch-genes "50"
 
