@@ -210,6 +210,10 @@ tree_marker_plot <- function(layout, cells, marker_df, gene, point_size) {
   p
 }
 
+safe_gene_filename <- function(gene) {
+  gsub("[^A-Za-z0-9]+", "_", gene)
+}
+
 print_usage <- function() {
   cat("Usage: Rscript scripts/27_div90_urd_project_candidate_lineage_markers.R --tree-rds <tree.rds> --outdir <dir>\n")
 }
@@ -376,6 +380,19 @@ save_plot_pair(
   height = 3.2
 )
 
+for (gene in cfg$marker_genes) {
+  p_gene <- tree_marker_plot(layout, cells, marker_df, gene, cfg$point_size) +
+    theme(legend.position = "right")
+  base <- paste0("div90_candidate_marker_tree_overlay_", safe_gene_filename(gene))
+  save_plot_pair(
+    p_gene,
+    file.path(cfg$plot_dir, paste0(base, ".png")),
+    file.path(cfg$plot_dir, paste0(base, ".pdf")),
+    width = 6.2,
+    height = 5.2
+  )
+}
+
 profile_long <- reshape(
   profile_df,
   varying = cfg$marker_genes,
@@ -416,6 +433,7 @@ report <- c(
   "## Outputs",
   "",
   "- `plots/div90_candidate_marker_tree_overlays.png`",
+  "- `plots/div90_candidate_marker_tree_overlay_<GENE>.png` and `.pdf` for each individual marker, with visible logUPX colorbars",
   "- `plots/div90_candidate_and_tip_marker_profile_heatmap.png`",
   "- `tables/div90_candidate_cluster_lineage_assignment.tsv`",
   "- `tables/div90_candidate_cluster_to_tip_profile_correlations.tsv`",

@@ -266,7 +266,52 @@ diffusion_map_dataframe <- function(object, pt_values, annotation_col) {
   eig
 }
 
-plot_diffusion_maps <- function(dm_df, pt_path, annotation_path) {
+save_group_overlay_grid <- function(df, x_col, y_col, group_col, path, title, highlight_color = "#b2182b") {
+  df <- df[is.finite(df[[x_col]]) & is.finite(df[[y_col]]) & !is.na(df[[group_col]]) & nzchar(as.character(df[[group_col]])), , drop = FALSE]
+  groups <- sort(unique(as.character(df[[group_col]])))
+  if (length(groups) == 0) return(FALSE)
+  n_col <- ceiling(sqrt(length(groups)))
+  n_row <- ceiling(length(groups) / n_col)
+  background <- do.call(
+    rbind,
+    lapply(groups, function(group) {
+      data.frame(
+        panel_group = group,
+        x = df[[x_col]],
+        y = df[[y_col]],
+        stringsAsFactors = FALSE
+      )
+    })
+  )
+  highlight <- data.frame(
+    panel_group = as.character(df[[group_col]]),
+    x = df[[x_col]],
+    y = df[[y_col]],
+    stringsAsFactors = FALSE
+  )
+  background$panel_group <- factor(background$panel_group, levels = groups)
+  highlight$panel_group <- factor(highlight$panel_group, levels = groups)
+  p <- ggplot() +
+    geom_point(data = background, aes(x, y), color = "grey86", size = 0.18, alpha = 0.45) +
+    geom_point(data = highlight, aes(x, y), color = highlight_color, size = 0.36, alpha = 0.9) +
+    facet_wrap(~panel_group, ncol = n_col) +
+    coord_equal() +
+    theme_bw(base_size = 8) +
+    theme(
+      panel.grid = element_blank(),
+      strip.background = element_rect(fill = "grey95", color = "grey70"),
+      strip.text = element_text(size = 7, face = "bold"),
+      axis.title = element_blank(),
+      axis.text = element_blank(),
+      axis.ticks = element_blank(),
+      plot.title = element_text(face = "bold")
+    ) +
+    labs(title = title, subtitle = "Grey = all cells in every panel; red = one annotation group highlighted")
+  ggsave(path, p, width = max(8, 2.2 * n_col), height = max(6, 2.0 * n_row), dpi = 260, bg = "white", limitsize = FALSE)
+  TRUE
+}
+
+plot_diffusion_maps <- function(dm_df, pt_path, annotation_path, annotation_grid_path = NULL) {
   p_pt <- ggplot(dm_df, aes(DC1, DC2, color = pseudotime)) +
     geom_point(size = 0.45, alpha = 0.85) +
     scale_color_viridis_c(na.value = "grey85") +
@@ -281,6 +326,9 @@ plot_diffusion_maps <- function(dm_df, pt_path, annotation_path) {
     theme(panel.grid = element_blank(), legend.position = "right") +
     labs(title = "Diffusion map colored by annotation", color = NULL)
   ggsave(annotation_path, p_anno, width = 8, height = 6, dpi = 240, bg = "white")
+  if (!is.null(annotation_grid_path)) {
+    invisible(save_group_overlay_grid(dm_df, "DC1", "DC2", "annotation", annotation_grid_path, "Diffusion map annotation overlays"))
+  }
 }
 
 flood_stability_summary <- function(object, pt_values) {
@@ -503,6 +551,7 @@ paths <- c(
   umap = file.path(plot_dir, "umap_pseudotime.png"),
   dm_pseudotime = file.path(plot_dir, "diffusion_map_pseudotime.png"),
   dm_annotation = file.path(plot_dir, "diffusion_map_annotation.png"),
+  dm_annotation_grid = file.path(plot_dir, "diffusion_map_annotation_grid.png"),
   flood_stability_plot = file.path(plot_dir, "flood_stability.png"),
   tree_visualization = file.path(plot_dir, "tree_visualization.png"),
   cascade_plot = file.path(plot_dir, "gene_cascade_heatmap.png"),
@@ -523,7 +572,7 @@ write_tsv(decision_genes, paths[["decision_genes"]])
 write_tsv(stability_df, paths[["flood_stability"]])
 write_tsv(cascade_df, paths[["cascade"]])
 invisible(plot_umap_pseudotime(meta, pt$values, cfg$annotation_col, paths[["umap"]]))
-invisible(plot_diffusion_maps(dm_df, paths[["dm_pseudotime"]], paths[["dm_annotation"]]))
+invisible(plot_diffusion_maps(dm_df, paths[["dm_pseudotime"]], paths[["dm_annotation"]], paths[["dm_annotation_grid"]]))
 invisible(plot_flood_stability(stability_df, paths[["flood_stability_plot"]]))
 invisible(plot_tree_status(status, paths[["tree_visualization"]]))
 invisible(plot_gene_cascade_heatmap(cascade_df, paths[["cascade_plot"]]))

@@ -197,6 +197,69 @@ plot_tree_layout <- function(object, label_values, label_name, path) {
   ggsave(path, p, width = 8, height = 7, dpi = 240, bg = "white")
 }
 
+plot_tree_annotation_grid <- function(object, label_values, label_name, path, highlight_color = "#b2182b") {
+  layout <- as.data.frame(object@tree$tree.layout, stringsAsFactors = FALSE)
+  cells <- as.data.frame(object@tree$cell.layout, stringsAsFactors = FALSE)
+  cells[[label_name]] <- as.character(label_values[cells$cell])
+  cells <- cells[!is.na(cells[[label_name]]) & nzchar(cells[[label_name]]), , drop = FALSE]
+  groups <- sort(unique(cells[[label_name]]))
+  if (length(groups) == 0) return(FALSE)
+  n_col <- ceiling(sqrt(length(groups)))
+  n_row <- ceiling(length(groups) / n_col)
+  background <- do.call(
+    rbind,
+    lapply(groups, function(group) {
+      data.frame(
+        panel_group = group,
+        x = cells$x,
+        y = cells$y,
+        stringsAsFactors = FALSE
+      )
+    })
+  )
+  highlight <- data.frame(
+    panel_group = cells[[label_name]],
+    x = cells$x,
+    y = cells$y,
+    stringsAsFactors = FALSE
+  )
+  layout_grid <- do.call(
+    rbind,
+    lapply(groups, function(group) {
+      data.frame(panel_group = group, layout, stringsAsFactors = FALSE)
+    })
+  )
+  background$panel_group <- factor(background$panel_group, levels = groups)
+  highlight$panel_group <- factor(highlight$panel_group, levels = groups)
+  layout_grid$panel_group <- factor(layout_grid$panel_group, levels = groups)
+  p <- ggplot() +
+    geom_segment(
+      data = layout_grid,
+      aes(x = x1, y = y1, xend = x2, yend = y2),
+      linewidth = 0.25,
+      color = "grey70",
+      alpha = 0.75
+    ) +
+    geom_point(data = background, aes(x, y), color = "grey86", size = 0.16, alpha = 0.45) +
+    geom_point(data = highlight, aes(x, y), color = highlight_color, size = 0.34, alpha = 0.9) +
+    facet_wrap(~panel_group, ncol = n_col) +
+    coord_equal() +
+    theme_void(base_size = 8) +
+    theme(
+      plot.background = element_rect(fill = "white", color = NA),
+      strip.background = element_rect(fill = "grey95", color = "grey70"),
+      strip.text = element_text(size = 7, face = "bold"),
+      plot.title = element_text(face = "bold"),
+      plot.subtitle = element_text(size = 9)
+    ) +
+    labs(
+      title = paste("URD tree", label_name, "overlays"),
+      subtitle = "Grey = all tree cells/branches in every panel; red = one annotation group highlighted"
+    )
+  ggsave(path, p, width = max(8, 2.2 * n_col), height = max(6, 2.0 * n_row), dpi = 260, bg = "white", limitsize = FALSE)
+  TRUE
+}
+
 write_report <- function(path, tree_rds, dataset_label, root_label, status, tip_mapping, tip_comp, joins, branch_gene_path) {
   lines <- c(
     paste0("# ", dataset_label, " URD Lineage Tree Report"),
@@ -261,6 +324,7 @@ names(annotation) <- rownames(urd@meta)
 pt <- as.numeric(urd@pseudotime[, opt$`pseudotime-name`])
 names(pt) <- rownames(urd@pseudotime)
 plot_tree_layout(urd, annotation, opt$`annotation-col`, file.path(plot_dir, "urd_tree_annotation.png"))
+invisible(plot_tree_annotation_grid(urd, annotation, opt$`annotation-col`, file.path(plot_dir, "urd_tree_annotation_grid.png")))
 plot_tree_layout(urd, pt, "pseudotime", file.path(plot_dir, "urd_tree_pseudotime.png"))
 
 write_report(

@@ -1,0 +1,118 @@
+#!/bin/bash
+# Regenerate post-hoc URD plots/reports from saved RDS objects.
+#
+# This does not rerun URD geometry, flooding, random walks, or buildTree().
+# It refreshes visualization/report layers after plotting-code changes.
+#
+# Submit:
+#   sbatch slurm_templates/36_refresh_urd_posthoc_plots.sbatch.template
+
+#SBATCH --job-name=urd_plot_refresh
+#SBATCH --time=06:00:00
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=160G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/36_refresh_urd_posthoc_plots_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/36_refresh_urd_posthoc_plots_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+set -euo pipefail
+set -x
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+CONDA_BASE="${CONDA_BASE:-/home/elcrespo/miniconda3}"
+CONDA_ENV="${CONDA_ENV:-mge-organoid-python}"
+R_MODULE="${R_MODULE:-R/4.4.3}"
+
+DIV30_ROOTSCORE_DIR="${DIV30_ROOTSCORE_DIR:-${PROJECT_ROOT}/results/div30_first_urd/div30_first_urd_paper_radial_glia_30k_checkpoint_v2/jia_rootscore_root10_radial_glia_pool_v1}"
+DIV30_REFLOOD_DIR="${DIV30_REFLOOD_DIR:-${DIV30_ROOTSCORE_DIR}/reflood_top10pct_v1}"
+DIV90_ROOT="${DIV90_ROOT:-${PROJECT_ROOT}/results/div90_jia_lineage_urd/div90_urd_jia_lineage_full_v4_glia_tips_root10_v1}"
+DIV90_TREE_DIR="${DIV90_TREE_DIR:-${DIV90_ROOT}/lineage_tree_jia_endpoint_tips_v1}"
+DIV90_TREE_CLUSTER_NAME_DIR="${DIV90_TREE_CLUSTER_NAME_DIR:-${DIV90_ROOT}/lineage_tree_cluster_number_name_v1}"
+DIV90_S11_DIR="${DIV90_S11_DIR:-${DIV90_ROOT}/jia_fig_s11_style_marker_validation_v1}"
+DIV90_CANDIDATE_MARKER_DIR="${DIV90_CANDIDATE_MARKER_DIR:-${DIV90_ROOT}/candidate_pv_marker_projection_v1}"
+
+echo "=== URD post-hoc plot refresh context ==="
+date
+hostname
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "DIV30_REFLOOD_DIR=${DIV30_REFLOOD_DIR}"
+echo "DIV90_ROOT=${DIV90_ROOT}"
+
+module load "${R_MODULE}"
+module list 2>&1
+Rscript --version
+which Rscript
+
+Rscript "${REPO_ROOT}/scripts/15_div30_urd_lineage_decision_report.R" \
+  --urd-rds "${DIV30_REFLOOD_DIR}/div30_urd_reflood_object.rds" \
+  --outdir "${DIV30_REFLOOD_DIR}/lineage_decision_report" \
+  --annotation-col "paper_cluster_annotation" \
+  --pseudotime-name "jia_rootscore_top10pct_radial_glia_root" \
+  --root-col "jia_rootscore_selected_root" \
+  --dataset-label "DIV30 Jia RootScore top 10% within Radial glia" \
+  --top-n "50" \
+  --correlation-genes "variable"
+
+Rscript "${REPO_ROOT}/scripts/15_div30_urd_lineage_decision_report.R" \
+  --urd-rds "${DIV90_ROOT}/div30_first_urd_object.rds" \
+  --outdir "${DIV90_ROOT}/lineage_decision_report" \
+  --annotation-col "cluster_number_name" \
+  --pseudotime-name "div90_jia_rootscore_root" \
+  --root-col "urd_root_candidate" \
+  --dataset-label "DIV90 Jia-lineage/glia-tip smoke" \
+  --top-n "50" \
+  --correlation-genes "variable"
+
+Rscript "${REPO_ROOT}/scripts/17_div30_urd_finalize_lineage_tree_report.R" \
+  --tree-rds "${DIV90_TREE_DIR}/div30_urd_lineage_tree_object.rds" \
+  --outdir "${DIV90_TREE_DIR}" \
+  --annotation-col "div90_jia_tip_group" \
+  --pseudotime-name "div90_jia_rootscore_root" \
+  --dataset-label "DIV90 Jia-lineage/glia-tip smoke" \
+  --root-label "DIV90 Jia RootScore top 10% in cluster 12" \
+  --tip-mapping "${DIV90_TREE_DIR}/tables/tree_tip_mapping.tsv" \
+  --top-n-branch-genes "50"
+
+Rscript "${REPO_ROOT}/scripts/17_div30_urd_finalize_lineage_tree_report.R" \
+  --tree-rds "${DIV90_TREE_DIR}/div30_urd_lineage_tree_object.rds" \
+  --outdir "${DIV90_TREE_CLUSTER_NAME_DIR}" \
+  --annotation-col "cluster_number_name" \
+  --pseudotime-name "div90_jia_rootscore_root" \
+  --dataset-label "DIV90 cluster-name-colored smoke" \
+  --root-label "DIV90 Jia RootScore top 10% in cluster 12" \
+  --tip-mapping "${DIV90_TREE_DIR}/tables/tree_tip_mapping.tsv" \
+  --top-n-branch-genes "50"
+
+Rscript "${REPO_ROOT}/scripts/25_div30_urd_jia_fig_s11_marker_validation.R" \
+  --tree-rds "${DIV90_TREE_DIR}/div30_urd_lineage_tree_object.rds" \
+  --outdir "${DIV90_S11_DIR}"
+
+Rscript "${REPO_ROOT}/scripts/27_div90_urd_project_candidate_lineage_markers.R" \
+  --tree-rds "${DIV90_TREE_DIR}/div30_urd_lineage_tree_object.rds" \
+  --outdir "${DIV90_CANDIDATE_MARKER_DIR}" \
+  --annotation-col "cluster_number_name" \
+  --cluster-col "cluster_id_numeric" \
+  --tip-group-col "div90_jia_tip_group" \
+  --candidate-clusters "3,11" \
+  --marker-genes "MEF2C,EPHA5,LHX6,CRABP1,LHX8,NR2F1,NR2F2"
+
+source "${CONDA_BASE}/etc/profile.d/conda.sh"
+conda activate "${CONDA_ENV}"
+
+python "${REPO_ROOT}/python_notebooks/scripts/audit_urd_run_outputs.py" \
+  --run-root "${DIV30_ROOTSCORE_DIR}" \
+  --mode "div30_root10" \
+  --selected-pct "10" \
+  --outdir "${DIV30_ROOTSCORE_DIR}/tables"
+
+python "${REPO_ROOT}/python_notebooks/scripts/audit_urd_run_outputs.py" \
+  --run-root "${DIV90_ROOT}" \
+  --mode "div90_jia" \
+  --outdir "${DIV90_ROOT}/tables"
+
+echo "=== URD post-hoc plot refresh complete ==="
+date
+find "${DIV30_ROOTSCORE_DIR}" "${DIV90_ROOT}" -maxdepth 4 -type f \( -name '*grid*.png' -o -name '*overlay*.png' -o -name 'urd_output_manifest*.tsv' \) | sort

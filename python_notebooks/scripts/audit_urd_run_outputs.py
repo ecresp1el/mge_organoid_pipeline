@@ -76,6 +76,7 @@ def decision_report(prefix: str = "lineage_decision_report") -> list[ExpectedArt
         "umap_pseudotime.png",
         "diffusion_map_pseudotime.png",
         "diffusion_map_annotation.png",
+        "diffusion_map_annotation_grid.png",
         "flood_stability.png",
         "tree_visualization.png",
         "gene_cascade_heatmap.png",
@@ -110,6 +111,7 @@ def lineage_tree(prefix: str) -> list[ExpectedArtifact]:
         ExpectedArtifact(f"{base}/tables/pseudotime_logistic_parameters.tsv", "lineage_tree", "table", True, "URD pseudotime logistic parameters."),
         ExpectedArtifact(f"{base}/plots/pseudotime_logistic.png", "lineage_tree", "plot", True, "Pseudotime transition logistic plot."),
         ExpectedArtifact(f"{base}/plots/urd_tree_annotation.png", "lineage_tree", "plot", True, "URD tree colored by annotation."),
+        ExpectedArtifact(f"{base}/plots/urd_tree_annotation_grid.png", "lineage_tree", "plot", True, "Faceted tree annotation overlays, one group highlighted per panel."),
         ExpectedArtifact(f"{base}/plots/urd_tree_pseudotime.png", "lineage_tree", "plot", True, "URD tree colored by pseudotime."),
     ]
 
@@ -123,6 +125,7 @@ def finalized_tree_report(prefix: str, stage: str) -> list[ExpectedArtifact]:
         ExpectedArtifact(f"{base}/tables/tree_tip_composition.tsv", stage, "table", True, "Tip composition table."),
         ExpectedArtifact(f"{base}/tables/branch_specific_genes.tsv", stage, "table", True, "Tip-vs-other branch marker table."),
         ExpectedArtifact(f"{base}/plots/urd_tree_annotation.png", stage, "plot", True, "URD tree colored by annotation."),
+        ExpectedArtifact(f"{base}/plots/urd_tree_annotation_grid.png", stage, "plot", True, "Faceted tree annotation overlays, one group highlighted per panel."),
         ExpectedArtifact(f"{base}/plots/urd_tree_pseudotime.png", stage, "plot", True, "URD tree colored by pseudotime."),
     ]
 
@@ -143,7 +146,8 @@ def div90_inputs() -> list[ExpectedArtifact]:
 
 def jia_fig_s11(prefix: str = "jia_fig_s11_style_marker_validation_v1") -> list[ExpectedArtifact]:
     base = prefix.rstrip("/")
-    return [
+    genes = ["HES1", "CACNA1E", "DLX2", "DCX", "LHX8", "NR2F1", "EPHA5", "MEF2C", "CRABP1"]
+    artifacts = [
         ExpectedArtifact(f"{base}/jia_fig_s11_style_marker_validation_report.md", "marker_validation", "report", True, "Jia Fig. S11-style marker validation report."),
         ExpectedArtifact(f"{base}/tables/jia_fig_s11_marker_order.tsv", "marker_validation", "table", True, "Jia marker order/specification."),
         ExpectedArtifact(f"{base}/tables/jia_fig_s11_marker_expression_summary.tsv", "marker_validation", "table", True, "Jia marker expression summary."),
@@ -153,11 +157,16 @@ def jia_fig_s11(prefix: str = "jia_fig_s11_style_marker_validation_v1") -> list[
         ExpectedArtifact(f"{base}/plots/jia_fig_s11_panel_a_developmental_markers.png", "marker_validation", "plot", True, "Jia panel A developmental marker PNG."),
         ExpectedArtifact(f"{base}/plots/jia_fig_s11_panel_b_lineage_markers.png", "marker_validation", "plot", True, "Jia panel B lineage marker PNG."),
     ]
+    for gene in genes:
+        artifacts.append(ExpectedArtifact(f"{base}/plots/jia_fig_s11_marker_tree_overlay_{gene}.png", "marker_validation", "plot", True, f"Individual Jia marker tree overlay for {gene}, PNG."))
+        artifacts.append(ExpectedArtifact(f"{base}/plots/jia_fig_s11_marker_tree_overlay_{gene}.pdf", "marker_validation", "plot", True, f"Individual Jia marker tree overlay for {gene}, PDF."))
+    return artifacts
 
 
 def div90_candidate_markers(prefix: str = "candidate_pv_marker_projection_v1") -> list[ExpectedArtifact]:
     base = prefix.rstrip("/")
-    return [
+    genes = ["MEF2C", "EPHA5", "LHX6", "CRABP1", "LHX8", "NR2F1", "NR2F2"]
+    artifacts = [
         ExpectedArtifact(f"{base}/div90_candidate_marker_projection_report.md", "candidate_marker_projection", "report", True, "DIV90 candidate marker projection report."),
         ExpectedArtifact(f"{base}/tables/div90_candidate_marker_expression_by_cell.tsv.gz", "candidate_marker_projection", "table", True, "Candidate marker expression by tree cell."),
         ExpectedArtifact(f"{base}/tables/div90_candidate_marker_expression_by_cell_with_metadata.tsv.gz", "candidate_marker_projection", "table", True, "Candidate marker expression plus metadata."),
@@ -174,6 +183,10 @@ def div90_candidate_markers(prefix: str = "candidate_pv_marker_projection_v1") -
         ExpectedArtifact(f"{base}/plots/div90_candidate_and_tip_marker_profile_heatmap.png", "candidate_marker_projection", "plot", True, "Candidate/tip profile heatmap PNG."),
         ExpectedArtifact(f"{base}/plots/div90_candidate_and_tip_marker_profile_heatmap.pdf", "candidate_marker_projection", "plot", True, "Candidate/tip profile heatmap PDF."),
     ]
+    for gene in genes:
+        artifacts.append(ExpectedArtifact(f"{base}/plots/div90_candidate_marker_tree_overlay_{gene}.png", "candidate_marker_projection", "plot", True, f"Individual DIV90 candidate marker tree overlay for {gene}, PNG."))
+        artifacts.append(ExpectedArtifact(f"{base}/plots/div90_candidate_marker_tree_overlay_{gene}.pdf", "candidate_marker_projection", "plot", True, f"Individual DIV90 candidate marker tree overlay for {gene}, PDF."))
+    return artifacts
 
 
 def root_score_outputs(selected_pct: str) -> list[ExpectedArtifact]:

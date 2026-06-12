@@ -225,6 +225,55 @@ Current manifest summaries while jobs are still running:
 | DIV30 | `div30_root10` | 35 | 16 | 19 | RootScore layer exists; reflood object and reflood decision-report plots/tables are pending. |
 | DIV90 | `div90_jia` | 77 | 12 | 64 | Input/export layer and Slurm heartbeat exist; initial URD, decision report, lineage-tree, Jia marker-validation, and candidate-marker outputs are pending. |
 
+## Plot Refresh: Annotation Grids And Marker Overlays
+
+Submitted: 2026-06-12 14:34 EDT
+
+| Job ID | Job name | Purpose |
+|---:|---|---|
+| 51718989 | `urd_plot_refresh` | Regenerate post-hoc plots/reports from completed saved RDS objects after plotting-code updates. Does not rerun PCA, diffusion maps, floods, random walks, or `buildTree()`. |
+
+Template:
+
+```text
+slurm_templates/36_refresh_urd_posthoc_plots.sbatch.template
+```
+
+Log:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/36_refresh_urd_posthoc_plots_51718989.log
+```
+
+New annotation-grid contract:
+
+```text
+lineage_decision_report/plots/diffusion_map_annotation.png
+lineage_decision_report/plots/diffusion_map_annotation_grid.png
+```
+
+The first file remains the original all-groups-colored diffusion map. The new `*_grid.png` file facets by annotation group; each panel shows all cells in grey and highlights only one group in red.
+
+```text
+lineage_tree_jia_endpoint_tips_v1/plots/urd_tree_annotation.png
+lineage_tree_jia_endpoint_tips_v1/plots/urd_tree_annotation_grid.png
+lineage_tree_cluster_number_name_v1/plots/urd_tree_annotation.png
+lineage_tree_cluster_number_name_v1/plots/urd_tree_annotation_grid.png
+```
+
+The first tree file remains the original all-groups-colored tree. The new `*_grid.png` file facets by annotation group; each panel shows all tree branches/cells in grey and highlights only one group in red.
+
+New individual marker-intensity overlay contract:
+
+```text
+jia_fig_s11_style_marker_validation_v1/plots/jia_fig_s11_marker_tree_overlay_<GENE>.png
+jia_fig_s11_style_marker_validation_v1/plots/jia_fig_s11_marker_tree_overlay_<GENE>.pdf
+candidate_pv_marker_projection_v1/plots/div90_candidate_marker_tree_overlay_<GENE>.png
+candidate_pv_marker_projection_v1/plots/div90_candidate_marker_tree_overlay_<GENE>.pdf
+```
+
+Each individual marker overlay shows the full URD tree/branches with marker intensity as logUPX and a visible colorbar. This is separate from the compact multi-gene panel files, which are useful for overview but harder to audit quantitatively.
+
 ## Logs
 
 ```text

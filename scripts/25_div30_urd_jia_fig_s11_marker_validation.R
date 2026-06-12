@@ -186,6 +186,10 @@ panel_plots <- function(layout, cells, marker_df, spec, point_size) {
   })
 }
 
+safe_gene_filename <- function(gene) {
+  gsub("[^A-Za-z0-9]+", "_", gene)
+}
+
 print_usage <- function() {
   cat("Usage: Rscript scripts/25_div30_urd_jia_fig_s11_marker_validation.R --tree-rds <tree.rds> --outdir <dir>\n")
 }
@@ -250,6 +254,24 @@ save_plot_pair(panel_a_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_a_dev
 save_plot_pair(panel_b_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.pdf"), width = 13, height = 3.2)
 save_plot_pair(combined, file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.png"), file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.pdf"), width = 13, height = 6.6)
 
+for (i in seq_len(nrow(spec))) {
+  gene <- spec$gene[[i]]
+  subtitle <- if (spec$panel[[i]] == "A_developmental_progression") {
+    spec$category[[i]]
+  } else {
+    paste(spec$lineage_pair[[i]], spec$terminal_identity[[i]], sep = "\n")
+  }
+  p_gene <- tree_marker_plot(layout, cells, marker_df, gene, subtitle, cfg$point_size, show_legend = TRUE)
+  base <- paste0("jia_fig_s11_marker_tree_overlay_", safe_gene_filename(gene))
+  save_plot_pair(
+    p_gene,
+    file.path(cfg$plot_dir, paste0(base, ".png")),
+    file.path(cfg$plot_dir, paste0(base, ".pdf")),
+    width = 6.2,
+    height = 5.2
+  )
+}
+
 report <- c(
   "# Jia Fig. S11-Style URD Marker Validation",
   "",
@@ -284,6 +306,7 @@ report <- c(
   "- `plots/jia_fig_s11_style_urd_marker_validation.pdf`",
   "- `plots/jia_fig_s11_panel_a_developmental_markers.png`",
   "- `plots/jia_fig_s11_panel_b_lineage_markers.png`",
+  "- `plots/jia_fig_s11_marker_tree_overlay_<GENE>.png` and `.pdf` for each individual marker, with visible logUPX colorbars",
   "- `tables/jia_fig_s11_marker_order.tsv`",
   "- `tables/jia_fig_s11_marker_expression_summary.tsv`",
   "",
