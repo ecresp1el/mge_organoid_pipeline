@@ -32,7 +32,8 @@ set -x
 
 REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
 PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
-R_MODULE="${R_MODULE:-R/4.4.3}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+RSCRIPT="${RSCRIPT:-${CONDA_ENV_BIN}/Rscript}"
 
 RUN_LABEL="${RUN_LABEL:-div30_jia_progenitor_reclustering_phase1_v1}"
 SEURAT_RDS="${SEURAT_RDS:-${PROJECT_ROOT}/results/varela_this_paper/varela_this_paper_seurat.rds}"
@@ -61,7 +62,8 @@ echo "SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-}"
 echo "SLURM_MEM_PER_NODE=${SLURM_MEM_PER_NODE:-}"
 echo "PROJECT_ROOT=${PROJECT_ROOT}"
 echo "REPO_ROOT=${REPO_ROOT}"
-echo "R_MODULE=${R_MODULE}"
+echo "CONDA_ENV_BIN=${CONDA_ENV_BIN}"
+echo "RSCRIPT=${RSCRIPT}"
 echo "RUN_LABEL=${RUN_LABEL}"
 echo "SEURAT_RDS=${SEURAT_RDS}"
 echo "JIA_SCORES=${JIA_SCORES}"
@@ -78,15 +80,15 @@ echo "MARKER_MIN_PCT=${MARKER_MIN_PCT}"
 echo "MARKER_LOGFC_THRESHOLD=${MARKER_LOGFC_THRESHOLD}"
 echo "TOP_N_MARKERS=${TOP_N_MARKERS}"
 
-module load "${R_MODULE}"
-module list 2>&1
-Rscript --version
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+
+echo "Rscript: $("${RSCRIPT}" --version 2>&1 | head -n 1)"
 which Rscript
 
-Rscript -e 'pkgs <- c("Seurat", "SeuratObject", "Matrix", "ggplot2"); status <- sapply(pkgs, requireNamespace, quietly=TRUE); print(data.frame(package=pkgs, installed=status), row.names=FALSE); quit(status=ifelse(all(status), 0, 1))'
-Rscript -e "invisible(parse(file='${REPO_ROOT}/scripts/28_div30_jia_progenitor_reclustering.R')); cat('R parse ok\n')"
+"${RSCRIPT}" -e 'pkgs <- c("Seurat", "SeuratObject", "Matrix", "ggplot2"); status <- sapply(pkgs, requireNamespace, quietly=TRUE); print(data.frame(package=pkgs, installed=status), row.names=FALSE); quit(status=ifelse(all(status), 0, 1))'
+"${RSCRIPT}" -e "invisible(parse(file='${REPO_ROOT}/scripts/28_div30_jia_progenitor_reclustering.R')); cat('R parse ok\n')"
 
-Rscript "${REPO_ROOT}/scripts/28_div30_jia_progenitor_reclustering.R" \
+"${RSCRIPT}" "${REPO_ROOT}/scripts/28_div30_jia_progenitor_reclustering.R" \
   --project-root "${PROJECT_ROOT}" \
   --seurat-rds "${SEURAT_RDS}" \
   --jia-scores "${JIA_SCORES}" \
