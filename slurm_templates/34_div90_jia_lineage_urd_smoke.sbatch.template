@@ -5,6 +5,8 @@
 # biology:
 #   - Root: top RootScore cells inside cluster 12 Dividing cells.
 #   - Tips: Jia endpoint approximations, not broad SST/PV/MGE labels.
+#   - v2 tip correction: cluster 2 is the CRABP1/ANGPT2-like tip, while
+#     clusters 3 and 11 stay in the manifold as retained unassigned candidates.
 #   - Outputs: first-URD pseudotime object, smoke panel, URD tree, tree report,
 #     branch/tip tables, and Jia Fig. S11-style marker-expression validation.
 #
@@ -12,9 +14,9 @@
 #   sbatch slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
 
 #SBATCH --job-name=div90_jia_urd
-#SBATCH --time=48:00:00
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=160G
+#SBATCH --time=04:00:00
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=32G
 #SBATCH --nodes=1
 #SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_%j.log
 #SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_%j.log
@@ -30,7 +32,7 @@ CONDA_BASE="/home/elcrespo/miniconda3"
 CONDA_ENV="${CONDA_ENV:-mge-organoid-python}"
 R_MODULE="${R_MODULE:-R/4.4.3}"
 
-RUN_LABEL="${RUN_LABEL:-div90_urd_jia_lineage_smoke5k_knn100_v1}"
+RUN_LABEL="${RUN_LABEL:-div90_urd_jia_lineage_smoke5k_knn100_v2_crabp1_tip}"
 MAX_CELLS="${MAX_CELLS:-5000}"
 SEED="${SEED:-7}"
 URD_SEED="${URD_SEED:-${SEED}}"
@@ -65,8 +67,9 @@ RUN_ROOT="${PROJECT_ROOT}/results/div90_jia_lineage_urd/${RUN_LABEL}"
 INPUT_DIR="${RUN_ROOT}/inputs"
 TREE_DIR="${RUN_ROOT}/lineage_tree_jia_endpoint_tips_v1"
 S11_DIR="${RUN_ROOT}/jia_fig_s11_style_marker_validation_v1"
+CANDIDATE_MARKER_DIR="${RUN_ROOT}/candidate_pv_marker_projection_v1"
 
-mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${RUN_ROOT}" "${INPUT_DIR}" "${TREE_DIR}" "${S11_DIR}"
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${RUN_ROOT}" "${INPUT_DIR}" "${TREE_DIR}" "${S11_DIR}" "${CANDIDATE_MARKER_DIR}"
 
 echo "=== DIV90 Jia-lineage URD smoke Slurm context ==="
 date
@@ -144,7 +147,7 @@ Rscript "${REPO_ROOT}/scripts/16_div30_urd_build_lineage_tree.R" \
   --root-label "DIV90 Jia RootScore top ${DIV90_ROOT_TOP_PERCENT}% in cluster 12" \
   --root-col "urd_root_candidate" \
   --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
-  --tip-labels "tip_lhx8_isl1,tip_epha5_mef2c,tip_lhx6_nfia" \
+  --tip-labels "tip_lhx8_isl1,tip_lhx6_nfia,tip_crabp1_angpt2" \
   --n-per-tip "${TREE_N_PER_TIP}" \
   --process-n-subsample "${TREE_PROCESS_N_SUBSAMPLE}" \
   --cells-per-pseudotime-bin "${TREE_CELLS_PER_PSEUDOTIME_BIN}" \
@@ -169,6 +172,15 @@ Rscript "${REPO_ROOT}/scripts/17_div30_urd_finalize_lineage_tree_report.R" \
 Rscript "${REPO_ROOT}/scripts/25_div30_urd_jia_fig_s11_marker_validation.R" \
   --tree-rds "${TREE_DIR}/div30_urd_lineage_tree_object.rds" \
   --outdir "${S11_DIR}"
+
+Rscript "${REPO_ROOT}/scripts/27_div90_urd_project_candidate_lineage_markers.R" \
+  --tree-rds "${TREE_DIR}/div30_urd_lineage_tree_object.rds" \
+  --outdir "${CANDIDATE_MARKER_DIR}" \
+  --annotation-col "cluster_number_name" \
+  --cluster-col "cluster_id_numeric" \
+  --tip-group-col "div90_jia_tip_group" \
+  --candidate-clusters "3,11" \
+  --marker-genes "MEF2C,EPHA5,LHX6,CRABP1,LHX8,NR2F1,NR2F2"
 
 echo "=== DIV90 Jia-lineage URD smoke complete ==="
 date

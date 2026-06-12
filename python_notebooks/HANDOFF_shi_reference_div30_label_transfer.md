@@ -686,6 +686,139 @@ cosine kNN. It is retained only to explain the completed
 `shi_reference_div30_label_transfer_v2` run and now requires an explicit
 `allow_legacy_knn_scoring=True` opt-in in code.
 
+## Original Shi 2019 Source/Reference Contents
+
+Keep this distinction explicit for methods and discussion:
+
+```text
+The original Shi 2019 GEO download is not a deposited Seurat object with
+prediction scores. It is a raw-count matrix with gestational-week information
+encoded in cell/barcode suffixes, plus GEO series metadata:
+
+data/raw/shi_2019_geo_files/suppl/GSE135827_GE_mat_raw_count_with_week_info.txt.gz
+data/raw/shi_2019_geo_files/suppl/GSE135827_RAW.tar
+data/raw/shi_2019_geo_files/matrix/GSE135827_series_matrix.txt.gz
+data/raw/shi_2019_geo_files/miniml/GSE135827_family.xml.tgz
+data/raw/shi_2019_geo_files/soft/GSE135827_family.soft.gz
+```
+
+Standalone Shi GEO object built from that matrix:
+
+```text
+results/shi_2019/shi_2019_seurat.rds
+
+n_cells:         56,412
+n_features:      21,289
+reductions:      pca, umap
+clusters:        25
+weeks detected:  GW09, GW12_01, GW12_02, GW13, GW16, GW18_01
+
+metadata columns:
+  orig.ident
+  nCount_RNA
+  nFeature_RNA
+  raw_cell_id
+  has_duplicated_raw_cell_id
+  study_id
+  week_label
+  week_numeric
+  barcode
+  percent.mt
+  RNA_snn_res.0.8
+  seurat_clusters
+```
+
+Paper-QC Shi GEO object:
+
+```text
+results/shi_2019_paper_qc/shi_2019_seurat.rds
+
+cells before QC:        56,412
+cells after paper QC:   56,136
+features after QC:      21,191
+reductions:             pca, umap
+clusters:               25
+weeks detected:         GW09, GW12_01, GW12_02, GW13, GW16, GW18_01
+
+additional metadata compared with the default object:
+  percent.hb
+```
+
+Shi major labels used as Seurat TransferData reference labels:
+
+```text
+The major cell-type labels were attached from the Shi supplementary annotation
+table, not inferred from a downloaded prediction-score matrix.
+
+Join summary:
+  reference cells:              56,136
+  table S2 label rows:          56,412
+  matched reference cells:      55,704
+  unmatched reference cells:       432
+  matched reference fraction:   99.23%
+
+Full matched Table S2 label counts:
+  MGE                15,321
+  progenitor         12,041
+  LGE                11,767
+  CGE                 7,128
+  Thalamic neurons    4,212
+  Excitatory neuron   3,736
+  Excitatory IPC      1,065
+  Microglia             232
+  OPC                   163
+  Endothelial            39
+```
+
+Cross-study v2 Shi reference actually used by Seurat TransferData:
+
+```text
+For cross-study v2, the reference was restricted to cells with both a major
+Shi label and a gestational-week label. This gives 38,831 reference cells:
+
+  MGE                10,446
+  progenitor          8,278
+  LGE                 6,879
+  CGE                 4,322
+  Thalamic neurons    4,212
+  Excitatory neuron   3,388
+  Excitatory IPC        937
+  Microglia             196
+  OPC                   136
+  Endothelial            37
+
+Week labels in the cross-study v2 reference:
+  GW09      5,251
+  GW12_01   6,704
+  GW12_02  10,454
+  GW13      5,426
+  GW16      6,179
+  GW18_01   4,817
+```
+
+GE-only age reference used in cross-study v2:
+
+```text
+The GE-only week classifier reruns FindTransferAnchors/TransferData using only
+MGE/LGE/CGE Shi reference cells. Counts by label/week:
+
+  MGE GW09:     1,564   LGE GW09:     1,025   CGE GW09:       86
+  MGE GW12_01:  1,310   LGE GW12_01:  1,425   CGE GW12_01:   477
+  MGE GW12_02:  1,513   LGE GW12_02:  1,484   CGE GW12_02:   471
+  MGE GW13:     1,947   LGE GW13:     1,063   CGE GW13:      532
+  MGE GW16:     2,110   LGE GW16:     1,359   CGE GW16:    1,317
+  MGE GW18_01:  2,002   LGE GW18_01:    523   CGE GW18_01: 1,439
+```
+
+Methods implication:
+
+```text
+Shi supplies the biological reference labels and week labels used as refdata.
+Our `shi_seurat_*prediction_score*` columns are newly computed Seurat
+TransferData support scores from those reference labels. They are not original
+Shi author score columns downloaded from GEO.
+```
+
 2026-06-09 implementation update:
 
 ```text
@@ -2968,6 +3101,8 @@ bershteyn_2025_author_vs_our_shi_prediction_summary.tsv
 bershteyn_2025_author_score_like_object_inventory.tsv
 bershteyn_2025_author_metadata_schema.tsv
 bershteyn_2025_author_object_top_level_slots.tsv
+bershteyn_2025_author_vs_our_label_vocabulary.tsv
+bershteyn_2025_author_vs_our_label_set_comparison.tsv
 bershteyn_2025_author_vs_our_shi_prediction_distributions.tsv
 bershteyn_2025_author_vs_our_shi_prediction_coarse_comparison.tsv
 bershteyn_2025_author_vs_our_shi_prediction_cell_level_confusion.tsv
@@ -3097,6 +3232,89 @@ by MGE:
 
 This means the strong agreement is specifically a coarse MGE identity result,
 not proof that the two pipelines have identical full label vocabularies.
+```
+
+Complete label vocabulary:
+
+```text
+Full machine-readable tables:
+  bershteyn_2025_author_vs_our_label_vocabulary.tsv
+  bershteyn_2025_author_vs_our_label_set_comparison.tsv
+
+Author columns and labels:
+
+  predicted.GEtype:
+    MGE 123,054 (98.77%)
+    CGE   1,059 (0.85%)
+    POA     378 (0.30%)
+    LGE      76 (0.06%)
+    EN       15 (0.01%)
+    NPC       1 (<0.01%)
+
+  predicted.GEcluster:
+    MGE0    122,182 (98.07%)
+    CGE1      1,070 (0.86%)
+    MGElhx8     766 (0.61%)
+    POA        425 (0.34%)
+    LGE7        88 (0.07%)
+    ENs         25 (0.02%)
+    MGE9        23 (0.02%)
+    LGE8         2 (<0.01%)
+    NPC          1 (<0.01%)
+    LGE5         1 (<0.01%)
+
+  predicted.GEgws, normalized:
+    GW18 112,488 (90.29%)
+    GW16   4,449 (3.57%)
+    GW12   3,919 (3.15%)
+    GW13   2,374 (1.91%)
+    GW09   1,353 (1.09%)
+
+  predicted.macaclass:
+    MGE_LHX6/MAF     90,660 (72.77%)
+    MGE_LHX6/NPY     31,255 (25.09%)
+    VMF_ZIC1/ZIC2     2,657 (2.13%)
+    MGE_CRABP1/MAF        7 (<0.01%)
+    CGE_NR2F2/PROX1       4 (<0.01%)
+
+  predicted.musclass:
+    MGE_LHX6/MAF    107,623 (86.39%)
+    MGE_LHX6/NPY     10,826 (8.69%)
+    VMF_PEG10/DLK1    3,732 (3.00%)
+    LGE_FOXP1/ISL1    1,458 (1.17%)
+    VMF_TMEM163/OTP     473 (0.38%)
+    VMF_CRABP1/LHX8     466 (0.37%)
+    VMF_NR2F2/LHX6        3 (<0.01%)
+    VMF_LHX1/POU6F2       2 (<0.01%)
+
+  type:
+    LHX6/MAF/ZEB2   114,958 (92.27%)
+    LHX6/SST/NPY      7,955 (6.39%)
+    LHX6/ENC1/LHX8    1,670 (1.34%)
+
+Our columns and labels:
+
+  shi_seurat_full_predicted_shi_label:
+    MGE                121,660 (97.65%)
+    Excitatory neuron    1,537 (1.23%)
+    LGE                  1,354 (1.09%)
+    CGE                     25 (0.02%)
+    Thalamic neurons         4 (<0.01%)
+    progenitor               3 (<0.01%)
+
+  our_full_week_normalized:
+    GW09 82,301 (66.06%)
+    GW12 40,305 (32.35%)
+    GW16    962 (0.77%)
+    GW13    661 (0.53%)
+    GW18    354 (0.28%)
+
+  our_ge_only_week_normalized:
+    GW09 92,355 (74.13%)
+    GW12 30,733 (24.67%)
+    GW16    761 (0.61%)
+    GW13    626 (0.50%)
+    GW18    108 (0.09%)
 ```
 
 Coarse comparison:

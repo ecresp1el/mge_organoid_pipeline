@@ -31,7 +31,7 @@ from scipy import sparse
 
 
 DEFAULT_PROJECT_ROOT = Path("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder")
-DEFAULT_RUN_LABEL = "div90_urd_jia_lineage_smoke5k_knn100_v1"
+DEFAULT_RUN_LABEL = "div90_urd_jia_lineage_smoke5k_knn100_v2_crabp1_tip"
 DEFAULT_MAX_CELLS = 5_000
 DEFAULT_ROOT_TOP_PERCENT = 2.0
 DEFAULT_ROOT_MIN_CELLS = 8
@@ -42,17 +42,17 @@ TIP_BY_CLUSTER = {
     0: "tip_lhx8_isl1",
     5: "tip_lhx8_isl1",
     8: "tip_lhx8_isl1",
-    2: "tip_epha5_mef2c",
-    3: "tip_epha5_mef2c",
-    11: "tip_epha5_mef2c",
     1: "tip_lhx6_nfia",
+    2: "tip_crabp1_angpt2",
 }
 
 TIP_DISPLAY = {
     "tip_lhx8_isl1": "LHX8/ISL1-like lineage",
-    "tip_epha5_mef2c": "EPHA5/MEF2C-like lineage",
     "tip_lhx6_nfia": "LHX6/NFIA-like lineage",
+    "tip_crabp1_angpt2": "CRABP1/ANGPT2-like lineage",
 }
+
+RETAINED_UNASSIGNED_CANDIDATE_CLUSTERS = {3, 11}
 
 
 def parse_args() -> argparse.Namespace:
@@ -252,11 +252,15 @@ def score_programs_and_root(
 def add_lineage_roles(metadata: pd.DataFrame) -> pd.DataFrame:
     metadata["div90_jia_tip_group"] = metadata["cluster_id_numeric"].map(TIP_BY_CLUSTER)
     metadata["div90_jia_tip_display"] = metadata["div90_jia_tip_group"].map(TIP_DISPLAY)
-    metadata["div90_jia_urd_role"] = np.where(
-        metadata["cluster_id_numeric"] == 12,
-        "root_pool_cluster12_dividing_cells",
-        np.where(metadata["div90_jia_tip_group"].notna(), metadata["div90_jia_tip_group"], "excluded_or_unassigned"),
-    )
+    metadata["div90_jia_urd_role"] = "excluded_or_unassigned"
+    metadata.loc[metadata["cluster_id_numeric"] == 12, "div90_jia_urd_role"] = "root_pool_cluster12_dividing_cells"
+    metadata.loc[metadata["div90_jia_tip_group"].notna(), "div90_jia_urd_role"] = metadata.loc[
+        metadata["div90_jia_tip_group"].notna(), "div90_jia_tip_group"
+    ]
+    metadata.loc[
+        metadata["cluster_id_numeric"].isin(RETAINED_UNASSIGNED_CANDIDATE_CLUSTERS),
+        "div90_jia_urd_role",
+    ] = "retained_unassigned_candidate"
     metadata["paper_cluster_annotation"] = metadata["cluster_number_name"].astype(str)
     return metadata
 
@@ -426,8 +430,10 @@ def main() -> None:
             {"key": "root_top_percent", "value": str(args.root_top_percent)},
             {"key": "root_min_cells", "value": str(args.root_min_cells)},
             {"key": "tip_lhx8_isl1_clusters", "value": "0,5,8"},
-            {"key": "tip_epha5_mef2c_clusters", "value": "2,3,11"},
             {"key": "tip_lhx6_nfia_clusters", "value": "1"},
+            {"key": "tip_crabp1_angpt2_clusters", "value": "2"},
+            {"key": "retained_unassigned_candidate_clusters", "value": "3,11"},
+            {"key": "post_tree_candidate_marker_genes", "value": "MEF2C,EPHA5,LHX6,CRABP1,LHX8,NR2F1,NR2F2"},
             {"key": "max_cells", "value": str(args.max_cells)},
             {"key": "seed", "value": str(args.seed)},
             {"key": "n_selected_cells", "value": str(len(selected))},

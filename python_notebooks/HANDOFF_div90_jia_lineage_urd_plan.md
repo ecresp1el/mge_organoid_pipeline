@@ -2,7 +2,7 @@
 
 Date: 2026-06-11
 
-Status: first DIV90 Jia-lineage smoke run completed.
+Status: first DIV90 Jia-lineage smoke run completed, but its tip strategy is superseded by corrected v2 logic.
 
 This handoff records the DIV90 URD plan after the DIV90 UMAP/metadata audit. It is intentionally aligned with the DIV30 URD workflow, but the DIV90 biological question is different because the DIV90 object has real terminal cluster labels.
 
@@ -86,6 +86,7 @@ scripts/15_div30_urd_lineage_decision_report.R
 scripts/16_div30_urd_build_lineage_tree.R
 scripts/17_div30_urd_finalize_lineage_tree_report.R
 scripts/25_div30_urd_jia_fig_s11_marker_validation.R
+scripts/27_div90_urd_project_candidate_lineage_markers.R
 ```
 
 Compatibility note: the DIV90 exporter writes input-bundle files with the legacy `div30_first_urd_*` names because `scripts/14_div30_first_urd.R` consumes that bundle format. The run directory, metadata, root column, pseudotime column, reports, and manifest identify this as DIV90.
@@ -96,8 +97,8 @@ Compatibility note: the DIV90 exporter writes input-bundle files with the legacy
 |---:|---|---:|---|
 | 0 | `0 - MGE Striatal/GP Fated` | 3,601 | LHX8/ISL1-like tip |
 | 1 | `1 - SST+, NPY +, Cortical Fated` | 3,548 | LHX6/NFIA-like tip |
-| 2 | `2 - CRABP1+/PV Precursors` | 3,503 | EPHA5/MEF2C-like tip candidate; check CRABP1/ANGPT2 after scoring |
-| 3 | `3 - PV precursors/Migrating cells/Cortical-fated` | 2,283 | EPHA5/MEF2C-like tip |
+| 2 | `2 - CRABP1+/PV Precursors` | 3,503 | v2 CRABP1/ANGPT2-like tip |
+| 3 | `3 - PV precursors/Migrating cells/Cortical-fated` | 2,283 | retain in graph, not a v2 tip |
 | 4 | `4 - Pre-Astrocytes/Astrocytes 1` | 1,987 | exclude/track separately |
 | 5 | `5 - LHX8+ vMGE GABergic Striatal/GP fated 1` | 1,924 | LHX8/ISL1-like tip |
 | 6 | `6 - Stressed Cells` | 1,226 | exclude/track separately |
@@ -105,7 +106,7 @@ Compatibility note: the DIV90 exporter writes input-bundle files with the legacy
 | 8 | `8 - LHX8+ vMGE GABergic Striatal/GP fated 2` | 922 | LHX8/ISL1-like tip |
 | 9 | `9 - Pre-OPCs/OPCs` | 915 | exclude/track separately |
 | 10 | `10 - Pre-Astrocytes/Astrocytes 2` | 583 | exclude/track separately |
-| 11 | `11 - PV Precursors` | 425 | EPHA5/MEF2C-like tip |
+| 11 | `11 - PV Precursors` | 425 | retain in graph, not a v2 tip |
 | 12 | `12 - Dividing cells` | 358 | root candidate pool |
 
 The metadata contains 13 cluster IDs. These reconcile to approximately 10 broader paper-level biology groups because three biology categories are split across two Seurat clusters:
@@ -144,10 +145,18 @@ Dependency: if DIV90 does not already contain `RGC1_score`, `RGC2_score`, and `I
 | Tip ID | Jia lineage target | Clusters | Validation genes | Expected biology |
 |---|---|---|---|---|
 | `tip_lhx8_isl1` | LHX8/ISL1-like lineage | `0`, `5`, `8` | `LHX8`, `ISL1`, `GBX2`, `TAC1` | subpallial cholinergic/striatal-GP-fated inhibitory lineage |
-| `tip_epha5_mef2c` | EPHA5/MEF2C-like lineage | `2`, `3`, `11` | `MEF2C`, `MAFB`, `ETV1`, `ERBB4` | cortical-fated GABAergic/PV precursor-associated lineage |
 | `tip_lhx6_nfia` | LHX6/NFIA-like lineage | `1` | `LHX6`, `SST`, `NPY`, `ERBB4`, `CXCR4`, `ARX` | cortical interneuron lineage |
+| `tip_crabp1_angpt2` | CRABP1/ANGPT2-like lineage | `2` | `CRABP1`, `ANGPT2`, `SPOCK1`, `DSCAM`, `RIPOR2`, `RBP1` | CRABP1/ANGPT2-like PV-precursor/subpallial GABAergic endpoint |
 
 Do not define these tips as broad SST/PV/MGE categories. Those labels can be retained as metadata, but the URD tip construction should be Jia-lineage driven.
+
+Clusters `3` and `11` are retained in the v2 manifold but are not used as tips. Their assignment is tested only after URD tree construction by projecting:
+
+```text
+MEF2C, EPHA5, LHX6, CRABP1, LHX8, NR2F1, NR2F2
+```
+
+onto the tree and comparing cluster 3/11 marker profiles to the v2 tip profiles.
 
 ## First Smoke Run
 
@@ -163,13 +172,14 @@ Exclude or track separately for the first neuronal lineage smoke test:
 4, 6, 7, 9, 10
 ```
 
-Proposed retained roles:
+Corrected v2 retained roles:
 
 ```text
 root pool: 12
 tip_lhx8_isl1: 0, 5, 8
-tip_epha5_mef2c: 2, 3, 11
 tip_lhx6_nfia: 1
+tip_crabp1_angpt2: 2
+retained unassigned candidates: 3, 11
 ```
 
 Run the same URD major stages used for DIV30:
@@ -185,7 +195,7 @@ processRandomWalksFromTips()
 buildTree()
 ```
 
-### Submitted Smoke Run
+### Historical v1 Smoke Run
 
 Submitted: 2026-06-11
 
@@ -235,6 +245,8 @@ Submitted parameters:
 | URD floods | `20` |
 | tree tips | `tip_lhx8_isl1`, `tip_epha5_mef2c`, `tip_lhx6_nfia` |
 | random walks per tip | `5000` |
+
+This v1 run is now historical/superseded for DIV90 tip logic because it grouped clusters `2`, `3`, and `11` together as `tip_epha5_mef2c`. The corrected v2 run keeps clusters `3` and `11` unassigned and uses cluster `2` as the explicit `tip_crabp1_angpt2` endpoint.
 
 Pre-submit exporter smoke check:
 
@@ -314,6 +326,87 @@ All requested Jia Fig. S11-style markers were present:
 
 ```text
 HES1, CACNA1E, DLX2, DCX, LHX8, NR2F1, EPHA5, MEF2C, CRABP1
+```
+
+### Corrected v2 Smoke Run
+
+Purpose: rerun DIV90 URD with cluster `2 - CRABP1+/PV Precursors` as the CRABP1/ANGPT2-like tip and clusters `3`/`11` retained but not supplied as tips.
+
+Original v2 submission: 2026-06-11 21:43 EDT
+
+Slurm job:
+
+```text
+51687415
+```
+
+Status:
+
+```text
+CANCELLED before start because the initial resource request was overlarge for a 5k smoke run.
+Initial request: 8 CPUs, 160G RAM, 48h.
+```
+
+Lean v2 resubmission: 2026-06-11 21:57 EDT
+
+Active Slurm job:
+
+```text
+51687695
+```
+
+Active request:
+
+```text
+2 CPUs, 32G RAM, 4h wall time
+```
+
+Active-job status at 2026-06-11 21:57 EDT:
+
+```text
+RUNNING on gl3018
+```
+
+Run label:
+
+```text
+div90_urd_jia_lineage_smoke5k_knn100_v2_crabp1_tip
+```
+
+Output root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v2_crabp1_tip/
+```
+
+Log:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51687695.log
+```
+
+Corrected v2 submitted parameters:
+
+| Parameter | Value |
+|---|---|
+| retained clusters | `0,1,2,3,5,8,11,12` |
+| excluded clusters | `4,6,7,9,10` |
+| root pool | `12 - Dividing cells` |
+| root score | `z(RGC1)+z(RGC2)+z(HES1)+z(VIM)+z(NES)-z(IPC)-z(DLX1)-z(DLX2)-z(ASCL1)` |
+| tree tips | `tip_lhx8_isl1`, `tip_lhx6_nfia`, `tip_crabp1_angpt2` |
+| retained unassigned candidates | `3`, `11` |
+| post-tree candidate marker genes | `MEF2C`, `EPHA5`, `LHX6`, `CRABP1`, `LHX8`, `NR2F1`, `NR2F2` |
+
+Corrected v2 candidate-assignment outputs:
+
+```text
+candidate_pv_marker_projection_v1/plots/div90_candidate_marker_tree_overlays.png
+candidate_pv_marker_projection_v1/plots/div90_candidate_and_tip_marker_profile_heatmap.png
+candidate_pv_marker_projection_v1/tables/div90_candidate_cluster_lineage_assignment.tsv
+candidate_pv_marker_projection_v1/tables/div90_candidate_cluster_to_tip_profile_correlations.tsv
+candidate_pv_marker_projection_v1/tables/div90_candidate_and_tip_marker_profiles.tsv
+candidate_pv_marker_projection_v1/tables/div90_marker_expression_summary_by_cluster.tsv
+candidate_pv_marker_projection_v1/tables/div90_marker_expression_summary_by_tree_segment.tsv
 ```
 
 ## Required Outputs

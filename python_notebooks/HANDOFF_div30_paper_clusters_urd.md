@@ -12,6 +12,14 @@ The immediate lineage question is whether a radial-glia-rooted ordering is biolo
 
 The first URD pass uses the paper/manual Radial glia annotation as the root because the user clarified that the published annotations should be mapped directly onto the DIV30 Seurat cluster IDs.
 
+DIV90 companion workflow:
+
+```text
+python_notebooks/HANDOFF_div90_jia_lineage_urd_plan.md
+```
+
+The DIV90 workflow now has a corrected v2 Jia-lineage smoke run for later DIV30-vs-DIV90 comparison. It uses cluster 12 as the Jia RootScore root, excludes glial/OPC/stress clusters, uses clusters `0+5+8`, `1`, and `2` as Jia endpoint tips, and retains clusters `3`/`11` as unassigned candidates for post-tree marker projection rather than tips.
+
 ## Source Data
 
 Primary DIV30 Seurat object:
