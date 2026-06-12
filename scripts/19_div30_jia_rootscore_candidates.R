@@ -1,16 +1,17 @@
 #!/usr/bin/env Rscript
 
-# Identify Jia-like proliferative VZ-RGC root candidates without using Seurat
-# or paper cluster labels.
+# Identify Jia-like proliferative VZ-RGC root candidates from a score-defined
+# root pool.
 #
 # Per-cell score:
 #   RootScore = z(jia_score_RGC1) + z(proliferation_score) - z(jia_score_IPC)
 #
 # The proliferation score is the mean logUPX expression of available
 # proliferation genes. Candidate roots are the top 1%, 2%, 5%, and 10% cells by
-# RootScore. This script reports candidate marker expression and candidate
-# placement on existing UMAP and URD pseudotime, then writes a scored URD object
-# with logical root-candidate columns.
+# RootScore, either across all cells or within an explicit root pool such as
+# paper/manual Radial glia. This script reports candidate marker expression and
+# candidate placement on existing UMAP and URD pseudotime, then writes a scored
+# URD object with logical root-candidate columns.
 
 log_msg <- function(...) {
   cat(sprintf("[%s] %s\n", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), paste0(..., collapse = " ")))
@@ -28,6 +29,8 @@ parse_args <- function(args) {
     `marker-genes` = "HES1,FGFR2,NOTCH1,NOTCH2,VIM,NES,DACH1,DLX1,DLX2,ASCL1",
     `candidate-pcts` = "1,2,5,10",
     `selected-pct` = "2",
+    `pool-col` = "",
+    `pool-value` = "",
     help = FALSE
   )
   i <- 1L
@@ -56,6 +59,7 @@ print_usage <- function() {
     "Outputs:",
     "  div30_urd_jia_rootscore_object.rds",
     "  tables/root_score_all_cells.tsv",
+    "  tables/root_score_root_pool_cells.tsv",
     "  tables/root_score_distribution.tsv",
     "  tables/root_score_candidate_counts.tsv",
     "  tables/root_score_candidate_cells_top{pct}.tsv",
@@ -157,6 +161,12 @@ compute_scores <- function(object, cfg) {
     score_df$UMAP_1 <- as.numeric(meta$UMAP_1)
     score_df$UMAP_2 <- as.numeric(meta$UMAP_2)
   }
+  if (nzchar(cfg$pool_col)) {
+    if (!(cfg$pool_col %in% colnames(meta))) {
+      stop("Pool column not found in URD metadata: ", cfg$pool_col, call. = FALSE)
+    }
+    score_df[[cfg$pool_col]] <- meta[[cfg$pool_col]]
+  }
   score_df$z_RGC1 <- zscore(score_df$jia_score_RGC1)
   score_df$z_IPC <- zscore(score_df$jia_score_IPC)
   score_df$z_proliferation <- zscore(score_df$proliferation_score)
@@ -171,6 +181,26 @@ compute_scores <- function(object, cfg) {
     marker_genes = marker_genes,
     pseudotime_name = pt$name
   )
+}
+
+select_root_pool <- function(score_df, cfg) {
+  if (!nzchar(cfg$pool_col)) {
+    out <- score_df
+    out$RootScore_pool_rank <- seq_len(nrow(out))
+    out$RootScore_pool_percentile_top <- 100 * out$RootScore_pool_rank / nrow(out)
+    return(out)
+  }
+  if (!nzchar(cfg$pool_value)) {
+    stop("--pool-value is required when --pool-col is set", call. = FALSE)
+  }
+  pool <- score_df[as.character(score_df[[cfg$pool_col]]) == cfg$pool_value, , drop = FALSE]
+  if (nrow(pool) == 0) {
+    stop("Root pool selected zero cells: ", cfg$pool_col, " == ", cfg$pool_value, call. = FALSE)
+  }
+  pool <- pool[order(pool$RootScore, decreasing = TRUE), , drop = FALSE]
+  pool$RootScore_pool_rank <- seq_len(nrow(pool))
+  pool$RootScore_pool_percentile_top <- 100 * pool$RootScore_pool_rank / nrow(pool)
+  pool
 }
 
 distribution_table <- function(score_df) {
@@ -260,12 +290,13 @@ pseudotime_summary <- function(score_df, candidate_pcts) {
   do.call(rbind, rows)
 }
 
-add_candidate_columns <- function(object, score_df, candidate_pcts, selected_pct) {
+add_candidate_columns <- function(object, score_df, root_pool_df, candidate_pcts, selected_pct) {
   object@meta$jia_rootscore <- NA_real_
   object@meta$jia_rootscore_z_RGC1 <- NA_real_
   object@meta$jia_rootscore_z_IPC <- NA_real_
   object@meta$jia_rootscore_z_proliferation <- NA_real_
   object@meta$jia_rootscore_proliferation_score <- NA_real_
+  object@meta$jia_rootscore_root_pool <- FALSE
   object@meta$jia_rootscore_selected_root <- FALSE
   object@meta$jia_rootscore_selected_top_percent <- NA_real_
   object@meta[score_df$cell_id, "jia_rootscore"] <- score_df$RootScore
@@ -273,13 +304,14 @@ add_candidate_columns <- function(object, score_df, candidate_pcts, selected_pct
   object@meta[score_df$cell_id, "jia_rootscore_z_IPC"] <- score_df$z_IPC
   object@meta[score_df$cell_id, "jia_rootscore_z_proliferation"] <- score_df$z_proliferation
   object@meta[score_df$cell_id, "jia_rootscore_proliferation_score"] <- score_df$proliferation_score
+  object@meta[root_pool_df$cell_id, "jia_rootscore_root_pool"] <- TRUE
   for (pct in candidate_pcts) {
     col <- paste0("jia_rootscore_top", gsub("\\.", "p", as.character(pct)), "pct_candidate")
     object@meta[[col]] <- FALSE
-    cells <- head(score_df$cell_id, ceiling(nrow(score_df) * pct / 100))
+    cells <- head(root_pool_df$cell_id, ceiling(nrow(root_pool_df) * pct / 100))
     object@meta[cells, col] <- TRUE
   }
-  selected_cells <- head(score_df$cell_id, ceiling(nrow(score_df) * selected_pct / 100))
+  selected_cells <- head(root_pool_df$cell_id, ceiling(nrow(root_pool_df) * selected_pct / 100))
   object@meta[selected_cells, "jia_rootscore_selected_root"] <- TRUE
   object@meta[selected_cells, "jia_rootscore_selected_top_percent"] <- selected_pct
   object
@@ -296,6 +328,7 @@ plot_distribution <- function(score_df, path) {
 
 plot_umap <- function(score_df, candidate_pcts, path_score, path_candidates) {
   if (!all(c("UMAP_1", "UMAP_2") %in% colnames(score_df))) return(invisible(FALSE))
+  rank_col <- if ("RootScore_pool_rank" %in% colnames(score_df)) "RootScore_pool_rank" else "RootScore_rank"
   p1 <- ggplot(score_df, aes(UMAP_1, UMAP_2, color = RootScore)) +
     geom_point(size = 0.35, alpha = 0.85) +
     coord_equal() +
@@ -308,7 +341,7 @@ plot_umap <- function(score_df, candidate_pcts, path_score, path_candidates) {
   rows <- lapply(candidate_pcts, function(pct) {
     df <- score_df
     df$candidate_set <- paste0("top", pct, "pct")
-    df$is_candidate <- df$RootScore_rank <= ceiling(nrow(df) * pct / 100)
+    df$is_candidate <- df[[rank_col]] <= ceiling(nrow(df) * pct / 100)
     df
   })
   cand <- do.call(rbind, rows)
@@ -325,10 +358,11 @@ plot_umap <- function(score_df, candidate_pcts, path_score, path_candidates) {
 }
 
 plot_pseudotime <- function(score_df, candidate_pcts, path) {
+  rank_col <- if ("RootScore_pool_rank" %in% colnames(score_df)) "RootScore_pool_rank" else "RootScore_rank"
   rows <- lapply(candidate_pcts, function(pct) {
     df <- score_df
     df$candidate_set <- paste0("top", pct, "pct")
-    df$is_candidate <- df$RootScore_rank <= ceiling(nrow(df) * pct / 100)
+    df$is_candidate <- df[[rank_col]] <= ceiling(nrow(df) * pct / 100)
     df
   })
   df <- do.call(rbind, rows)
@@ -342,13 +376,20 @@ plot_pseudotime <- function(score_df, candidate_pcts, path) {
   ggsave(path, p, width = 10, height = 8, dpi = 240, bg = "white")
 }
 
-write_report <- function(path, cfg, genes, counts, dist, selected_pct) {
+write_report <- function(path, cfg, genes, counts, dist, root_pool_df, selected_pct) {
+  pool_text <- if (nzchar(cfg$pool_col)) {
+    paste0("`", cfg$pool_col, " == ", cfg$pool_value, "`")
+  } else {
+    "all scored cells"
+  }
   lines <- c(
     "# Jia Proliferative VZ-RGC RootScore Candidate Report",
     "",
     paste0("- Input URD object: `", cfg$urd_rds, "`"),
-    paste0("- Selected alternative root set: top ", selected_pct, "% by RootScore"),
-    "- Scoring does not use Seurat or paper cluster labels.",
+    paste0("- Root pool: ", pool_text),
+    paste0("- Root pool cells: ", nrow(root_pool_df)),
+    paste0("- Selected alternative root set: top ", selected_pct, "% by RootScore within the root pool"),
+    "- Scoring uses the formula below; candidate percentage is applied after optional root-pool filtering.",
     "",
     "## Formula",
     "",
@@ -389,7 +430,9 @@ cfg <- list(
   proliferation_genes = opt$`proliferation-genes`,
   marker_genes = opt$`marker-genes`,
   candidate_pcts = as_num(split_csv(opt$`candidate-pcts`), "candidate-pcts"),
-  selected_pct = as_num(opt$`selected-pct`, "selected-pct")
+  selected_pct = as_num(opt$`selected-pct`, "selected-pct"),
+  pool_col = opt$`pool-col`,
+  pool_value = opt$`pool-value`
 )
 dir.create(cfg$table_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(cfg$plot_dir, recursive = TRUE, showWarnings = FALSE)
@@ -400,13 +443,15 @@ if (!inherits(urd, "URD")) stop("Input is not an URD object.", call. = FALSE)
 
 computed <- compute_scores(urd, cfg)
 score_df <- computed$score_df
+root_pool_df <- select_root_pool(score_df, cfg)
 dist <- distribution_table(score_df)
-counts <- candidate_counts(score_df, cfg$candidate_pcts, cfg$selected_pct)
-markers <- marker_summary(urd, score_df, computed$marker_genes, cfg$candidate_pcts)
-pt_summary <- pseudotime_summary(score_df, cfg$candidate_pcts)
-urd <- add_candidate_columns(urd, score_df, cfg$candidate_pcts, cfg$selected_pct)
+counts <- candidate_counts(root_pool_df, cfg$candidate_pcts, cfg$selected_pct)
+markers <- marker_summary(urd, root_pool_df, computed$marker_genes, cfg$candidate_pcts)
+pt_summary <- pseudotime_summary(root_pool_df, cfg$candidate_pcts)
+urd <- add_candidate_columns(urd, score_df, root_pool_df, cfg$candidate_pcts, cfg$selected_pct)
 
 write_tsv(score_df, file.path(cfg$table_dir, "root_score_all_cells.tsv"))
+write_tsv(root_pool_df, file.path(cfg$table_dir, "root_score_root_pool_cells.tsv"))
 write_tsv(dist, file.path(cfg$table_dir, "root_score_distribution.tsv"))
 write_tsv(counts, file.path(cfg$table_dir, "root_score_candidate_counts.tsv"))
 write_tsv(markers, file.path(cfg$table_dir, "root_score_marker_expression_by_candidate_set.tsv"))
@@ -420,13 +465,13 @@ write_tsv(
   file.path(cfg$table_dir, "root_score_marker_genes_used.tsv")
 )
 for (pct in cfg$candidate_pcts) {
-  n <- ceiling(nrow(score_df) * pct / 100)
-  write_tsv(head(score_df, n), file.path(cfg$table_dir, paste0("root_score_candidate_cells_top", pct, "pct.tsv")))
+  n <- ceiling(nrow(root_pool_df) * pct / 100)
+  write_tsv(head(root_pool_df, n), file.path(cfg$table_dir, paste0("root_score_candidate_cells_top", pct, "pct.tsv")))
 }
 
 plot_distribution(score_df, file.path(cfg$plot_dir, "root_score_distribution.png"))
-plot_umap(score_df, cfg$candidate_pcts, file.path(cfg$plot_dir, "root_score_umap.png"), file.path(cfg$plot_dir, "root_score_candidate_umap.png"))
-plot_pseudotime(score_df, cfg$candidate_pcts, file.path(cfg$plot_dir, "root_score_by_pseudotime.png"))
+plot_umap(root_pool_df, cfg$candidate_pcts, file.path(cfg$plot_dir, "root_score_umap.png"), file.path(cfg$plot_dir, "root_score_candidate_umap.png"))
+plot_pseudotime(root_pool_df, cfg$candidate_pcts, file.path(cfg$plot_dir, "root_score_by_pseudotime.png"))
 
 out_rds <- file.path(cfg$outdir, "div30_urd_jia_rootscore_object.rds")
 saveRDS(urd, out_rds)
@@ -436,6 +481,7 @@ write_report(
   computed,
   counts,
   dist,
+  root_pool_df,
   cfg$selected_pct
 )
 log_msg("Saved scored URD object: ", out_rds)
