@@ -2,7 +2,7 @@
 
 Date: 2026-06-11
 
-Status: corrected DIV90 v3 smoke run completed. This is the current smoke reference: glia/OPC clusters are retained as ordinary cells, stressed clusters are excluded, and Jia endpoint tips are unchanged from corrected v2.
+Status: DIV90 v4 glia-tip smoke submitted as Slurm job `51690159`. This is the final inclusion-logic swing before scaling: stressed cells remain excluded, clusters `3`/`11` remain retained non-tip candidates, astrocytes are combined as one terminal tip, and OPCs are their own terminal tip.
 
 This handoff records the DIV90 URD plan after the DIV90 UMAP/metadata audit. It is intentionally aligned with the DIV30 URD workflow, but the DIV90 biological question is different because the DIV90 object has real terminal cluster labels.
 
@@ -99,13 +99,13 @@ Compatibility note: the DIV90 exporter writes input-bundle files with the legacy
 | 1 | `1 - SST+, NPY +, Cortical Fated` | 3,548 | LHX6/NFIA-like tip |
 | 2 | `2 - CRABP1+/PV Precursors` | 3,503 | v2 CRABP1/ANGPT2-like tip |
 | 3 | `3 - PV precursors/Migrating cells/Cortical-fated` | 2,283 | retain in graph, not a v2 tip |
-| 4 | `4 - Pre-Astrocytes/Astrocytes 1` | 1,987 | exclude/track separately |
+| 4 | `4 - Pre-Astrocytes/Astrocytes 1` | 1,987 | v4 combined astrocyte tip with cluster 10 |
 | 5 | `5 - LHX8+ vMGE GABergic Striatal/GP fated 1` | 1,924 | LHX8/ISL1-like tip |
 | 6 | `6 - Stressed Cells` | 1,226 | exclude/track separately |
 | 7 | `7 - Stressed Cells` | 1,063 | exclude/track separately |
 | 8 | `8 - LHX8+ vMGE GABergic Striatal/GP fated 2` | 922 | LHX8/ISL1-like tip |
-| 9 | `9 - Pre-OPCs/OPCs` | 915 | exclude/track separately |
-| 10 | `10 - Pre-Astrocytes/Astrocytes 2` | 583 | exclude/track separately |
+| 9 | `9 - Pre-OPCs/OPCs` | 915 | v4 OPC tip |
+| 10 | `10 - Pre-Astrocytes/Astrocytes 2` | 583 | v4 combined astrocyte tip with cluster 4 |
 | 11 | `11 - PV Precursors` | 425 | retain in graph, not a v2 tip |
 | 12 | `12 - Dividing cells` | 358 | root candidate pool |
 
@@ -147,8 +147,10 @@ Dependency: if DIV90 does not already contain `RGC1_score`, `RGC2_score`, and `I
 | `tip_lhx8_isl1` | LHX8/ISL1-like lineage | `0`, `5`, `8` | `LHX8`, `ISL1`, `GBX2`, `TAC1` | subpallial cholinergic/striatal-GP-fated inhibitory lineage |
 | `tip_lhx6_nfia` | LHX6/NFIA-like lineage | `1` | `LHX6`, `SST`, `NPY`, `ERBB4`, `CXCR4`, `ARX` | cortical interneuron lineage |
 | `tip_crabp1_angpt2` | CRABP1/ANGPT2-like lineage | `2` | `CRABP1`, `ANGPT2`, `SPOCK1`, `DSCAM`, `RIPOR2`, `RBP1` | CRABP1/ANGPT2-like PV-precursor/subpallial GABAergic endpoint |
+| `tip_astrocytes` | astrocyte endpoint | `4`, `10` | `AQP4`, `GFAP`, `SLC1A3`, `ALDH1L1` | combined pre-astrocyte/astrocyte endpoint |
+| `tip_opc` | OPC endpoint | `9` | `PDGFRA`, `OLIG1`, `OLIG2`, `SOX10` | pre-OPC/OPC endpoint |
 
-Do not define these tips as broad SST/PV/MGE categories. Those labels can be retained as metadata, but the URD tip construction should be Jia-lineage driven.
+Do not define the neuronal tips as broad SST/PV/MGE categories. Those labels can be retained as metadata, but the neuronal URD tip construction should be Jia-lineage driven. In v4, glial endpoints are intentionally added as non-Jia terminal states so we can test whether the DIV90 manifold separates neuronal and glial terminal fates cleanly.
 
 Clusters `3` and `11` are retained in the v2 manifold but are not used as tips. Their assignment is tested only after URD tree construction by projecting:
 
@@ -616,6 +618,96 @@ lineage_tree_cluster_number_name_v1/plots/urd_tree_annotation.png
 jia_fig_s11_style_marker_validation_v1/plots/jia_fig_s11_style_urd_marker_validation.png
 candidate_pv_marker_projection_v1/plots/div90_candidate_marker_tree_overlays.png
 candidate_pv_marker_projection_v1/plots/div90_candidate_and_tip_marker_profile_heatmap.png
+```
+
+### Corrected v4 Smoke Run: Glial Endpoints As Tips
+
+Purpose: rerun the v3 inclusion logic but now promote the retained glial populations to explicit terminal tips. This is the final inclusion-logic smoke before moving toward the production/full-scale DIV90 run.
+
+Change from v3:
+
+| Role | v3 | v4 |
+|---|---|---|
+| retained clusters | `0,1,2,3,4,5,8,9,10,11,12` | unchanged |
+| stressed clusters | excluded `6,7` | unchanged |
+| neuronal tips | `0+5+8`, `1`, `2` | unchanged |
+| clusters `3`/`11` | retained candidate cells, not tips | unchanged |
+| astrocyte clusters `4`/`10` | retained non-tip cells | combined into `tip_astrocytes` |
+| OPC cluster `9` | retained non-tip cells | promoted to `tip_opc` |
+
+v4 tips:
+
+```text
+tip_lhx8_isl1      = clusters 0,5,8
+tip_lhx6_nfia      = cluster 1
+tip_crabp1_angpt2  = cluster 2
+tip_astrocytes     = clusters 4,10
+tip_opc            = cluster 9
+```
+
+v4 retained non-tip candidates:
+
+```text
+3  = PV precursors/Migrating cells/Cortical-fated
+11 = PV Precursors
+```
+
+v4 excluded:
+
+```text
+6, 7 = Stressed Cells
+```
+
+Run label:
+
+```text
+div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips
+```
+
+Submitted: 2026-06-11
+
+Slurm job:
+
+```text
+51690159
+```
+
+Initial status:
+
+```text
+RUNNING on gl3219
+```
+
+Log:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51690159.log
+```
+
+Output root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips/
+```
+
+Primary comparison plots expected from v4:
+
+```text
+lineage_tree_jia_endpoint_tips_v1/plots/urd_tree_annotation.png
+lineage_tree_cluster_number_name_v1/plots/urd_tree_annotation.png
+lineage_tree_jia_endpoint_tips_v1/plots/urd_tree_pseudotime.png
+lineage_decision_report/plots/umap_pseudotime.png
+lineage_decision_report/plots/diffusion_map_annotation.png
+lineage_decision_report/plots/diffusion_map_pseudotime.png
+jia_fig_s11_style_marker_validation_v1/plots/jia_fig_s11_style_urd_marker_validation.png
+```
+
+Decision focus for v4:
+
+```text
+Does the DIV90 URD tree separate neuronal Jia-lineage endpoints from glial endpoints?
+Do astrocytes and OPCs form distinct terminal branches?
+Do clusters 3 and 11 remain aligned with neuronal lineages or drift toward a glial branch?
 ```
 
 ## Required Outputs
