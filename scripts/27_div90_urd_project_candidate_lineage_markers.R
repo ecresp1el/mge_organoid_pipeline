@@ -179,7 +179,7 @@ lineage_scores <- function(marker_mat) {
   )
 }
 
-tree_marker_plot <- function(layout, cells, marker_df, gene, point_size) {
+tree_marker_plot <- function(layout, cells, marker_df, gene, point_size, show_legend = FALSE) {
   df <- marker_df[marker_df$gene == gene, , drop = FALSE]
   plot_df <- merge(cells, df[, c("cell", "expression_logupx", "gene_present")], by = "cell", all.x = TRUE)
   plot_df <- plot_df[order(plot_df$expression_logupx, na.last = TRUE), , drop = FALSE]
@@ -202,7 +202,7 @@ tree_marker_plot <- function(layout, cells, marker_df, gene, point_size) {
     scale_color_gradient(low = "grey90", high = "#b2182b", limits = c(0, max_expr), na.value = "grey88", name = "logUPX") +
     coord_cartesian(xlim = x_limits + c(-x_pad, x_pad), ylim = y_limits + c(-y_pad, y_pad), expand = FALSE) +
     theme_void(base_size = 8) +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 9), legend.position = "none") +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 9), legend.position = if (show_legend) "right" else "none") +
     labs(title = gene)
   if (!isTRUE(df$gene_present[[1]])) {
     p <- p + annotate("text", x = mean(x_limits), y = mean(y_limits), label = "missing", size = 4, color = "grey20")
@@ -370,19 +370,18 @@ assignment_rows <- lapply(cfg$candidate_clusters, function(cluster_id) {
 assignment_df <- do.call(rbind, assignment_rows)
 write_tsv(assignment_df, file.path(cfg$table_dir, "div90_candidate_cluster_lineage_assignment.tsv"))
 
-overlay_plots <- lapply(cfg$marker_genes, function(gene) tree_marker_plot(layout, cells, marker_df, gene, cfg$point_size))
+overlay_plots <- lapply(cfg$marker_genes, function(gene) tree_marker_plot(layout, cells, marker_df, gene, cfg$point_size, show_legend = TRUE))
 overlay_grid <- cowplot::plot_grid(plotlist = overlay_plots, nrow = 1)
 save_plot_pair(
   overlay_grid,
   file.path(cfg$plot_dir, "div90_candidate_marker_tree_overlays.png"),
   file.path(cfg$plot_dir, "div90_candidate_marker_tree_overlays.pdf"),
-  width = 15,
-  height = 3.2
+  width = 24,
+  height = 4.6
 )
 
 for (gene in cfg$marker_genes) {
-  p_gene <- tree_marker_plot(layout, cells, marker_df, gene, cfg$point_size) +
-    theme(legend.position = "right")
+  p_gene <- tree_marker_plot(layout, cells, marker_df, gene, cfg$point_size, show_legend = TRUE)
   base <- paste0("div90_candidate_marker_tree_overlay_", safe_gene_filename(gene))
   save_plot_pair(
     p_gene,

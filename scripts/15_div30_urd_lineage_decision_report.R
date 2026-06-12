@@ -272,6 +272,14 @@ save_group_overlay_grid <- function(df, x_col, y_col, group_col, path, title, hi
   if (length(groups) == 0) return(FALSE)
   n_col <- ceiling(sqrt(length(groups)))
   n_row <- ceiling(length(groups) / n_col)
+  x_range <- diff(range(df[[x_col]], na.rm = TRUE))
+  y_range <- diff(range(df[[y_col]], na.rm = TRUE))
+  aspect <- if (is.finite(x_range) && is.finite(y_range) && y_range > 0) x_range / y_range else 1
+  aspect <- min(max(aspect, 0.75), 2.2)
+  panel_height <- 3.2
+  panel_width <- max(3.8, panel_height * aspect)
+  plot_width <- max(9, panel_width * n_col)
+  plot_height <- max(7, panel_height * n_row + 0.8)
   background <- do.call(
     rbind,
     lapply(groups, function(group) {
@@ -295,7 +303,7 @@ save_group_overlay_grid <- function(df, x_col, y_col, group_col, path, title, hi
     geom_point(data = background, aes(x, y), color = "grey86", size = 0.18, alpha = 0.45) +
     geom_point(data = highlight, aes(x, y), color = highlight_color, size = 0.36, alpha = 0.9) +
     facet_wrap(~panel_group, ncol = n_col) +
-    coord_equal() +
+    coord_fixed(ratio = 1, expand = FALSE) +
     theme_bw(base_size = 8) +
     theme(
       panel.grid = element_blank(),
@@ -307,7 +315,7 @@ save_group_overlay_grid <- function(df, x_col, y_col, group_col, path, title, hi
       plot.title = element_text(face = "bold")
     ) +
     labs(title = title, subtitle = "Grey = all cells in every panel; red = one annotation group highlighted")
-  ggsave(path, p, width = max(8, 2.2 * n_col), height = max(6, 2.0 * n_row), dpi = 260, bg = "white", limitsize = FALSE)
+  ggsave(path, p, width = plot_width, height = plot_height, dpi = 260, bg = "white", limitsize = FALSE)
   TRUE
 }
 

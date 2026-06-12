@@ -204,8 +204,16 @@ plot_tree_annotation_grid <- function(object, label_values, label_name, path, hi
   cells <- cells[!is.na(cells[[label_name]]) & nzchar(cells[[label_name]]), , drop = FALSE]
   groups <- sort(unique(cells[[label_name]]))
   if (length(groups) == 0) return(FALSE)
-  n_col <- ceiling(sqrt(length(groups)))
+  n_col <- max(1, floor(sqrt(length(groups))))
   n_row <- ceiling(length(groups) / n_col)
+  x_range <- diff(range(c(layout$x1, layout$x2, cells$x), na.rm = TRUE))
+  y_range <- diff(range(c(layout$y1, layout$y2, cells$y), na.rm = TRUE))
+  aspect <- if (is.finite(x_range) && is.finite(y_range) && y_range > 0) x_range / y_range else 1
+  aspect <- min(max(aspect, 0.9), 2.6)
+  panel_height <- 3.8
+  panel_width <- max(4.6, panel_height * aspect)
+  plot_width <- max(11, panel_width * n_col)
+  plot_height <- max(8.5, panel_height * n_row + 0.9)
   background <- do.call(
     rbind,
     lapply(groups, function(group) {
@@ -243,7 +251,7 @@ plot_tree_annotation_grid <- function(object, label_values, label_name, path, hi
     geom_point(data = background, aes(x, y), color = "grey86", size = 0.16, alpha = 0.45) +
     geom_point(data = highlight, aes(x, y), color = highlight_color, size = 0.34, alpha = 0.9) +
     facet_wrap(~panel_group, ncol = n_col) +
-    coord_equal() +
+    coord_fixed(ratio = 1, expand = FALSE) +
     theme_void(base_size = 8) +
     theme(
       plot.background = element_rect(fill = "white", color = NA),
@@ -256,7 +264,7 @@ plot_tree_annotation_grid <- function(object, label_values, label_name, path, hi
       title = paste("URD tree", label_name, "overlays"),
       subtitle = "Grey = all tree cells/branches in every panel; red = one annotation group highlighted"
     )
-  ggsave(path, p, width = max(8, 2.2 * n_col), height = max(6, 2.0 * n_row), dpi = 260, bg = "white", limitsize = FALSE)
+  ggsave(path, p, width = plot_width, height = plot_height, dpi = 260, bg = "white", limitsize = FALSE)
   TRUE
 }
 

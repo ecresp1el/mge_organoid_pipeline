@@ -232,6 +232,7 @@ Submitted: 2026-06-12 14:34 EDT
 | Job ID | Job name | Purpose |
 |---:|---|---|
 | 51718989 | `urd_plot_refresh` | Regenerate post-hoc plots/reports from completed saved RDS objects after plotting-code updates. Does not rerun PCA, diffusion maps, floods, random walks, or `buildTree()`. |
+| 51742318 | `urd_plot_refresh` | Corrected replot after visual QC: larger aspect-aware annotation-grid panels, and multi-marker grids with visible per-gene autoscaled logUPX colorbars. |
 
 Template:
 
@@ -273,6 +274,8 @@ candidate_pv_marker_projection_v1/plots/div90_candidate_marker_tree_overlay_<GEN
 ```
 
 Each individual marker overlay shows the full URD tree/branches with marker intensity as logUPX and a visible colorbar. This is separate from the compact multi-gene panel files, which are useful for overview but harder to audit quantitatively.
+
+Correction after visual QC: the first annotation-grid implementation produced panels that were too compressed, especially for `urd_tree_annotation_grid.png`. The plotting code now uses aspect-aware dimensions and fewer columns for tree grids. Multi-gene marker grids now keep a visible logUPX colorbar inside each gene panel, and each gene panel still autoscales to that gene's own max expression, matching the individual per-gene files.
 
 ## Logs
 

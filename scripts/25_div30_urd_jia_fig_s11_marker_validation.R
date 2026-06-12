@@ -182,7 +182,7 @@ panel_plots <- function(layout, cells, marker_df, spec, point_size) {
     } else {
       paste(spec$lineage_pair[[i]], spec$terminal_identity[[i]], sep = "\n")
     }
-    tree_marker_plot(layout, cells, marker_df, spec$gene[[i]], subtitle, point_size)
+    tree_marker_plot(layout, cells, marker_df, spec$gene[[i]], subtitle, point_size, show_legend = TRUE)
   })
 }
 
@@ -250,9 +250,9 @@ panel_b_labeled <- cowplot::plot_grid(
 )
 combined <- cowplot::plot_grid(panel_a_labeled, panel_b_labeled, ncol = 1, rel_heights = c(1, 1))
 
-save_plot_pair(panel_a_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.pdf"), width = 11, height = 3.2)
-save_plot_pair(panel_b_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.pdf"), width = 13, height = 3.2)
-save_plot_pair(combined, file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.png"), file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.pdf"), width = 13, height = 6.6)
+save_plot_pair(panel_a_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.pdf"), width = 16, height = 4.2)
+save_plot_pair(panel_b_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.pdf"), width = 20, height = 4.2)
+save_plot_pair(combined, file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.png"), file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.pdf"), width = 20, height = 8.8)
 
 for (i in seq_len(nrow(spec))) {
   gene <- spec$gene[[i]]
