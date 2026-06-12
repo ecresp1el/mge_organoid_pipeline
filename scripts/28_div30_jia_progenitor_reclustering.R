@@ -152,10 +152,18 @@ find_cluster_col <- function(obj, requested) {
 }
 
 get_assay_matrix <- function(obj, assay, layer) {
-  tryCatch(
-    SeuratObject::GetAssayData(obj, assay = assay, layer = layer),
-    error = function(e) SeuratObject::GetAssayData(obj, assay = assay, slot = layer)
-  )
+  SeuratObject::GetAssayData(obj, assay = assay, layer = layer)
+}
+
+join_assay_layers_if_available <- function(obj, assay) {
+  if (exists("JoinLayers", where = asNamespace("SeuratObject"), inherits = FALSE)) {
+    log_msg("Joining Seurat v5 assay layers for assay ", assay)
+    obj <- SeuratObject::JoinLayers(obj, assay = assay)
+  } else if (exists("JoinLayers", where = asNamespace("Seurat"), inherits = FALSE)) {
+    log_msg("Joining Seurat v5 assay layers for assay ", assay)
+    obj <- Seurat::JoinLayers(obj, assay = assay)
+  }
+  obj
 }
 
 find_genes_case_insensitive <- function(requested, available) {
@@ -301,6 +309,7 @@ recluster_progenitors <- function(obj, cfg, source_cluster_col) {
 
   log_msg("Subsetting progenitor clusters ", paste(cfg$progenitor_clusters, collapse = ","), ": ", length(keep_cells), " cells")
   prog <- subset(obj, cells = keep_cells)
+  prog <- join_assay_layers_if_available(prog, cfg$assay)
   prog$div30_parent_cluster <- as.character(prog@meta.data[[source_cluster_col]])
   prog$div30_parent_progenitor_label <- ifelse(
     prog$div30_parent_cluster == "6",

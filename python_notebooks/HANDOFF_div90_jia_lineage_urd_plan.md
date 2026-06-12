@@ -2,7 +2,7 @@
 
 Date: 2026-06-11
 
-Status: DIV90 v4 glia-tip smoke submitted as Slurm job `51690159`. This is the final inclusion-logic swing before scaling: stressed cells remain excluded, clusters `3`/`11` remain retained non-tip candidates, astrocytes are combined as one terminal tip, and OPCs are their own terminal tip.
+Status: DIV90 v4 glia-tip smoke completed. This is the final inclusion-logic swing before scaling: stressed cells remain excluded, clusters `3`/`11` remain retained non-tip candidates, astrocytes are combined as one terminal tip, and OPCs are their own terminal tip.
 
 This handoff records the DIV90 URD plan after the DIV90 UMAP/metadata audit. It is intentionally aligned with the DIV30 URD workflow, but the DIV90 biological question is different because the DIV90 object has real terminal cluster labels.
 
@@ -672,10 +672,18 @@ Slurm job:
 51690159
 ```
 
-Initial status:
+Final status:
 
 ```text
-RUNNING on gl3219
+COMPLETED, exit code 0
+```
+
+Runtime/resource use:
+
+```text
+Elapsed: 00:23:55
+MaxRSS: 4,331,164K
+Node: gl3219
 ```
 
 Log:
@@ -708,6 +716,83 @@ Decision focus for v4:
 Does the DIV90 URD tree separate neuronal Jia-lineage endpoints from glial endpoints?
 Do astrocytes and OPCs form distinct terminal branches?
 Do clusters 3 and 11 remain aligned with neuronal lineages or drift toward a glial branch?
+```
+
+v4 verified input manifest:
+
+```text
+retained_clusters: 0,1,2,3,4,5,8,9,10,11,12
+excluded_clusters_first_smoke: 6,7
+tip_lhx8_isl1_clusters: 0,5,8
+tip_lhx6_nfia_clusters: 1
+tip_crabp1_angpt2_clusters: 2
+tip_astrocytes_clusters: 4,10
+tip_opc_clusters: 9
+retained_unassigned_candidate_clusters: 3,11
+retained_glia_non_tip_clusters: empty
+n_selected_cells: 5000
+n_root_cells: 8
+```
+
+v4 tree result:
+
+```text
+tree_slot_length: 18
+n_requested_tips: 5
+n_segment_joins: 5
+n_segments: 6
+has_distinct_branching: TRUE
+tips: 1=tip_lhx8_isl1; 2=tip_lhx6_nfia; 3=tip_crabp1_angpt2; 4=tip_astrocytes; 5=tip_opc
+```
+
+Final segment-join table:
+
+```text
+parent 8 -> child 1 at pseudotime 0.314
+parent 8 -> child 6 at pseudotime 0.314
+parent 8 -> child 5 at pseudotime 0.314
+parent 9 -> child 4 at pseudotime 0
+parent 9 -> child 8 at pseudotime 0
+```
+
+The detailed tree-build log shows the neuronal LHX6/NFIA-like and CRABP1/ANGPT2-like tips joined first, matching v2/v3:
+
+```text
+2 + 3 -> segment 6 at pseudotime 0.586
+1 + 6 -> segment 7/8 side at pseudotime 0.314
+5 + neuronal side joins at pseudotime 0.314
+4 + all other branches joins at pseudotime 0
+```
+
+v4 tip composition:
+
+| Tip | n tip cells | median pseudotime | composition |
+|---|---:|---:|---|
+| `tip_lhx8_isl1` | 1521 | 0.474 | clusters `0`, `5`, `8` |
+| `tip_lhx6_nfia` | 836 | 0.472 | cluster `1` |
+| `tip_crabp1_angpt2` | 826 | 0.442 | cluster `2` |
+| `tip_astrocytes` | 605 | 0.274 | clusters `4`, `10` |
+| `tip_opc` | 216 | 0.337 | cluster `9` |
+
+v4 candidate-cluster projection:
+
+| Candidate cluster | n tree cells | best marker-profile match | Pearson | highest lineage proxy |
+|---:|---:|---|---:|---|
+| 3 | 47 | `tip_crabp1_angpt2` | 0.971 | `LHX6_NFIA_proxy` |
+| 11 | 36 | `tip_opc` | 0.719 | `LHX6_NFIA_proxy` |
+
+Interpretation guardrail: cluster `3` remains more CRABP1/ANGPT2-like by the current marker-profile test. Cluster `11` now correlates most strongly with the OPC tip after OPCs are included as a terminal state, so it should remain a candidate until marker overlays and full-scale behavior are reviewed.
+
+Key v4 output paths:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips/lineage_tree_cluster_number_name_v1/plots/urd_tree_annotation.png
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips/lineage_tree_jia_endpoint_tips_v1/plots/urd_tree_annotation.png
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips/lineage_tree_jia_endpoint_tips_v1/plots/urd_tree_pseudotime.png
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips/lineage_decision_report/plots/umap_pseudotime.png
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips/lineage_decision_report/plots/diffusion_map_annotation.png
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips/jia_fig_s11_style_marker_validation_v1/plots/jia_fig_s11_style_urd_marker_validation.png
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips/candidate_pv_marker_projection_v1/plots/div90_candidate_marker_tree_overlays.png
 ```
 
 ## Required Outputs
