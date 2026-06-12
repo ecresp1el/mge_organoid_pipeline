@@ -2269,31 +2269,100 @@ Samples:
 | 10496-MW-3 | 2,714 |
 | 10496-MW-5 | 1,832 |
 
-### DIV90 immediate smoke-test plan
+### DIV90 Jia-lineage-driven smoke-test plan
 
-The next practical step is an immediate DIV90 smoke test before full production:
+Status: planned, not yet run.
 
-1. Inspect `umap_X_umap_seurat_cluster_number_name.png`.
-2. Decide whether to include or exclude non-neuronal/stressed labels:
-   - likely exclude or track separately: `Stressed Cells`, `Pre-OPCs/OPCs`, `Pre-Astrocytes/Astrocytes 1/2`.
-3. Pick a provisional DIV90 root.
-   - Candidate root for first smoke: `12 - Dividing cells`, if marker overlays support progenitor/cycling identity.
-   - Alternative: a root derived from Jia/S11 progenitor markers, not cluster labels, if cluster 12 is too small or not positioned as a trunk root.
-4. Pick provisional DIV90 tips from real labels.
-   - SST tip candidate: `1 - SST+, NPY +, Cortical Fated`.
-   - PV tip candidates: `11 - PV Precursors`, `3 - PV precursors/Migrating cells/Cortical-fated`, and/or `2 - CRABP1+/PV Precursors`.
-   - MGE/subpallial tips: `0 - MGE Striatal/GP Fated`, `5 - LHX8+ vMGE GABergic Striatal/GP fated 1`, `8 - LHX8+ vMGE GABergic Striatal/GP fated 2`.
-5. Run a small DIV90 smoke test using the same script structure as DIV30.
-6. Generate all required figures listed above, including the Jia Fig. S11-style marker validation.
-7. Only after smoke geometry is coherent, scale to larger/full DIV90.
+This plan supersedes the earlier broad SST/PV/MGE tip strategy. DIV30 used SST, PV, and MGE labels as practical smoke-test tips because the DIV30 paper-cluster framework was broad. DIV90 has more informative terminal labels, so the DIV90 URD tree should be built around Jia fetal MGE lineage endpoint logic instead of the paper annotation hierarchy.
 
-### DIV90 questions to resolve before first URD tree
+Main DIV90 question:
 
-- Should DIV90 root be label-based (`Dividing cells`) or marker-score-based (`HES1/CACNA1E` high, neuronal markers low)?
-- Should `CRABP1+/PV Precursors` be treated as a PV-associated tip, an MGE-associated branch, or a transitional branch?
-- Should the two LHX8+ vMGE striatal/GP clusters be combined as one tip or kept separate?
-- Should stressed, astrocytic, and OPC clusters be removed before lineage reconstruction?
-- Does the source Seurat UMAP place candidate root and tips in a connected manifold suitable for URD?
+```text
+Which Jia fetal MGE lineage programs are represented by the terminal DIV90 states?
+```
+
+Not the primary DIV90 question:
+
+```text
+How do progenitors generate SST, PV, and MGE neurons?
+```
+
+Machine-readable planning files:
+
+```text
+metadata/div90_jia_lineage_urd_plan.tsv
+metadata/div90_jia_rootscore_markers.tsv
+metadata/jia_lineage_modules.tsv
+```
+
+Dedicated DIV90 handoff:
+
+```text
+python_notebooks/HANDOFF_div90_jia_lineage_urd_plan.md
+```
+
+#### DIV90 root
+
+Use cluster `12 - Dividing cells` as the root candidate pool, then derive a Jia-style progenitor root inside that pool.
+
+RootScore:
+
+```text
+z(RGC1_score) + z(RGC2_score) + z(HES1) + z(VIM) + z(NES) - z(IPC_score) - z(DLX1) - z(DLX2) - z(ASCL1)
+```
+
+Root cells for first smoke tree:
+
+```text
+top 1-2% RootScore cells within cluster 12
+```
+
+Interpretation of the root: proliferative, VZ/SVZ-like progenitor cells that are high for RGC programs and core progenitor markers, but low for IPC/neurogenic markers.
+
+Important dependency: if `RGC1_score`, `RGC2_score`, and `IPC_score` are not already present in the DIV90 object, compute them with the same Jia scoring logic used for DIV30 before root selection. Do not substitute Seurat cluster identity for the root score.
+
+#### DIV90 tips
+
+Do not define DIV90 tips as SST/PV/MGE broad labels. Define tips as candidate Jia lineage endpoints:
+
+| Tip ID | Jia lineage target | DIV90 clusters | Exact metadata names | Validation genes | Rationale |
+|---|---|---|---|---|---|
+| `tip_lhx8_isl1` | LHX8/ISL1-like lineage | `0`, `5`, `8` | `0 - MGE Striatal/GP Fated`; `5 - LHX8+ vMGE GABergic Striatal/GP fated 1`; `8 - LHX8+ vMGE GABergic Striatal/GP fated 2` | `LHX8`, `ISL1`, `GBX2`, `TAC1` | strongest candidate for Jia LHX8/ISL1 lineage |
+| `tip_epha5_mef2c` | EPHA5/MEF2C-like lineage | `2`, `3`, `11` | `2 - CRABP1+/PV Precursors`; `3 - PV precursors/Migrating cells/Cortical-fated`; `11 - PV Precursors` | `MEF2C`, `MAFB`, `ETV1`, `ERBB4` | strongest candidate for Jia EPHA5/MEF2C lineage |
+| `tip_lhx6_nfia` | LHX6/NFIA-like lineage | `1` | `1 - SST+, NPY +, Cortical Fated` | `LHX6`, `SST`, `NPY`, `ERBB4`, `CXCR4`, `ARX` | strongest candidate for Jia LHX6/NFIA lineage |
+
+For the first neuronal DIV90 URD smoke test, exclude or track separately:
+
+| Cluster(s) | Exact metadata names | Reason |
+|---|---|---|
+| `4`, `10` | `Pre-Astrocytes/Astrocytes 1`; `Pre-Astrocytes/Astrocytes 2` | glial lineage, not a neuronal terminal lineage endpoint |
+| `6`, `7` | `Stressed Cells`; `Stressed Cells` | stress-associated states can distort graph geometry |
+| `9` | `Pre-OPCs/OPCs` | OPC lineage, not part of the first inhibitory neuron lineage test |
+
+#### DIV90 post-tree required analyses
+
+After the DIV90 URD tree exists:
+
+1. Score the actual Jia lineage modules on the tree:
+   - `LHX8/ISL1`
+   - `NR2F1/NR2F2`
+   - `EPHA5/MEF2C`
+   - `LHX6/NFIA`
+   - `CRABP1/ANGPT2`
+2. Determine whether the chosen tips actually correspond to the expected Jia lineages.
+3. Generate segment x lineage score and z-score heatmaps.
+4. Generate branchpoint decision-gene tables and figures separately from Jia lineage score plots.
+5. Generate the Jia Fig. S11-style marker-expression validation figure using the exact marker order:
+   - Panel A: `HES1 | CACNA1E | DLX2 | DCX`
+   - Panel B: `LHX8 | NR2F1 | EPHA5 | MEF2C | CRABP1`
+6. Keep marker-expression validation, lineage module localization, and branchpoint DE as separate figure classes.
+
+#### DIV90 open checks before first URD tree
+
+- Confirm that the DIV90 object has, or can receive, Jia `RGC1_score`, `RGC2_score`, and `IPC_score` columns using the same scoring method as DIV30.
+- Confirm that cluster 12 is connected to the neuronal manifold in the source UMAP/diffusion space.
+- Confirm whether cluster 2 (`CRABP1+/PV Precursors`) behaves as EPHA5/MEF2C-like, CRABP1/ANGPT2-like, or transitional after lineage module scoring.
+- Confirm whether NR2F1/NR2F2 and CRABP1/ANGPT2 need explicit terminal tips after the first Jia-lineage smoke tree, or whether they localize as internal/branch-associated programs.
 
 ### DIV90 handoff requirement
 
