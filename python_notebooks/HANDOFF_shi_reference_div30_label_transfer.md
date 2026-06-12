@@ -2859,3 +2859,215 @@ is explicitly chosen and validated.
 Do not add Schmitz to `cross_study_shi_prediction_plots.py` yet. The Schmitz
 reference has different labels, species choices, and expression-source caveats,
 so it needs its own output namespace and notebook/module path.
+
+## 2026-06-11 Bershteyn 2025 Author-vs-Our Shi Prediction Audit
+
+Reason:
+
+```text
+The downloaded/provided Bershteyn 2025 Seurat object already contains
+author/paper-style prediction metadata:
+  predicted.GEtype
+  predicted.GEcluster
+  predicted.GEgws
+  predicted.macaclass
+  predicted.musclass
+  type
+
+Those author metadata columns are distinct from our from-scratch cross-study
+Shi Seurat TransferData outputs:
+  shi_seurat_full_*
+  shi_seurat_ge_only_*
+
+The audit asks whether our Shi-reference predictions look like the author
+metadata and records the answer without using author labels as transfer inputs.
+```
+
+Execution rule:
+
+```text
+Do not load the Bershteyn 2025 RDS interactively on the login shell for this
+audit. The Seurat object is ~1.1 GB and should be opened through Slurm with a
+real memory allocation.
+```
+
+New audit code:
+
+```text
+scripts/15_bershteyn_author_vs_shi_prediction_audit.R
+slurm_templates/32_bershteyn_author_vs_shi_prediction_audit.sbatch.template
+```
+
+Submitted Slurm job:
+
+```text
+job_id: 51679759
+state: COMPLETED
+exit: 0:0
+elapsed: 00:00:39
+MaxRSS: 6900280K
+node: gl3255
+memory requested: 160G
+
+job file:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/32_bershteyn_author_vs_shi_prediction_audit.sbatch
+
+logs:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/bersh-author-shi-audit-51679759.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/bersh-author-shi-audit-51679759.err
+```
+
+Follow-up score-slot inventory job:
+
+```text
+job_id: 51682246
+state: COMPLETED
+exit: 0:0
+elapsed: 00:00:38
+MaxRSS: 5931192K
+node: gl3010
+memory requested: 16G
+
+logs:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/bersh-score-inventory-51682246.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/bersh-score-inventory-51682246.err
+```
+
+Inputs:
+
+```text
+Author metadata source:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/bershteyn_2025/bershteyn_2025_seurat.rds
+
+Our Shi-transfer source:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v2_ge_only_age/tables/per_study/bershteyn_2025_shi_seurat_label_transfer_obs.tsv.gz
+```
+
+Audit outputs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v2_ge_only_age/tables/author_comparison/
+
+bershteyn_2025_author_vs_our_shi_prediction_summary.tsv
+bershteyn_2025_author_score_like_object_inventory.tsv
+bershteyn_2025_author_vs_our_shi_prediction_distributions.tsv
+bershteyn_2025_author_vs_our_shi_prediction_coarse_comparison.tsv
+bershteyn_2025_author_vs_our_shi_prediction_cell_level_confusion.tsv
+bershteyn_2025_our_shi_major_confidence_by_label.tsv
+bershteyn_2025_our_shi_full_week_confidence_by_label.tsv
+bershteyn_2025_our_shi_ge_only_week_confidence_by_label.tsv
+bershteyn_2025_our_shi_full_week_by_sample.tsv
+bershteyn_2025_author_vs_our_shi_prediction_joined_cells.tsv.gz
+bershteyn_2025_author_vs_our_shi_prediction_notes.tsv
+```
+
+Join result:
+
+```text
+Joined cells: 124,583
+Missing author metadata after join: 0
+```
+
+Author score-slot inventory:
+
+```text
+The follow-up audit searched score/prediction-like names in the downloaded
+Bershteyn Seurat object's main metadata and object-level slots:
+  meta.data column names
+  misc names
+  tools names
+  commands names
+  reductions names
+  assays names
+
+Only these author prediction-like entries were found:
+  meta.data  predicted.GEtype     metadata_column  124583
+  meta.data  predicted.GEcluster  metadata_column  124583
+  meta.data  predicted.GEgws      metadata_column  124583
+  meta.data  predicted.macaclass  metadata_column  124583
+  meta.data  predicted.musclass   metadata_column  124583
+
+No author score matrices or per-class author score columns were found in this
+object-level inventory. The downloaded object appears to contain final author
+labels, not the underlying author prediction-score vectors.
+```
+
+Main result:
+
+```text
+Major GE identity broadly agrees:
+  author predicted.GEtype MGE fraction:        0.987727
+  our shi_seurat_full MGE fraction:            0.976538
+  median major-label prediction score:         0.913156
+  fraction major-label score >= 0.75:          0.831654
+
+Age/GW labels do not agree:
+  author predicted.GEgws GW18 fraction:        0.902916
+  our whole-Shi GW18 fraction:                 0.002841
+  our GE-only GW18 fraction:                   0.000867
+  our corrected whole-Shi expected GW mean:   10.428001
+  our corrected GE-only expected GW mean:     10.148277
+```
+
+Coarse comparison:
+
+```text
+GE identity:
+  MGE author 123,054 cells (98.77%) vs our 121,660 cells (97.65%)
+  LGE author      76 cells (0.06%)  vs our   1,354 cells (1.09%)
+  CGE author   1,059 cells (0.85%)  vs our      25 cells (0.02%)
+
+GW/stage:
+  GW09 author   1,353 cells (1.09%)  vs our 82,301 cells (66.06%)
+  GW12 author   3,919 cells (3.15%)  vs our 40,305 cells (32.35%)
+  GW13 author   2,374 cells (1.91%)  vs our    661 cells (0.53%)
+  GW16 author   4,449 cells (3.57%)  vs our    962 cells (0.77%)
+  GW18 author 112,488 cells (90.29%) vs our    354 cells (0.28%)
+```
+
+Interpretation:
+
+```text
+Our Shi-reference transfer appears to recapitulate the broad MGE identity of
+Bershteyn 2025, but it does not recapitulate the author `predicted.GEgws`
+stage assignment. The author object marks most cells as GW18-like, whereas the
+Shi-reference classifier maps most cells to GW09/GW12 and has a corrected
+expected-GW mean near 10.4.
+
+Do not present our Shi GW output as a reproduction of the Bershteyn author
+`predicted.GEgws` metadata. Treat it as a separate reference-system projection.
+```
+
+Important expected-GW caveat:
+
+```text
+The per-study obs table contains stale/buggy expected-GW numeric columns from
+the R transfer step:
+  per_study_obs_full_expected_gw_mean_stale_buggy:    8.286551
+  per_study_obs_ge_only_expected_gw_mean_stale_buggy: 8.430542
+
+Cause:
+  the R helper `parse_gw_numeric()` averaged all numbers found in duplicate
+  score-column labels such as `GW12_01`, so `GW12_01` was not treated as GW12.
+
+The Python finalizer and this audit recompute corrected expected-GW values by
+parsing the `GWxx` prefix only. Use corrected/finalizer summary values for
+expected-GW interpretation, not the stale per-study obs numeric expected-GW
+columns. Winner-take-all week labels are unaffected except for display
+normalization of duplicate labels such as `GW12_01` and `GW12_02` to `GW12`.
+
+Patch:
+  `scripts/13_run_cross_study_shi_seurat_label_transfer.R` now parses the
+  `GWxx` prefix first and falls back to the first numeric token only when no
+  GW-style token is present. Existing v2 per-study obs files are not rewritten
+  by this patch; rerun the transfer array if refreshed per-study expected-GW
+  columns are needed.
+```
+
+Re-run command:
+
+```bash
+cp slurm_templates/32_bershteyn_author_vs_shi_prediction_audit.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/32_bershteyn_author_vs_shi_prediction_audit.sbatch
+sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/32_bershteyn_author_vs_shi_prediction_audit.sbatch
+```

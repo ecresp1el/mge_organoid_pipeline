@@ -33,6 +33,7 @@ parse_args <- function(args) {
     `annotation-col` = "paper_cluster_annotation",
     `pseudotime-name` = "",
     `root-label` = "Radial glia",
+    `root-col` = "",
     `tip-labels` = "SST+ cIN,PV neuron precursor,MGE subpallial neurons",
     `seed` = "7",
     `optimal-cells-forward` = "100",
@@ -143,10 +144,17 @@ make_tip_mapping <- function(tip_labels) {
   )
 }
 
-add_tree_groups <- function(object, annotation_col, root_label, tip_mapping) {
+add_tree_groups <- function(object, annotation_col, root_label, root_col, tip_mapping) {
   if (!(annotation_col %in% colnames(object@meta))) stop("Missing annotation column: ", annotation_col, call. = FALSE)
   meta <- object@meta
-  root_cells <- rownames(meta)[meta[[annotation_col]] == root_label]
+  if (nzchar(root_col)) {
+    if (!(root_col %in% colnames(meta))) stop("Missing root column: ", root_col, call. = FALSE)
+    root_flag <- as.logical(meta[[root_col]])
+    root_flag[is.na(root_flag)] <- FALSE
+    root_cells <- rownames(meta)[root_flag]
+  } else {
+    root_cells <- rownames(meta)[meta[[annotation_col]] == root_label]
+  }
   if (length(root_cells) == 0) stop("No root cells found for label: ", root_label, call. = FALSE)
 
   tip_id_by_label <- setNames(tip_mapping$tip_id, tip_mapping$paper_cluster_annotation)
@@ -294,6 +302,7 @@ write_report <- function(path, cfg, status, tip_mapping, tip_comp, joins, branch
     paste0("- Input URD object: `", cfg$urd_rds, "`"),
     paste0("- Output tree object: `", file.path(cfg$outdir, "div30_urd_lineage_tree_object.rds"), "`"),
     paste0("- Root annotation: `", cfg$root_label, "`"),
+    paste0("- Root column: `", ifelse(nzchar(cfg$root_col), cfg$root_col, "annotation label"), "`"),
     paste0("- Tip group column written to URD: `paper_tree_tip_id`"),
     paste0("- Pseudotime column: `", cfg$pseudotime_name, "`"),
     "",
@@ -342,6 +351,7 @@ cfg <- list(
   annotation_col = opt$`annotation-col`,
   pseudotime_name = opt$`pseudotime-name`,
   root_label = opt$`root-label`,
+  root_col = opt$`root-col`,
   tip_labels = opt$`tip-labels`,
   seed = as_int(opt$seed, "seed"),
   optimal_cells_forward = as_int(opt$`optimal-cells-forward`, "optimal-cells-forward"),
@@ -376,7 +386,7 @@ cfg$pseudotime_name <- extract_pseudotime_name(urd, cfg$pseudotime_name)
 if (!all(rownames(urd@meta) %in% rownames(urd@pseudotime))) stop("Metadata and pseudotime cell names do not align.", call. = FALSE)
 
 tip_mapping <- make_tip_mapping(cfg$tip_labels)
-grouped <- add_tree_groups(urd, cfg$annotation_col, cfg$root_label, tip_mapping)
+grouped <- add_tree_groups(urd, cfg$annotation_col, cfg$root_label, cfg$root_col, tip_mapping)
 urd <- grouped$object
 root_cells <- grouped$root_cells
 tip_ids <- grouped$tip_ids

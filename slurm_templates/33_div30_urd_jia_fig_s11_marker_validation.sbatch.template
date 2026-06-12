@@ -1,0 +1,64 @@
+#!/bin/bash
+# Generate Jia Fig. S11-style marker-expression validation panels from a saved
+# DIV30 URD tree object.
+#
+# Workflow position:
+#   Run after the URD lineage tree has been built and finalized.
+#   This is a validation/figure-generation step, not a branchpoint DE step.
+#
+# Figure rules:
+#   - Use exact Jia Fig. S11 marker order.
+#   - Use marker expression only.
+#   - Do not use branchpoint DE genes.
+#   - Do not use lineage program averages.
+#   - Do not z-score across genes.
+#   - Do not substitute markers.
+#
+# Submit:
+#   cp slurm_templates/33_div30_urd_jia_fig_s11_marker_validation.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/33_div30_urd_jia_fig_s11_marker_validation.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/33_div30_urd_jia_fig_s11_marker_validation.sbatch
+
+#SBATCH --job-name=div30_jia_s11
+#SBATCH --time=01:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=16G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/33_div30_urd_jia_fig_s11_marker_validation_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/33_div30_urd_jia_fig_s11_marker_validation_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+set -euo pipefail
+set -x
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+R_MODULE="${R_MODULE:-R/4.4.3}"
+
+TREE_RDS="${TREE_RDS:-${PROJECT_ROOT}/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/jia_rootscore_root_v1/reflood_top2pct_v1/lineage_tree_sst_pv_mge_tips_v1/div30_urd_lineage_tree_object.rds}"
+OUTDIR="${OUTDIR:-${PROJECT_ROOT}/results/div30_first_urd/div30_first_urd_paper_radial_glia_smoke5k_knn100_v1/jia_rootscore_root_v1/reflood_top2pct_v1/jia_fig_s11_style_marker_validation_v1}"
+POINT_SIZE="${POINT_SIZE:-0.28}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${OUTDIR}"
+
+echo "=== DIV30 Jia Fig. S11 marker-validation Slurm context ==="
+date
+hostname
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "PROJECT_ROOT=${PROJECT_ROOT}"
+echo "REPO_ROOT=${REPO_ROOT}"
+echo "TREE_RDS=${TREE_RDS}"
+echo "OUTDIR=${OUTDIR}"
+echo "POINT_SIZE=${POINT_SIZE}"
+
+module load "${R_MODULE}"
+module list 2>&1
+Rscript --version
+which Rscript
+
+Rscript -e 'pkgs <- c("Matrix", "ggplot2", "cowplot"); status <- sapply(pkgs, requireNamespace, quietly=TRUE); print(data.frame(package=pkgs, installed=status), row.names=FALSE); quit(status=ifelse(all(status), 0, 1))'
+
+Rscript "${REPO_ROOT}/scripts/25_div30_urd_jia_fig_s11_marker_validation.R" \
+  --tree-rds "${TREE_RDS}" \
+  --outdir "${OUTDIR}" \
+  --point-size "${POINT_SIZE}"

@@ -152,10 +152,15 @@ parse_gw_numeric <- function(x) {
   text <- as.character(x)
   out <- rep(NA_real_, length(text))
   for (i in seq_along(text)) {
-    m <- gregexpr("[0-9]+", text[[i]], perl = TRUE)[[1]]
-    if (length(m) > 0 && m[[1]] > 0) {
-      nums <- as.numeric(regmatches(text[[i]], list(m))[[1]])
-      out[[i]] <- mean(nums, na.rm = TRUE)
+    gw_match <- regexpr("GW\\s*0*([0-9]+)", text[[i]], ignore.case = TRUE, perl = TRUE)
+    if (gw_match > 0) {
+      matched <- regmatches(text[[i]], gw_match)
+      out[[i]] <- as.numeric(sub(".*GW\\s*0*([0-9]+).*", "\\1", matched, ignore.case = TRUE, perl = TRUE))
+    } else {
+      m <- regexpr("[0-9]+", text[[i]], perl = TRUE)
+      if (m > 0) {
+        out[[i]] <- as.numeric(regmatches(text[[i]], m))
+      }
     }
   }
   out

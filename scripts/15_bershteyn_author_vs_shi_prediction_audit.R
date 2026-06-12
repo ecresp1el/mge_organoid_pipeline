@@ -59,6 +59,19 @@ write_tsv_gz <- function(x, path) {
   utils::write.table(x, con, sep = "\t", quote = FALSE, row.names = FALSE, na = "")
 }
 
+score_inventory_rows <- function(location, names, class, length_value) {
+  if (length(names) == 0L) {
+    return(data.frame(location = character(), name = character(), class = character(), length = integer()))
+  }
+  data.frame(
+    location = location,
+    name = names,
+    class = class,
+    length = length_value,
+    stringsAsFactors = FALSE
+  )
+}
+
 read_tsv_maybe_gz <- function(path) {
   con <- if (grepl("\\.gz$", path, ignore.case = TRUE)) gzfile(path, "rt") else file(path, "rt")
   on.exit(close(con), add = TRUE)
@@ -157,6 +170,48 @@ main <- function() {
   keep <- intersect(author_cols, colnames(meta))
   author_meta <- meta[, keep, drop = FALSE]
   log_msg("Author metadata rows: ", nrow(author_meta), "; columns: ", paste(keep, collapse = ","))
+
+  score_patterns <- "(score|prediction\\.score|predicted|GEgws|GEtype|macaclass|musclass)"
+  score_like_rows <- list(
+    score_inventory_rows(
+      location = "meta.data",
+      names = grep(score_patterns, colnames(meta), value = TRUE, ignore.case = TRUE),
+      class = "metadata_column",
+      length_value = nrow(meta)
+    )
+  )
+  for (slot_name in c("misc", "tools", "commands")) {
+    value <- tryCatch(slot(obj, slot_name), error = function(e) NULL)
+    if (is.null(value) || length(value) == 0L) next
+    value_names <- names(value)
+    if (is.null(value_names)) value_names <- rep("", length(value))
+    hits <- grep(score_patterns, value_names, value = TRUE, ignore.case = TRUE)
+    if (length(hits) > 0L) {
+      score_like_rows[[length(score_like_rows) + 1L]] <- data.frame(
+        location = slot_name,
+        name = hits,
+        class = vapply(value[hits], function(x) paste(class(x), collapse = ","), character(1)),
+        length = vapply(value[hits], length, integer(1)),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+  reductions <- names(obj@reductions)
+  assays <- names(obj@assays)
+  score_like_rows[[length(score_like_rows) + 1L]] <- score_inventory_rows(
+    location = "reductions",
+    names = grep(score_patterns, reductions, value = TRUE, ignore.case = TRUE),
+    class = "reduction_name",
+    length_value = NA_integer_
+  )
+  score_like_rows[[length(score_like_rows) + 1L]] <- score_inventory_rows(
+    location = "assays",
+    names = grep(score_patterns, assays, value = TRUE, ignore.case = TRUE),
+    class = "assay_name",
+    length_value = NA_integer_
+  )
+  score_like_inventory <- do.call(rbind, score_like_rows)
+  score_like_inventory <- score_like_inventory[nzchar(score_like_inventory$name), , drop = FALSE]
 
   log_msg("Reading our Shi transfer table: ", opt$obs)
   obs <- read_tsv_maybe_gz(opt$obs)
@@ -273,6 +328,27 @@ main <- function() {
     sort = FALSE
   )
 
+  confidence_ge_week <- aggregate(
+    cbind(shi_seurat_ge_only_week_prediction_score, shi_seurat_ge_only_expected_shi_gw_numeric_corrected) ~ our_ge_only_week_normalized,
+    data = joined,
+    FUN = function(x) c(mean = mean(x, na.rm = TRUE), median = stats::median(x, na.rm = TRUE))
+  )
+  confidence_ge_week <- data.frame(
+    label = confidence_ge_week$our_ge_only_week_normalized,
+    mean_max_score = confidence_ge_week$shi_seurat_ge_only_week_prediction_score[, "mean"],
+    median_max_score = confidence_ge_week$shi_seurat_ge_only_week_prediction_score[, "median"],
+    mean_expected_gw_corrected = confidence_ge_week$shi_seurat_ge_only_expected_shi_gw_numeric_corrected[, "mean"],
+    median_expected_gw_corrected = confidence_ge_week$shi_seurat_ge_only_expected_shi_gw_numeric_corrected[, "median"],
+    stringsAsFactors = FALSE
+  )
+  confidence_ge_week <- merge(
+    our_ge_week[, c("label", "n_cells", "fraction")],
+    confidence_ge_week,
+    by = "label",
+    all.x = TRUE,
+    sort = FALSE
+  )
+
   sample_week <- as.data.frame(table(
     sample = joined$sample.our,
     shi_seurat_full_predicted_shi_week_label_normalized = joined$our_full_week_normalized
@@ -320,11 +396,13 @@ main <- function() {
   )
 
   write_tsv(summary, file.path(opt$outdir, "bershteyn_2025_author_vs_our_shi_prediction_summary.tsv"))
+  write_tsv(score_like_inventory, file.path(opt$outdir, "bershteyn_2025_author_score_like_object_inventory.tsv"))
   write_tsv(distributions, file.path(opt$outdir, "bershteyn_2025_author_vs_our_shi_prediction_distributions.tsv"))
   write_tsv(coarse, file.path(opt$outdir, "bershteyn_2025_author_vs_our_shi_prediction_coarse_comparison.tsv"))
   write_tsv(confusion, file.path(opt$outdir, "bershteyn_2025_author_vs_our_shi_prediction_cell_level_confusion.tsv"))
   write_tsv(confidence_major, file.path(opt$outdir, "bershteyn_2025_our_shi_major_confidence_by_label.tsv"))
   write_tsv(confidence_week, file.path(opt$outdir, "bershteyn_2025_our_shi_full_week_confidence_by_label.tsv"))
+  write_tsv(confidence_ge_week, file.path(opt$outdir, "bershteyn_2025_our_shi_ge_only_week_confidence_by_label.tsv"))
   write_tsv(sample_week, file.path(opt$outdir, "bershteyn_2025_our_shi_full_week_by_sample.tsv"))
 
   joined_export_cols <- c(
