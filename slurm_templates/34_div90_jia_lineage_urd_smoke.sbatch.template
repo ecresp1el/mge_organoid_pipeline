@@ -224,6 +224,13 @@ Rscript "${REPO_ROOT}/scripts/27_div90_urd_project_candidate_lineage_markers.R" 
   --candidate-clusters "3,11" \
   --marker-genes "MEF2C,EPHA5,LHX6,CRABP1,LHX8,NR2F1,NR2F2"
 
+source "${CONDA_BASE}/etc/profile.d/conda.sh"
+conda activate "${CONDA_ENV}"
+python "${REPO_ROOT}/python_notebooks/scripts/audit_urd_run_outputs.py" \
+  --run-root "${RUN_ROOT}" \
+  --mode "div90_jia" \
+  --outdir "${TABLE_DIR}"
+
 echo "=== DIV90 Jia-lineage URD smoke complete ==="
 date
 find "${RUN_ROOT}" -maxdepth 3 -type f | sort

@@ -20,6 +20,8 @@ set -x
 
 REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
 PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+CONDA_BASE="${CONDA_BASE:-/home/elcrespo/miniconda3}"
+CONDA_ENV="${CONDA_ENV:-mge-organoid-python}"
 R_MODULE="${R_MODULE:-R/4.4.3}"
 
 RUN_LABEL="${RUN_LABEL:-div30_first_urd_paper_radial_glia_30k_checkpoint_v2}"
@@ -90,6 +92,14 @@ Rscript "${REPO_ROOT}/scripts/15_div30_urd_lineage_decision_report.R" \
   --dataset-label "DIV30 Jia RootScore top ${SELECTED_PCT}% within ${POOL_VALUE}" \
   --top-n "50" \
   --correlation-genes "variable"
+
+source "${CONDA_BASE}/etc/profile.d/conda.sh"
+conda activate "${CONDA_ENV}"
+python "${REPO_ROOT}/python_notebooks/scripts/audit_urd_run_outputs.py" \
+  --run-root "${ROOTSCORE_DIR}" \
+  --mode "div30_root10" \
+  --selected-pct "${SELECTED_PCT}" \
+  --outdir "${ROOTSCORE_DIR}/tables"
 
 echo "=== DIV30 Jia RootScore top-percent reflood complete ==="
 date

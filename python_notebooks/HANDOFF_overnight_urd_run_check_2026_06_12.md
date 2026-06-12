@@ -159,6 +159,72 @@ Live check: 2026-06-12 09:57 EDT
 | DIV30 | 51699299 | RUNNING | 00:02:41 | gl3252 | `root_score_program_marker_summary.tsv` already written under the top-10% root run `tables/` directory; candidate scoring completed/underway before reflood/report stages. |
 | DIV90 | 51699477 | RUNNING | 00:01:09 | gl3262 | Resubmission started successfully and reached the R URD build step; exporter already wrote `inputs/root_score_program_marker_summary.tsv`. |
 
+Live check: 2026-06-12 11:53 EDT
+
+| Dataset | Job ID | State | Current stage signal | Output audit status |
+|---|---:|---|---|---|
+| DIV30 | 51699299 | RUNNING | Reflood in progress; log reached flood 16/20 from 1225 root cells. | `root_score` stage complete in manifest: 16/16 expected artifacts present. `reflood` and reflood `lineage_decision_report` artifacts not present yet because job is still running. |
+| DIV90 | 51699477 | RUNNING | Initial URD build in `calc_pca_and_diffusion_map`; exporter/input stage complete. | `input_export` stage complete in manifest: 9/9 expected artifacts present. Initial URD/post-URD plots and tree/marker reports are pending until the R stages complete. |
+
+## Output Reproducibility Audit
+
+Added:
+
+```text
+python_notebooks/scripts/audit_urd_run_outputs.py
+```
+
+Purpose: write a stable manifest for each URD run so expected files, generated plots, missing artifacts, sizes, and modification times are explicit instead of inferred from directory browsing.
+
+Manifest outputs:
+
+```text
+tables/urd_output_manifest.tsv
+tables/urd_output_manifest_summary.tsv
+tables/urd_output_discovered_files.tsv
+```
+
+The manifest script is now called at the end of these templates:
+
+```text
+slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+slurm_templates/35_div30_jia_rootscore_root10_reflood.sbatch.template
+```
+
+Important: jobs `51699299` and `51699477` were submitted before the template audit hooks were added. The manual manifests below capture the current in-progress state; rerun the audit commands after the jobs finish to refresh them as final completion manifests.
+
+Refresh commands after completion:
+
+```bash
+source /home/elcrespo/miniconda3/etc/profile.d/conda.sh
+conda activate mge-organoid-python
+
+python python_notebooks/scripts/audit_urd_run_outputs.py \
+  --run-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_30k_checkpoint_v2/jia_rootscore_root10_radial_glia_pool_v1 \
+  --mode div30_root10 \
+  --selected-pct 10 \
+  --outdir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_30k_checkpoint_v2/jia_rootscore_root10_radial_glia_pool_v1/tables
+
+python python_notebooks/scripts/audit_urd_run_outputs.py \
+  --run-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_full_v4_glia_tips_root10_v1 \
+  --mode div90_jia \
+  --outdir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_full_v4_glia_tips_root10_v1/tables
+```
+
+Manual manifests were also generated for the active runs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_30k_checkpoint_v2/jia_rootscore_root10_radial_glia_pool_v1/tables/urd_output_manifest.tsv
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_full_v4_glia_tips_root10_v1/tables/urd_output_manifest.tsv
+```
+
+Current manifest summaries while jobs are still running:
+
+| Dataset | Manifest mode | Expected | Present | Missing required | Interpretation |
+|---|---|---:|---:|---:|---|
+| DIV30 | `div30_root10` | 35 | 16 | 19 | RootScore layer exists; reflood object and reflood decision-report plots/tables are pending. |
+| DIV90 | `div90_jia` | 77 | 12 | 64 | Input/export layer and Slurm heartbeat exist; initial URD, decision report, lineage-tree, Jia marker-validation, and candidate-marker outputs are pending. |
+
 ## Logs
 
 ```text
