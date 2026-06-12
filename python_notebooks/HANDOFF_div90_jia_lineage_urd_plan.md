@@ -2,7 +2,7 @@
 
 Date: 2026-06-11
 
-Status: first DIV90 Jia-lineage smoke run submitted.
+Status: first DIV90 Jia-lineage smoke run completed.
 
 This handoff records the DIV90 URD plan after the DIV90 UMAP/metadata audit. It is intentionally aligned with the DIV30 URD workflow, but the DIV90 biological question is different because the DIV90 object has real terminal cluster labels.
 
@@ -243,6 +243,78 @@ Pre-submit exporter smoke check:
 ```
 
 The exporter smoke check selected 800 cells with all 358 cluster-12 dividing cells retained, and selected 8 RootScore root cells. R read the exported `urd_root_candidate` column as logical, so the root column format is valid for URD.
+
+### Completed Smoke Run Summary
+
+Completed: 2026-06-11 21:12:49 EDT
+
+Slurm accounting:
+
+| Job | State | Exit code | Elapsed | Max RSS | CPUs |
+|---|---|---|---|---|---:|
+| `51685516.batch` | `COMPLETED` | `0:0` | `00:20:25` | `4007404K` | 8 |
+
+Root selection:
+
+| Metric | Value |
+|---|---:|
+| root cluster | 12 |
+| root top percent | 2.0 |
+| root pool cells retained | 358 |
+| root cells selected | 8 |
+| selected root RootScore min | 24.4202 |
+| selected root RootScore median | 24.7901 |
+| selected root RootScore max | 27.1786 |
+
+Pseudotime smoke result:
+
+| Annotation | n cells | Median pseudotime |
+|---|---:|---:|
+| `12 - Dividing cells` | 358 | 0.244 |
+| `2 - CRABP1+/PV Precursors` | 1003 | 0.383 |
+| `8 - LHX8+ vMGE GABergic Striatal/GP fated 2` | 264 | 0.401 |
+| `11 - PV Precursors` | 122 | 0.408 |
+| `1 - SST+, NPY +, Cortical Fated` | 1016 | 0.412 |
+| `5 - LHX8+ vMGE GABergic Striatal/GP fated 1` | 551 | 0.413 |
+| `0 - MGE Striatal/GP Fated` | 1032 | 0.421 |
+| `3 - PV precursors/Migrating cells/Cortical-fated` | 654 | 0.440 |
+
+Flood stability reached 1.0 Spearman correlation to final pseudotime at 20 walks/cell. Early stability improved monotonically from 0.606 at 2 walks/cell to 0.984 at 18 walks/cell.
+
+Tree result:
+
+| Metric | Value |
+|---|---:|
+| requested tips | 3 |
+| final segment joins | 2 |
+| final segments | 3 |
+| distinct branching detected | TRUE |
+| tree-layout cells | 4512 |
+
+Final tree topology:
+
+```text
+tip_epha5_mef2c + tip_lhx6_nfia fuse first.
+The combined branch then splits from tip_lhx8_isl1 at pseudotime ~0.267.
+```
+
+URD reported that the difference between `tip_epha5_mef2c` and `tip_lhx6_nfia` was always false in the divergence scan, so this smoke tree does not support a strong EPHA5/MEF2C-vs-LHX6/NFIA split at 5k cells. It does support a stronger LHX8/ISL1-like branch versus the combined EPHA5/MEF2C/LHX6/NFIA-like branch.
+
+Branch-specific gene examples:
+
+| Tip | Top branch-enriched genes |
+|---|---|
+| `tip_lhx8_isl1` | `LHX8`, `ISLR2`, `TSHZ2`, `ECEL1`, `GAP43`, `SPOCK2`, `NRP1`, `VAT1L` |
+| `tip_epha5_mef2c` | `ERBB4`, `NXPH1`, `GRIA3`, `TCF4`, `ZEB2`, `SST`, `QKI`, `NFIB`, `NPY`, `ARX`, `EPHA5`, `LHX6` |
+| `tip_lhx6_nfia` | `VWC2`, `ERBB4`, `NFIB`, `RAB3IP`, `EDIL3`, `NXPH1`, `GRIA3`, `CXCR4`, `LHX6`, `SST`, `NR2F1`, `CRABP1` |
+
+S11 marker validation:
+
+All requested Jia Fig. S11-style markers were present:
+
+```text
+HES1, CACNA1E, DLX2, DCX, LHX8, NR2F1, EPHA5, MEF2C, CRABP1
+```
 
 ## Required Outputs
 

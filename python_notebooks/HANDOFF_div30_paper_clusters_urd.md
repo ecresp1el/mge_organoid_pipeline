@@ -2301,7 +2301,7 @@ Dedicated DIV90 handoff:
 python_notebooks/HANDOFF_div90_jia_lineage_urd_plan.md
 ```
 
-First DIV90 Jia-lineage smoke run submitted:
+First DIV90 Jia-lineage smoke run completed:
 
 ```text
 Slurm job: 51685516
@@ -2309,9 +2309,14 @@ Template: slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
 Run label: div90_urd_jia_lineage_smoke5k_knn100_v1
 Output root: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v1/
 Log: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51685516.log
+State: COMPLETED
+Exit code: 0:0
+Elapsed: 00:20:25
 ```
 
-The submitted run should emit the same smoke-panel outputs as DIV30 under `lineage_decision_report/`, then build the Jia endpoint-tip tree under `lineage_tree_jia_endpoint_tips_v1/`, then run the Jia Fig. S11-style marker validation under `jia_fig_s11_style_marker_validation_v1/`.
+The run emitted the same smoke-panel outputs as DIV30 under `lineage_decision_report/`, built the Jia endpoint-tip tree under `lineage_tree_jia_endpoint_tips_v1/`, and ran the Jia Fig. S11-style marker validation under `jia_fig_s11_style_marker_validation_v1/`.
+
+First-pass topology: `tip_epha5_mef2c` and `tip_lhx6_nfia` fuse first; the combined branch then splits from `tip_lhx8_isl1` at pseudotime ~0.267. This smoke result supports a stronger LHX8/ISL1-like branch versus a combined EPHA5/MEF2C/LHX6/NFIA-like branch, not a clean separation among all three requested Jia endpoint tips.
 
 #### DIV90 root
 

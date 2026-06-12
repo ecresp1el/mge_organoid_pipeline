@@ -3033,6 +3033,11 @@ Main result:
 Major GE identity broadly agrees:
   author predicted.GEtype MGE fraction:        0.987727
   our shi_seurat_full MGE fraction:            0.976538
+  both author and our call MGE:              120,311 cells
+  author-MGE recovered as our MGE:             97.77%
+  our MGE calls that are author-MGE:           98.89%
+  binary MGE Jaccard overlap:                  96.71%
+  binary MGE agreement:                        96.72%
   median major-label prediction score:         0.913156
   fraction major-label score >= 0.75:          0.831654
 
@@ -3042,6 +3047,56 @@ Age/GW labels do not agree:
   our GE-only GW18 fraction:                   0.000867
   our corrected whole-Shi expected GW mean:   10.428001
   our corrected GE-only expected GW mean:     10.148277
+```
+
+Exact MGE overlap:
+
+```text
+Binary definition:
+  author MGE = predicted.GEtype == "MGE"
+  our MGE = shi_seurat_full_predicted_shi_label == "MGE"
+
+2x2 overlap:
+  both MGE:                         120,311
+  author MGE, our not-MGE:            2,743
+  author not-MGE, our MGE:            1,349
+  both not-MGE:                         180
+  total cells:                      124,583
+
+Metrics:
+  recall of author-MGE by our MGE call:       120,311 / 123,054 = 97.77%
+  precision of our MGE call vs author-MGE:    120,311 / 121,660 = 98.89%
+  Jaccard overlap of MGE sets:                120,311 / 124,403 = 96.71%
+  binary MGE/non-MGE agreement:              (120,311 + 180) / 124,583 = 96.72%
+```
+
+Exact GE-type vocabulary comparison:
+
+```text
+Author `predicted.GEtype` winner labels:
+  MGE, CGE, POA, LGE, EN, NPC
+
+Our `shi_seurat_full_predicted_shi_label` winner labels:
+  MGE, Excitatory neuron, LGE, CGE, Thalamic neurons, progenitor
+
+Shared exact label names:
+  MGE, LGE, CGE
+
+Author-only winner labels in this comparison:
+  EN, NPC, POA
+
+Our-only winner labels in this comparison:
+  Excitatory neuron, Thalamic neurons, progenitor
+
+Exact same-string agreement across the shared labels MGE/LGE/CGE is dominated
+by MGE:
+  MGE same-string matches: 120,311
+  LGE same-string matches:       5
+  CGE same-string matches:      12
+  total same-string matches: 120,328 / 124,583 = 96.58%
+
+This means the strong agreement is specifically a coarse MGE identity result,
+not proof that the two pipelines have identical full label vocabularies.
 ```
 
 Coarse comparison:
@@ -3060,6 +3115,58 @@ GW/stage:
   GW18 author 112,488 cells (90.29%) vs our    354 cells (0.28%)
 ```
 
+Age/GW cell-level disagreement:
+
+```text
+Exact author-GW vs our whole-Shi GW winner match:
+  2,496 / 124,583 = 2.00%
+
+Author GW18 cells:
+  author GW18 total:                  112,488
+  author GW18 -> our GW09:             74,126 (65.90% of author GW18)
+  author GW18 -> our GW12:             36,515 (32.46% of author GW18)
+  author GW18 -> our GW18:                346 (0.31% of author GW18)
+  author GW18 -> our GW09/GW12:       110,641 (98.36% of author GW18)
+
+Winner-label GW shift:
+  mean absolute winner difference:       7.49 GW units
+  mean signed difference, ours-author:  -7.48 GW units
+
+This is a systematic early-shift in the Shi-reference age projection, not a
+small random disagreement around the same age distribution.
+```
+
+How our scores were computed:
+
+```text
+The MGE/type score and GW/age score are two separate Seurat TransferData
+applications, even though they use the same whole-Shi anchor set for the
+`shi_seurat_full_*` outputs:
+
+1. Major GE/cell-state score:
+   refdata = reference@meta.data[[label_col]]
+   output winner = shi_seurat_full_predicted_shi_label
+   output max score = shi_seurat_full_prediction_score
+   per-label scores = shi_seurat_full_prediction_score_<label>
+
+2. Gestational-week score:
+   refdata = reference@meta.data[[week_col]]
+   output winner = shi_seurat_full_predicted_shi_week_label
+   output max score = shi_seurat_full_week_prediction_score
+   per-label scores = shi_seurat_full_week_prediction_score_<GW>
+
+The GE-only week analysis then reruns FindTransferAnchors/TransferData after
+subsetting the Shi reference to MGE/LGE/CGE cells. It still maps most Bershteyn
+cells to GW09/GW12:
+  our GE-only GW09: 92,355 cells (74.13%)
+  our GE-only GW12: 30,733 cells (24.67%)
+  our GE-only GW18:    108 cells (0.09%)
+
+Therefore the age disagreement is not caused by accidentally including
+non-GE labels in the week model. It persists when the age model is restricted
+to GE reference cells.
+```
+
 Interpretation:
 
 ```text
@@ -3068,6 +3175,16 @@ Bershteyn 2025, but it does not recapitulate the author `predicted.GEgws`
 stage assignment. The author object marks most cells as GW18-like, whereas the
 Shi-reference classifier maps most cells to GW09/GW12 and has a corrected
 expected-GW mean near 10.4.
+
+For methods/publication wording, phrase this as follows:
+  We recomputed reference projection scores using Seurat TransferData against
+  the Shi human GE/organoid reference. These scores strongly supported broad
+  MGE identity and agreed with the deposited Bershteyn author MGE labels at the
+  cell-set level. However, the recomputed Shi-reference age scores did not
+  reproduce the deposited author GEgws labels; most author-GW18 cells projected
+  to GW09/GW12 in the Shi reference. Because the deposited Bershteyn object
+  contains author labels but not author per-class score vectors, author-score
+  equality cannot be directly tested from the available object.
 
 Do not present our Shi GW output as a reproduction of the Bershteyn author
 `predicted.GEgws` metadata. Treat it as a separate reference-system projection.

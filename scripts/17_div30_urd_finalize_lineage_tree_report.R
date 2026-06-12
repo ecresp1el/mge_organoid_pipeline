@@ -260,7 +260,7 @@ annotation <- as.character(urd@meta[, opt$`annotation-col`])
 names(annotation) <- rownames(urd@meta)
 pt <- as.numeric(urd@pseudotime[, opt$`pseudotime-name`])
 names(pt) <- rownames(urd@pseudotime)
-plot_tree_layout(urd, annotation, "paper_cluster_annotation", file.path(plot_dir, "urd_tree_annotation.png"))
+plot_tree_layout(urd, annotation, opt$`annotation-col`, file.path(plot_dir, "urd_tree_annotation.png"))
 plot_tree_layout(urd, pt, "pseudotime", file.path(plot_dir, "urd_tree_pseudotime.png"))
 
 write_report(
