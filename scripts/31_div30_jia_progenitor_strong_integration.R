@@ -40,6 +40,7 @@ parse_args <- function(args) {
     `integration-reduction` = Sys.getenv("INTEGRATION_REDUCTION", "cca"),
     `k-anchor` = Sys.getenv("K_ANCHOR", "10"),
     `k-weight` = Sys.getenv("K_WEIGHT", "200"),
+    `future-globals-max-gb` = Sys.getenv("FUTURE_GLOBALS_MAX_GB", "120"),
     help = FALSE
   )
 
@@ -77,6 +78,7 @@ print_usage <- function() {
     "  --dims 50",
     "  --k-anchor 10",
     "  --k-weight 200",
+    "  --future-globals-max-gb 120",
     sep = "\n"
   ))
 }
@@ -193,6 +195,7 @@ build_config <- function(opt) {
     integration_reduction = opt$`integration-reduction`,
     k_anchor = as_int(opt$`k-anchor`, "k-anchor"),
     k_weight = as_int(opt$`k-weight`, "k-weight"),
+    future_globals_max_gb = as_num(opt$`future-globals-max-gb`, "future-globals-max-gb"),
     uncorrected_cluster_col = "div30_progenitor_uncorrected_cluster",
     integrated_cluster_col = "div30_progenitor_integrated_cluster",
     uncorrected_umap = "uncorrected_umap",
@@ -208,7 +211,7 @@ parameter_table <- function(cfg, source_cluster_col, batch_col, n_parent_cells, 
       "n_parent_cells", "n_progenitor_cells", "uncorrected_workflow",
       "integration_method", "integration_reduction", "integration_nfeatures",
       "npcs", "dims", "resolution", "k_anchor", "k_weight_requested",
-      "k_weight_effective", "seed", "jia_scores_use"
+      "k_weight_effective", "future_globals_max_gb", "seed", "jia_scores_use"
     ),
     value = as.character(c(
       cfg$project_root, cfg$seurat_rds, cfg$jia_scores, cfg$outdir, cfg$run_label,
@@ -219,7 +222,7 @@ parameter_table <- function(cfg, source_cluster_col, batch_col, n_parent_cells, 
       "Seurat FindIntegrationAnchors + IntegrateData across batch_col",
       cfg$integration_reduction, cfg$integration_nfeatures,
       cfg$npcs, paste0("1:", cfg$dims), cfg$resolution, cfg$k_anchor,
-      cfg$k_weight, effective_k_weight, cfg$seed,
+      cfg$k_weight, effective_k_weight, cfg$future_globals_max_gb, cfg$seed,
       "Post hoc metadata overlays only; not used for integration or clustering"
     )),
     stringsAsFactors = FALSE
@@ -530,7 +533,7 @@ if (isTRUE(opt$help)) {
 cfg <- build_config(opt)
 dir.create(cfg$table_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(cfg$plot_dir, recursive = TRUE, showWarnings = FALSE)
-options(future.globals.maxSize = max(getOption("future.globals.maxSize", 0), 20 * 1024^3))
+options(future.globals.maxSize = max(getOption("future.globals.maxSize", 0), cfg$future_globals_max_gb * 1024^3))
 if (requireNamespace("future", quietly = TRUE)) future::plan("sequential")
 
 log_msg("Loading Seurat object: ", cfg$seurat_rds)
