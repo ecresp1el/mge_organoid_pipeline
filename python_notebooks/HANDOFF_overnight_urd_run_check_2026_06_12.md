@@ -127,13 +127,15 @@ Submitted: 2026-06-12 09:54 EDT
 | Dataset | Job ID | Run/root label | Status at submit check | Purpose |
 |---|---:|---|---|---|
 | DIV30 | 51699299 | `jia_rootscore_root10_radial_glia_pool_v1` under `div30_first_urd_paper_radial_glia_30k_checkpoint_v2` | PENDING `(Priority)` | Score Radial glia pool, select top 10% RootScore roots, reflood existing 30k URD object, write decision report. |
-| DIV90 | 51699300 | `div90_urd_jia_lineage_full_v4_glia_tips_root10_v1` | PENDING `(Priority)` | Full retained DIV90 rerun with top 10% of cluster 12 by Jia RootScore as roots. |
+| DIV90 | 51699300 | `div90_urd_jia_lineage_full_v4_glia_tips_root10_v1` | FAILED `1:0` after 00:00:43 | Exporter completed with 36 root cells and wrote `root_score_program_marker_summary.tsv`; R step failed immediately with `Error: unexpected end of input` while repo files were being merged locally. Superseded by job 51699477. |
+| DIV90 | 51699477 | `div90_urd_jia_lineage_full_v4_glia_tips_root10_v1` | PENDING `(None)` | Active resubmission of full retained DIV90 top-10% cluster-12 root run from stable merged checkout. |
 
 Logs:
 
 ```text
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/35_div30_jia_rootscore_root10_reflood_51699299.log
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51699300.log
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51699477.log
 ```
 
 Output roots:
@@ -146,8 +148,8 @@ Output roots:
 Check:
 
 ```bash
-squeue -j 51699299,51699300
-sacct -j 51699299,51699300 --format=JobID,JobName%32,State,ExitCode,Elapsed,AllocCPUS,ReqMem,MaxRSS,NodeList
+squeue -j 51699299,51699477
+sacct -j 51699299,51699300,51699477 --format=JobID,JobName%32,State,ExitCode,Elapsed,AllocCPUS,ReqMem,MaxRSS,NodeList
 ```
 
 ## Logs
