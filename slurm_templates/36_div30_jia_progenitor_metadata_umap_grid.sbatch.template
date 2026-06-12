@@ -25,10 +25,12 @@ RSCRIPT="${RSCRIPT:-${CONDA_ENV_BIN}/Rscript}"
 RUN_LABEL="${RUN_LABEL:-div30_jia_progenitor_reclustering_phase1_v1}"
 RUN_ROOT="${RUN_ROOT:-${PROJECT_ROOT}/results/div30_jia_progenitor_reclustering/${RUN_LABEL}}"
 SEURAT_RDS="${SEURAT_RDS:-${RUN_ROOT}/div30_jia_progenitor_phase1_seurat.rds}"
-OUTDIR="${OUTDIR:-${RUN_ROOT}/metadata_umap_grid_v1}"
+OUTDIR="${OUTDIR:-${RUN_ROOT}/metadata_umap_grid_v2_clear}"
 SAMPLE_COL="${SAMPLE_COL:-}"
 CELL_LINE_COL="${CELL_LINE_COL:-}"
 SAMPLE_MAP="${SAMPLE_MAP:-${REPO_ROOT}/metadata/div30_div90_sample_id_to_biolabel_map.tsv}"
+POINT_SIZE="${POINT_SIZE:-0.32}"
+ALPHA="${ALPHA:-0.9}"
 
 mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${OUTDIR}"
 export PATH="${CONDA_ENV_BIN}:${PATH}"
@@ -42,6 +44,8 @@ echo "OUTDIR=${OUTDIR}"
 echo "SAMPLE_COL=${SAMPLE_COL:-auto}"
 echo "CELL_LINE_COL=${CELL_LINE_COL:-auto}"
 echo "SAMPLE_MAP=${SAMPLE_MAP}"
+echo "POINT_SIZE=${POINT_SIZE}"
+echo "ALPHA=${ALPHA}"
 echo "Rscript: $("${RSCRIPT}" --version 2>&1 | head -n 1)"
 
 "${RSCRIPT}" -e 'pkgs <- c("Seurat", "ggplot2", "patchwork"); status <- sapply(pkgs, requireNamespace, quietly=TRUE); print(data.frame(package=pkgs, installed=status), row.names=FALSE); quit(status=ifelse(all(status), 0, 1))'
@@ -52,7 +56,9 @@ echo "Rscript: $("${RSCRIPT}" --version 2>&1 | head -n 1)"
   --outdir "${OUTDIR}" \
   --sample-col "${SAMPLE_COL}" \
   --cell-line-col "${CELL_LINE_COL}" \
-  --sample-map "${SAMPLE_MAP}"
+  --sample-map "${SAMPLE_MAP}" \
+  --point-size "${POINT_SIZE}" \
+  --alpha "${ALPHA}"
 
 echo "=== DIV30 progenitor metadata UMAP grid complete ==="
 date

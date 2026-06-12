@@ -25,8 +25,8 @@ parse_args <- function(args) {
     `sample-col` = "",
     `cell-line-col` = "",
     `sample-map` = "",
-    `point-size` = "0.12",
-    `alpha` = "0.75",
+    `point-size` = "0.32",
+    `alpha` = "0.9",
     help = FALSE
   )
   i <- 1L
@@ -195,9 +195,21 @@ plain_umap <- function(df, color_col, title, point_size, alpha, label_clusters =
   p
 }
 
+facet_background <- function(df, facet_col) {
+  facet_levels <- levels(df[[facet_col]])
+  if (is.null(facet_levels)) facet_levels <- sort(unique(as.character(df[[facet_col]])))
+  pieces <- lapply(facet_levels, function(level) {
+    out <- df[, c("UMAP_1", "UMAP_2"), drop = FALSE]
+    out[[facet_col]] <- factor(level, levels = facet_levels)
+    out
+  })
+  do.call(rbind, pieces)
+}
+
 facet_highlight_grid <- function(df, facet_col, cluster_col, title, point_size, alpha) {
+  bg <- facet_background(df, facet_col)
   ggplot() +
-    geom_point(data = df, aes(x = UMAP_1, y = UMAP_2), color = "grey88", size = point_size, alpha = 0.18, stroke = 0) +
+    geom_point(data = bg, aes(x = UMAP_1, y = UMAP_2), color = "grey86", size = point_size * 0.85, alpha = 0.28, stroke = 0) +
     geom_point(data = df, aes(x = UMAP_1, y = UMAP_2, color = .data[[cluster_col]]), size = point_size, alpha = alpha, stroke = 0) +
     facet_wrap(stats::as.formula(paste("~", facet_col))) +
     coord_equal() +
