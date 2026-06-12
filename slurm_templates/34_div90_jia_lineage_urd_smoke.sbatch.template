@@ -13,6 +13,8 @@
 #     candidates.
 #   - Outputs: first-URD pseudotime object, smoke panel, URD tree, tree report,
 #     branch/tip tables, and Jia Fig. S11-style marker-expression validation.
+#   - Every run writes R stage timings plus Slurm resource heartbeats for
+#     troubleshooting larger full-cell submissions.
 #
 # Submit:
 #   sbatch slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
@@ -66,6 +68,7 @@ TREE_VISIT_THRESHOLD="${TREE_VISIT_THRESHOLD:-0.7}"
 TREE_P_THRESH="${TREE_P_THRESH:-0.01}"
 TREE_MIN_CELLS_PER_SEGMENT="${TREE_MIN_CELLS_PER_SEGMENT:-1}"
 TREE_MIN_PSEUDOTIME_PER_SEGMENT="${TREE_MIN_PSEUDOTIME_PER_SEGMENT:-0.01}"
+HEARTBEAT_INTERVAL_SECONDS="${HEARTBEAT_INTERVAL_SECONDS:-300}"
 
 RUN_ROOT="${PROJECT_ROOT}/results/div90_jia_lineage_urd/${RUN_LABEL}"
 INPUT_DIR="${RUN_ROOT}/inputs"
@@ -73,8 +76,30 @@ TREE_DIR="${RUN_ROOT}/lineage_tree_jia_endpoint_tips_v1"
 TREE_CLUSTER_NAME_DIR="${RUN_ROOT}/lineage_tree_cluster_number_name_v1"
 S11_DIR="${RUN_ROOT}/jia_fig_s11_style_marker_validation_v1"
 CANDIDATE_MARKER_DIR="${RUN_ROOT}/candidate_pv_marker_projection_v1"
+TABLE_DIR="${RUN_ROOT}/tables"
 
-mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${RUN_ROOT}" "${INPUT_DIR}" "${TREE_DIR}" "${TREE_CLUSTER_NAME_DIR}" "${S11_DIR}" "${CANDIDATE_MARKER_DIR}"
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${RUN_ROOT}" "${INPUT_DIR}" "${TREE_DIR}" "${TREE_CLUSTER_NAME_DIR}" "${S11_DIR}" "${CANDIDATE_MARKER_DIR}" "${TABLE_DIR}"
+
+HEARTBEAT_LOG="${TABLE_DIR}/slurm_resource_heartbeat.tsv"
+monitor_resources() {
+  printf "timestamp\telapsed_seconds\tslurm_step\tave_cpu\tmax_rss\tave_rss\tmax_vmsize\trun_root_bytes\trun_root_files\n" > "${HEARTBEAT_LOG}"
+  while true; do
+    ts="$(date '+%F %T')"
+    slurm_step="${SLURM_JOB_ID:-}.batch"
+    stat_line="$(sstat -j "${slurm_step}" --noheader --format=AveCPU,MaxRSS,AveRSS,MaxVMSize -P 2>/dev/null | tail -n 1 || true)"
+    if [[ -z "${stat_line}" ]]; then
+      stat_line="NA|NA|NA|NA"
+    fi
+    bytes="$(du -sb "${RUN_ROOT}" 2>/dev/null | awk '{print $1}' || true)"
+    files="$(find "${RUN_ROOT}" -type f 2>/dev/null | wc -l | awk '{print $1}' || true)"
+    printf "%s\t%s\t%s\t%s\t%s\t%s\n" "${ts}" "${SECONDS}" "${slurm_step}" "${stat_line//|/$'\t'}" "${bytes:-NA}" "${files:-NA}" >> "${HEARTBEAT_LOG}"
+    sleep "${HEARTBEAT_INTERVAL_SECONDS}"
+  done
+}
+
+monitor_resources &
+MONITOR_PID=$!
+trap 'kill "${MONITOR_PID}" 2>/dev/null || true' EXIT
 
 echo "=== DIV90 Jia-lineage URD smoke Slurm context ==="
 date
@@ -89,6 +114,8 @@ echo "DIV90_ROOT_TOP_PERCENT=${DIV90_ROOT_TOP_PERCENT}"
 echo "DIV90_ROOT_MIN_CELLS=${DIV90_ROOT_MIN_CELLS}"
 echo "URD_KNN=${URD_KNN}"
 echo "URD_PSEUDOTIME_NAME=${URD_PSEUDOTIME_NAME}"
+echo "HEARTBEAT_INTERVAL_SECONDS=${HEARTBEAT_INTERVAL_SECONDS}"
+echo "HEARTBEAT_LOG=${HEARTBEAT_LOG}"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV}"

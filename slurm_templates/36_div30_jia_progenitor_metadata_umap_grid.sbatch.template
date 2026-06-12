@@ -1,0 +1,59 @@
+#!/bin/bash
+# Plot DIV30 progenitor reclustering UMAPs by recluster, sample ID, and cell line.
+#
+# Submit:
+#   cp slurm_templates/36_div30_jia_progenitor_metadata_umap_grid.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/36_div30_jia_progenitor_metadata_umap_grid.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/36_div30_jia_progenitor_metadata_umap_grid.sbatch
+
+#SBATCH --job-name=div30_prog_meta_umap
+#SBATCH --time=01:00:00
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=96G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/36_div30_jia_progenitor_metadata_umap_grid_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/36_div30_jia_progenitor_metadata_umap_grid_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+set -euo pipefail
+set -x
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+RSCRIPT="${RSCRIPT:-${CONDA_ENV_BIN}/Rscript}"
+RUN_LABEL="${RUN_LABEL:-div30_jia_progenitor_reclustering_phase1_v1}"
+RUN_ROOT="${RUN_ROOT:-${PROJECT_ROOT}/results/div30_jia_progenitor_reclustering/${RUN_LABEL}}"
+SEURAT_RDS="${SEURAT_RDS:-${RUN_ROOT}/div30_jia_progenitor_phase1_seurat.rds}"
+OUTDIR="${OUTDIR:-${RUN_ROOT}/metadata_umap_grid_v1}"
+SAMPLE_COL="${SAMPLE_COL:-}"
+CELL_LINE_COL="${CELL_LINE_COL:-}"
+SAMPLE_MAP="${SAMPLE_MAP:-${REPO_ROOT}/metadata/div30_div90_sample_id_to_biolabel_map.tsv}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${OUTDIR}"
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+
+echo "=== DIV30 progenitor metadata UMAP grid context ==="
+date
+hostname
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "SEURAT_RDS=${SEURAT_RDS}"
+echo "OUTDIR=${OUTDIR}"
+echo "SAMPLE_COL=${SAMPLE_COL:-auto}"
+echo "CELL_LINE_COL=${CELL_LINE_COL:-auto}"
+echo "SAMPLE_MAP=${SAMPLE_MAP}"
+echo "Rscript: $("${RSCRIPT}" --version 2>&1 | head -n 1)"
+
+"${RSCRIPT}" -e 'pkgs <- c("Seurat", "ggplot2", "patchwork"); status <- sapply(pkgs, requireNamespace, quietly=TRUE); print(data.frame(package=pkgs, installed=status), row.names=FALSE); quit(status=ifelse(all(status), 0, 1))'
+"${RSCRIPT}" -e "invisible(parse(file='${REPO_ROOT}/scripts/29_div30_jia_progenitor_metadata_umap_grid.R')); cat('R parse ok\n')"
+
+"${RSCRIPT}" "${REPO_ROOT}/scripts/29_div30_jia_progenitor_metadata_umap_grid.R" \
+  --seurat-rds "${SEURAT_RDS}" \
+  --outdir "${OUTDIR}" \
+  --sample-col "${SAMPLE_COL}" \
+  --cell-line-col "${CELL_LINE_COL}" \
+  --sample-map "${SAMPLE_MAP}"
+
+echo "=== DIV30 progenitor metadata UMAP grid complete ==="
+date
+find "${OUTDIR}" -maxdepth 3 -type f | sort

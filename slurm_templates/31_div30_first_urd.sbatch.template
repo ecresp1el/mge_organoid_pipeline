@@ -8,6 +8,10 @@
 #   2. Use module R/4.4.3 to run URD on only that plain input bundle.
 #   3. Record all imposed URD parameters in
 #      tables/div30_first_urd_parameters.tsv in the run directory.
+#   4. Write stage-level timing checkpoints to
+#      tables/div30_first_urd_stage_timings.tsv and Slurm resource heartbeats
+#      to tables/slurm_resource_heartbeat.tsv so long full runs can be
+#      diagnosed without guessing where they stalled.
 #
 # Submit:
 #   cp slurm_templates/31_div30_first_urd.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/31_div30_first_urd.sbatch
@@ -47,11 +51,34 @@ URD_NUM_VARIABLE_GENES="${URD_NUM_VARIABLE_GENES:-3000}"
 URD_FLOOD_MINIMUM_CELLS="${URD_FLOOD_MINIMUM_CELLS:-2}"
 URD_FLOOD_MAX_FRAC_NA="${URD_FLOOD_MAX_FRAC_NA:-0.4}"
 URD_FLOOD_STABILITY_DIV="${URD_FLOOD_STABILITY_DIV:-}"
+HEARTBEAT_INTERVAL_SECONDS="${HEARTBEAT_INTERVAL_SECONDS:-300}"
 
 RUN_ROOT="${PROJECT_ROOT}/results/div30_first_urd/${RUN_LABEL}"
 INPUT_DIR="${RUN_ROOT}/inputs"
+TABLE_DIR="${RUN_ROOT}/tables"
 
-mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${RUN_ROOT}" "${INPUT_DIR}"
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${RUN_ROOT}" "${INPUT_DIR}" "${TABLE_DIR}"
+
+HEARTBEAT_LOG="${TABLE_DIR}/slurm_resource_heartbeat.tsv"
+monitor_resources() {
+  printf "timestamp\telapsed_seconds\tslurm_step\tave_cpu\tmax_rss\tave_rss\tmax_vmsize\trun_root_bytes\trun_root_files\n" > "${HEARTBEAT_LOG}"
+  while true; do
+    ts="$(date '+%F %T')"
+    slurm_step="${SLURM_JOB_ID:-}.batch"
+    stat_line="$(sstat -j "${slurm_step}" --noheader --format=AveCPU,MaxRSS,AveRSS,MaxVMSize -P 2>/dev/null | tail -n 1 || true)"
+    if [[ -z "${stat_line}" ]]; then
+      stat_line="NA|NA|NA|NA"
+    fi
+    bytes="$(du -sb "${RUN_ROOT}" 2>/dev/null | awk '{print $1}' || true)"
+    files="$(find "${RUN_ROOT}" -type f 2>/dev/null | wc -l | awk '{print $1}' || true)"
+    printf "%s\t%s\t%s\t%s\t%s\t%s\n" "${ts}" "${SECONDS}" "${slurm_step}" "${stat_line//|/$'\t'}" "${bytes:-NA}" "${files:-NA}" >> "${HEARTBEAT_LOG}"
+    sleep "${HEARTBEAT_INTERVAL_SECONDS}"
+  done
+}
+
+monitor_resources &
+MONITOR_PID=$!
+trap 'kill "${MONITOR_PID}" 2>/dev/null || true' EXIT
 
 echo "=== DIV30 first URD Slurm context ==="
 date
@@ -80,6 +107,8 @@ echo "URD_NUM_VARIABLE_GENES=${URD_NUM_VARIABLE_GENES}"
 echo "URD_FLOOD_MINIMUM_CELLS=${URD_FLOOD_MINIMUM_CELLS}"
 echo "URD_FLOOD_MAX_FRAC_NA=${URD_FLOOD_MAX_FRAC_NA}"
 echo "URD_FLOOD_STABILITY_DIV=${URD_FLOOD_STABILITY_DIV:-auto_min_10_n_floods}"
+echo "HEARTBEAT_INTERVAL_SECONDS=${HEARTBEAT_INTERVAL_SECONDS}"
+echo "HEARTBEAT_LOG=${HEARTBEAT_LOG}"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV}"

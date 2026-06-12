@@ -28,7 +28,7 @@ That companion workflow reclusters only DIV30 progenitor clusters `0,3,6,7`
 with Seurat, overlays Jia RGC1/RGC2/IPC scores only after unsupervised
 clustering, and stops before any lineage-committed progenitor reclustering.
 
-The DIV90 workflow now has a corrected v2 Jia-lineage smoke run for later DIV30-vs-DIV90 comparison. It uses cluster 12 as the Jia RootScore root, excludes glial/OPC/stress clusters, uses clusters `0+5+8`, `1`, and `2` as Jia endpoint tips, and retains clusters `3`/`11` as unassigned candidates for post-tree marker projection rather than tips.
+The DIV90 workflow now has a frozen v4 Jia-lineage/glia-tip smoke run for later DIV30-vs-DIV90 comparison. It uses cluster 12 as the Jia RootScore root, excludes stressed clusters `6`/`7`, uses clusters `0+5+8`, `1`, and `2` as neuronal Jia endpoint tips, combines clusters `4+10` as an astrocyte tip, uses cluster `9` as an OPC tip, and retains clusters `3`/`11` as unassigned candidates for post-tree marker projection rather than tips.
 
 ## Source Data
 
@@ -1362,6 +1362,49 @@ The log tail ends at:
 
 There is no final `Saved URD object` line in the checked log. Treat this as a full-run output anomaly to investigate before applying the finalized production root to the 30k object.
 
+Updated scale-up decision, 2026-06-12:
+
+Do not submit DIV30 all-cells as the immediate next blind run. The DIV30 full object has approximately 90,631 cells, while the anomalous 30k run already took `06:17:26`, reached `55,459,644K` MaxRSS, spent roughly four hours in `calcDM`, and did not leave the expected `div30_first_urd_object.rds`. All-cells DIV30 is therefore high risk without better checkpoints.
+
+Next DIV30 scaling step should be a checkpointed 30k rerun with the same biology and the new logging:
+
+```bash
+export ROOT_LABEL="Radial glia"
+sbatch \
+  --time=48:00:00 \
+  --cpus-per-task=8 \
+  --mem=160G \
+  --export=ALL,RUN_LABEL=div30_first_urd_paper_radial_glia_30k_checkpoint_v2,MAX_CELLS=30000,SEED=7,URD_SEED=7,URD_KNN=100,HEARTBEAT_INTERVAL_SECONDS=300 \
+  slurm_templates/31_div30_first_urd.sbatch.template
+```
+
+Only promote to all-cells DIV30 (`MAX_CELLS=0`) after this checkpointed 30k run writes:
+
+```text
+div30_first_urd_object.rds
+tables/div30_first_urd_stage_timings.tsv
+tables/slurm_resource_heartbeat.tsv
+lineage_decision_report/plots/umap_pseudotime.png
+lineage_decision_report/plots/diffusion_map_pseudotime.png
+lineage_decision_report/plots/flood_stability.png
+```
+
+The new Stage 1 URD runner logs these major timing boundaries:
+
+```text
+read_input_bundle
+create_filtered_urd
+select_variable_genes
+calc_pca_and_diffusion_map
+flood_pseudotime
+build_pseudotime_table
+write_tables
+write_plots
+save_urd_object
+```
+
+The Slurm heartbeat writes every `HEARTBEAT_INTERVAL_SECONDS` seconds and records `AveCPU`, `MaxRSS`, `AveRSS`, `MaxVMSize`, run-directory byte size, and file count. If the job exits without the RDS again, these two TSVs should identify whether the failure happened inside flood processing, table/plot writing, or object saving.
+
 ## Branchpoint Decision Genes And Jia Program Localization
 
 Goal: after finalizing the Jia RootScore top-2% root on the 5k smoke workflow, localize Jia progenitor programs on the tree before interpreting branch-decision genes biologically.
@@ -2335,6 +2378,8 @@ Elapsed: 00:20:25
 The run emitted the same smoke-panel outputs as DIV30 under `lineage_decision_report/`, built the Jia endpoint-tip tree under `lineage_tree_jia_endpoint_tips_v1/`, and ran the Jia Fig. S11-style marker validation under `jia_fig_s11_style_marker_validation_v1/`.
 
 First-pass topology: `tip_epha5_mef2c` and `tip_lhx6_nfia` fuse first; the combined branch then splits from `tip_lhx8_isl1` at pseudotime ~0.267. This smoke result supports a stronger LHX8/ISL1-like branch versus a combined EPHA5/MEF2C/LHX6/NFIA-like branch, not a clean separation among all three requested Jia endpoint tips.
+
+Current DIV90 status note: the v1/v2 planning details below are historical. The active frozen DIV90 workflow is v4 in `python_notebooks/HANDOFF_div90_jia_lineage_urd_plan.md`: stressed clusters `6`/`7` excluded, clusters `3`/`11` retained as non-tip candidates, neuronal tips `0+5+8`, `1`, and `2`, plus combined astrocyte tip `4+10` and OPC tip `9`.
 
 #### DIV90 root
 

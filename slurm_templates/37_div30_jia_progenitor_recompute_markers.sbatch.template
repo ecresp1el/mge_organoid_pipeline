@@ -1,0 +1,47 @@
+#!/bin/bash
+# Recompute FindAllMarkers for the saved DIV30 progenitor reclustering object.
+
+#SBATCH --job-name=div30_prog_markers
+#SBATCH --time=02:00:00
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=128G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/37_div30_jia_progenitor_recompute_markers_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/37_div30_jia_progenitor_recompute_markers_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+set -euo pipefail
+set -x
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+RSCRIPT="${RSCRIPT:-${CONDA_ENV_BIN}/Rscript}"
+RUN_LABEL="${RUN_LABEL:-div30_jia_progenitor_reclustering_phase1_v1}"
+RUN_ROOT="${RUN_ROOT:-${PROJECT_ROOT}/results/div30_jia_progenitor_reclustering/${RUN_LABEL}}"
+SEURAT_RDS="${SEURAT_RDS:-${RUN_ROOT}/div30_jia_progenitor_phase1_seurat.rds}"
+FUTURE_MAX_GB="${FUTURE_MAX_GB:-16}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+
+echo "=== DIV30 progenitor marker recompute context ==="
+date
+hostname
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "SEURAT_RDS=${SEURAT_RDS}"
+echo "RUN_ROOT=${RUN_ROOT}"
+echo "FUTURE_MAX_GB=${FUTURE_MAX_GB}"
+echo "Rscript: $("${RSCRIPT}" --version 2>&1 | head -n 1)"
+
+"${RSCRIPT}" -e 'pkgs <- c("Seurat"); status <- sapply(pkgs, requireNamespace, quietly=TRUE); print(data.frame(package=pkgs, installed=status), row.names=FALSE); quit(status=ifelse(all(status), 0, 1))'
+"${RSCRIPT}" -e "invisible(parse(file='${REPO_ROOT}/scripts/30_div30_jia_progenitor_recompute_markers.R')); cat('R parse ok\n')"
+
+"${RSCRIPT}" "${REPO_ROOT}/scripts/30_div30_jia_progenitor_recompute_markers.R" \
+  --seurat-rds "${SEURAT_RDS}" \
+  --outdir "${RUN_ROOT}" \
+  --future-max-gb "${FUTURE_MAX_GB}"
+
+echo "=== DIV30 progenitor marker recompute complete ==="
+date

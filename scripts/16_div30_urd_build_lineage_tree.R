@@ -26,6 +26,82 @@ log_msg <- function(...) {
   flush.console()
 }
 
+# Stage timings are written after every completed/failed major tree step. This
+# makes long random-walk/buildTree runs auditable even if they stop before
+# final plotting/reporting starts.
+.stage_timings <- data.frame(
+  stage = character(),
+  status = character(),
+  start_time = character(),
+  end_time = character(),
+  elapsed_seconds = numeric(),
+  memory = character(),
+  stringsAsFactors = FALSE
+)
+
+memory_summary <- function() {
+  stats <- gc()
+  paste(
+    sprintf("Ncells_used=%s", format(stats["Ncells", "used"], scientific = FALSE)),
+    sprintf("Vcells_used_mb=%.1f", stats["Vcells", "used"] * 8 / 1024^2),
+    sprintf("Vcells_max_mb=%.1f", stats["Vcells", "max used"] * 8 / 1024^2),
+    sep = " "
+  )
+}
+
+write_stage_timings <- function(table_dir) {
+  if (!dir.exists(table_dir)) dir.create(table_dir, recursive = TRUE, showWarnings = FALSE)
+  write.table(
+    .stage_timings,
+    file.path(table_dir, "lineage_tree_stage_timings.tsv"),
+    sep = "\t",
+    row.names = FALSE,
+    quote = FALSE
+  )
+}
+
+run_stage <- function(stage, table_dir, expr) {
+  started <- Sys.time()
+  log_msg("STAGE_START ", stage, " memory=", memory_summary())
+  result <- tryCatch(
+    force(expr),
+    error = function(e) {
+      ended <- Sys.time()
+      .stage_timings <<- rbind(
+        .stage_timings,
+        data.frame(
+          stage = stage,
+          status = "failed",
+          start_time = format(started, "%Y-%m-%d %H:%M:%S"),
+          end_time = format(ended, "%Y-%m-%d %H:%M:%S"),
+          elapsed_seconds = as.numeric(difftime(ended, started, units = "secs")),
+          memory = memory_summary(),
+          stringsAsFactors = FALSE
+        )
+      )
+      write_stage_timings(table_dir)
+      log_msg("STAGE_FAIL ", stage, " elapsed_seconds=", round(as.numeric(difftime(ended, started, units = "secs")), 2), " error=", conditionMessage(e))
+      stop(e)
+    }
+  )
+  ended <- Sys.time()
+  .stage_timings <<- rbind(
+    .stage_timings,
+    data.frame(
+      stage = stage,
+      status = "completed",
+      start_time = format(started, "%Y-%m-%d %H:%M:%S"),
+      end_time = format(ended, "%Y-%m-%d %H:%M:%S"),
+      elapsed_seconds = as.numeric(difftime(ended, started, units = "secs")),
+      memory = memory_summary(),
+      stringsAsFactors = FALSE
+    )
+  )
+  write_stage_timings(table_dir)
+  log_msg("STAGE_END ", stage, " elapsed_seconds=", round(as.numeric(difftime(ended, started, units = "secs")), 2), " memory=", memory_summary())
+  result
+}
+
 parse_args <- function(args) {
   out <- list(
     `urd-rds` = NULL,
@@ -89,6 +165,7 @@ print_usage <- function() {
     "  tables/tree_status.tsv",
     "  tables/tree_segment_joins.tsv",
     "  tables/branch_specific_genes.tsv",
+    "  tables/lineage_tree_stage_timings.tsv",
     "  plots/pseudotime_logistic.png",
     "  plots/urd_tree_annotation.png",
     "  plots/urd_tree_pseudotime.png",
@@ -380,7 +457,7 @@ dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
 
 set.seed(cfg$seed)
 log_msg("Reading URD object: ", cfg$urd_rds)
-urd <- readRDS(cfg$urd_rds)
+urd <- run_stage("read_urd_object", table_dir, readRDS(cfg$urd_rds))
 if (!inherits(urd, "URD")) stop("Input is not an URD object: ", cfg$urd_rds, call. = FALSE)
 cfg$pseudotime_name <- extract_pseudotime_name(urd, cfg$pseudotime_name)
 if (!all(rownames(urd@meta) %in% rownames(urd@pseudotime))) stop("Metadata and pseudotime cell names do not align.", call. = FALSE)
@@ -409,47 +486,63 @@ write_tsv(parameters, file.path(table_dir, "lineage_tree_parameters.tsv"))
 write_tsv(tip_mapping, file.path(table_dir, "tree_tip_mapping.tsv"))
 
 log_msg("Loading tip cells into URD tree slot")
-urd <- loadTipCells(urd, tips = "paper_tree_tip_id")
+urd <- run_stage("load_tip_cells", table_dir, loadTipCells(urd, tips = "paper_tree_tip_id"))
 
 log_msg("Fitting pseudotime logistic transition model")
-logistic_params <- plot_logistic(
-  urd,
-  cfg$pseudotime_name,
-  cfg$optimal_cells_forward,
-  cfg$max_cells_back,
-  cfg$pseudotime_direction,
-  file.path(plot_dir, "pseudotime_logistic.png")
+logistic_params <- run_stage(
+  "pseudotime_determine_logistic",
+  table_dir,
+  plot_logistic(
+    urd,
+    cfg$pseudotime_name,
+    cfg$optimal_cells_forward,
+    cfg$max_cells_back,
+    cfg$pseudotime_direction,
+    file.path(plot_dir, "pseudotime_logistic.png")
+  )
 )
 write_tsv(data.frame(parameter = names(logistic_params), value = unlist(logistic_params), stringsAsFactors = FALSE), file.path(table_dir, "pseudotime_logistic_parameters.tsv"))
 
 log_msg("Weighting transition matrix by pseudotime")
-transition_matrix <- pseudotimeWeightTransitionMatrix(
-  urd,
-  pseudotime = cfg$pseudotime_name,
-  logistic.params = logistic_params,
-  pseudotime.direction = cfg$pseudotime_direction,
-  verbose = TRUE
+transition_matrix <- run_stage(
+  "pseudotime_weight_transition_matrix",
+  table_dir,
+  pseudotimeWeightTransitionMatrix(
+    urd,
+    pseudotime = cfg$pseudotime_name,
+    logistic.params = logistic_params,
+    pseudotime.direction = cfg$pseudotime_direction,
+    verbose = TRUE
+  )
 )
 
 log_msg("Simulating random walks from tips: ", paste(tip_ids, collapse = ", "))
-walks <- simulateRandomWalksFromTips(
-  urd,
-  tip.group.id = "paper_tree_tip_id",
-  root.cells = root_cells,
-  transition.matrix = transition_matrix,
-  n.per.tip = cfg$n_per_tip,
-  root.visits = cfg$root_visits,
-  max.steps = cfg$max_steps,
-  verbose = TRUE
+walks <- run_stage(
+  "simulate_random_walks_from_tips",
+  table_dir,
+  simulateRandomWalksFromTips(
+    urd,
+    tip.group.id = "paper_tree_tip_id",
+    root.cells = root_cells,
+    transition.matrix = transition_matrix,
+    n.per.tip = cfg$n_per_tip,
+    root.visits = cfg$root_visits,
+    max.steps = cfg$max_steps,
+    verbose = TRUE
+  )
 )
-saveRDS(walks, file.path(cfg$outdir, "div30_urd_tip_random_walks.rds"))
+run_stage("save_random_walks", table_dir, saveRDS(walks, file.path(cfg$outdir, "div30_urd_tip_random_walks.rds")))
 
 log_msg("Processing random walks into tip visitation frequencies")
-urd <- processRandomWalksFromTips(
-  urd,
-  walks.list = walks,
-  n.subsample = cfg$process_n_subsample,
-  verbose = TRUE
+urd <- run_stage(
+  "process_random_walks_from_tips",
+  table_dir,
+  processRandomWalksFromTips(
+    urd,
+    walks.list = walks,
+    n.subsample = cfg$process_n_subsample,
+    verbose = TRUE
+  )
 )
 rm(walks, transition_matrix)
 gc()
@@ -457,28 +550,32 @@ gc()
 log_msg("Building URD lineage tree")
 breakpoint_dir <- file.path(plot_dir, "breakpoint_decisions")
 dir.create(breakpoint_dir, recursive = TRUE, showWarnings = FALSE)
-urd <- buildTree(
-  urd,
-  pseudotime = cfg$pseudotime_name,
-  tips.use = tip_ids,
-  divergence.method = cfg$divergence_method,
-  weighted.fusion = TRUE,
-  use.only.original.tips = TRUE,
-  cells.per.pseudotime.bin = cfg$cells_per_pseudotime_bin,
-  bins.per.pseudotime.window = cfg$bins_per_pseudotime_window,
-  minimum.visits = cfg$minimum_visits,
-  visit.threshold = cfg$visit_threshold,
-  save.breakpoint.plots = breakpoint_dir,
-  save.all.breakpoint.info = TRUE,
-  p.thresh = cfg$p_thresh,
-  min.cells.per.segment = cfg$min_cells_per_segment,
-  min.pseudotime.per.segment = cfg$min_pseudotime_per_segment,
-  dendro.node.size = cfg$dendro_node_size,
-  verbose = TRUE
+urd <- run_stage(
+  "build_tree",
+  table_dir,
+  buildTree(
+    urd,
+    pseudotime = cfg$pseudotime_name,
+    tips.use = tip_ids,
+    divergence.method = cfg$divergence_method,
+    weighted.fusion = TRUE,
+    use.only.original.tips = TRUE,
+    cells.per.pseudotime.bin = cfg$cells_per_pseudotime_bin,
+    bins.per.pseudotime.window = cfg$bins_per_pseudotime_window,
+    minimum.visits = cfg$minimum_visits,
+    visit.threshold = cfg$visit_threshold,
+    save.breakpoint.plots = breakpoint_dir,
+    save.all.breakpoint.info = TRUE,
+    p.thresh = cfg$p_thresh,
+    min.cells.per.segment = cfg$min_cells_per_segment,
+    min.pseudotime.per.segment = cfg$min_pseudotime_per_segment,
+    dendro.node.size = cfg$dendro_node_size,
+    verbose = TRUE
+  )
 )
 
 tree_rds <- file.path(cfg$outdir, "div30_urd_lineage_tree_object.rds")
-saveRDS(urd, tree_rds)
+run_stage("save_tree_object", table_dir, saveRDS(urd, tree_rds))
 log_msg("Saved tree object: ", tree_rds)
 
 finalize_command <- paste(

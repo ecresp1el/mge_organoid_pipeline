@@ -360,6 +360,10 @@ recluster_progenitors <- function(obj, cfg, source_cluster_col) {
 
 run_markers <- function(prog, cfg) {
   Idents(prog) <- prog@meta.data[[cfg$cluster_col]]
+  options(future.globals.maxSize = max(getOption("future.globals.maxSize", 0), 8 * 1024^3))
+  if (requireNamespace("future", quietly = TRUE)) {
+    future::plan("sequential")
+  }
   markers <- FindAllMarkers(
     prog,
     assay = cfg$assay,

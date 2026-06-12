@@ -19,6 +19,9 @@
 #        buildTree()
 #   5. Finalize reports in a fresh R process to avoid carrying the large
 #      random-walk/buildTree memory footprint into branch-gene plotting.
+#   6. Write tree-stage timing checkpoints to
+#      tables/lineage_tree_stage_timings.tsv and Slurm resource heartbeats to
+#      tables/slurm_resource_heartbeat.tsv.
 #
 # Submit:
 #   cp slurm_templates/32_div30_urd_lineage_tree.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/32_div30_urd_lineage_tree.sbatch
@@ -53,14 +56,37 @@ TREE_MAX_CELLS_BACK="${TREE_MAX_CELLS_BACK:-40}"
 TREE_MINIMUM_VISITS="${TREE_MINIMUM_VISITS:-10}"
 TREE_VISIT_THRESHOLD="${TREE_VISIT_THRESHOLD:-0.7}"
 TREE_TOP_N_BRANCH_GENES="${TREE_TOP_N_BRANCH_GENES:-50}"
+HEARTBEAT_INTERVAL_SECONDS="${HEARTBEAT_INTERVAL_SECONDS:-300}"
 
 RUN_ROOT="${PROJECT_ROOT}/results/div30_first_urd/${RUN_LABEL}"
 TREE_ROOT="${RUN_ROOT}/${TREE_LABEL}"
 URD_RDS="${RUN_ROOT}/div30_first_urd_object.rds"
 TREE_RDS="${TREE_ROOT}/div30_urd_lineage_tree_object.rds"
 TIP_MAPPING="${TREE_ROOT}/tables/tree_tip_mapping.tsv"
+TABLE_DIR="${TREE_ROOT}/tables"
 
-mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${TREE_ROOT}"
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${TREE_ROOT}" "${TABLE_DIR}"
+
+HEARTBEAT_LOG="${TABLE_DIR}/slurm_resource_heartbeat.tsv"
+monitor_resources() {
+  printf "timestamp\telapsed_seconds\tslurm_step\tave_cpu\tmax_rss\tave_rss\tmax_vmsize\ttree_root_bytes\ttree_root_files\n" > "${HEARTBEAT_LOG}"
+  while true; do
+    ts="$(date '+%F %T')"
+    slurm_step="${SLURM_JOB_ID:-}.batch"
+    stat_line="$(sstat -j "${slurm_step}" --noheader --format=AveCPU,MaxRSS,AveRSS,MaxVMSize -P 2>/dev/null | tail -n 1 || true)"
+    if [[ -z "${stat_line}" ]]; then
+      stat_line="NA|NA|NA|NA"
+    fi
+    bytes="$(du -sb "${TREE_ROOT}" 2>/dev/null | awk '{print $1}' || true)"
+    files="$(find "${TREE_ROOT}" -type f 2>/dev/null | wc -l | awk '{print $1}' || true)"
+    printf "%s\t%s\t%s\t%s\t%s\t%s\n" "${ts}" "${SECONDS}" "${slurm_step}" "${stat_line//|/$'\t'}" "${bytes:-NA}" "${files:-NA}" >> "${HEARTBEAT_LOG}"
+    sleep "${HEARTBEAT_INTERVAL_SECONDS}"
+  done
+}
+
+monitor_resources &
+MONITOR_PID=$!
+trap 'kill "${MONITOR_PID}" 2>/dev/null || true' EXIT
 
 echo "=== DIV30 URD lineage tree Slurm context ==="
 date
@@ -73,6 +99,8 @@ echo "RUN_LABEL=${RUN_LABEL}"
 echo "TREE_LABEL=${TREE_LABEL}"
 echo "URD_RDS=${URD_RDS}"
 echo "TREE_N_PER_TIP=${TREE_N_PER_TIP}"
+echo "HEARTBEAT_INTERVAL_SECONDS=${HEARTBEAT_INTERVAL_SECONDS}"
+echo "HEARTBEAT_LOG=${HEARTBEAT_LOG}"
 
 module load "${R_MODULE}"
 module list 2>&1

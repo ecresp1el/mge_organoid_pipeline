@@ -795,6 +795,61 @@ Key v4 output paths:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips/candidate_pv_marker_projection_v1/plots/div90_candidate_marker_tree_overlays.png
 ```
 
+### Production Scaling Decision
+
+Date: 2026-06-12
+
+Freeze this v4 inclusion logic for the next DIV90 full-cell run:
+
+```text
+root pool: cluster 12 Dividing cells
+root cells: top 2% Jia RootScore within cluster 12, minimum 8 cells
+retained clusters: 0,1,2,3,4,5,8,9,10,11,12
+excluded clusters: 6,7 stressed cells
+tips:
+  tip_lhx8_isl1      = 0,5,8
+  tip_lhx6_nfia      = 1
+  tip_crabp1_angpt2  = 2
+  tip_astrocytes     = 4,10
+  tip_opc            = 9
+retained non-tip candidates: 3,11
+```
+
+Why DIV90 full is reasonable to submit next:
+
+```text
+v4 smoke selected cells: 5,000
+full retained DIV90 cells: approximately 20,248 after excluding stressed clusters 6/7
+v4 smoke runtime: 00:23:55
+v4 smoke MaxRSS: 4,331,164K
+```
+
+Prediction: full DIV90 is a moderate-risk scale-up, not a blind leap. It is roughly 4x the v4 smoke by cell count, and the 5k run had a wide memory margin. Diffusion-map and random-walk steps may scale nonlinearly, so use production resources and the new stage/resource logs.
+
+Recommended full submission:
+
+```bash
+sbatch \
+  --time=48:00:00 \
+  --cpus-per-task=8 \
+  --mem=160G \
+  --export=ALL,RUN_LABEL=div90_urd_jia_lineage_full_v4_glia_tips,MAX_CELLS=0,SEED=7,URD_SEED=7,DIV90_ROOT_TOP_PERCENT=2,HEARTBEAT_INTERVAL_SECONDS=300 \
+  slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+```
+
+`MAX_CELLS=0` means all retained cells in the DIV90 exporter. The template name still says `smoke` for historical continuity, but this command promotes the same frozen v4 logic to the full retained DIV90 dataset.
+
+New monitoring/checkpoint outputs for this and later runs:
+
+```text
+tables/slurm_resource_heartbeat.tsv
+tables/div30_first_urd_stage_timings.tsv
+lineage_tree_jia_endpoint_tips_v1/tables/lineage_tree_stage_timings.tsv
+lineage_tree_jia_endpoint_tips_v1/tables/slurm_resource_heartbeat.tsv
+```
+
+Interpretation rule for full DIV90: if the full run changes cluster `11` away from the OPC-like behavior seen in the 5k tree, report that as a scale-dependent candidate reassignment rather than forcing the 5k interpretation.
+
 ## Required Outputs
 
 Every DIV90 smoke/full run should write:

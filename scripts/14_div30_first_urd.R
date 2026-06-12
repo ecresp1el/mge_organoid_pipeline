@@ -21,6 +21,82 @@ log_msg <- function(...) {
   flush.console()
 }
 
+# Stage timings are written after every completed/failed major step. This is
+# separate from the final parameter table so partial long runs still leave a
+# progress trail if they stop before the URD object is saved.
+.stage_timings <- data.frame(
+  stage = character(),
+  status = character(),
+  start_time = character(),
+  end_time = character(),
+  elapsed_seconds = numeric(),
+  memory = character(),
+  stringsAsFactors = FALSE
+)
+
+memory_summary <- function() {
+  stats <- gc()
+  paste(
+    sprintf("Ncells_used=%s", format(stats["Ncells", "used"], scientific = FALSE)),
+    sprintf("Vcells_used_mb=%.1f", stats["Vcells", "used"] * 8 / 1024^2),
+    sprintf("Vcells_max_mb=%.1f", stats["Vcells", "max used"] * 8 / 1024^2),
+    sep = " "
+  )
+}
+
+write_stage_timings <- function(table_dir) {
+  if (!dir.exists(table_dir)) dir.create(table_dir, recursive = TRUE, showWarnings = FALSE)
+  write.table(
+    .stage_timings,
+    file.path(table_dir, "div30_first_urd_stage_timings.tsv"),
+    sep = "\t",
+    row.names = FALSE,
+    quote = FALSE
+  )
+}
+
+run_stage <- function(stage, table_dir, expr) {
+  started <- Sys.time()
+  log_msg("STAGE_START ", stage, " memory=", memory_summary())
+  result <- tryCatch(
+    force(expr),
+    error = function(e) {
+      ended <- Sys.time()
+      .stage_timings <<- rbind(
+        .stage_timings,
+        data.frame(
+          stage = stage,
+          status = "failed",
+          start_time = format(started, "%Y-%m-%d %H:%M:%S"),
+          end_time = format(ended, "%Y-%m-%d %H:%M:%S"),
+          elapsed_seconds = as.numeric(difftime(ended, started, units = "secs")),
+          memory = memory_summary(),
+          stringsAsFactors = FALSE
+        )
+      )
+      write_stage_timings(table_dir)
+      log_msg("STAGE_FAIL ", stage, " elapsed_seconds=", round(as.numeric(difftime(ended, started, units = "secs")), 2), " error=", conditionMessage(e))
+      stop(e)
+    }
+  )
+  ended <- Sys.time()
+  .stage_timings <<- rbind(
+    .stage_timings,
+    data.frame(
+      stage = stage,
+      status = "completed",
+      start_time = format(started, "%Y-%m-%d %H:%M:%S"),
+      end_time = format(ended, "%Y-%m-%d %H:%M:%S"),
+      elapsed_seconds = as.numeric(difftime(ended, started, units = "secs")),
+      memory = memory_summary(),
+      stringsAsFactors = FALSE
+    )
+  )
+  write_stage_timings(table_dir)
+  log_msg("STAGE_END ", stage, " elapsed_seconds=", round(as.numeric(difftime(ended, started, units = "secs")), 2), " memory=", memory_summary())
+  result
+}
+
 parse_args <- function(args) {
   out <- list(
     `project-root` = Sys.getenv("PROJECT_ROOT"),
@@ -93,6 +169,7 @@ print_usage <- function() {
     "  tables/div30_first_urd_marker_correlations.tsv",
     "  tables/div30_first_urd_pseudotime_by_paper_cluster.tsv",
     "  plots/*.png",
+    "  tables/div30_first_urd_stage_timings.tsv",
     "  div30_first_urd_object.rds",
     sep = "\n"
   ))
@@ -528,21 +605,21 @@ run_pipeline <- function(cfg) {
     quote = FALSE
   )
 
-  bundle <- read_urd_input_bundle(cfg)
-  created <- create_filtered_urd(bundle, cfg)
+  bundle <- run_stage("read_input_bundle", cfg$table_dir, read_urd_input_bundle(cfg))
+  created <- run_stage("create_filtered_urd", cfg$table_dir, create_filtered_urd(bundle, cfg))
   rm(bundle)
   invisible(gc())
 
-  urd <- select_variable_genes(created$urd, cfg)
-  urd <- run_urd_geometry(urd, cfg)
-  urd <- run_flood_pseudotime(urd, created$root_cells, cfg)
+  urd <- run_stage("select_variable_genes", cfg$table_dir, select_variable_genes(created$urd, cfg))
+  urd <- run_stage("calc_pca_and_diffusion_map", cfg$table_dir, run_urd_geometry(urd, cfg))
+  urd <- run_stage("flood_pseudotime", cfg$table_dir, run_flood_pseudotime(urd, created$root_cells, cfg))
 
-  pt_df <- build_pseudotime_table(urd, cfg)
-  paths <- write_tables(urd, pt_df, created$root_cells, cfg)
-  write_plots(pt_df, cfg)
+  pt_df <- run_stage("build_pseudotime_table", cfg$table_dir, build_pseudotime_table(urd, cfg))
+  paths <- run_stage("write_tables", cfg$table_dir, write_tables(urd, pt_df, created$root_cells, cfg))
+  run_stage("write_plots", cfg$table_dir, write_plots(pt_df, cfg))
 
   rds_path <- file.path(cfg$outdir, "div30_first_urd_object.rds")
-  saveRDS(urd, rds_path)
+  run_stage("save_urd_object", cfg$table_dir, saveRDS(urd, rds_path))
   log_msg("Wrote parameters: ", paths$parameter)
   log_msg("Wrote pseudotime: ", paths$pseudotime)
   log_msg("Wrote summary: ", paths$summary)
