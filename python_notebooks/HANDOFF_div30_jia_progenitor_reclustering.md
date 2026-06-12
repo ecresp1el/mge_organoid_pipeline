@@ -407,3 +407,85 @@ Do not use Jia scores for clustering
 Use Jia scores only after clustering for validation
 Stop before lineage-committed progenitor reclustering
 ```
+
+## Strong Sample-Aware Integration Follow-Up
+
+A dedicated follow-up runner has been added for the required before/after
+integration audit:
+
+```text
+scripts/31_div30_jia_progenitor_strong_integration.R
+slurm_templates/38_div30_jia_progenitor_strong_integration.sbatch.template
+```
+
+Default run label:
+
+```text
+div30_jia_progenitor_strong_integration_v1
+```
+
+Default output root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_jia_progenitor_reclustering/div30_jia_progenitor_strong_integration_v1
+```
+
+This run keeps the same biological guardrails:
+
+```text
+Input cells: DIV30 clusters 0,3,6,7 only
+Jia scores are post hoc overlays only
+Do not proceed to lineage-committed progenitor reclustering from this step alone
+```
+
+Default integration settings are intentionally stronger than the first
+exploratory Seurat integration pattern in the repo:
+
+```text
+batch column: orig.ident
+integration method: Seurat FindIntegrationAnchors + IntegrateData
+integration reduction: cca
+integration features: 5000
+PCA/neighbor/UMAP dimensions: 1:50
+k.anchor: 10
+k.weight: 200, automatically lowered only if the smallest batch has fewer cells
+```
+
+Key before/after plots:
+
+```text
+plots/uncorrected_vs_integrated_umap_by_batch.png
+plots/uncorrected_vs_integrated_umap_by_source_cluster.png
+plots/uncorrected_vs_integrated_umap_by_recluster.png
+plots/uncorrected_vs_integrated_umap_nFeature_RNA.png
+plots/uncorrected_vs_integrated_umap_nCount_RNA.png
+plots/uncorrected_jia_score_umap_overlays.png
+plots/integrated_jia_score_umap_overlays.png
+```
+
+Key audit tables:
+
+```text
+tables/div30_progenitor_cells_by_batch.tsv
+tables/uncorrected_cluster_counts_by_batch.tsv
+tables/integrated_cluster_counts_by_batch.tsv
+tables/batch_entropy_by_cluster_before_after.tsv
+tables/jia_score_summary_by_cluster_before_after.tsv
+tables/div30_jia_progenitor_strong_integration_cells.tsv.gz
+tables/div30_jia_progenitor_strong_integration_run_parameters.tsv
+```
+
+Saved objects:
+
+```text
+div30_jia_progenitor_uncorrected_baseline_seurat.rds
+div30_jia_progenitor_strong_integrated_seurat.rds
+```
+
+Submit:
+
+```bash
+cp slurm_templates/38_div30_jia_progenitor_strong_integration.sbatch.template \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/38_div30_jia_progenitor_strong_integration.sbatch
+sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/38_div30_jia_progenitor_strong_integration.sbatch
+```
