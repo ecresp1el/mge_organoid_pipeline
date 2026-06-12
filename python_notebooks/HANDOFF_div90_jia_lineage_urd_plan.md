@@ -2,7 +2,7 @@
 
 Date: 2026-06-11
 
-Status: first DIV90 Jia-lineage smoke run completed, but its tip strategy is superseded by corrected v2 logic.
+Status: corrected DIV90 v3 smoke run completed. This is the current smoke reference: glia/OPC clusters are retained as ordinary cells, stressed clusters are excluded, and Jia endpoint tips are unchanged from corrected v2.
 
 This handoff records the DIV90 URD plan after the DIV90 UMAP/metadata audit. It is intentionally aligned with the DIV30 URD workflow, but the DIV90 biological question is different because the DIV90 object has real terminal cluster labels.
 
@@ -491,16 +491,24 @@ Slurm job:
 51688064
 ```
 
-Initial status:
+Final status:
 
 ```text
-RUNNING on gl3019
+COMPLETED, exit code 0
 ```
 
 Request:
 
 ```text
 2 CPUs, 32G RAM, 4h wall time
+```
+
+Runtime/resource use:
+
+```text
+Elapsed: 00:20:44
+MaxRSS: 4,124,912K
+Node: gl3019
 ```
 
 Output root:
@@ -518,10 +526,97 @@ Log:
 Expected extra tree plot for direct comparison to the DIV90 UMAP labels:
 
 ```text
-lineage_tree_cluster_number_name_v1/plots/urd_tree_annotation.png
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v3_glia_cells/lineage_tree_cluster_number_name_v1/plots/urd_tree_annotation.png
 ```
 
 This plot colors the URD tree by `cluster_number_name`, so it shows the original DIV90 biological cluster names, including retained glial cells.
+
+v3 verified input manifest:
+
+```text
+retained_clusters: 0,1,2,3,4,5,8,9,10,11,12
+excluded_clusters_first_smoke: 6,7
+retained_glia_non_tip_clusters: 4,9,10
+tip_lhx8_isl1_clusters: 0,5,8
+tip_lhx6_nfia_clusters: 1
+tip_crabp1_angpt2_clusters: 2
+retained_unassigned_candidate_clusters: 3,11
+n_selected_cells: 5000
+n_root_cells: 8
+```
+
+v3 sampled cluster composition:
+
+| Cluster | Exact metadata name | sampled cells | URD role |
+|---:|---|---:|---|
+| 0 | `0 - MGE Striatal/GP Fated` | 850 | `tip_lhx8_isl1` |
+| 1 | `1 - SST+, NPY +, Cortical Fated` | 836 | `tip_lhx6_nfia` |
+| 2 | `2 - CRABP1+/PV Precursors` | 826 | `tip_crabp1_angpt2` |
+| 3 | `3 - PV precursors/Migrating cells/Cortical-fated` | 538 | retained candidate, not a tip |
+| 4 | `4 - Pre-Astrocytes/Astrocytes 1` | 468 | retained glia, not a tip |
+| 5 | `5 - LHX8+ vMGE GABergic Striatal/GP fated 1` | 454 | `tip_lhx8_isl1` |
+| 8 | `8 - LHX8+ vMGE GABergic Striatal/GP fated 2` | 217 | `tip_lhx8_isl1` |
+| 9 | `9 - Pre-OPCs/OPCs` | 216 | retained glia, not a tip |
+| 10 | `10 - Pre-Astrocytes/Astrocytes 2` | 137 | retained glia, not a tip |
+| 11 | `11 - PV Precursors` | 100 | retained candidate, not a tip |
+| 12 | `12 - Dividing cells` | 358 | root candidate pool |
+
+v3 tree result:
+
+```text
+tree_slot_length: 18
+n_requested_tips: 3
+n_segment_joins: 2
+n_segments: 3
+has_distinct_branching: TRUE
+tips: 1=tip_lhx8_isl1; 2=tip_lhx6_nfia; 3=tip_crabp1_angpt2
+```
+
+URD joined the LHX6/NFIA-like and CRABP1/ANGPT2-like tips first, then split the LHX8/ISL1-like tip from that combined side:
+
+```text
+2 + 3 -> segment 4 at pseudotime 0.586
+1 + 4 -> segment 5 at pseudotime 0.336
+```
+
+The retained glial/OPC clusters were not used as tips. Their median URD pseudotimes were:
+
+| Cluster | Median URD pseudotime |
+|---|---:|
+| `10 - Pre-Astrocytes/Astrocytes 2` | 0.269 |
+| `4 - Pre-Astrocytes/Astrocytes 1` | 0.275 |
+| `9 - Pre-OPCs/OPCs` | 0.337 |
+
+Tip composition remained unchanged from corrected v2:
+
+| Tip | n tip cells | median pseudotime | composition |
+|---|---:|---:|---|
+| `tip_lhx8_isl1` | 1521 | 0.474 | clusters `0`, `5`, `8` |
+| `tip_lhx6_nfia` | 836 | 0.472 | cluster `1` |
+| `tip_crabp1_angpt2` | 826 | 0.442 | cluster `2` |
+
+Clusters `3` and `11` remained non-tip candidate clusters. Post-tree marker-profile projection still matched both most closely to `tip_crabp1_angpt2`, but the guardrail remains: inspect tree position, marker overlays, and profile correlations before promoting either as a tip.
+
+| Candidate cluster | n tree cells | best marker-profile match | Pearson | highest lineage proxy |
+|---:|---:|---|---:|---|
+| 3 | 46 | `tip_crabp1_angpt2` | 0.974 | `LHX6_NFIA_proxy` |
+| 11 | 36 | `tip_crabp1_angpt2` | 0.588 | `LHX6_NFIA_proxy` |
+
+Key v3 output paths:
+
+```text
+lineage_decision_report/plots/umap_pseudotime.png
+lineage_decision_report/plots/diffusion_map_pseudotime.png
+lineage_decision_report/plots/diffusion_map_annotation.png
+lineage_decision_report/plots/flood_stability.png
+lineage_decision_report/plots/gene_cascade_heatmap.png
+lineage_tree_jia_endpoint_tips_v1/plots/urd_tree_annotation.png
+lineage_tree_jia_endpoint_tips_v1/plots/urd_tree_pseudotime.png
+lineage_tree_cluster_number_name_v1/plots/urd_tree_annotation.png
+jia_fig_s11_style_marker_validation_v1/plots/jia_fig_s11_style_urd_marker_validation.png
+candidate_pv_marker_projection_v1/plots/div90_candidate_marker_tree_overlays.png
+candidate_pv_marker_projection_v1/plots/div90_candidate_and_tip_marker_profile_heatmap.png
+```
 
 ## Required Outputs
 
