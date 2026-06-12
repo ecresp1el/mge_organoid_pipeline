@@ -1,0 +1,96 @@
+#!/bin/bash
+# Select a Jia/progenitor RootScore root inside the DIV30 Radial glia pool and
+# reflood the existing DIV30 URD geometry from that top-percent root.
+#
+# Submit:
+#   sbatch slurm_templates/35_div30_jia_rootscore_root10_reflood.sbatch.template
+
+#SBATCH --job-name=div30_jia_root10
+#SBATCH --time=18:00:00
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=160G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/35_div30_jia_rootscore_root10_reflood_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/35_div30_jia_rootscore_root10_reflood_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+set -euo pipefail
+set -x
+
+REPO_ROOT="/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline"
+PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+R_MODULE="${R_MODULE:-R/4.4.3}"
+
+RUN_LABEL="${RUN_LABEL:-div30_first_urd_paper_radial_glia_30k_checkpoint_v2}"
+ROOT_RUN_LABEL="${ROOT_RUN_LABEL:-jia_rootscore_root10_radial_glia_pool_v1}"
+SELECTED_PCT="${SELECTED_PCT:-10}"
+POOL_COL="${POOL_COL:-paper_cluster_annotation}"
+POOL_VALUE="${POOL_VALUE:-Radial glia}"
+PSEUDOTIME_NAME="${PSEUDOTIME_NAME:-jia_rootscore_top10pct_radial_glia_root}"
+SEED="${SEED:-7}"
+URD_N_FLOODS="${URD_N_FLOODS:-20}"
+URD_FLOOD_MINIMUM_CELLS="${URD_FLOOD_MINIMUM_CELLS:-2}"
+URD_FLOOD_MAX_FRAC_NA="${URD_FLOOD_MAX_FRAC_NA:-0.4}"
+URD_FLOOD_STABILITY_DIV="${URD_FLOOD_STABILITY_DIV:-10}"
+
+RUN_ROOT="${PROJECT_ROOT}/results/div30_first_urd/${RUN_LABEL}"
+URD_RDS="${RUN_ROOT}/div30_first_urd_object.rds"
+ROOTSCORE_DIR="${RUN_ROOT}/${ROOT_RUN_LABEL}"
+REFLOOD_DIR="${ROOTSCORE_DIR}/reflood_top${SELECTED_PCT}pct_v1"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${ROOTSCORE_DIR}" "${REFLOOD_DIR}"
+
+echo "=== DIV30 Jia RootScore top-percent reflood context ==="
+date
+hostname
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "RUN_LABEL=${RUN_LABEL}"
+echo "URD_RDS=${URD_RDS}"
+echo "POOL_COL=${POOL_COL}"
+echo "POOL_VALUE=${POOL_VALUE}"
+echo "SELECTED_PCT=${SELECTED_PCT}"
+echo "PSEUDOTIME_NAME=${PSEUDOTIME_NAME}"
+echo "ROOTSCORE_DIR=${ROOTSCORE_DIR}"
+echo "REFLOOD_DIR=${REFLOOD_DIR}"
+
+module load "${R_MODULE}"
+module list 2>&1
+Rscript --version
+which Rscript
+
+Rscript -e 'pkgs <- c("Matrix", "URD", "ggplot2"); status <- sapply(pkgs, requireNamespace, quietly=TRUE); print(data.frame(package=pkgs, installed=status), row.names=FALSE); quit(status=ifelse(all(status), 0, 1))'
+
+Rscript "${REPO_ROOT}/scripts/19_div30_jia_rootscore_candidates.R" \
+  --urd-rds "${URD_RDS}" \
+  --outdir "${ROOTSCORE_DIR}" \
+  --pseudotime-name "paper_radial_glia_root" \
+  --candidate-pcts "1,2,5,10" \
+  --selected-pct "${SELECTED_PCT}" \
+  --pool-col "${POOL_COL}" \
+  --pool-value "${POOL_VALUE}"
+
+Rscript "${REPO_ROOT}/scripts/20_div30_urd_reflood_from_root_column.R" \
+  --urd-rds "${ROOTSCORE_DIR}/div30_urd_jia_rootscore_object.rds" \
+  --outdir "${REFLOOD_DIR}" \
+  --root-col "jia_rootscore_selected_root" \
+  --pseudotime-name "${PSEUDOTIME_NAME}" \
+  --seed "${SEED}" \
+  --n-floods "${URD_N_FLOODS}" \
+  --flood-minimum-cells "${URD_FLOOD_MINIMUM_CELLS}" \
+  --flood-max-frac-na "${URD_FLOOD_MAX_FRAC_NA}" \
+  --flood-stability-div "${URD_FLOOD_STABILITY_DIV}"
+
+Rscript "${REPO_ROOT}/scripts/15_div30_urd_lineage_decision_report.R" \
+  --urd-rds "${REFLOOD_DIR}/div30_urd_reflood_object.rds" \
+  --outdir "${REFLOOD_DIR}/lineage_decision_report" \
+  --annotation-col "paper_cluster_annotation" \
+  --pseudotime-name "${PSEUDOTIME_NAME}" \
+  --root-col "jia_rootscore_selected_root" \
+  --dataset-label "DIV30 Jia RootScore top ${SELECTED_PCT}% within ${POOL_VALUE}" \
+  --top-n "50" \
+  --correlation-genes "variable"
+
+echo "=== DIV30 Jia RootScore top-percent reflood complete ==="
+date
+find "${ROOTSCORE_DIR}" -maxdepth 3 -type f | sort

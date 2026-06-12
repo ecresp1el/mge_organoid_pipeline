@@ -59,6 +59,18 @@ TIP_DISPLAY = {
 }
 
 RETAINED_UNASSIGNED_CANDIDATE_CLUSTERS = {3, 11}
+ROOT_SIGNAL_COLUMNS = [
+    "jia_score_RGC1",
+    "jia_score_RGC2",
+    "jia_score_IPC",
+    "lognorm_HES1",
+    "lognorm_VIM",
+    "lognorm_NES",
+    "lognorm_DLX1",
+    "lognorm_DLX2",
+    "lognorm_ASCL1",
+    "div90_jia_rootscore",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -255,6 +267,48 @@ def score_programs_and_root(
     return selected, root_summary
 
 
+def root_program_marker_summary(
+    selected: pd.DataFrame,
+    root_cluster: int,
+    root_top_percent: float,
+) -> pd.DataFrame:
+    """Summarize root score inputs for selected roots and comparison groups."""
+
+    root_pool = selected[selected["cluster_id_numeric"] == root_cluster].copy()
+    selected_roots = selected[selected["urd_root_candidate"]].copy()
+
+    def summarize(
+        frame: pd.DataFrame,
+        comparison_group: str,
+        cluster_id: int | str = "",
+        cluster_name: str = "",
+    ) -> dict[str, object]:
+        row: dict[str, object] = {
+            "comparison_group": comparison_group,
+            "root_pool_col": "cluster_id_numeric",
+            "root_pool_value": root_cluster,
+            "selected_top_percent": root_top_percent,
+            "cluster_id_numeric": cluster_id,
+            "cluster_number_name": cluster_name,
+            "n_cells": len(frame),
+            "n_root_candidates": int(frame["urd_root_candidate"].sum()) if "urd_root_candidate" in frame.columns else 0,
+            "percent_of_all_selected_cells": 100 * len(frame) / len(selected) if len(selected) else np.nan,
+            "percent_of_root_pool": 100 * len(frame) / len(root_pool) if len(root_pool) else np.nan,
+        }
+        for col in ROOT_SIGNAL_COLUMNS:
+            row[f"mean_{col}"] = pd.to_numeric(frame[col], errors="coerce").mean() if col in frame.columns else np.nan
+        return row
+
+    rows = [
+        summarize(selected_roots, f"selected_roots_top{root_top_percent:g}pct", root_cluster, f"cluster_{root_cluster}"),
+        summarize(root_pool, "root_pool_all", root_cluster, f"cluster_{root_cluster}"),
+        summarize(selected, "all_retained_cells"),
+    ]
+    for (cluster_id, cluster_name), frame in selected.groupby(["cluster_id_numeric", "cluster_number_name"], sort=True):
+        rows.append(summarize(frame, f"cluster_{cluster_id}_all_cells", int(cluster_id), str(cluster_name)))
+    return pd.DataFrame(rows)
+
+
 def add_lineage_roles(metadata: pd.DataFrame) -> pd.DataFrame:
     metadata["div90_jia_tip_group"] = metadata["cluster_id_numeric"].map(TIP_BY_CLUSTER)
     metadata["div90_jia_tip_display"] = metadata["div90_jia_tip_group"].map(TIP_DISPLAY)
@@ -405,6 +459,11 @@ def main() -> None:
     export_metadata.to_csv(selected_metadata_path, sep="\t", index=False)
 
     root_summary.to_csv(outdir / "div90_jia_rootscore_root_summary.tsv", sep="\t", index=False)
+    root_program_marker_summary(selected, args.root_cluster, args.root_top_percent).to_csv(
+        outdir / "root_score_program_marker_summary.tsv",
+        sep="\t",
+        index=False,
+    )
     selected.sort_values("div90_jia_rootscore", ascending=False).to_csv(
         outdir / "div90_jia_rootscore_scored_metadata.tsv",
         sep="\t",
@@ -448,6 +507,7 @@ def main() -> None:
             {"key": "seed", "value": str(args.seed)},
             {"key": "n_selected_cells", "value": str(len(selected))},
             {"key": "n_root_cells", "value": str(int(selected["urd_root_candidate"].sum()))},
+            {"key": "root_program_marker_summary_tsv", "value": str(outdir / "root_score_program_marker_summary.tsv")},
             {"key": "compatibility_note", "value": "Output bundle uses div30_first_urd_* file names for scripts/14_div30_first_urd.R compatibility."},
             {"key": "counts_mtx", "value": str(selected_counts_path)},
             {"key": "features_tsv", "value": str(selected_features_path)},

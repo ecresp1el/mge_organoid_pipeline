@@ -23,6 +23,7 @@ parse_args <- function(args) {
     `urd-rds` = NULL,
     outdir = NULL,
     `rgc1-col` = "jia_score_RGC1",
+    `rgc2-col` = "jia_score_RGC2",
     `ipc-col` = "jia_score_IPC",
     `pseudotime-name` = "",
     `proliferation-genes` = "MKI67,TOP2A,CENPF,UBE2C,PCNA,MCM2,MCM3,MCM4,MCM5,MCM6,MCM7,STMN1,HMGB2,AURKB,CDK1,CCNB1,CCNB2",
@@ -62,6 +63,7 @@ print_usage <- function() {
     "  tables/root_score_root_pool_cells.tsv",
     "  tables/root_score_distribution.tsv",
     "  tables/root_score_candidate_counts.tsv",
+    "  tables/root_score_program_marker_summary.tsv",
     "  tables/root_score_candidate_cells_top{pct}.tsv",
     "  tables/root_score_marker_expression_by_candidate_set.tsv",
     "  tables/root_score_pseudotime_by_candidate_set.tsv",
@@ -133,7 +135,7 @@ expression_matrix <- function(object, genes, cells) {
 
 compute_scores <- function(object, cfg) {
   meta <- object@meta[rownames(object@meta), , drop = FALSE]
-  needed <- c(cfg$rgc1_col, cfg$ipc_col)
+  needed <- c(cfg$rgc1_col, cfg$rgc2_col, cfg$ipc_col)
   missing_cols <- setdiff(needed, colnames(meta))
   if (length(missing_cols) > 0) stop("Missing metadata column(s): ", paste(missing_cols, collapse = ", "), call. = FALSE)
 
@@ -152,6 +154,7 @@ compute_scores <- function(object, cfg) {
   score_df <- data.frame(
     cell_id = cells,
     jia_score_RGC1 = as.numeric(meta[[cfg$rgc1_col]]),
+    jia_score_RGC2 = as.numeric(meta[[cfg$rgc2_col]]),
     jia_score_IPC = as.numeric(meta[[cfg$ipc_col]]),
     proliferation_score = as.numeric(proliferation_score[cells]),
     urd_pseudotime = as.numeric(pt$values[cells]),
@@ -166,6 +169,16 @@ compute_scores <- function(object, cfg) {
       stop("Pool column not found in URD metadata: ", cfg$pool_col, call. = FALSE)
     }
     score_df[[cfg$pool_col]] <- meta[[cfg$pool_col]]
+  }
+  summary_genes <- c("HES1", "VIM", "NES", "DLX1", "DLX2", "ASCL1")
+  found_summary_genes <- find_genes_case_insensitive(summary_genes, available_genes)
+  for (gene in summary_genes) {
+    col <- paste0("logupx_", gene)
+    if (gene %in% names(found_summary_genes)) {
+      score_df[[col]] <- as.numeric(expression_matrix(object, unname(found_summary_genes[[gene]]), cells))
+    } else {
+      score_df[[col]] <- NA_real_
+    }
   }
   score_df$z_RGC1 <- zscore(score_df$jia_score_RGC1)
   score_df$z_IPC <- zscore(score_df$jia_score_IPC)
@@ -240,6 +253,57 @@ candidate_counts <- function(score_df, candidate_pcts, selected_pct) {
     )
   })
   do.call(rbind, rows)
+}
+
+root_program_marker_summary <- function(score_df, root_pool_df, selected_pct, cfg) {
+  selected_n <- ceiling(nrow(root_pool_df) * selected_pct / 100)
+  selected_df <- head(root_pool_df, selected_n)
+  metric_cols <- c(
+    "jia_score_RGC1",
+    "jia_score_RGC2",
+    "jia_score_IPC",
+    "logupx_HES1",
+    "logupx_VIM",
+    "logupx_NES",
+    "logupx_DLX1",
+    "logupx_DLX2",
+    "logupx_ASCL1",
+    "RootScore",
+    "proliferation_score"
+  )
+  summarize_one <- function(df, group, pool_col = cfg$pool_col, pool_value = cfg$pool_value) {
+    values <- vapply(metric_cols, function(col) mean(as.numeric(df[[col]]), na.rm = TRUE), numeric(1))
+    values[!is.finite(values)] <- NA_real_
+    out <- data.frame(
+      comparison_group = group,
+      root_pool_col = pool_col,
+      root_pool_value = pool_value,
+      selected_top_percent = selected_pct,
+      n_cells = nrow(df),
+      percent_of_all_scored_cells = 100 * nrow(df) / nrow(score_df),
+      percent_of_root_pool = 100 * nrow(df) / nrow(root_pool_df),
+      stringsAsFactors = FALSE
+    )
+    for (col in metric_cols) out[[paste0("mean_", col)]] <- unname(values[[col]])
+    out
+  }
+
+  rows <- list(
+    selected_roots = summarize_one(selected_df, paste0("selected_roots_top", selected_pct, "pct")),
+    root_pool = summarize_one(root_pool_df, "root_pool_all"),
+    all_scored = summarize_one(score_df, "all_scored_cells", "", "")
+  )
+  if (nzchar(cfg$pool_col) && cfg$pool_col %in% colnames(score_df)) {
+    pool_values <- sort(unique(as.character(score_df[[cfg$pool_col]])))
+    for (value in pool_values) {
+      df <- score_df[as.character(score_df[[cfg$pool_col]]) == value, , drop = FALSE]
+      key <- paste0("pool_level_", make.names(value))
+      rows[[key]] <- summarize_one(df, paste0(cfg$pool_col, "=", value), cfg$pool_col, value)
+    }
+  }
+  out <- do.call(rbind, rows)
+  rownames(out) <- NULL
+  out
 }
 
 marker_summary <- function(object, score_df, marker_genes, candidate_pcts) {
@@ -425,6 +489,7 @@ cfg <- list(
   table_dir = file.path(opt$outdir, "tables"),
   plot_dir = file.path(opt$outdir, "plots"),
   rgc1_col = opt$`rgc1-col`,
+  rgc2_col = opt$`rgc2-col`,
   ipc_col = opt$`ipc-col`,
   pseudotime_name = opt$`pseudotime-name`,
   proliferation_genes = opt$`proliferation-genes`,
@@ -446,6 +511,7 @@ score_df <- computed$score_df
 root_pool_df <- select_root_pool(score_df, cfg)
 dist <- distribution_table(score_df)
 counts <- candidate_counts(root_pool_df, cfg$candidate_pcts, cfg$selected_pct)
+program_marker_summary <- root_program_marker_summary(score_df, root_pool_df, cfg$selected_pct, cfg)
 markers <- marker_summary(urd, root_pool_df, computed$marker_genes, cfg$candidate_pcts)
 pt_summary <- pseudotime_summary(root_pool_df, cfg$candidate_pcts)
 urd <- add_candidate_columns(urd, score_df, root_pool_df, cfg$candidate_pcts, cfg$selected_pct)
@@ -454,6 +520,7 @@ write_tsv(score_df, file.path(cfg$table_dir, "root_score_all_cells.tsv"))
 write_tsv(root_pool_df, file.path(cfg$table_dir, "root_score_root_pool_cells.tsv"))
 write_tsv(dist, file.path(cfg$table_dir, "root_score_distribution.tsv"))
 write_tsv(counts, file.path(cfg$table_dir, "root_score_candidate_counts.tsv"))
+write_tsv(program_marker_summary, file.path(cfg$table_dir, "root_score_program_marker_summary.tsv"))
 write_tsv(markers, file.path(cfg$table_dir, "root_score_marker_expression_by_candidate_set.tsv"))
 write_tsv(pt_summary, file.path(cfg$table_dir, "root_score_pseudotime_by_candidate_set.tsv"))
 write_tsv(

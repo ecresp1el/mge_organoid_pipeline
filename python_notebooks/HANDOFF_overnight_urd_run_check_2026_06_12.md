@@ -61,7 +61,7 @@ The current intended diagnostic root rule is:
 1. Define the dataset-specific root pool.
 2. Rank cells inside that pool by the dataset's Jia/progenitor RootScore.
 3. Select the top 10% within that pool as URD roots.
-4. Record the root pool column/value, pool size, selected percent, selected root cells, and RootScore table in the run output.
+4. Record the root pool column/value, pool size, selected percent, selected root cells, RootScore table, and program/marker comparison table in the run output.
 ```
 
 Current pool definitions and expected top-10% root counts:
@@ -79,6 +79,76 @@ DIV90 failed root: top 2% of cluster 12 = 8 / 20049
 ```
 
 Implementation note: `scripts/19_div30_jia_rootscore_candidates.R` now accepts `--pool-col` and `--pool-value` so DIV30 score-defined root candidates can be selected as top X% within Radial glia while preserving the same output columns (`jia_rootscore_selected_root`, `jia_rootscore_selected_top_percent`, and top-percent candidate flags).
+
+The required root comparison table is:
+
+```text
+root_score_program_marker_summary.tsv
+```
+
+It reports selected roots versus the full designated root pool, all scored/retained cells, and cluster/pool-level comparison rows. Required mean columns include:
+
+```text
+mean_jia_score_RGC1
+mean_jia_score_RGC2
+mean_jia_score_IPC
+mean_logupx_HES1
+mean_logupx_VIM
+mean_logupx_NES
+mean_logupx_DLX1
+mean_logupx_DLX2
+mean_logupx_ASCL1
+```
+
+DIV30 implementation:
+
+```text
+scripts/19_div30_jia_rootscore_candidates.R
+slurm_templates/35_div30_jia_rootscore_root10_reflood.sbatch.template
+```
+
+DIV90 implementation:
+
+```text
+python_notebooks/scripts/export_div90_jia_lineage_urd_inputs.py
+```
+
+Planned top-10% rerun labels:
+
+```text
+DIV30: div30_first_urd_paper_radial_glia_30k_checkpoint_v2/jia_rootscore_root10_radial_glia_pool_v1
+DIV90: div90_urd_jia_lineage_full_v4_glia_tips_root10_v1
+```
+
+## Top-10% Root Reruns Submitted
+
+Submitted: 2026-06-12 09:54 EDT
+
+| Dataset | Job ID | Run/root label | Status at submit check | Purpose |
+|---|---:|---|---|---|
+| DIV30 | 51699299 | `jia_rootscore_root10_radial_glia_pool_v1` under `div30_first_urd_paper_radial_glia_30k_checkpoint_v2` | PENDING `(Priority)` | Score Radial glia pool, select top 10% RootScore roots, reflood existing 30k URD object, write decision report. |
+| DIV90 | 51699300 | `div90_urd_jia_lineage_full_v4_glia_tips_root10_v1` | PENDING `(Priority)` | Full retained DIV90 rerun with top 10% of cluster 12 by Jia RootScore as roots. |
+
+Logs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/35_div30_jia_rootscore_root10_reflood_51699299.log
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51699300.log
+```
+
+Output roots:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_30k_checkpoint_v2/jia_rootscore_root10_radial_glia_pool_v1/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_full_v4_glia_tips_root10_v1/
+```
+
+Check:
+
+```bash
+squeue -j 51699299,51699300
+sacct -j 51699299,51699300 --format=JobID,JobName%32,State,ExitCode,Elapsed,AllocCPUS,ReqMem,MaxRSS,NodeList
+```
 
 ## Logs
 
