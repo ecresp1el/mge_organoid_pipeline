@@ -3103,6 +3103,7 @@ bershteyn_2025_author_metadata_schema.tsv
 bershteyn_2025_author_object_top_level_slots.tsv
 bershteyn_2025_author_vs_our_label_vocabulary.tsv
 bershteyn_2025_author_vs_our_label_set_comparison.tsv
+bershteyn_2025_vs_shi_reference_cell_count_comparison.tsv
 bershteyn_2025_author_vs_our_shi_prediction_distributions.tsv
 bershteyn_2025_author_vs_our_shi_prediction_coarse_comparison.tsv
 bershteyn_2025_author_vs_our_shi_prediction_cell_level_confusion.tsv
@@ -3232,6 +3233,160 @@ by MGE:
 
 This means the strong agreement is specifically a coarse MGE identity result,
 not proof that the two pipelines have identical full label vocabularies.
+```
+
+Interpretive mapping between Bershteyn `predicted.GEtype` and Shi major labels:
+
+```text
+Do not describe `MGE, CGE, POA, LGE, EN, NPC` as all author labels in the
+object. They are only the unique values of the author coarse GE-type column:
+  predicted.GEtype
+
+The author object also has finer author/reference label columns:
+  predicted.GEcluster
+  predicted.GEgws
+  predicted.macaclass
+  predicted.musclass
+  type
+
+Approximate vocabulary relationship to the Shi major-label reference:
+
+  Bershteyn MGE  <-> Shi MGE                 exact coarse match
+  Bershteyn LGE  <-> Shi LGE                 exact coarse match
+  Bershteyn CGE  <-> Shi CGE                 exact coarse match
+  Bershteyn EN   ~  Shi Excitatory neuron    likely semantic match, not same string
+  Bershteyn NPC  ~  Shi progenitor           likely broad progenitor-like, not same string
+  Bershteyn POA  -> no direct Shi major-label equivalent in this workflow
+
+The non-shared Bershteyn coarse GEtype labels are rare in this dataset:
+  POA 378 cells (0.30%)
+  EN   15 cells (0.01%)
+  NPC   1 cell  (<0.01%)
+
+Therefore the strong agreement with Shi is driven by the overwhelmingly shared
+MGE compartment, not by a one-to-one match of every coarse label category.
+```
+
+Bershteyn-vs-Shi cell-count scale:
+
+```text
+Full machine-readable table:
+  bershteyn_2025_vs_shi_reference_cell_count_comparison.tsv
+
+Total cell counts:
+  Bershteyn 2025 object:                         124,583 cells
+  Shi GEO standalone object:                      56,412 cells
+  Shi paper-QC object:                            56,136 cells
+  Shi matched Table S2 labels:                    55,704 cells
+  Shi cross-study v2 TransferData reference:      38,831 cells
+
+Ratios:
+  Bershteyn / Shi GEO standalone:                  2.21x
+  Bershteyn / Shi paper-QC:                        2.22x
+  Bershteyn / Shi matched Table S2 labels:         2.24x
+  Bershteyn / Shi v2 TransferData reference:       3.21x
+
+Coarse label count comparisons:
+  Bershteyn author MGE: 123,054
+    vs Shi matched Table S2 MGE: 15,321   (8.03x)
+    vs Shi v2 reference MGE:    10,446   (11.78x)
+
+  Bershteyn author CGE:   1,059
+    vs Shi matched Table S2 CGE:  7,128  (0.15x)
+    vs Shi v2 reference CGE:      4,322  (0.25x)
+
+  Bershteyn author LGE:      76
+    vs Shi matched Table S2 LGE: 11,767  (0.006x)
+    vs Shi v2 reference LGE:     6,879  (0.011x)
+
+  Bershteyn author EN:       15
+    vs Shi Excitatory neuron matched Table S2: 3,736  (0.004x)
+    vs Shi Excitatory neuron v2 reference:     3,388  (0.004x)
+
+  Bershteyn author NPC:       1
+    vs Shi progenitor matched Table S2: 12,041
+    vs Shi progenitor v2 reference:      8,278
+
+  Bershteyn author POA:     378
+    no direct Shi major-label equivalent in this workflow.
+
+Interpretation:
+  Bershteyn 2025 is larger overall than Shi, and it is overwhelmingly MGE by
+  author GEtype. The Shi reference is more balanced across MGE, LGE, CGE,
+  progenitor, thalamic, and excitatory classes. Thus the MGE agreement is based
+  on a very large Bershteyn MGE compartment projected into a much smaller Shi
+  MGE reference class.
+```
+
+GE-type naming crosswalk across Bershteyn, Shi, and our outputs:
+
+```text
+Strict GE compartment names shared across systems:
+  MGE = medial ganglionic eminence
+  LGE = lateral ganglionic eminence
+  CGE = caudal ganglionic eminence
+
+Bershteyn coarse author GE-type column:
+  column: predicted.GEtype
+  labels: MGE, CGE, POA, LGE, EN, NPC
+
+Bershteyn finer GE/reference cluster column:
+  column: predicted.GEcluster
+  labels: MGE0, MGE9, MGElhx8, CGE1, POA, LGE5, LGE7, LGE8, ENs, NPC
+
+Bershteyn macaque-reference class column:
+  column: predicted.macaclass
+  labels:
+    MGE_LHX6/MAF
+    MGE_LHX6/NPY
+    MGE_CRABP1/MAF
+    CGE_NR2F2/PROX1
+    VMF_ZIC1/ZIC2
+
+Bershteyn mouse-reference class column:
+  column: predicted.musclass
+  labels:
+    MGE_LHX6/MAF
+    MGE_LHX6/NPY
+    LGE_FOXP1/ISL1
+    VMF_PEG10/DLK1
+    VMF_TMEM163/OTP
+    VMF_CRABP1/LHX8
+    VMF_NR2F2/LHX6
+    VMF_LHX1/POU6F2
+
+Bershteyn final/type column:
+  column: type
+  labels:
+    LHX6/MAF/ZEB2
+    LHX6/SST/NPY
+    LHX6/ENC1/LHX8
+
+Shi major-label reference names:
+  MGE
+  LGE
+  CGE
+  progenitor
+  Excitatory IPC
+  Excitatory neuron
+  Thalamic neurons
+  Microglia
+  OPC
+  Endothelial
+
+Our whole-Shi TransferData winner labels observed in Bershteyn 2025:
+  column: shi_seurat_full_predicted_shi_label
+  labels: MGE, Excitatory neuron, LGE, CGE, Thalamic neurons, progenitor
+
+Approximate semantic mapping:
+  Bershteyn MGE       <-> Shi/our MGE
+  Bershteyn LGE       <-> Shi/our LGE
+  Bershteyn CGE       <-> Shi/our CGE
+  Bershteyn EN/ENs    ~  Shi/our Excitatory neuron
+  Bershteyn NPC       ~  Shi/our progenitor
+  Bershteyn POA       -> no direct Shi major-label equivalent here
+  Bershteyn VMF_*     -> ventral midbrain/forebrain-like reference classes;
+                         no one-to-one Shi major GE-type label in this workflow
 ```
 
 Complete label vocabulary:

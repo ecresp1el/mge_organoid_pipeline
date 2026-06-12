@@ -31,11 +31,11 @@ from scipy import sparse
 
 
 DEFAULT_PROJECT_ROOT = Path("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder")
-DEFAULT_RUN_LABEL = "div90_urd_jia_lineage_smoke5k_knn100_v2_crabp1_tip"
+DEFAULT_RUN_LABEL = "div90_urd_jia_lineage_smoke5k_knn100_v3_glia_cells"
 DEFAULT_MAX_CELLS = 5_000
 DEFAULT_ROOT_TOP_PERCENT = 2.0
 DEFAULT_ROOT_MIN_CELLS = 8
-DEFAULT_RETAIN_CLUSTERS = "0,1,2,3,5,8,11,12"
+DEFAULT_RETAIN_CLUSTERS = "0,1,2,3,4,5,8,9,10,11,12"
 
 
 TIP_BY_CLUSTER = {
@@ -53,6 +53,7 @@ TIP_DISPLAY = {
 }
 
 RETAINED_UNASSIGNED_CANDIDATE_CLUSTERS = {3, 11}
+RETAINED_GLIA_NON_TIP_CLUSTERS = {4, 9, 10}
 
 
 def parse_args() -> argparse.Namespace:
@@ -261,6 +262,10 @@ def add_lineage_roles(metadata: pd.DataFrame) -> pd.DataFrame:
         metadata["cluster_id_numeric"].isin(RETAINED_UNASSIGNED_CANDIDATE_CLUSTERS),
         "div90_jia_urd_role",
     ] = "retained_unassigned_candidate"
+    metadata.loc[
+        metadata["cluster_id_numeric"].isin(RETAINED_GLIA_NON_TIP_CLUSTERS),
+        "div90_jia_urd_role",
+    ] = "retained_glia_non_tip"
     metadata["paper_cluster_annotation"] = metadata["cluster_number_name"].astype(str)
     return metadata
 
@@ -423,7 +428,7 @@ def main() -> None:
             {"key": "matrix_orientation", "value": "features_by_cells"},
             {"key": "metadata_join_key", "value": "cell_id"},
             {"key": "retained_clusters", "value": ",".join(map(str, retain_clusters))},
-            {"key": "excluded_clusters_first_smoke", "value": "4,6,7,9,10"},
+            {"key": "excluded_clusters_first_smoke", "value": "6,7"},
             {"key": "cell_selection_logic", "value": "keep all root-cluster cells then stratify remaining retained clusters to max_cells"},
             {"key": "root_score_formula", "value": "z(RGC1)+z(RGC2)+z(HES1)+z(VIM)+z(NES)-z(IPC)-z(DLX1)-z(DLX2)-z(ASCL1)"},
             {"key": "root_cluster", "value": str(args.root_cluster)},
@@ -433,6 +438,7 @@ def main() -> None:
             {"key": "tip_lhx6_nfia_clusters", "value": "1"},
             {"key": "tip_crabp1_angpt2_clusters", "value": "2"},
             {"key": "retained_unassigned_candidate_clusters", "value": "3,11"},
+            {"key": "retained_glia_non_tip_clusters", "value": "4,9,10"},
             {"key": "post_tree_candidate_marker_genes", "value": "MEF2C,EPHA5,LHX6,CRABP1,LHX8,NR2F1,NR2F2"},
             {"key": "max_cells", "value": str(args.max_cells)},
             {"key": "seed", "value": str(args.seed)},

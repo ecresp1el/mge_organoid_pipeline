@@ -367,6 +367,47 @@ Active-job status at 2026-06-11 21:57 EDT:
 RUNNING on gl3018
 ```
 
+Completed: 2026-06-11 22:18:32 EDT
+
+Slurm accounting:
+
+| Job | State | Exit code | Elapsed | Max RSS | CPUs | Request |
+|---|---|---|---|---|---:|---|
+| `51687695.batch` | `COMPLETED` | `0:0` | `00:20:56` | `4401788K` | 2 | `32G` |
+
+Corrected v2 tree result:
+
+| Metric | Value |
+|---|---:|
+| requested tips | 3 |
+| final segment joins | 2 |
+| final segments | 3 |
+| distinct branching detected | TRUE |
+
+Tip mapping:
+
+| Tip ID | Tip label | n tip cells | median pseudotime |
+|---:|---|---:|---:|
+| 1 | `tip_lhx8_isl1` | 1847 | 0.417 |
+| 2 | `tip_lhx6_nfia` | 1016 | 0.412 |
+| 3 | `tip_crabp1_angpt2` | 1003 | 0.383 |
+
+Topology note:
+
+```text
+tip_lhx6_nfia and tip_crabp1_angpt2 join together first.
+The combined segment then splits from tip_lhx8_isl1 at pseudotime ~0.267.
+```
+
+Candidate clusters retained but not used as tips:
+
+| Candidate cluster | Tree cells | Best marker-profile match | Pearson | Highest lineage proxy |
+|---:|---:|---|---:|---|
+| 3 | 52 | `tip_crabp1_angpt2` | 0.962 | `LHX6_NFIA_proxy` |
+| 11 | 35 | `tip_crabp1_angpt2` | 0.607 | `LHX6_NFIA_proxy` |
+
+Interpretation guardrail: these are candidate assignments from marker projection only. Inspect `candidate_pv_marker_projection_v1/plots/div90_candidate_marker_tree_overlays.png` and the profile heatmap before promoting clusters `3`/`11` into explicit tips.
+
 Run label:
 
 ```text
@@ -408,6 +449,79 @@ candidate_pv_marker_projection_v1/tables/div90_candidate_and_tip_marker_profiles
 candidate_pv_marker_projection_v1/tables/div90_marker_expression_summary_by_cluster.tsv
 candidate_pv_marker_projection_v1/tables/div90_marker_expression_summary_by_tree_segment.tsv
 ```
+
+### Corrected v3 Smoke Run: Glia Retained As Cells
+
+Purpose: rerun the corrected v2 logic but add glial/OPC clusters back into the manifold as ordinary cells. They are not tips.
+
+Change from v2:
+
+| Role | v2 | v3 |
+|---|---|---|
+| retained clusters | `0,1,2,3,5,8,11,12` | `0,1,2,3,4,5,8,9,10,11,12` |
+| glia/OPC clusters | excluded | retained as non-tip cells |
+| stressed clusters | excluded | excluded |
+| tips | `0+5+8`, `1`, `2` | unchanged |
+
+v3 retained non-tip glia:
+
+```text
+4  = Pre-Astrocytes/Astrocytes 1
+9  = Pre-OPCs/OPCs
+10 = Pre-Astrocytes/Astrocytes 2
+```
+
+v3 excluded:
+
+```text
+6, 7 = Stressed Cells
+```
+
+Run label:
+
+```text
+div90_urd_jia_lineage_smoke5k_knn100_v3_glia_cells
+```
+
+Submitted: 2026-06-11 22:42 EDT
+
+Slurm job:
+
+```text
+51688064
+```
+
+Initial status:
+
+```text
+RUNNING on gl3019
+```
+
+Request:
+
+```text
+2 CPUs, 32G RAM, 4h wall time
+```
+
+Output root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_smoke5k_knn100_v3_glia_cells/
+```
+
+Log:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51688064.log
+```
+
+Expected extra tree plot for direct comparison to the DIV90 UMAP labels:
+
+```text
+lineage_tree_cluster_number_name_v1/plots/urd_tree_annotation.png
+```
+
+This plot colors the URD tree by `cluster_number_name`, so it shows the original DIV90 biological cluster names, including retained glial cells.
 
 ## Required Outputs
 
