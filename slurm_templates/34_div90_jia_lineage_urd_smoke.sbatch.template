@@ -5,8 +5,9 @@
 # biology:
 #   - Root: top RootScore cells inside cluster 12 Dividing cells.
 #   - Tips: Jia endpoint approximations, not broad SST/PV/MGE labels.
-#   - v3 glia-cell smoke: clusters 4, 9, and 10 are retained as ordinary
-#     manifold cells, not tips. Stressed clusters 6 and 7 remain excluded.
+#   - v4 final-inclusion smoke: glial endpoints are now explicit tips.
+#     Clusters 4 and 10 are combined as one astrocyte tip, and cluster 9 is
+#     an OPC tip. Stressed clusters 6 and 7 remain excluded.
 #   - Tip correction from v2 remains: cluster 2 is the CRABP1/ANGPT2-like tip,
 #     while clusters 3 and 11 stay in the manifold as retained unassigned
 #     candidates.
@@ -35,7 +36,7 @@ CONDA_BASE="/home/elcrespo/miniconda3"
 CONDA_ENV="${CONDA_ENV:-mge-organoid-python}"
 R_MODULE="${R_MODULE:-R/4.4.3}"
 
-RUN_LABEL="${RUN_LABEL:-div90_urd_jia_lineage_smoke5k_knn100_v3_glia_cells}"
+RUN_LABEL="${RUN_LABEL:-div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips}"
 MAX_CELLS="${MAX_CELLS:-5000}"
 SEED="${SEED:-7}"
 URD_SEED="${URD_SEED:-${SEED}}"
@@ -140,7 +141,7 @@ Rscript "${REPO_ROOT}/scripts/15_div30_urd_lineage_decision_report.R" \
   --annotation-col "cluster_number_name" \
   --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
   --root-col "urd_root_candidate" \
-  --dataset-label "DIV90 Jia-lineage smoke" \
+  --dataset-label "DIV90 Jia-lineage/glia-tip smoke" \
   --top-n "50" \
   --correlation-genes "variable"
 
@@ -151,7 +152,7 @@ Rscript "${REPO_ROOT}/scripts/16_div30_urd_build_lineage_tree.R" \
   --root-label "DIV90 Jia RootScore top ${DIV90_ROOT_TOP_PERCENT}% in cluster 12" \
   --root-col "urd_root_candidate" \
   --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
-  --tip-labels "tip_lhx8_isl1,tip_lhx6_nfia,tip_crabp1_angpt2" \
+  --tip-labels "tip_lhx8_isl1,tip_lhx6_nfia,tip_crabp1_angpt2,tip_astrocytes,tip_opc" \
   --n-per-tip "${TREE_N_PER_TIP}" \
   --process-n-subsample "${TREE_PROCESS_N_SUBSAMPLE}" \
   --cells-per-pseudotime-bin "${TREE_CELLS_PER_PSEUDOTIME_BIN}" \
@@ -168,7 +169,7 @@ Rscript "${REPO_ROOT}/scripts/17_div30_urd_finalize_lineage_tree_report.R" \
   --outdir "${TREE_DIR}" \
   --annotation-col "div90_jia_tip_group" \
   --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
-  --dataset-label "DIV90 Jia-lineage smoke" \
+  --dataset-label "DIV90 Jia-lineage/glia-tip smoke" \
   --root-label "DIV90 Jia RootScore top ${DIV90_ROOT_TOP_PERCENT}% in cluster 12" \
   --tip-mapping "${TREE_DIR}/tables/tree_tip_mapping.tsv" \
   --top-n-branch-genes "50"

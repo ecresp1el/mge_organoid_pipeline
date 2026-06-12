@@ -5,12 +5,13 @@ This exporter is the DIV90 counterpart to the DIV30 first-URD input exporter.
 It keeps the major processing decisions outside the URD R step:
 
   - read the existing DIV90 AnnData-derived Matrix Market count export;
-  - retain the Jia-lineage neuronal/root clusters for the first smoke test;
+  - retain the Jia-lineage neuronal/root clusters and glial endpoint clusters;
   - compute Jia RGC1/RGC2/IPC scores from the same selected Jia marker table
     used in the DIV30 workflow;
   - compute the DIV90 Jia RootScore within the retained smoke cells;
   - select top RootScore cells inside cluster 12 as the URD root;
-  - write explicit tip groups approximating Jia lineage endpoints.
+  - write explicit tip groups approximating Jia neuronal endpoints plus
+    combined astrocyte and OPC endpoints.
 
 The output file names intentionally use the legacy `div30_first_urd_*` names
 because scripts/14_div30_first_urd.R consumes that input bundle format. The
@@ -31,7 +32,7 @@ from scipy import sparse
 
 
 DEFAULT_PROJECT_ROOT = Path("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder")
-DEFAULT_RUN_LABEL = "div90_urd_jia_lineage_smoke5k_knn100_v3_glia_cells"
+DEFAULT_RUN_LABEL = "div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips"
 DEFAULT_MAX_CELLS = 5_000
 DEFAULT_ROOT_TOP_PERCENT = 2.0
 DEFAULT_ROOT_MIN_CELLS = 8
@@ -44,16 +45,20 @@ TIP_BY_CLUSTER = {
     8: "tip_lhx8_isl1",
     1: "tip_lhx6_nfia",
     2: "tip_crabp1_angpt2",
+    4: "tip_astrocytes",
+    10: "tip_astrocytes",
+    9: "tip_opc",
 }
 
 TIP_DISPLAY = {
     "tip_lhx8_isl1": "LHX8/ISL1-like lineage",
     "tip_lhx6_nfia": "LHX6/NFIA-like lineage",
     "tip_crabp1_angpt2": "CRABP1/ANGPT2-like lineage",
+    "tip_astrocytes": "combined astrocyte endpoint",
+    "tip_opc": "OPC endpoint",
 }
 
 RETAINED_UNASSIGNED_CANDIDATE_CLUSTERS = {3, 11}
-RETAINED_GLIA_NON_TIP_CLUSTERS = {4, 9, 10}
 
 
 def parse_args() -> argparse.Namespace:
@@ -262,10 +267,6 @@ def add_lineage_roles(metadata: pd.DataFrame) -> pd.DataFrame:
         metadata["cluster_id_numeric"].isin(RETAINED_UNASSIGNED_CANDIDATE_CLUSTERS),
         "div90_jia_urd_role",
     ] = "retained_unassigned_candidate"
-    metadata.loc[
-        metadata["cluster_id_numeric"].isin(RETAINED_GLIA_NON_TIP_CLUSTERS),
-        "div90_jia_urd_role",
-    ] = "retained_glia_non_tip"
     metadata["paper_cluster_annotation"] = metadata["cluster_number_name"].astype(str)
     return metadata
 
@@ -437,8 +438,11 @@ def main() -> None:
             {"key": "tip_lhx8_isl1_clusters", "value": "0,5,8"},
             {"key": "tip_lhx6_nfia_clusters", "value": "1"},
             {"key": "tip_crabp1_angpt2_clusters", "value": "2"},
+            {"key": "tip_astrocytes_clusters", "value": "4,10"},
+            {"key": "tip_opc_clusters", "value": "9"},
             {"key": "retained_unassigned_candidate_clusters", "value": "3,11"},
-            {"key": "retained_glia_non_tip_clusters", "value": "4,9,10"},
+            {"key": "retained_glia_non_tip_clusters", "value": ""},
+            {"key": "glial_tip_logic", "value": "clusters 4 and 10 are combined as tip_astrocytes; cluster 9 is tip_opc"},
             {"key": "post_tree_candidate_marker_genes", "value": "MEF2C,EPHA5,LHX6,CRABP1,LHX8,NR2F1,NR2F2"},
             {"key": "max_cells", "value": str(args.max_cells)},
             {"key": "seed", "value": str(args.seed)},
