@@ -1378,6 +1378,22 @@ sbatch \
   slurm_templates/31_div30_first_urd.sbatch.template
 ```
 
+Submitted checkpointed DIV30 rerun:
+
+```text
+Date submitted: 2026-06-12
+Slurm job: 51691451
+State at submission check: PENDING (Priority)
+Run label: div30_first_urd_paper_radial_glia_30k_checkpoint_v2
+MAX_CELLS: 30000
+Root label: Radial glia
+Resources requested: 8 CPUs, 160G, 48:00:00
+Log:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51691451.log
+Output root:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_30k_checkpoint_v2/
+```
+
 Only promote to all-cells DIV30 (`MAX_CELLS=0`) after this checkpointed 30k run writes:
 
 ```text

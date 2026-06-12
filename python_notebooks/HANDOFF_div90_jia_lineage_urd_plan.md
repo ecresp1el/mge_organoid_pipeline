@@ -839,6 +839,21 @@ sbatch \
 
 `MAX_CELLS=0` means all retained cells in the DIV90 exporter. The template name still says `smoke` for historical continuity, but this command promotes the same frozen v4 logic to the full retained DIV90 dataset.
 
+Submitted full DIV90 run:
+
+```text
+Date submitted: 2026-06-12
+Slurm job: 51691452
+State at submission check: PENDING (Priority)
+Run label: div90_urd_jia_lineage_full_v4_glia_tips
+MAX_CELLS: 0
+Resources requested: 8 CPUs, 160G, 48:00:00
+Log:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51691452.log
+Output root:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_full_v4_glia_tips/
+```
+
 New monitoring/checkpoint outputs for this and later runs:
 
 ```text
