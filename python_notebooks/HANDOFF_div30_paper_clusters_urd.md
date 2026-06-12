@@ -18,6 +18,16 @@ DIV90 companion workflow:
 python_notebooks/HANDOFF_div90_jia_lineage_urd_plan.md
 ```
 
+DIV30 Jia-style Phase 1 progenitor reclustering gate:
+
+```text
+python_notebooks/HANDOFF_div30_jia_progenitor_reclustering.md
+```
+
+That companion workflow reclusters only DIV30 progenitor clusters `0,3,6,7`
+with Seurat, overlays Jia RGC1/RGC2/IPC scores only after unsupervised
+clustering, and stops before any lineage-committed progenitor reclustering.
+
 The DIV90 workflow now has a corrected v2 Jia-lineage smoke run for later DIV30-vs-DIV90 comparison. It uses cluster 12 as the Jia RootScore root, excludes glial/OPC/stress clusters, uses clusters `0+5+8`, `1`, and `2` as Jia endpoint tips, and retains clusters `3`/`11` as unassigned candidates for post-tree marker projection rather than tips.
 
 ## Source Data

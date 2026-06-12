@@ -1,0 +1,109 @@
+#!/bin/bash
+# DIV30 Jia-style Phase 1 progenitor reclustering.
+#
+# This is a parallel, independent Seurat analysis. It does not modify or depend
+# on the active DIV30/DIV90 URD jobs.
+#
+# Biological scope:
+#   - Input cells: current DIV30 progenitor clusters 0, 3, 6, and 7.
+#   - Recluster only those progenitors with the existing DIV30 Seurat workflow.
+#   - Use marker genes to ask whether the compartment separates into
+#     RGC1/VZ-RGC, RGC2/SVZ-RGC, and IPC.
+#   - Overlay Jia RGC1/RGC2/IPC scores only after unsupervised clustering and
+#     FindAllMarkers.
+#   - Stop after Phase 1; do not run lineage-committed progenitor reclustering.
+#
+# Submit:
+#   cp slurm_templates/35_div30_jia_progenitor_reclustering.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/35_div30_jia_progenitor_reclustering.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/35_div30_jia_progenitor_reclustering.sbatch
+
+#SBATCH --job-name=div30_prog_p1
+#SBATCH --time=08:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=160G
+#SBATCH --nodes=1
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/35_div30_jia_progenitor_reclustering_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/35_div30_jia_progenitor_reclustering_%j.log
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+
+set -euo pipefail
+set -x
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+R_MODULE="${R_MODULE:-R/4.4.3}"
+
+RUN_LABEL="${RUN_LABEL:-div30_jia_progenitor_reclustering_phase1_v1}"
+SEURAT_RDS="${SEURAT_RDS:-${PROJECT_ROOT}/results/varela_this_paper/varela_this_paper_seurat.rds}"
+JIA_SCORES="${JIA_SCORES:-${PROJECT_ROOT}/results/jia_program_div30_scoring/jia_program_div30_scoring_v1/tables/div30_jia_program_scores_obs.tsv}"
+OUTDIR="${OUTDIR:-${PROJECT_ROOT}/results/div30_jia_progenitor_reclustering/${RUN_LABEL}}"
+
+SEURAT_ASSAY="${SEURAT_ASSAY:-RNA}"
+SOURCE_CLUSTER_COL="${SOURCE_CLUSTER_COL:-}"
+PROGENITOR_CLUSTERS="${PROGENITOR_CLUSTERS:-0,3,6,7}"
+NFEATURES="${NFEATURES:-3000}"
+NPCS="${NPCS:-50}"
+DIMS="${DIMS:-30}"
+RESOLUTION="${RESOLUTION:-0.8}"
+SEED="${SEED:-7}"
+MARKER_MIN_PCT="${MARKER_MIN_PCT:-0.1}"
+MARKER_LOGFC_THRESHOLD="${MARKER_LOGFC_THRESHOLD:-0.25}"
+TOP_N_MARKERS="${TOP_N_MARKERS:-50}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${OUTDIR}"
+
+echo "=== DIV30 Jia-style progenitor Phase 1 reclustering Slurm context ==="
+date
+hostname
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-}"
+echo "SLURM_MEM_PER_NODE=${SLURM_MEM_PER_NODE:-}"
+echo "PROJECT_ROOT=${PROJECT_ROOT}"
+echo "REPO_ROOT=${REPO_ROOT}"
+echo "R_MODULE=${R_MODULE}"
+echo "RUN_LABEL=${RUN_LABEL}"
+echo "SEURAT_RDS=${SEURAT_RDS}"
+echo "JIA_SCORES=${JIA_SCORES}"
+echo "OUTDIR=${OUTDIR}"
+echo "SEURAT_ASSAY=${SEURAT_ASSAY}"
+echo "SOURCE_CLUSTER_COL=${SOURCE_CLUSTER_COL:-auto}"
+echo "PROGENITOR_CLUSTERS=${PROGENITOR_CLUSTERS}"
+echo "NFEATURES=${NFEATURES}"
+echo "NPCS=${NPCS}"
+echo "DIMS=${DIMS}"
+echo "RESOLUTION=${RESOLUTION}"
+echo "SEED=${SEED}"
+echo "MARKER_MIN_PCT=${MARKER_MIN_PCT}"
+echo "MARKER_LOGFC_THRESHOLD=${MARKER_LOGFC_THRESHOLD}"
+echo "TOP_N_MARKERS=${TOP_N_MARKERS}"
+
+module load "${R_MODULE}"
+module list 2>&1
+Rscript --version
+which Rscript
+
+Rscript -e 'pkgs <- c("Seurat", "SeuratObject", "Matrix", "ggplot2"); status <- sapply(pkgs, requireNamespace, quietly=TRUE); print(data.frame(package=pkgs, installed=status), row.names=FALSE); quit(status=ifelse(all(status), 0, 1))'
+Rscript -e "invisible(parse(file='${REPO_ROOT}/scripts/28_div30_jia_progenitor_reclustering.R')); cat('R parse ok\n')"
+
+Rscript "${REPO_ROOT}/scripts/28_div30_jia_progenitor_reclustering.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --seurat-rds "${SEURAT_RDS}" \
+  --jia-scores "${JIA_SCORES}" \
+  --outdir "${OUTDIR}" \
+  --run-label "${RUN_LABEL}" \
+  --assay "${SEURAT_ASSAY}" \
+  --source-cluster-col "${SOURCE_CLUSTER_COL}" \
+  --progenitor-clusters "${PROGENITOR_CLUSTERS}" \
+  --nfeatures "${NFEATURES}" \
+  --npcs "${NPCS}" \
+  --dims "${DIMS}" \
+  --resolution "${RESOLUTION}" \
+  --seed "${SEED}" \
+  --min-pct "${MARKER_MIN_PCT}" \
+  --logfc-threshold "${MARKER_LOGFC_THRESHOLD}" \
+  --top-n-markers "${TOP_N_MARKERS}"
+
+echo "=== DIV30 Jia-style progenitor Phase 1 complete ==="
+date
+find "${OUTDIR}" -maxdepth 3 -type f | sort
