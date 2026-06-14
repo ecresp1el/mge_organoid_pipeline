@@ -241,6 +241,110 @@ These transferred MTG labels should be used as cross-reference annotations, not
 as evidence that the ABC WHB taxonomy files alone already encode PV/SST/LRP
 labels.
 
+## Jia-Style Adult Groups And Fetal Marker-Pair Validation
+
+Date logged: 2026-06-14
+
+The locally transferred `RUN_THIS_ANALYSIS.py` from the prior
+`siletti_jia9_fetal_marker_pair_validation` work was adopted into the repo as a
+reusable workflow script:
+
+```text
+python_notebooks/scripts/siletti_jia9_fetal_marker_pair_validation.py
+```
+
+This is still a lightweight workbook-only workflow. It does not download
+Siletti WHB expression matrices, does not submit Slurm jobs, and does not
+require a compute node. It was run on Great Lakes using the project Python env:
+
+```text
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+```
+
+Executed command:
+
+```bash
+/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python \
+  python_notebooks/scripts/siletti_jia9_fetal_marker_pair_validation.py \
+  --overwrite \
+  --previous-folder /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_metadata/local_siletti_jia9_fetal_marker_pair_validation_import/previous_jia9_gene_signature_v2_outputs
+```
+
+Output run:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_metadata/siletti_jia9_fetal_marker_pair_validation_v1
+```
+
+Output layout:
+
+```text
+tables/
+plots/
+reports/
+source/
+```
+
+Key tables:
+
+```text
+tables/best_fetal_marker_pair_by_adult_candidate_group.csv
+tables/adult_candidate_group_by_fetal_marker_pair_summary.csv
+tables/row_level_fetal_marker_pair_scores_selected_only.csv
+```
+
+Key reports:
+
+```text
+reports/README_fetal_marker_pair_validation.md
+reports/INTERPRETATION_fetal_marker_pair_validation.md
+```
+
+The imported Mac/Google Drive transfer is preserved separately as provenance,
+not as the canonical workflow:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_metadata/local_siletti_jia9_fetal_marker_pair_validation_import
+```
+
+Run summary:
+
+| Stage | Rows | Subclusters | Parent clusters | Cells |
+|---|---:|---:|---:|---:|
+| all workbook | 3,313 | 3,313 | 461 | 3,369,219 |
+| candidate Jia-style 9 groups | 204 | 204 | 30 | 225,959 |
+| excluded | 3,109 | 3,109 | 437 | 3,143,260 |
+
+Best fetal marker-pair matches by adult candidate group:
+
+| Adult candidate group | Best fetal marker pair | Cell-weighted score |
+|---|---|---:|
+| Subpallial Cholinergic neurons | LHX8/ISL1 fetal neurons | 0.745 |
+| Subpallial PV+ neurons | LHX6/NFIA fetal neurons | 0.500 |
+| Subpallial SST+ LRP neurons | LHX6/NFIA fetal neurons | 0.408 |
+| Cortical PV+ basket neurons | LHX6/NFIA fetal neurons | 0.123 |
+| Subpallial SST+ neurons | LHX6/NFIA fetal neurons | 0.055 |
+| Cortical SST+ Mt neurons | LHX6/NFIA fetal neurons | 0.040 |
+| Cortical SST+ nMt neurons | LHX6/NFIA fetal neurons | 0.021 |
+| Cortical PV+ Chandelier neurons | EPHA5/MEF2C fetal neurons | 0.000 |
+| Cortical SST+ LRP neurons | EPHA5/MEF2C fetal neurons | 0.000 |
+
+Important interpretation notes:
+
+- This is marker-pair overlap from the workbook `Top enriched genes` field, not
+  label transfer.
+- `Cortical PV+ basket neurons` is an operational adult group label assigned
+  from `Pallial/cortical` anatomy, transferred MTG label `Pvalb`, and
+  `MGE interneuron` supercluster. The word `basket` is not a literal
+  Siletti/Linnarsson workbook label.
+- A case-insensitive metadata search found no literal `basket` label in the
+  workbook.
+- The fetal marker-pair layer tests `EPHA5/MEF2C`, `LHX6/NFIA`,
+  `CRABP1/ANGPT2`, `NR2F1/NR2F2`, and `LHX8/ISL1`.
+- Absence of fetal marker-pair hits should not be interpreted as absence of a
+  developmental relationship because adult endpoints may not retain fetal
+  marker genes.
+
 ## Operational Notes
 
 This metadata audit is small enough for login-node inspection because it only
