@@ -163,6 +163,20 @@ labels for these three categories are in:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_metadata/siletti_2023_whb_metadata_inventory_v1/tables/siletti_whb_focus_interneuron_nested_cluster_names.tsv
 ```
 
+Important subtype-label caveat from the metadata-only audit:
+
+```text
+The WHB taxonomy metadata inspected here does not explicitly label these
+MGE/CGE/LLC nested cluster names as PV/PVALB, SST, or LRP classes. The available
+metadata labels at this stage are broad supercluster names, intermediate names
+such as MGE_261/CGE_288/LLC_264, finest subcluster IDs, and neurotransmitter
+labels such as GABA or GABA VGLUT3.
+```
+
+Therefore, any future PV/SST/LRP call should be treated as a marker/expression
+analysis or label-transfer result, not as something already supplied by this
+metadata inventory.
+
 ## Operational Notes
 
 This metadata audit is small enough for login-node inspection because it only
