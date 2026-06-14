@@ -254,14 +254,47 @@ python_notebooks/scripts/siletti_jia9_fetal_marker_pair_validation.py
 ```
 
 This is still a lightweight workbook-only workflow. It does not download
-Siletti WHB expression matrices, does not submit Slurm jobs, and does not
-require a compute node. It was run on Great Lakes using the project Python env:
+Siletti WHB expression matrices. It was first smoke-tested directly with the
+project Python env and then submitted through the normal Great Lakes Slurm
+job-file pattern.
+
+Repo Slurm template:
+
+```text
+slurm_templates/38_siletti_jia9_fetal_marker_pair_validation.sbatch.template
+```
+
+Copied job file:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/38_siletti_jia9_fetal_marker_pair_validation.sbatch
+```
+
+Slurm submission:
+
+```text
+job_id: 51778113
+job_name: siletti-jia9-fetal
+state: COMPLETED
+exit_code: 0:0
+elapsed: 00:00:09
+max_rss: 133496K
+```
+
+Slurm logs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-jia9-fetal-51778113.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-jia9-fetal-51778113.err
+```
+
+The project Python env used by the Slurm job:
 
 ```text
 /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
 ```
 
-Executed command:
+Underlying workflow command inside the Slurm job:
 
 ```bash
 /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python \

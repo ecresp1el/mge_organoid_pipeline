@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Run the Siletti/Linnarsson workbook-only Jia-style adult group and Jia fetal
+# marker-pair validation workflow.
+#
+# Submit:
+#   cp slurm_templates/38_siletti_jia9_fetal_marker_pair_validation.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/38_siletti_jia9_fetal_marker_pair_validation.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/38_siletti_jia9_fetal_marker_pair_validation.sbatch
+
+#SBATCH --job-name=siletti-jia9-fetal
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16G
+#SBATCH --time=01:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-jia9-fetal-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-jia9-fetal-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+SILETTI_JIA9_OUTDIR="${SILETTI_JIA9_OUTDIR:-${PROJECT_ROOT}/results/siletti_2023_whb_reference_metadata/siletti_jia9_fetal_marker_pair_validation_v1}"
+SILETTI_JIA9_PREVIOUS_FOLDER="${SILETTI_JIA9_PREVIOUS_FOLDER:-${PROJECT_ROOT}/results/siletti_2023_whb_reference_metadata/local_siletti_jia9_fetal_marker_pair_validation_import/previous_jia9_gene_signature_v2_outputs}"
+SILETTI_JIA9_OVERWRITE="${SILETTI_JIA9_OVERWRITE:-1}"
+SILETTI_JIA9_MAKE_ZIP="${SILETTI_JIA9_MAKE_ZIP:-0}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+echo "Siletti Jia-style fetal marker-pair validation job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Output directory: ${SILETTI_JIA9_OUTDIR}"
+echo "Previous Jia v2 provenance folder: ${SILETTI_JIA9_PREVIOUS_FOLDER}"
+echo "Overwrite: ${SILETTI_JIA9_OVERWRITE}"
+echo "Make zip: ${SILETTI_JIA9_MAKE_ZIP}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" -m py_compile python_notebooks/scripts/siletti_jia9_fetal_marker_pair_validation.py
+
+args=(
+  --project-root "${PROJECT_ROOT}"
+  --outdir "${SILETTI_JIA9_OUTDIR}"
+  --previous-folder "${SILETTI_JIA9_PREVIOUS_FOLDER}"
+)
+
+if [[ "${SILETTI_JIA9_OVERWRITE}" == "1" ]]; then
+  args+=(--overwrite)
+fi
+
+if [[ "${SILETTI_JIA9_MAKE_ZIP}" == "1" ]]; then
+  args+=(--make-zip)
+fi
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/siletti_jia9_fetal_marker_pair_validation.py "${args[@]}"
+
+echo "Generated files:"
+find "${SILETTI_JIA9_OUTDIR}" -maxdepth 2 -type f | sort
+
+echo "Siletti Jia-style fetal marker-pair validation job finished: $(date)"
