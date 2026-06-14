@@ -48,6 +48,48 @@ cluster_to_cluster_annotation_membership.csv
 
 The audit did not use the large WHB expression matrices.
 
+## Linnarsson Subcluster Annotation Workbook
+
+Additional cross-reference metadata was downloaded from the Linnarsson lab
+adult-human-brain repository:
+
+```text
+https://github.com/linnarsson-lab/adult-human-brain/blob/main/tables/subcluster_annotation.xlsx
+```
+
+Local source copy:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_metadata/siletti_2023_whb_metadata_inventory_v1/source/subcluster_annotation.xlsx
+```
+
+This workbook is important because it links WHB subcluster/cluster/supercluster
+metadata to author cross-reference fields including:
+
+```text
+Subcluster
+Cluster
+Supercluster
+Transferred MTG Label (Transferred from cluster level)
+Class
+Neurotransmitter
+Neuropeptide
+Top ROIGroupFine
+Top ROI
+Top enriched genes
+Number of cells
+Number of donors
+```
+
+Extracted workbook tables and reports:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_metadata/siletti_2023_whb_metadata_inventory_v1/tables/siletti_linnarsson_subcluster_annotation__sheet1.tsv
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_metadata/siletti_2023_whb_metadata_inventory_v1/tables/siletti_linnarsson_subcluster_annotation_focus_mge_cge_llc.tsv
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_metadata/siletti_2023_whb_metadata_inventory_v1/tables/siletti_linnarsson_focus_mge_cge_llc_mtg_label_summary.tsv
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_metadata/siletti_2023_whb_metadata_inventory_v1/reports/siletti_linnarsson_subcluster_annotation_inventory.md
+```
+
 ## Results Metadata Log Files
 
 Generated summary tables:
@@ -163,7 +205,7 @@ labels for these three categories are in:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_metadata/siletti_2023_whb_metadata_inventory_v1/tables/siletti_whb_focus_interneuron_nested_cluster_names.tsv
 ```
 
-Important subtype-label caveat from the metadata-only audit:
+Important subtype-label caveat from the ABC taxonomy metadata-only audit:
 
 ```text
 The WHB taxonomy metadata inspected here does not explicitly label these
@@ -176,6 +218,28 @@ labels such as GABA or GABA VGLUT3.
 Therefore, any future PV/SST/LRP call should be treated as a marker/expression
 analysis or label-transfer result, not as something already supplied by this
 metadata inventory.
+
+However, the Linnarsson `subcluster_annotation.xlsx` workbook adds transferred
+MTG cluster-level labels that can be used as an explicit cross-reference for
+adult interneuron subtype interpretation:
+
+| Supercluster | Transferred MTG label | Subclusters | Cells | Clusters |
+|---|---|---:|---:|---:|
+| MGE interneuron | Sst | 100 | 109,584 | 11 |
+| MGE interneuron | Pvalb | 74 | 101,898 | 11 |
+| MGE interneuron | unlabeled/NA | 37 | 10,952 | 4 |
+| CGE interneuron | Vip | 97 | 122,280 | 10 |
+| CGE interneuron | Lamp5 | 16 | 58,999 | 3 |
+| CGE interneuron | Sncg | 14 | 20,701 | 2 |
+| CGE interneuron | Pax6 | 7 | 7,177 | 1 |
+| CGE interneuron | unlabeled/NA | 46 | 18,514 | 5 |
+| LAMP5-LHX6 and Chandelier | Lamp5 Lhx6 | 27 | 26,400 | 7 |
+| LAMP5-LHX6 and Chandelier | Chandelier | 8 | 10,920 | 2 |
+| LAMP5-LHX6 and Chandelier | unlabeled/NA | 20 | 7,798 | 3 |
+
+These transferred MTG labels should be used as cross-reference annotations, not
+as evidence that the ABC WHB taxonomy files alone already encode PV/SST/LRP
+labels.
 
 ## Operational Notes
 
