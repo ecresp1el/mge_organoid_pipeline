@@ -465,4 +465,47 @@ sbatch --parsable --export=ALL --job-name=div90_all_root10 --time=72:00:00 --cpu
   slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
 ```
 
-Job IDs and live status are recorded after submission below.
+### Submitted Jobs
+
+Submitted:
+
+```text
+2026-06-14 12:24 EDT
+```
+
+```text
+51772269 div30_all_urd1
+  State at submission check: PENDING
+  Reason: ReqNodeNotAvail,_Reserved_for_maintenance
+  Dependency: none
+  Time/mem/cpus: 72:00:00, 160G, 8 CPUs
+  Log: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51772269.log
+  Output root: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_allcells_final_v1/
+
+51772270 div30_all_root10
+  State at submission check: PENDING
+  Reason: Dependency
+  Dependency: afterok:51772269
+  Time/mem/cpus: 48:00:00, 160G, 4 CPUs
+  Log: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/35_div30_jia_rootscore_root10_reflood_51772270.log
+  Output root: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_allcells_final_v1/jia_rootscore_root10_radial_glia_pool_allcells_final_v1/
+
+51772271 div90_all_root10
+  State at submission check: PENDING
+  Reason: ReqNodeNotAvail,_Reserved_for_maintenance
+  Dependency: none
+  Time/mem/cpus: 72:00:00, 160G, 8 CPUs
+  Log: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51772271.log
+  Output root: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_allcells_root10_final_v1/
+```
+
+Immediate check commands:
+
+```bash
+squeue -j 51772269,51772270,51772271 -o "%.18i %.26j %.10T %.12M %.9l %.6D %R"
+sacct -j 51772269,51772270,51772271 --format=JobID,JobName%32,State,ExitCode,Elapsed,AllocCPUS,ReqMem,MaxRSS,NodeList
+tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51772269.log
+tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51772271.log
+```
+
+The log files will appear once Slurm allocates a node and starts the scripts. The first visible content should include the Slurm context echo block and the planned plot/report artifact plan.
