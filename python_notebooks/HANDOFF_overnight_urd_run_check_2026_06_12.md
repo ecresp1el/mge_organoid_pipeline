@@ -547,3 +547,70 @@ DIV90 retained selected_cells=20049
 DIV90 cluster 12 root pool=358
 DIV90 selected top10 root_cells=36
 ```
+
+### Max-Backfill Replacement
+
+At 2026-06-14 17:05 EDT, the 10h backfill attempt above was intentionally stopped so the final rerun could use the largest schedulable walltime before the 2026-06-15 04:00 EDT maintenance reservation.
+
+Canceled superseded jobs:
+
+```text
+51772269 div30_all_urd1   CANCELLED after ~2 minutes
+51772270 div30_all_root10 CANCELLED before start
+51772271 div90_all_root10 CANCELLED after ~2 minutes
+```
+
+Fresh max-backfill jobs use new run labels to avoid mixing partial output from the canceled attempt:
+
+```text
+DIV30 run label:
+  div30_first_urd_paper_radial_glia_allcells_backfillmax_20260614_v1
+
+DIV30 RootScore/reflood label:
+  jia_rootscore_root10_radial_glia_pool_backfillmax_20260614_v1
+
+DIV90 run label:
+  div90_urd_jia_lineage_allcells_root10_backfillmax_20260614_v1
+```
+
+Submitted max-backfill jobs:
+
+```text
+51778136 div30_max_urd1
+  State after submission check: RUNNING on gl3206
+  Time/mem/cpus: 10:50:00, 160G, 8 CPUs
+  Log: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51778136.log
+  Output root: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_allcells_backfillmax_20260614_v1/
+
+51778137 div30_max_root10
+  State after submission check: PENDING
+  Dependency: afterok:51778136
+  Time/mem/cpus: 04:00:00, 160G, 4 CPUs
+  Log: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/35_div30_jia_rootscore_root10_reflood_51778137.log
+  Output root: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_allcells_backfillmax_20260614_v1/jia_rootscore_root10_radial_glia_pool_backfillmax_20260614_v1/
+
+51778138 div90_max_root10
+  State after submission check: RUNNING on gl3299
+  Time/mem/cpus: 10:50:00, 160G, 8 CPUs
+  Log: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51778138.log
+  Output root: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_allcells_root10_backfillmax_20260614_v1/
+```
+
+Early log checks confirm the planned plot/report blocks printed and the all-cell exports started correctly:
+
+```text
+DIV30 selected_cells=90631
+DIV30 Radial glia root pool=36991
+DIV90 retained selected_cells=20049
+DIV90 cluster 12 root pool=358
+DIV90 selected top10 root_cells=36
+```
+
+Current check commands:
+
+```bash
+squeue -j 51778136,51778137,51778138 -o "%.18i %.26j %.10T %.12M %.9l %.6D %R"
+sacct -j 51778136,51778137,51778138 --format=JobID,JobName%32,State,ExitCode,Elapsed,AllocCPUS,ReqMem,MaxRSS,NodeList
+tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51778136.log
+tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51778138.log
+```
