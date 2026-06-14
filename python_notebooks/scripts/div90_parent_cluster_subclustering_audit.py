@@ -46,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         help="Default: PROJECT_ROOT/results/div90_parent_cluster_subclustering_audit/div90_parent_cluster_subclustering_audit_v1",
     )
     parser.add_argument("--exclude-clusters", default="12", help="Comma-separated parent cluster IDs to skip.")
+    parser.add_argument(
+        "--parent-clusters",
+        default="all",
+        help="Comma-separated parent cluster IDs to audit, or 'all'. Applied after --exclude-clusters.",
+    )
     parser.add_argument("--resolutions", default="0.1,0.2,0.3,0.4,0.6,0.8,1.0")
     parser.add_argument("--n-top-genes", type=int, default=2000)
     parser.add_argument("--n-pcs", type=int, default=30)
@@ -214,6 +219,7 @@ def recommendation_for_parent(summary: pd.DataFrame, args: argparse.Namespace) -
 def run_parent(parent: str, adata: ad.AnnData, args: argparse.Namespace, outdir: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     parent_mask = adata.obs["cluster_id"].astype(str) == str(parent)
     sub = adata[parent_mask].copy()
+    sub.layers["log_expr"] = sub.X.copy()
     parent_name = str(sub.obs["cluster_number_name"].iloc[0]) if "cluster_number_name" in sub.obs else str(parent)
     if sub.n_obs < args.min_parent_cells:
         row = {
@@ -254,7 +260,7 @@ def run_parent(parent: str, adata: ad.AnnData, args: argparse.Namespace, outdir:
         adjacent_ari = np.nan if previous_labels is None else adjusted_rand_score(previous_labels, labels)
 
         if n_subclusters >= 2:
-            sc.tl.rank_genes_groups(sub, groupby=key, method="wilcoxon", pts=True)
+            sc.tl.rank_genes_groups(sub, groupby=key, method="wilcoxon", pts=True, layer="log_expr")
             markers = sc.get.rank_genes_groups_df(sub, group=None)
             markers["parent_cluster_id"] = parent
             markers["parent_cluster_name"] = parent_name
@@ -380,6 +386,11 @@ def main() -> int:
     adata.obs["cluster_id"] = adata.obs["cluster_id"].astype(str)
     exclude = set(split_csv(args.exclude_clusters))
     parents = [cluster for cluster in natural_cluster_order(adata.obs["cluster_id"]) if cluster not in exclude]
+    if args.parent_clusters.lower() != "all":
+        requested = set(split_csv(args.parent_clusters))
+        parents = [cluster for cluster in parents if cluster in requested]
+    if not parents:
+        raise SystemExit("No parent clusters selected after applying --parent-clusters and --exclude-clusters")
 
     all_summary = []
     all_marker_counts = []

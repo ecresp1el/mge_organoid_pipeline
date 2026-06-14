@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Run DIV90 parent-cluster subclustering audit as one Slurm array task per parent cluster.
+#
+# Submit:
+#   cp slurm_templates/37_div90_parent_cluster_subclustering_array.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/37_div90_parent_cluster_subclustering_array.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/37_div90_parent_cluster_subclustering_array.sbatch
+
+#SBATCH --job-name=div90_subclust
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --time=08:00:00
+#SBATCH --array=0-11
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/37_div90_parent_subclustering_%A_%a.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/37_div90_parent_subclustering_%A_%a.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+RUN_LABEL="${RUN_LABEL:-div90_parent_cluster_subclustering_audit_v1}"
+RESULTS_DIR="${PROJECT_ROOT}/results/div90_parent_cluster_subclustering_audit/${RUN_LABEL}"
+RESOLUTIONS="${RESOLUTIONS:-0.1,0.2,0.3,0.4,0.6,0.8,1.0,1.2,1.5}"
+MIN_MARKERS_PER_SUBCLUSTER="${MIN_MARKERS_PER_SUBCLUSTER:-2}"
+MARKER_LOGFC="${MARKER_LOGFC:-0.25}"
+MARKER_PADJ="${MARKER_PADJ:-0.05}"
+
+PARENT_CLUSTERS=(0 1 2 3 4 5 6 7 8 9 10 11)
+PARENT_CLUSTER="${PARENT_CLUSTERS[${SLURM_ARRAY_TASK_ID}]}"
+PARENT_OUTDIR="${RESULTS_DIR}/per_parent/cluster_${PARENT_CLUSTER}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${PARENT_OUTDIR}"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+export OPENBLAS_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+export NUMEXPR_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Array job/task: ${SLURM_ARRAY_JOB_ID:-NA}/${SLURM_ARRAY_TASK_ID:-NA}"
+echo "Parent cluster: ${PARENT_CLUSTER}"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project root: ${PROJECT_ROOT}"
+echo "Output dir: ${PARENT_OUTDIR}"
+echo "Resolutions: ${RESOLUTIONS}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/div90_parent_cluster_subclustering_audit.py \
+  --project-root "${PROJECT_ROOT}" \
+  --parent-clusters "${PARENT_CLUSTER}" \
+  --exclude-clusters "12" \
+  --resolutions "${RESOLUTIONS}" \
+  --min-markers-per-subcluster "${MIN_MARKERS_PER_SUBCLUSTER}" \
+  --marker-logfc "${MARKER_LOGFC}" \
+  --marker-padj "${MARKER_PADJ}" \
+  --outdir "${PARENT_OUTDIR}"
+
+echo "Job finished: $(date)"
