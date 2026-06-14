@@ -519,3 +519,31 @@ tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_
 ```
 
 The log files will appear once Slurm allocates a node and starts the scripts. The first visible content should include the Slurm context echo block and the planned plot/report artifact plan.
+
+### Backfill Time-Limit Update
+
+At 2026-06-14 17:03 EDT, `standard` had idle nodes but Slurm would not start the 72h/48h jobs because the `SM2026_Maintenance` reservation begins at 2026-06-15 04:00 EDT. To let the final all-cell jobs run in the available backfill window, the existing pending jobs were updated in place rather than resubmitted:
+
+```bash
+scontrol update JobId=51772269 TimeLimit=10:00:00
+scontrol update JobId=51772271 TimeLimit=10:00:00
+scontrol update JobId=51772270 TimeLimit=04:00:00
+```
+
+Current live status after the update:
+
+```text
+51772269 div30_all_urd1   RUNNING 10:00:00 gl3206
+51772270 div30_all_root10 PENDING 04:00:00 Dependency
+51772271 div90_all_root10 RUNNING 10:00:00 gl3299
+```
+
+The startup logs confirm the planned plot/report blocks printed correctly. Early all-cell export counts:
+
+```text
+DIV30 selected_cells=90631
+DIV30 Radial glia root pool=36991
+DIV90 retained selected_cells=20049
+DIV90 cluster 12 root pool=358
+DIV90 selected top10 root_cells=36
+```
