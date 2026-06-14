@@ -122,6 +122,14 @@ conda activate "${CONDA_ENV}"
 python --version
 which python
 
+echo "=== DIV90 planned plots/reports ==="
+python "${REPO_ROOT}/python_notebooks/scripts/audit_urd_run_outputs.py" \
+  --run-root "${RUN_ROOT}" \
+  --mode "div90_jia" \
+  --outdir "${TABLE_DIR}" \
+  --planned-only \
+  --artifact-types "plot,report"
+
 python "${REPO_ROOT}/python_notebooks/scripts/export_div90_jia_lineage_urd_inputs.py" \
   --project-root "${PROJECT_ROOT}" \
   --run-label "${RUN_LABEL}" \

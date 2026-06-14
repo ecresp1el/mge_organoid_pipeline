@@ -56,6 +56,18 @@ echo "PSEUDOTIME_NAME=${PSEUDOTIME_NAME}"
 echo "ROOTSCORE_DIR=${ROOTSCORE_DIR}"
 echo "REFLOOD_DIR=${REFLOOD_DIR}"
 
+source "${CONDA_BASE}/etc/profile.d/conda.sh"
+conda activate "${CONDA_ENV}"
+echo "=== DIV30 Jia RootScore planned plots/reports ==="
+python "${REPO_ROOT}/python_notebooks/scripts/audit_urd_run_outputs.py" \
+  --run-root "${ROOTSCORE_DIR}" \
+  --mode "div30_root10" \
+  --selected-pct "${SELECTED_PCT}" \
+  --outdir "${ROOTSCORE_DIR}/tables" \
+  --planned-only \
+  --artifact-types "plot,report"
+conda deactivate
+
 module load "${R_MODULE}"
 module list 2>&1
 Rscript --version

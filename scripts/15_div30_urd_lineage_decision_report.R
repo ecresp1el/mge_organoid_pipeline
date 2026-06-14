@@ -267,6 +267,8 @@ diffusion_map_dataframe <- function(object, pt_values, annotation_col) {
 }
 
 save_group_overlay_grid <- function(df, x_col, y_col, group_col, path, title, highlight_color = "#b2182b") {
+  # Every facet repeats the full embedding in grey, then highlights exactly one
+  # annotation group in red. Aspect-aware panel sizing keeps dense grids readable.
   df <- df[is.finite(df[[x_col]]) & is.finite(df[[y_col]]) & !is.na(df[[group_col]]) & nzchar(as.character(df[[group_col]])), , drop = FALSE]
   groups <- sort(unique(as.character(df[[group_col]])))
   if (length(groups) == 0) return(FALSE)

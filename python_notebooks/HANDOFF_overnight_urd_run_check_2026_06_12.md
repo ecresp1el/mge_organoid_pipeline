@@ -312,3 +312,157 @@ lineage_tree_jia_endpoint_tips_v1/tables/slurm_resource_heartbeat.tsv
 DIV90 full is the intended production-scale v4 run.
 
 DIV30 is intentionally not all-cells yet. It is a checkpointed 30k rerun because the previous 30k job consumed substantial resources but did not leave the expected final `div30_first_urd_object.rds`. If this checkpointed 30k run completes cleanly and writes the expected stage/resource logs, then DIV30 can be promoted to all-cells next.
+
+## 2026-06-14 Final All-Cell URD Rerun Plan
+
+This section supersedes the older note above about waiting before promoting DIV30 to all-cells. The final reruns below are intentionally configured with `MAX_CELLS=0`, which means export all available/retained cells rather than a stratified cap.
+
+Code and logging changes made before submission:
+
+```text
+python_notebooks/scripts/audit_urd_run_outputs.py
+  Adds --planned-only and --artifact-types so Slurm logs can print a plot/report plan before heavy work starts.
+  DIV30 first-pass expected artifacts now match the actual template: initial URD + lineage decision report, not a missing tree stage.
+
+slurm_templates/31_div30_first_urd.sbatch.template
+  Prints planned DIV30 first-pass plots/reports at startup.
+  Runs the output audit at completion.
+
+slurm_templates/35_div30_jia_rootscore_root10_reflood.sbatch.template
+  Prints planned RootScore/reflood plots/reports at startup.
+
+slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+  Prints planned DIV90 plots/reports at startup.
+```
+
+The startup log block is bracketed by:
+
+```text
+=== URD EXPECTED ARTIFACT PLAN BEGIN ===
+=== URD EXPECTED ARTIFACT PLAN END ===
+```
+
+Dry-run planned manifests were generated before submission:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_allcells_final_v1/tables/urd_expected_artifacts.tsv
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_allcells_final_v1/jia_rootscore_root10_radial_glia_pool_allcells_final_v1/tables/urd_expected_artifacts.tsv
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_allcells_root10_final_v1/tables/urd_expected_artifacts.tsv
+```
+
+Planned plot/report counts from those manifests:
+
+```text
+DIV30 first-pass all-cell URD: 11 plot/report artifacts
+DIV30 Jia RootScore top10 reflood: 14 plot/report artifacts
+DIV90 all-cell Jia lineage/root10 URD: 62 plot/report artifacts
+```
+
+### Final Root Definitions
+
+DIV30 is a two-step chain:
+
+```text
+Step 1, all-cell geometry:
+  MAX_CELLS=0
+  initial URD root label = paper_cluster_annotation == "Radial glia"
+
+Step 2, final reflood root:
+  root pool = paper_cluster_annotation == "Radial glia"
+  root score = Jia/progenitor RootScore
+  selected root candidates = top 10% by RootScore within the Radial glia pool
+  count rule = ceiling(n_radial_glia_pool * 10 / 100)
+```
+
+DIV90 final all-cell run:
+
+```text
+MAX_CELLS=0
+retained clusters = 0,1,2,3,4,5,8,9,10,11,12
+root pool = cluster_id_numeric == 12
+root score = div90_jia_rootscore
+selected root candidates = top 10% by RootScore within cluster 12
+count rule = ceiling(n_cluster12_pool * 10 / 100)
+DIV90_ROOT_MIN_CELLS=1, so the old 8-cell smoke-test floor cannot override the 10% definition
+```
+
+Root/program summary tables to inspect after completion:
+
+```text
+DIV30:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_allcells_final_v1/jia_rootscore_root10_radial_glia_pool_allcells_final_v1/tables/root_score_program_marker_summary.tsv
+
+DIV90:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_allcells_root10_final_v1/inputs/root_score_program_marker_summary.tsv
+```
+
+These tables compare selected roots against the root pool and all cells, including mean RGC1, mean RGC2, mean IPC, mean HES1, mean VIM, mean NES, mean DLX1, mean DLX2, mean ASCL1, RootScore, and group percentages/metadata.
+
+### Plot Contract For Final Runs
+
+The final reruns inherit the corrected plot formatting from `a74f54f`:
+
+```text
+diffusion_map_annotation.png
+  all annotation groups colored together
+
+diffusion_map_annotation_grid.png
+  every facet shows all cells in grey and overlays one group in red
+  aspect-aware dimensions keep panels from being squished
+
+urd_tree_annotation.png
+  all tree groups colored together
+
+urd_tree_annotation_grid.png
+  every facet shows all tree branches/cells in grey and overlays one group in red
+  tree grids use wider panels/fewer columns to keep the tree readable
+
+marker tree overlays
+  individual per-gene PNG/PDF outputs include visible logUPX colorbars
+  multi-gene grids keep per-panel colorbars and per-gene autoscaling
+```
+
+Validation before submission:
+
+```text
+python -m py_compile python_notebooks/scripts/audit_urd_run_outputs.py: OK
+bash -n Slurm templates 31/34/35: OK
+R parse scripts 15/17/25/27: OK
+git diff --check: OK
+```
+
+### Submission Commands
+
+Use `160G` on `standard`; `200G` exceeds the practical memory available on these nodes.
+
+```bash
+RUN_LABEL="div30_first_urd_paper_radial_glia_allcells_final_v1" \
+ROOT_LABEL="Radial glia" \
+MAX_CELLS=0 \
+HEARTBEAT_INTERVAL_SECONDS=300 \
+sbatch --parsable --export=ALL --job-name=div30_all_urd1 --time=72:00:00 --cpus-per-task=8 --mem=160G \
+  slurm_templates/31_div30_first_urd.sbatch.template
+```
+
+```bash
+RUN_LABEL="div30_first_urd_paper_radial_glia_allcells_final_v1" \
+ROOT_RUN_LABEL="jia_rootscore_root10_radial_glia_pool_allcells_final_v1" \
+SELECTED_PCT=10 \
+POOL_COL="paper_cluster_annotation" \
+POOL_VALUE="Radial glia" \
+PSEUDOTIME_NAME="jia_rootscore_top10pct_radial_glia_root" \
+sbatch --parsable --export=ALL --dependency=afterok:<DIV30_FIRST_JOB_ID> --job-name=div30_all_root10 --time=48:00:00 --cpus-per-task=4 --mem=160G \
+  slurm_templates/35_div30_jia_rootscore_root10_reflood.sbatch.template
+```
+
+```bash
+RUN_LABEL="div90_urd_jia_lineage_allcells_root10_final_v1" \
+MAX_CELLS=0 \
+DIV90_ROOT_TOP_PERCENT=10 \
+DIV90_ROOT_MIN_CELLS=1 \
+HEARTBEAT_INTERVAL_SECONDS=300 \
+sbatch --parsable --export=ALL --job-name=div90_all_root10 --time=72:00:00 --cpus-per-task=8 --mem=160G \
+  slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+```
+
+Job IDs and live status are recorded after submission below.

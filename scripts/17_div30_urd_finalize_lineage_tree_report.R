@@ -198,6 +198,8 @@ plot_tree_layout <- function(object, label_values, label_name, path) {
 }
 
 plot_tree_annotation_grid <- function(object, label_values, label_name, path, highlight_color = "#b2182b") {
+  # Every facet repeats the full tree/cell layout in grey, then highlights one
+  # group in red. Tree grids use wider panels and fewer columns to avoid squashing.
   layout <- as.data.frame(object@tree$tree.layout, stringsAsFactors = FALSE)
   cells <- as.data.frame(object@tree$cell.layout, stringsAsFactors = FALSE)
   cells[[label_name]] <- as.character(label_values[cells$cell])

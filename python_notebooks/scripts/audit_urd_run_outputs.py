@@ -39,6 +39,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--outdir", type=Path, default=None)
     parser.add_argument("--selected-pct", default="10")
     parser.add_argument(
+        "--planned-only",
+        action="store_true",
+        help="Write and print expected artifacts without checking file existence.",
+    )
+    parser.add_argument(
+        "--artifact-types",
+        default="",
+        help="Optional comma-separated artifact_type filter, e.g. plot,report.",
+    )
+    parser.add_argument(
         "--fail-on-missing-required",
         action="store_true",
         help="Exit 1 if any required expected artifact is absent.",
@@ -219,7 +229,7 @@ def root_score_outputs(selected_pct: str) -> list[ExpectedArtifact]:
 
 def expected_for_mode(mode: str, selected_pct: str) -> list[ExpectedArtifact]:
     if mode == "div30_first":
-        return common_initial_urd() + decision_report() + lineage_tree("lineage_tree_radial_glia_tips_v1")
+        return common_initial_urd() + decision_report()
     if mode == "div30_root10":
         return root_score_outputs(selected_pct)
     if mode == "div90_jia":
@@ -233,6 +243,50 @@ def expected_for_mode(mode: str, selected_pct: str) -> list[ExpectedArtifact]:
             + div90_candidate_markers()
         )
     raise ValueError(mode)
+
+
+def parse_artifact_types(text: str) -> set[str]:
+    return {part.strip() for part in text.split(",") if part.strip()}
+
+
+def filter_expected(expected: list[ExpectedArtifact], artifact_types: set[str]) -> list[ExpectedArtifact]:
+    if not artifact_types:
+        return expected
+    return [artifact for artifact in expected if artifact.artifact_type in artifact_types]
+
+
+def planned_record(artifact: ExpectedArtifact) -> dict[str, object]:
+    return {
+        "modeled_stage": artifact.stage,
+        "artifact_type": artifact.artifact_type,
+        "required": str(artifact.required).upper(),
+        "relative_path": artifact.rel_path,
+        "description": artifact.description,
+    }
+
+
+def print_planned(expected: list[ExpectedArtifact], mode: str, run_root: Path, selected_pct: str) -> None:
+    print("=== URD EXPECTED ARTIFACT PLAN BEGIN ===")
+    print(f"mode={mode}")
+    print(f"run_root={run_root}")
+    print(f"selected_pct={selected_pct}")
+    print(f"n_expected_listed={len(expected)}")
+    current_stage = None
+    for artifact in expected:
+        if artifact.stage != current_stage:
+            current_stage = artifact.stage
+            print(f"--- stage: {current_stage} ---")
+        print(
+            "\t".join(
+                [
+                    artifact.artifact_type,
+                    str(artifact.required).upper(),
+                    artifact.rel_path,
+                    artifact.description,
+                ]
+            )
+        )
+    print("=== URD EXPECTED ARTIFACT PLAN END ===")
 
 
 def file_record(run_root: Path, artifact: ExpectedArtifact) -> dict[str, object]:
@@ -314,7 +368,17 @@ def main() -> int:
     args = parse_args()
     run_root = args.run_root.expanduser().resolve()
     outdir = (args.outdir.expanduser().resolve() if args.outdir else run_root / "tables")
-    expected = expected_for_mode(args.mode, args.selected_pct)
+    expected = filter_expected(
+        expected_for_mode(args.mode, args.selected_pct),
+        parse_artifact_types(args.artifact_types),
+    )
+    if args.planned_only:
+        rows = [planned_record(artifact) for artifact in expected]
+        write_tsv(rows, outdir / "urd_expected_artifacts.tsv")
+        print_planned(expected, args.mode, run_root, args.selected_pct)
+        print(f"[URDOutputAudit] expected_artifacts_tsv={outdir / 'urd_expected_artifacts.tsv'}")
+        return 0
+
     rows = [file_record(run_root, artifact) for artifact in expected]
     discovered_rows = list(discover_files(run_root))
     summary_rows = summarize(rows, discovered_rows, args.mode, run_root)

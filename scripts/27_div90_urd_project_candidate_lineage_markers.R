@@ -180,6 +180,8 @@ lineage_scores <- function(marker_mat) {
 }
 
 tree_marker_plot <- function(layout, cells, marker_df, gene, point_size, show_legend = FALSE) {
+  # Each gene uses its own logUPX maximum and optional visible colorbar; this
+  # prevents one marker's range from flattening another marker in grid output.
   df <- marker_df[marker_df$gene == gene, , drop = FALSE]
   plot_df <- merge(cells, df[, c("cell", "expression_logupx", "gene_present")], by = "cell", all.x = TRUE)
   plot_df <- plot_df[order(plot_df$expression_logupx, na.last = TRUE), , drop = FALSE]

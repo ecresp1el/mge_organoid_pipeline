@@ -145,6 +145,8 @@ marker_summary <- function(marker_df) {
 }
 
 tree_marker_plot <- function(layout, cells, marker_df, gene, panel_title, point_size, show_legend = FALSE) {
+  # Marker panels scale to each gene's own logUPX range and can keep a visible
+  # colorbar, so individual files and grid panels are auditable gene by gene.
   df <- marker_df[marker_df$gene == gene, , drop = FALSE]
   plot_df <- merge(cells, df[, c("cell", "expression_logupx", "gene_present")], by = "cell", all.x = TRUE)
   plot_df <- plot_df[order(plot_df$expression_logupx, na.last = TRUE), , drop = FALSE]

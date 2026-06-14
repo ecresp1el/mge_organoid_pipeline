@@ -116,6 +116,14 @@ export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
 python --version
 which python
 
+echo "=== DIV30 planned post-hoc plots/reports ==="
+python "${REPO_ROOT}/python_notebooks/scripts/audit_urd_run_outputs.py" \
+  --run-root "${RUN_ROOT}" \
+  --mode "div30_first" \
+  --outdir "${TABLE_DIR}" \
+  --planned-only \
+  --artifact-types "plot,report"
+
 python "${REPO_ROOT}/python_notebooks/scripts/export_div30_first_urd_inputs.py" \
   --project-root "${PROJECT_ROOT}" \
   --run-label "${RUN_LABEL}" \
@@ -165,3 +173,10 @@ Rscript "${REPO_ROOT}/scripts/15_div30_urd_lineage_decision_report.R" \
   --root-col "urd_root_candidate" \
   --top-n "50" \
   --correlation-genes "variable"
+
+source "${CONDA_BASE}/etc/profile.d/conda.sh"
+conda activate "${CONDA_ENV}"
+python "${REPO_ROOT}/python_notebooks/scripts/audit_urd_run_outputs.py" \
+  --run-root "${RUN_ROOT}" \
+  --mode "div30_first" \
+  --outdir "${TABLE_DIR}"
