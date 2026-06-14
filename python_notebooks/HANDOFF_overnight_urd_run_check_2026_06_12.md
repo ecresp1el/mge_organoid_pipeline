@@ -320,6 +320,9 @@ This section supersedes the older note above about waiting before promoting DIV3
 Code and logging changes made before submission:
 
 ```text
+local commit 7723daf Log planned URD outputs before final runs
+local commit 28da3f6 Record final all-cell URD job submissions
+
 python_notebooks/scripts/audit_urd_run_outputs.py
   Adds --planned-only and --artifact-types so Slurm logs can print a plot/report plan before heavy work starts.
   DIV30 first-pass expected artifacts now match the actual template: initial URD + lineage decision report, not a missing tree stage.
@@ -333,6 +336,13 @@ slurm_templates/35_div30_jia_rootscore_root10_reflood.sbatch.template
 
 slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
   Prints planned DIV90 plots/reports at startup.
+```
+
+GitHub push status:
+
+```text
+Push to origin/main is currently blocked by the local HTTPS credential prompt:
+fatal: could not read Username for 'https://github.com': No such device or address
 ```
 
 The startup log block is bracketed by:
