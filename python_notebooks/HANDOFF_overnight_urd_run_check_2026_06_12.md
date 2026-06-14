@@ -4,6 +4,70 @@ Date submitted: 2026-06-12
 
 Two separate checkpointed/full URD jobs were submitted so they can run overnight and be checked tomorrow morning.
 
+## 2026-06-14 Overnight Max/All-Cells URD Runs
+
+Checked: 2026-06-14 18:46 EDT
+
+Two current production-scale URD jobs were accepted by Slurm, started, and were still running at the evening check. These are the jobs to check first on 2026-06-15.
+
+| Dataset | Job ID | Job name | Run label | State at check | Node | Elapsed at check | Notes |
+|---|---:|---|---|---|---|---:|---|
+| DIV30 | 51778136 | `div30_max_urd1` | `div30_first_urd_paper_radial_glia_allcells_backfillmax_20260614_v1` | RUNNING | `gl3206` | 01:40:12 | All-cells/max DIV30 first URD run. Log shows conda setup, input export, R package checks, and `scripts/14_div30_first_urd.R` launched successfully. Heartbeat was active; latest observed MaxRSS was about `54513720K`. |
+| DIV90 | 51778138 | `div90_max_root10` | `div90_urd_jia_lineage_allcells_root10_backfillmax_20260614_v1` | RUNNING | `gl3299` | 01:40:12 | All retained DIV90 Jia-lineage root10/backfillmax run. Log shows conda setup, input export, R package checks, and `scripts/14_div30_first_urd.R` launched successfully. Heartbeat was active; latest observed MaxRSS was about `9869564K`. |
+
+Submission/accounting details at check:
+
+```text
+51778136 submitted 2026-06-14T17:05:40, started 2026-06-14T17:05:45, requested 160G
+51778138 submitted 2026-06-14T17:05:40, started 2026-06-14T17:05:45, requested 160G
+```
+
+Logs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51778136.log
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51778138.log
+```
+
+Output roots:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_allcells_backfillmax_20260614_v1/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_allcells_root10_backfillmax_20260614_v1/
+```
+
+Tomorrow check commands:
+
+```bash
+squeue -j 51778136,51778138 -o '%.20i %.9P %.35j %.8u %.2t %.12M %.6D %R'
+sacct -j 51778136,51778138 --format=JobID,JobName%35,State,ExitCode,Elapsed,Submit,Start,End,MaxRSS,ReqMem -P
+tail -n 120 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51778136.log
+tail -n 120 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51778138.log
+```
+
+Quick failure scan:
+
+```bash
+rg -n 'ERROR|Error|Traceback|Execution halted|No such file|not found|FAILED|Killed|OOM|out of memory|STAGE_FAIL' \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51778136.log \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51778138.log
+```
+
+Files to inspect first if either job completed:
+
+```text
+tables/slurm_resource_heartbeat.tsv
+tables/div30_first_urd_stage_timings.tsv
+tables/div30_first_urd_summary.tsv
+tables/div30_first_urd_pseudotime.tsv
+div30_first_urd_object.rds
+lineage_decision_report/plots/umap_pseudotime.png
+lineage_decision_report/plots/diffusion_map_pseudotime.png
+lineage_decision_report/plots/flood_stability.png
+```
+
+At the 2026-06-14 evening check, no early `Error`, `Traceback`, `Execution halted`, `Killed`, or OOM-like failure string was found in the relevant startup/R-launch portion of either log. Both jobs were in their heartbeat loop while the R URD stage continued.
+
 ## Jobs
 
 | Dataset | Job ID | Run label | Status at last check | Node | Purpose |
