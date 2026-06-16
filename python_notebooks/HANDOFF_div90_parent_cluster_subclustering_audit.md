@@ -1038,6 +1038,13 @@ Not good terminal tips yet:
 
 ### Science Data S9 / Five-Class Reference Module Scoring
 
+Module-scoring index terms for future search:
+
+```text
+Jia, S9 module, Science Data S9, Module 1, Module 5, TF-only, TFs,
+science.adw1803_data_s9.xlsx, div90_neuron_only_reference_module_scoring
+```
+
 The user provided the Science Data S9 module workbook:
 
 ```text

@@ -167,6 +167,51 @@ the neuronal endpoint model. The old v4 tip definition above is still preserved
 for reproducibility, but the next all-cell DIV90 run should use this newer
 seven-tip setup.
 
+### Science Data S9 Module Scoring Pointer
+
+The detailed, canonical record for the Science Data S9 full-module and TF-only
+module scoring workflow is:
+
+```text
+python_notebooks/HANDOFF_div90_parent_cluster_subclustering_audit.md
+section: Science Data S9 / Five-Class Reference Module Scoring
+```
+
+That workflow scores the user-provided workbook:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/science.adw1803_data_s9.xlsx
+```
+
+using:
+
+```text
+python_notebooks/scripts/div90_neuron_only_reference_module_scoring.py
+slurm_templates/44_div90_neuron_only_reference_module_scoring.sbatch.template
+```
+
+and writes:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_neuron_only_reference_modules/div90_neuron_only_reference_modules_v1
+```
+
+Key outputs to inspect before changing DIV90 tips are:
+
+```text
+div90_neuron_only_s9_reference_module_report.md
+div90_neuron_only_s9_gene_set_coverage.tsv
+div90_neuron_only_s9_best_module_calls.tsv
+div90_neuron_only_s9_module_scores_by_neuron_cluster.tsv
+div90_neuron_only_s9_full_module_heatmap.png
+div90_neuron_only_s9_tf_module_heatmap.png
+```
+
+Important interpretation rule: the workbook modules and the five biological
+anchor classes are scored separately. Use the anchor calls as the clean
+five-class labels, and use the full-module/TF-module heatmaps as supporting
+evidence.
+
 Summary of intermediate work:
 
 ```text

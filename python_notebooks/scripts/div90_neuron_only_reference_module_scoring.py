@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
-"""Score Siletti/Data S9 MGE divergence modules in DIV90 neuron-only clusters."""
+"""Score Science Data S9 MGE divergence modules in DIV90 neuron-only clusters.
+
+Workflow note:
+  - Reads science.adw1803_data_s9.xlsx, which contains five full module sheets
+    plus five TF-only module sheets.
+  - Scores those workbook modules exactly as provided.
+  - Separately scores the five biological anchor classes:
+    EPHA5/MEF2C, LHX6/NFIA, CRABP1/ANGPT2, NR2F1/NR2F2, LHX8/ISL1.
+  - Writes a report, coverage table, best-call table, score summaries, heatmaps,
+    and UMAP panels under results/div90_neuron_only_reference_modules/<run_label>.
+
+Interpretation rule:
+  Use the anchor calls as the clean five-class labels. Use the full-module and
+  TF-module scores as supporting evidence, not as forced one-to-one labels.
+
+Canonical handoff:
+  python_notebooks/HANDOFF_div90_parent_cluster_subclustering_audit.md
+  section: Science Data S9 / Five-Class Reference Module Scoring
+"""
 
 from __future__ import annotations
 

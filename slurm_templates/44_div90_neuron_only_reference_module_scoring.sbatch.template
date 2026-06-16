@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 # Score Science Data S9 MGE divergence modules in DIV90 neuron-only clusters.
+#
+# Workbook input:
+#   ${PROJECT_ROOT}/reference/science.adw1803_data_s9.xlsx
+#
+# The Python workflow reads five full module sheets and five TF-only module
+# sheets, then separately scores the five biological anchor classes:
+#   EPHA5/MEF2C, LHX6/NFIA, CRABP1/ANGPT2, NR2F1/NR2F2, LHX8/ISL1
+#
+# Output path pattern:
+#   ${PROJECT_ROOT}/results/div90_neuron_only_reference_modules/${RUN_LABEL}
+#
+# Main report:
+#   div90_neuron_only_s9_reference_module_report.md
 
 #SBATCH --job-name=div90_s9_modules
 #SBATCH --account=parent0
