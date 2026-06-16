@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Compare Jia Science Data S9 modules with Shi et al. marker workbook tables.
+#
+# Default comparison:
+#   Jia: ${PROJECT_ROOT}/reference/science.adw1803_data_s9.xlsx
+#   Shi: ${PROJECT_ROOT}/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s6.xlsx
+#
+# Focused Table S6 submit:
+#   cp slurm_templates/45_jia_s9_shi_lineage_overlap.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/45_jia_s9_shi_lineage_overlap.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/45_jia_s9_shi_lineage_overlap.sbatch
+#
+# Exhaustive Shi S3-S9 submit:
+#   SHI_XLSX="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s3.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s4.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s5.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s6.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s7.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s8.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s9.xlsx" \
+#   RUN_LABEL=jia_s9_shi_s3_to_s9_exhaustive_v1 \
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/45_jia_s9_shi_lineage_overlap.sbatch
+
+#SBATCH --job-name=jia-shi-overlap
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16G
+#SBATCH --time=01:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/45_jia_s9_shi_lineage_overlap_%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/45_jia_s9_shi_lineage_overlap_%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+RUN_LABEL="${RUN_LABEL:-jia_s9_shi_table_s6_overlap_v1}"
+JIA_XLSX="${JIA_XLSX:-${PROJECT_ROOT}/reference/science.adw1803_data_s9.xlsx}"
+SHI_XLSX="${SHI_XLSX:-${PROJECT_ROOT}/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s6.xlsx}"
+OUTDIR="${OUTDIR:-${PROJECT_ROOT}/results/jia_s9_shi_lineage_overlap/${RUN_LABEL}}"
+OVERWRITE="${OVERWRITE:-1}"
+COPY_INPUTS="${COPY_INPUTS:-0}"
+MIN_SHI_AVG_LOGFC="${MIN_SHI_AVG_LOGFC:-}"
+MAX_SHI_P_ADJ="${MAX_SHI_P_ADJ:-}"
+TOP_N_SHI_PER_CLUSTER="${TOP_N_SHI_PER_CLUSTER:-}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+export OPENBLAS_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+export NUMEXPR_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+
+echo "Jia/Shi lineage-overlap job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project root: ${PROJECT_ROOT}"
+echo "Jia workbook: ${JIA_XLSX}"
+echo "Shi workbook(s): ${SHI_XLSX}"
+echo "Output directory: ${OUTDIR}"
+echo "Run label: ${RUN_LABEL}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" -m py_compile python_notebooks/scripts/jia_s9_shi_lineage_overlap.py
+
+args=(
+  --project-root "${PROJECT_ROOT}"
+  --jia-xlsx "${JIA_XLSX}"
+  --outdir "${OUTDIR}"
+)
+
+IFS=':' read -r -a shi_paths <<< "${SHI_XLSX}"
+for shi_path in "${shi_paths[@]}"; do
+  args+=(--shi-xlsx "${shi_path}")
+done
+
+if [[ "${OVERWRITE}" == "1" ]]; then
+  args+=(--overwrite)
+fi
+
+if [[ "${COPY_INPUTS}" == "1" ]]; then
+  args+=(--copy-inputs)
+fi
+
+if [[ -n "${MIN_SHI_AVG_LOGFC}" ]]; then
+  args+=(--min-shi-avg-logfc "${MIN_SHI_AVG_LOGFC}")
+fi
+
+if [[ -n "${MAX_SHI_P_ADJ}" ]]; then
+  args+=(--max-shi-p-adj "${MAX_SHI_P_ADJ}")
+fi
+
+if [[ -n "${TOP_N_SHI_PER_CLUSTER}" ]]; then
+  args+=(--top-n-shi-per-cluster "${TOP_N_SHI_PER_CLUSTER}")
+fi
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/jia_s9_shi_lineage_overlap.py "${args[@]}"
+
+echo "Generated files:"
+find "${OUTDIR}" -maxdepth 2 -type f | sort
+
+echo "Jia/Shi lineage-overlap job finished: $(date)"
