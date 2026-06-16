@@ -710,3 +710,86 @@ default output directory and new Slurm log prefix are production/all-cell names:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_allcells_%j.log
 ```
+
+## Resumable Production Jobs Submitted
+
+Submitted: 2026-06-15 21:49 EDT
+
+These are the current production/resumable reruns. Treat these as the new
+canonical all-cell rerun names rather than another backfill/final scratch set.
+
+| Dataset | Job ID | Job name | State at submit check | Time/mem/cpus | Node/reason | Output root |
+|---|---:|---|---|---|---|---|
+| DIV30 first-pass all-cell URD | 51810088 | `div30_all_urd1` | RUNNING | 48h, 160G, 8 CPUs | `gl3051` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_allcells_radial_glia_firstpass_urd_resumable_v1/` |
+| DIV30 Jia RootScore top10 reflood | 51810089 | `div30_jia_root10` | PENDING | 18h, 160G, 4 CPUs | Dependency `afterok:51810088` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_allcells_radial_glia_firstpass_urd_resumable_v1/div30_allcells_radial_glia_jia_rootscore_top10_reflood_v1/` |
+| DIV90 all-cell Jia root10 neuron-S9 seven-tip URD | 51810090 | `div90_jia_final` | RUNNING | 72h, 160G, 8 CPUs | `gl3076` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1/` |
+
+Job scripts copied to:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/31_div30_allcells_radial_glia_firstpass_urd_resumable_v1.sbatch
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/35_div30_allcells_radial_glia_jia_rootscore_top10_reflood_v1.sbatch
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/34_div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1.sbatch
+```
+
+Logs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51810088.log
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/35_div30_jia_rootscore_root10_reflood_51810089.log
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_allcells_51810090.log
+```
+
+The DIV30 and DIV90 startup logs confirm:
+
+```text
+MAX_CELLS=0
+URD_RESUME=true
+URD_FORCE_RECOMPUTE=false
+URD_KNN=100
+URD_N_FLOODS=20
+URD_NUM_VARIABLE_GENES=3000
+URD_PCA_MP_FACTOR=2
+URD_SIGMA=local
+```
+
+DIV90 startup also confirms:
+
+```text
+DIV90_TIP_MODE=neuron_s9_7tip
+DIV90_ROOT_TOP_PERCENT=10
+DIV90_ROOT_MIN_CELLS=1
+TREE_TIP_LABELS=tip_lhx8_isl1_state1,tip_lhx8_isl1_state2,tip_crabp1_angpt2_fetal_precursor,tip_lhx6_nfia_epha5_mef2c_cortical,tip_nr2f1_nr2f2,tip_astrocytes,tip_opc
+```
+
+Monitor:
+
+```bash
+squeue -j 51810088,51810089,51810090 -o "%.18i %.36j %.10T %.12M %.9l %.6D %R"
+sacct -j 51810088,51810089,51810090 --format=JobID,JobName%36,State,ExitCode,Submit,Start,End,Elapsed,Timelimit,AllocCPUS,ReqMem,MaxRSS,NodeList
+tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51810088.log
+tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_allcells_51810090.log
+```
+
+After completion, refresh/check manifests:
+
+```bash
+source /home/elcrespo/miniconda3/etc/profile.d/conda.sh
+conda activate mge-organoid-python
+
+python python_notebooks/scripts/audit_urd_run_outputs.py \
+  --run-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_allcells_radial_glia_firstpass_urd_resumable_v1 \
+  --mode div30_first \
+  --outdir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_allcells_radial_glia_firstpass_urd_resumable_v1/tables
+
+python python_notebooks/scripts/audit_urd_run_outputs.py \
+  --run-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_allcells_radial_glia_firstpass_urd_resumable_v1/div30_allcells_radial_glia_jia_rootscore_top10_reflood_v1 \
+  --mode div30_root10 \
+  --selected-pct 10 \
+  --outdir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_allcells_radial_glia_firstpass_urd_resumable_v1/div30_allcells_radial_glia_jia_rootscore_top10_reflood_v1/tables
+
+python python_notebooks/scripts/audit_urd_run_outputs.py \
+  --run-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1 \
+  --mode div90_jia \
+  --outdir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1/tables
+```
