@@ -461,7 +461,8 @@ Completed upstream jobs:
 | 51779674 | `siletti-div90-bridge` | COMPLETED | Resubmitted bridge export after path-resolution fix. |
 | 51779675 | `siletti-div90-xfer` | FAILED/CANCELLED | First transfer array; failed on Seurat 5.1.0 `FindTransferAnchors` API mismatch. |
 | 51779847 | `siletti-div90-xfer` | TIMEOUT | Corrected v2 transfer array. All 8 tasks timed out at 8 hours with no final prediction or diagnostic tables. |
-| 51793560 | `siletti-div90-xfer-long` | RUNNING as of 2026-06-15 21:01 EDT | Long-walltime v3 backup array released after v2 timeout. |
+| 51793560 | `siletti-div90-xfer-long` | RUNNING as of 2026-06-16 13:50 EDT | Long-walltime v3 backup array released after v2 timeout. Still no final prediction/diagnostic tables at ~16:49 elapsed. |
+| 51848144 | `siletti-div90-xfer-3d` | PENDING dependency as of 2026-06-16 13:50 EDT | 3-day v4 fallback array submitted with `afternotok:51793560_*` after Slurm refused live extension of 51793560. |
 
 Bridge-export scopes:
 
@@ -561,6 +562,38 @@ output run label: siletti_div90_seurat_label_transfer_sweep_v3_longtime
 job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/42_siletti_div90_seurat_label_transfer_array_longtime_hold.sbatch
 ```
 
+v3 live status as of 2026-06-16 13:50 EDT:
+
+```text
+job_id: 51793560
+state: RUNNING for all 8 array tasks
+elapsed: ~16:49 per task
+time_limit: 24:00:00
+time_remaining: ~07:11
+completed transfer configs: 0/8
+final prediction tables: not present
+final transfer diagnostics: not present
+files present: selected_transfer_features.tsv for each config only
+live processes: active at ~99% CPU but effectively one R core per task
+observed RSS: ~14.2-14.5 GB for mge_llc tasks and ~18.3-18.8 GB for mge_cge_llc tasks
+attempted live extension to 3 days: failed with Slurm Access/permission denied
+```
+
+Automatic 3-day fallback submitted as of 2026-06-16 13:50 EDT:
+
+```text
+job_id: 51848144
+job_name: siletti-div90-xfer-3d
+state: PENDING
+reason: Dependency
+dependency: afternotok:51793560_*(unfulfilled)
+time_limit: 3-00:00:00
+cpus_per_task: 8
+memory: 180G
+output run label: siletti_div90_seurat_label_transfer_sweep_v4_3day
+job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/42_siletti_div90_seurat_label_transfer_array_3day_fallback.sbatch
+```
+
 Key result locations:
 
 ```text
@@ -569,6 +602,7 @@ Key result locations:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_seurat_bridge_v1
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_seurat_label_transfer_sweep_v2
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_seurat_label_transfer_sweep_v3_longtime
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_seurat_label_transfer_sweep_v4_3day
 ```
 
 Figure/report status:

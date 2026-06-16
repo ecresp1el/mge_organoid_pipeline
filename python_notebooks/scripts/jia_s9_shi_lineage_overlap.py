@@ -6,8 +6,9 @@ module sheets from science.adw1803_data_s9.xlsx, reads one or more Shi marker
 tables, and writes overlap tables, crosswalk checks, plots, and a short report.
 
 The biological crosswalk is intentionally kept separate from the computed
-overlaps. If a Shi workbook does not contain the expected M2/M3/M5/M6/M7 labels,
-the report marks those expected labels as missing instead of forcing the match.
+overlaps. If the expected M2/M3/M5/M6/M7 narrative labels are not encoded as
+literal `cluster` values in the parsed Shi tables, the report marks that label
+level as absent instead of forcing the match.
 """
 
 from __future__ import annotations
@@ -106,6 +107,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-shi-avg-logfc", type=float, default=None)
     parser.add_argument("--max-shi-p-adj", type=float, default=None)
     parser.add_argument("--top-n-shi-per-cluster", type=int, default=None)
+    parser.add_argument(
+        "--include-shi-cluster-regex",
+        default=None,
+        help="Only keep Shi rows whose cluster label matches this regex, for example '^pM[1-4]$'.",
+    )
+    parser.add_argument(
+        "--exclude-shi-cluster-regex",
+        default=None,
+        help="Drop Shi rows whose cluster label matches this regex.",
+    )
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--copy-inputs", action="store_true")
     return parser.parse_args()
@@ -264,6 +275,12 @@ def read_shi_workbook(path: Path, args: argparse.Namespace) -> pd.DataFrame:
         work["cluster"] = work["cluster"].astype(str).str.strip()
         work = work.loc[work["gene"].ne("") & work["cluster"].ne("")]
         work = work.loc[work["gene"].map(is_gene_symbol)]
+        if args.include_shi_cluster_regex:
+            include_pattern = re.compile(args.include_shi_cluster_regex)
+            work = work.loc[work["cluster"].map(lambda value: bool(include_pattern.search(str(value))))]
+        if args.exclude_shi_cluster_regex:
+            exclude_pattern = re.compile(args.exclude_shi_cluster_regex)
+            work = work.loc[~work["cluster"].map(lambda value: bool(exclude_pattern.search(str(value))))]
         if args.min_shi_avg_logfc is not None and "avg_logFC" in work.columns:
             work = work.loc[pd.to_numeric(work["avg_logFC"], errors="coerce") >= args.min_shi_avg_logfc]
         if args.max_shi_p_adj is not None and "p_val_adj" in work.columns:
@@ -813,6 +830,8 @@ def write_report(paths: Paths, args: argparse.Namespace, jia: pd.DataFrame, shi:
             "present_as_cluster_label",
         ].sum()
     )
+    observed_clusters = sorted(set(shi["cluster"].astype(str)))
+    is_pm_only = bool(observed_clusters) and all(re.fullmatch(r"pM[1-4]", cluster) for cluster in observed_clusters)
     lines = [
         "# Jia S9 vs Shi Marker Workbook Overlap",
         "",
@@ -829,6 +848,7 @@ def write_report(paths: Paths, args: argparse.Namespace, jia: pd.DataFrame, shi:
         f"- Jia-only vocabulary in this comparison: `{jia_only_count}` genes.",
         f"- Shi-only vocabulary in this comparison: `{shi_only_count}` genes.",
         f"- Literal curated Shi M labels present as workbook cluster labels: `{curated_labels_present}` of `{len(CURATED_M_LABELS)}`.",
+        f"- Shi cluster labels included in this run: `{', '.join(observed_clusters)}`.",
         "- The clean reader-facing collapse is Jia 5 -> Shi 4-ish, with EPHA5/MEF2C and LHX6/NFIA collapsed only at the cortical-output tier.",
         "- CRABP1/ANGPT2 should not be collapsed into subpallial-only; it remains the bridge/contested class.",
         "",
@@ -837,13 +857,18 @@ def write_report(paths: Paths, args: argparse.Namespace, jia: pd.DataFrame, shi:
         f"- Jia workbook: `{resolve_path(args.jia_xlsx, Path(args.project_root))}`",
         "- Shi workbook(s):",
         *[f"  - `{path}`" for path in args.shi_xlsx],
+        f"- Include Shi cluster regex: `{args.include_shi_cluster_regex or ''}`",
+        f"- Exclude Shi cluster regex: `{args.exclude_shi_cluster_regex or ''}`",
         "",
         "## Important Caveat",
         "",
-        "When Shi Table S6 is included, it contains GE progenitor subcluster markers such as `pM1-pM4`.",
-        "The user's biological crosswalk references Shi MGE lineage labels such as `M2`, `M3`, `M5/M6`, and `M4/M7`.",
-        "If those labels are absent from the input workbook, this workflow still computes gene overlap but marks expected crosswalk labels as missing.",
-        "In the S3-S9 exhaustive run, the curated M labels are not literal workbook cluster labels; the comparison is therefore a gene-vocabulary/conceptual crosswalk, not a direct same-label merge.",
+        (
+            "This run is focused on Shi Table S6 `pM1-pM4`, which are direct, literal MGE progenitor subcluster labels in the Excel workbook."
+            if is_pm_only
+            else "When Shi Table S6 is included, it contains GE progenitor subcluster markers such as `pM1-pM4`."
+        ),
+        "The older narrative crosswalk terms `M2/M3/M4/M5/M6/M7` are kept as interpretation notes only; they are not required for a pM-focused comparison.",
+        "Computed overlap is therefore against the actual parsed Shi `cluster` values included in this run.",
         "",
         "## Crosswalk Check",
         "",
@@ -1036,6 +1061,8 @@ def main() -> int:
             {"key": "min_shi_avg_logfc", "value": "" if args.min_shi_avg_logfc is None else str(args.min_shi_avg_logfc)},
             {"key": "max_shi_p_adj", "value": "" if args.max_shi_p_adj is None else str(args.max_shi_p_adj)},
             {"key": "top_n_shi_per_cluster", "value": "" if args.top_n_shi_per_cluster is None else str(args.top_n_shi_per_cluster)},
+            {"key": "include_shi_cluster_regex", "value": "" if args.include_shi_cluster_regex is None else args.include_shi_cluster_regex},
+            {"key": "exclude_shi_cluster_regex", "value": "" if args.exclude_shi_cluster_regex is None else args.exclude_shi_cluster_regex},
             {"key": "n_jia_gene_rows", "value": str(len(jia))},
             {"key": "n_shi_gene_rows", "value": str(len(shi))},
             {"key": "n_overlap_rows", "value": str(len(overlap))},

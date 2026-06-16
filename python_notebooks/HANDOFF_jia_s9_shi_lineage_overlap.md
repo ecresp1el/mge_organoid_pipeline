@@ -66,14 +66,16 @@ Important caveat:
 
 ```text
 Shi Table S6 contains GE progenitor subcluster marker sets named pC1-pC3,
-pL1-pL3, and pM1-pM4. It does not directly expose the M2/M3/M5/M6/M7 names
-from the biological crosswalk. The workflow therefore computes overlap against
-the actual input clusters and separately marks expected crosswalk labels as
-present or missing.
+pL1-pL3, and pM1-pM4. The available Shi S2-S9 Excel workbooks are present and
+readable, but the narrative M2/M3/M5/M6/M7 names from the biological crosswalk
+are not encoded as literal `cluster` values in the parsed Excel marker tables.
+The workflow therefore computes overlap against the actual input clusters and
+separately marks whether the expected crosswalk labels are directly encoded.
 ```
 
-If a later Shi workbook with literal M2/M3/M4/M5/M6/M7 lineage labels is added,
-pass it as an additional or replacement `--shi-xlsx`.
+If a later source explicitly maps Shi numeric subclusters or table rows onto
+the narrative M2/M3/M4/M5/M6/M7 lineage names, preserve that as a separate
+crosswalk input instead of pretending those labels were already table clusters.
 
 ## Code Added
 
@@ -128,6 +130,209 @@ Final report:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/jia_s9_shi_lineage_overlap/jia_s9_shi_s3_to_s9_exhaustive_v1/reports/jia_s9_shi_lineage_overlap_report.md
 ```
 
+Workbook inventory/accounting report:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/jia_s9_shi_lineage_overlap/jia_shi_workbook_inventory_v1/reports/jia_shi_workbook_inventory_report.md
+```
+
+Focused pM1-pM4 run label:
+
+```text
+jia_s9_shi_s6_pm_only_v1
+```
+
+Focused pM1-pM4 output directory:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/jia_s9_shi_lineage_overlap/jia_s9_shi_s6_pm_only_v1
+```
+
+Focused pM1-pM4 report:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/jia_s9_shi_lineage_overlap/jia_s9_shi_s6_pm_only_v1/reports/jia_s9_shi_lineage_overlap_report.md
+```
+
+## Focused Shi pM1-pM4 Result Snapshot
+
+The biologically relevant direct Shi labels for this question are Table S6
+`pM1`, `pM2`, `pM3`, and `pM4`. These labels are present in the Excel workbook
+and were analyzed directly with:
+
+```text
+--shi-xlsx science.abj6641_table_s6.xlsx
+--include-shi-cluster-regex '^pM[1-4]$'
+```
+
+Headline counts:
+
+```text
+Shi pM marker genes represented: 137 unique genes across 4 marker sets
+Shared Jia/pM vocabulary: 48 genes
+Jia-only vocabulary in this pM comparison: 1108 genes
+Shi-pM-only vocabulary in this pM comparison: 89 genes
+```
+
+Table S6 pM gene-set sizes:
+
+| Shi cluster | n genes |
+|---|---:|
+| pM1 | 48 |
+| pM2 | 38 |
+| pM3 | 48 |
+| pM4 | 46 |
+
+Best descriptive pM hit per Jia full module:
+
+| Jia module | Jia exact name | Best pM cluster | Overlap genes | Fraction of Jia module | Fraction of pM set |
+|---|---|---|---:|---:|---:|
+| module_1 | LHX8/ISL1 | pM2 | 6 | 2.0% | 15.8% |
+| module_2 | NR2F1/NR2F2 | pM3 | 7 | 5.9% | 14.6% |
+| module_3 | EPHA5/MEF2C | pM1 | 11 | 4.8% | 22.9% |
+| module_4 | LHX6/NFIA | pM1 | 14 | 3.9% | 29.2% |
+| module_5 | CRABP1/ANGPT2 | pM2 | 4 | 1.1% | 10.5% |
+
+pM-specific interpretation:
+
+- The strongest descriptive pM signal is `pM1` for Jia cortical/MGE interneuron
+  modules `EPHA5/MEF2C` and `LHX6/NFIA`.
+- `NR2F1/NR2F2` points most toward `pM3` among the pM sets.
+- `LHX8/ISL1` points most toward `pM2` among the pM sets, but only with a small
+  absolute overlap.
+- `CRABP1/ANGPT2` is weak against the pM marker sets; its best pM hit is `pM2`
+  with four genes. This supports keeping it as a bridge/contested lineage
+  rather than treating it as a clean pM-only class.
+- All pM overlaps should be read descriptively because pM marker sets are small
+  and the BH-adjusted hypergeometric q-values are not significant in this
+  pM-only universe.
+
+Collapse decision from the pM-only analysis:
+
+| Question | Decision | Rationale |
+|---|---|---|
+| Collapse Shi `pM1-pM4` into one generic pM class? | No for analysis; yes only as a parent label. | The pM sets are distinct marker lists, and Jia modules point to different pM clusters. Keep `pM1-pM4` separate in figures/tables, with "Shi pM/MGE progenitor" only as a parent tier. |
+| Collapse Jia `EPHA5/MEF2C` and `LHX6/NFIA`? | Yes for a reader-facing parent class; no for module-resolution interpretation. | Both best match `pM1`, with 11 and 14 overlapping genes, respectively. This supports a shared pM1-associated cortical/MGE interneuron-output tier, but Jia's split remains biologically useful. |
+| Collapse Jia `LHX8/ISL1` and `NR2F1/NR2F2`? | No. | Their best pM hits differ: `LHX8/ISL1` points to `pM2`, while `NR2F1/NR2F2` points to `pM3`. Keep them separate, with "early MGE/subpallial output" only as a parent tier. |
+| Collapse Jia `CRABP1/ANGPT2` into pM-only biology? | No. | Its pM overlap is weak: best hit `pM2`, 4 genes, 1.1% of the Jia module. Keep as bridge/contested. |
+
+Best pM overlap genes per Jia full module:
+
+| Jia module | Jia exact name | Best pM | n overlap | Overlapping genes |
+|---|---|---:|---:|---|
+| module_1 | LHX8/ISL1 | pM2 | 6 | ASCL1, CDK6, DLX1, HMGA1, NKX2-1, SMS |
+| module_2 | NR2F1/NR2F2 | pM3 | 7 | ASCL1, GSX1, HES5, HMGA1, NKX2-1, OLIG1, SOX2 |
+| module_3 | EPHA5/MEF2C | pM1 | 11 | BCL11A, DCX, DLX6, DLX6-AS1, HIST1H4C, LHX6, PBX1, PLXNA2, SOX11, SOX4, TIAM1 |
+| module_4 | LHX6/NFIA | pM1 | 14 | BCL11A, BEST3, CDCA7, DCLK2, DLX6, LHX6, PDZRN4, PLS3, PLXNA4, RAB3IP, SOX11, SOX4, SP9, TCF4 |
+| module_5 | CRABP1/ANGPT2 | pM2 | 4 | ASCL1, DLX1, HES6, NNAT |
+
+All full-module pM overlaps:
+
+| Jia module | pM cluster | n overlap | Overlapping genes |
+|---|---|---:|---|
+| module_1 LHX8/ISL1 | pM1 | 6 | DLX6, HMGA1, MEG3, NKX2-1, SOX11, SOX4 |
+| module_1 LHX8/ISL1 | pM2 | 6 | ASCL1, CDK6, DLX1, HMGA1, NKX2-1, SMS |
+| module_1 LHX8/ISL1 | pM3 | 6 | ASCL1, CDK6, HES5, HMGA1, NKX2-1, OLIG1 |
+| module_1 LHX8/ISL1 | pM4 | 6 | HES5, HSPB1, MEG3, NES, NKX2-1, OLIG1 |
+| module_2 NR2F1/NR2F2 | pM1 | 5 | HMGA1, NKX2-1, SOX11, SOX4, TAGLN3 |
+| module_2 NR2F1/NR2F2 | pM2 | 6 | ASCL1, GADD45G, GSX1, HMGA1, NKX2-1, RGS16 |
+| module_2 NR2F1/NR2F2 | pM3 | 7 | ASCL1, GSX1, HES5, HMGA1, NKX2-1, OLIG1, SOX2 |
+| module_2 NR2F1/NR2F2 | pM4 | 5 | HES5, KCNQ1OT1, NKX2-1, OLIG1, SOX2 |
+| module_3 EPHA5/MEF2C | pM1 | 11 | BCL11A, DCX, DLX6, DLX6-AS1, HIST1H4C, LHX6, PBX1, PLXNA2, SOX11, SOX4, TIAM1 |
+| module_3 EPHA5/MEF2C | pM2 | 5 | ASCL1, DLX1, GSX1, NELL2, TFDP2 |
+| module_3 EPHA5/MEF2C | pM3 | 7 | ASCL1, GSX1, NELL2, PID1, PLXNA2, SLC44A1, TFDP2 |
+| module_3 EPHA5/MEF2C | pM4 | 3 | NTN4, SLC44A1, TFDP2 |
+| module_4 LHX6/NFIA | pM1 | 14 | BCL11A, BEST3, CDCA7, DCLK2, DLX6, LHX6, PDZRN4, PLS3, PLXNA4, RAB3IP, SOX11, SOX4, SP9, TCF4 |
+| module_4 LHX6/NFIA | pM2 | 3 | ASCL1, DLX1, GADD45G |
+| module_4 LHX6/NFIA | pM3 | 1 | ASCL1 |
+| module_4 LHX6/NFIA | pM4 | 1 | BCAN |
+| module_5 CRABP1/ANGPT2 | pM1 | 4 | BCL11A, LHX6, SOX11, SOX4 |
+| module_5 CRABP1/ANGPT2 | pM2 | 4 | ASCL1, DLX1, HES6, NNAT |
+| module_5 CRABP1/ANGPT2 | pM3 | 2 | ASCL1, NNAT |
+| module_5 CRABP1/ANGPT2 | pM4 | 4 | KCNQ1OT1, NTM, VEPH1, WWTR1 |
+
+Genes shared with any pM marker set by Jia full module:
+
+| Jia module | Shared with any pM / module genes | Genes |
+|---|---:|---|
+| module_1 LHX8/ISL1 | 14 / 298 | ASCL1, CDK6, DLX1, DLX6, HES5, HMGA1, HSPB1, MEG3, NES, NKX2-1, OLIG1, SMS, SOX11, SOX4 |
+| module_2 NR2F1/NR2F2 | 13 / 118 | ASCL1, GADD45G, GSX1, HES5, HMGA1, KCNQ1OT1, NKX2-1, OLIG1, RGS16, SOX11, SOX2, SOX4, TAGLN3 |
+| module_3 EPHA5/MEF2C | 19 / 228 | ASCL1, BCL11A, DCX, DLX1, DLX6, DLX6-AS1, GSX1, HIST1H4C, LHX6, NELL2, NTN4, PBX1, PID1, PLXNA2, SLC44A1, SOX11, SOX4, TFDP2, TIAM1 |
+| module_4 LHX6/NFIA | 18 / 362 | ASCL1, BCAN, BCL11A, BEST3, CDCA7, DCLK2, DLX1, DLX6, GADD45G, LHX6, PDZRN4, PLS3, PLXNA4, RAB3IP, SOX11, SOX4, SP9, TCF4 |
+| module_5 CRABP1/ANGPT2 | 12 / 351 | ASCL1, BCL11A, DLX1, HES6, KCNQ1OT1, LHX6, NNAT, NTM, SOX11, SOX4, VEPH1, WWTR1 |
+
+## Jia S9 Values For DLX6, LHX8, And LHX6
+
+These values come directly from the Jia Science Data S9 workbook. The
+expression-like workbook field is `vst.mean`; this table does not recompute
+expression from an expression matrix.
+
+Machine-readable table:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/jia_s9_shi_lineage_overlap/jia_s9_shi_s6_pm_only_v1/tables/jia_s9_dlx6_lhx8_lhx6_values.tsv
+```
+
+Compact `vst.mean` matrix across Jia full modules:
+
+| Gene | module_1 LHX8/ISL1 | module_2 NR2F1/NR2F2 | module_3 EPHA5/MEF2C | module_4 LHX6/NFIA | module_5 CRABP1/ANGPT2 |
+|---|---:|---:|---:|---:|---:|
+| DLX6 | 0.00614754 | absent | 0.0929846 | 0.132984 | absent |
+| LHX8 | absent | 0.00301023 | absent | absent | absent |
+| LHX6 | absent | absent | 0.0787723 | 0.156021 | 0.0594796 |
+
+Detailed Jia S9 rows where each gene is present:
+
+| Gene | Jia module | Module name | Sheet | Rank | pval | qval | vst.mean | vst.variance.standardized |
+|---|---|---|---|---:|---:|---:|---:|---:|
+| DLX6 | module_1 | LHX8/ISL1 | Module 1 | 115 | 0.398762 | 0.542677 | 0.00614754 | 1.28992 |
+| DLX6 | module_3 | EPHA5/MEF2C | Module 3 | 77 | 6.34688e-61 | 1.24377e-60 | 0.0929846 | 1.73903 |
+| DLX6 | module_4 | LHX6/NFIA | Module 4 | 87 | 1.59176e-19 | 4.29543e-19 | 0.132984 | 2.71327 |
+| LHX8 | module_2 | NR2F1/NR2F2 | Module 2 | 29 | 0.0031442 | 0.00868982 | 0.00301023 | 1.29132 |
+| LHX6 | module_3 | EPHA5/MEF2C | Module 3 | 53 | 1.66487e-92 | 4.08697e-92 | 0.0787723 | 2.13791 |
+| LHX6 | module_4 | LHX6/NFIA | Module 4 | 71 | 2.44583e-20 | 6.82129e-20 | 0.156021 | 1.70988 |
+| LHX6 | module_5 | CRABP1/ANGPT2 | Module 5 | 106 | 3.30219e-18 | 6.33465e-18 | 0.0594796 | 2.10795 |
+
+All three genes are absent from the Jia S9 TF-only sheets in this workbook.
+
+## Shi S6 pM Values For DLX6, LHX8, And LHX6
+
+These values come directly from Shi Table S6, restricted to literal Shi
+clusters `pM1-pM4`. Do not compare these columns directly to Jia `vst.mean`;
+Shi Table S6 reports marker statistics for each pM cluster (`avg_logFC`,
+`pct.1`, `pct.2`, `p_val_adj`).
+
+Machine-readable table:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/jia_s9_shi_lineage_overlap/jia_s9_shi_s6_pm_only_v1/tables/shi_s6_pm_dlx6_lhx8_lhx6_values.tsv
+```
+
+Compact Shi pM marker-status matrix:
+
+| Gene | pM1 | pM2 | pM3 | pM4 |
+|---|---|---|---|---|
+| DLX6 | present | absent | absent | absent |
+| LHX8 | absent | absent | absent | absent |
+| LHX6 | present | absent | absent | absent |
+
+Detailed Shi Table S6 pM rows where each gene is present:
+
+| Gene | Shi pM cluster | avg_logFC | pct.1 | pct.2 | p_val | p_val_adj |
+|---|---|---:|---:|---:|---:|---:|
+| DLX6 | pM1 | 0.323791 | 0.386 | 0.244 | 2.82215e-31 | 6.01399e-27 |
+| LHX6 | pM1 | 0.731337 | 0.432 | 0.032 | 0 | 0 |
+
+Interpretation for the pM comparison:
+
+- In Shi Table S6, `DLX6` and `LHX6` are pM1 marker genes, not broad pM1-pM4
+  marker genes.
+- `LHX8` is not a Shi Table S6 pM1-pM4 marker in this workbook.
+- This reinforces the earlier pM-specific conclusion: the Jia cortical/MGE
+  interneuron modules, especially `LHX6/NFIA`, are the cleanest pM1-aligned
+  signal; the `LHX8/ISL1` Jia module should not be interpreted as a direct
+  Shi pM marker match based on LHX8 itself.
+
 ## Exhaustive S3-S9 Result Snapshot
 
 The exhaustive run compared Jia Science Data S9 against Shi Tables S3-S9.
@@ -168,7 +373,8 @@ Interpretation:
 
 - The Shi workbook labels and Jia module names are not directly the same naming
   system in the available S3-S9 Excel tables. Shi's curated `M2/M3/M4/M5/M6/M7`
-  concepts from the notes are not literal cluster labels in these inputs.
+  concepts from the notes are not literal cluster labels in these inputs, even
+  though all Shi S2-S9 Excel files are accessible and readable.
 - Gene-list overlap is present but partial. It supports a reader-facing
   conceptual crosswalk, not a direct one-to-one label merge.
 - The strongest computed support for collapsing is the cortical pair:
@@ -261,6 +467,16 @@ To compare multiple Shi workbooks in one run, separate them with `:`:
 SHI_XLSX="/path/to/shi_table_a.xlsx:/path/to/shi_table_b.xlsx" \
 RUN_LABEL=jia_s9_shi_multi_table_overlap_v1 \
 sbatch slurm_templates/45_jia_s9_shi_lineage_overlap.sbatch.template
+```
+
+Focused pM1-pM4 command:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+RUN_LABEL=jia_s9_shi_s6_pm_only_v1 \
+SHI_XLSX=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s6.xlsx \
+INCLUDE_SHI_CLUSTER_REGEX='^pM[1-4]$' \
+sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/45_jia_s9_shi_lineage_overlap_pm_only_v1.sbatch
 ```
 
 Exhaustive S3-S9 run command used for the broad comparison:

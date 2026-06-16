@@ -14,6 +14,11 @@
 #   SHI_XLSX="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s3.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s4.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s5.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s6.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s7.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s8.xlsx:/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/shi_2021_tables_s2_to_s9/science.abj6641_table_s9.xlsx" \
 #   RUN_LABEL=jia_s9_shi_s3_to_s9_exhaustive_v1 \
 #   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/45_jia_s9_shi_lineage_overlap.sbatch
+#
+# Focused Shi Table S6 pM1-pM4 submit:
+#   RUN_LABEL=jia_s9_shi_s6_pm_only_v1 \
+#   INCLUDE_SHI_CLUSTER_REGEX='^pM[1-4]$' \
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/45_jia_s9_shi_lineage_overlap.sbatch
 
 #SBATCH --job-name=jia-shi-overlap
 #SBATCH --account=parent0
@@ -40,6 +45,8 @@ COPY_INPUTS="${COPY_INPUTS:-0}"
 MIN_SHI_AVG_LOGFC="${MIN_SHI_AVG_LOGFC:-}"
 MAX_SHI_P_ADJ="${MAX_SHI_P_ADJ:-}"
 TOP_N_SHI_PER_CLUSTER="${TOP_N_SHI_PER_CLUSTER:-}"
+INCLUDE_SHI_CLUSTER_REGEX="${INCLUDE_SHI_CLUSTER_REGEX:-}"
+EXCLUDE_SHI_CLUSTER_REGEX="${EXCLUDE_SHI_CLUSTER_REGEX:-}"
 
 mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
 cd "${REPO_ROOT}"
@@ -93,6 +100,14 @@ fi
 
 if [[ -n "${TOP_N_SHI_PER_CLUSTER}" ]]; then
   args+=(--top-n-shi-per-cluster "${TOP_N_SHI_PER_CLUSTER}")
+fi
+
+if [[ -n "${INCLUDE_SHI_CLUSTER_REGEX}" ]]; then
+  args+=(--include-shi-cluster-regex "${INCLUDE_SHI_CLUSTER_REGEX}")
+fi
+
+if [[ -n "${EXCLUDE_SHI_CLUSTER_REGEX}" ]]; then
+  args+=(--exclude-shi-cluster-regex "${EXCLUDE_SHI_CLUSTER_REGEX}")
 fi
 
 "${CONDA_ENV_BIN}/python" python_notebooks/scripts/jia_s9_shi_lineage_overlap.py "${args[@]}"
