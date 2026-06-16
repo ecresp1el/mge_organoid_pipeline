@@ -1323,3 +1323,36 @@ Merge outputs:
   --run-dir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_parent_cluster_subclustering_audit/div90_parent_cluster_subclustering_audit_v2 \
   --job-id 51778695
 ```
+
+## Link To Resumable URD Rerun
+
+The neuron-only S9 branch model from this handoff is now wired into the
+production-style DIV90 all-cell URD rerun as seven tips:
+
+```text
+div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1
+```
+
+Full expected output directory:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1
+```
+
+The run keeps the same seven-tip definition:
+
+```text
+tip_lhx8_isl1_state1 = neuron 4
+tip_lhx8_isl1_state2 = neuron 7
+tip_crabp1_angpt2_fetal_precursor = neuron 3
+tip_lhx6_nfia_epha5_mef2c_cortical = neuron 1 + neuron 2
+tip_nr2f1_nr2f2 = neuron 5 + neuron 6 + neuron 8
+tip_astrocytes = original clusters 4 + 10
+tip_opc = original cluster 9
+```
+
+Neuron `0` remains retained as an upstream/intermediate state and is not passed
+as a tip. The shared URD runner is now resumable, but parameters stay aligned
+with the previous all-cell runs: `MAX_CELLS=0`, `URD_KNN=100`,
+`URD_N_FLOODS=20`, `URD_NUM_VARIABLE_GENES=3000`, `URD_PCA_MP_FACTOR=2`, and
+`URD_SIGMA=local`.

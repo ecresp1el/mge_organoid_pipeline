@@ -460,7 +460,8 @@ Completed upstream jobs:
 | 51779661 | `siletti-div90-xfer` | CANCELLED | Dependency-cancelled after failed bridge attempt. |
 | 51779674 | `siletti-div90-bridge` | COMPLETED | Resubmitted bridge export after path-resolution fix. |
 | 51779675 | `siletti-div90-xfer` | FAILED/CANCELLED | First transfer array; failed on Seurat 5.1.0 `FindTransferAnchors` API mismatch. |
-| 51779847 | `siletti-div90-xfer` | RUNNING as of 2026-06-14 19:31 EDT | Corrected transfer array using installed Seurat 5.1.0 argument set. No array task had completed at the 19:31 status check. |
+| 51779847 | `siletti-div90-xfer` | TIMEOUT | Corrected v2 transfer array. All 8 tasks timed out at 8 hours with no final prediction or diagnostic tables. |
+| 51793560 | `siletti-div90-xfer-long` | RUNNING as of 2026-06-15 21:01 EDT | Long-walltime v3 backup array released after v2 timeout. |
 
 Bridge-export scopes:
 
@@ -530,26 +531,34 @@ likely current stage: FindTransferAnchors/nearest-neighbor anchor search after
 feature selection
 ```
 
-Backup long-walltime array prepared as of 2026-06-14 23:10 EDT:
+v2 final status as of 2026-06-15:
+
+```text
+job_id: 51779847
+state: TIMEOUT for all 8 array tasks
+elapsed: ~08:00:26 per task
+exit_code: 0:15
+completed transfer configs: 0/8
+final prediction tables: not present
+final transfer diagnostics: not present
+files present: selected_transfer_features.tsv for each config only
+max RSS: ~13.9-14.2 GB for mge_llc tasks and ~18.1-19.8 GB for mge_cge_llc tasks
+```
+
+Backup long-walltime array prepared as of 2026-06-14 23:10 EDT, then released
+on 2026-06-15 at 21:01 EDT:
 
 ```text
 job_id: 51793560
 job_name: siletti-div90-xfer-long
-state: PENDING
-reason: JobHeldUser
-dependency: afternotok:51779847_*(unfulfilled)
+state: RUNNING as of 2026-06-15 21:01 EDT
+release reason: v2 array 51779847 timed out
+dependency after release: none
 time_limit: 24:00:00
 cpus_per_task: 8
 memory: 180G
 output run label: siletti_div90_seurat_label_transfer_sweep_v3_longtime
 job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/42_siletti_div90_seurat_label_transfer_array_longtime_hold.sbatch
-```
-
-This backup array should remain held unless the current v2 array (`51779847`)
-fails or times out. If it needs to run, release it with:
-
-```bash
-scontrol release 51793560
 ```
 
 Key result locations:
@@ -559,6 +568,7 @@ Key result locations:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_neuron_prep_v1
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_seurat_bridge_v1
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_seurat_label_transfer_sweep_v2
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_seurat_label_transfer_sweep_v3_longtime
 ```
 
 Figure/report status:

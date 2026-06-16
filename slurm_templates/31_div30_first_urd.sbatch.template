@@ -17,7 +17,7 @@
 #   cp slurm_templates/31_div30_first_urd.sbatch.template /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/31_div30_first_urd.sbatch
 #   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/31_div30_first_urd.sbatch
 
-#SBATCH --job-name=div30_urd1
+#SBATCH --job-name=div30_all_urd1
 #SBATCH --time=48:00:00
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=160G
@@ -35,11 +35,13 @@ PROJECT_ROOT="/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 CONDA_BASE="/home/elcrespo/miniconda3"
 CONDA_ENV="${CONDA_ENV:-mge-organoid-python}"
 R_MODULE="${R_MODULE:-R/4.4.3}"
-RUN_LABEL="${RUN_LABEL:-div30_first_urd_paper_radial_glia_v1}"
+RUN_LABEL="${RUN_LABEL:-div30_allcells_radial_glia_firstpass_urd_resumable_v1}"
 ROOT_LABEL="${ROOT_LABEL:-Radial glia}"
-MAX_CELLS="${MAX_CELLS:-30000}"
+MAX_CELLS="${MAX_CELLS:-0}"
 SEED="${SEED:-7}"
 URD_SEED="${URD_SEED:-${SEED}}"
+URD_RESUME="${URD_RESUME:-true}"
+URD_FORCE_RECOMPUTE="${URD_FORCE_RECOMPUTE:-false}"
 URD_MIN_GENES="${URD_MIN_GENES:-500}"
 URD_MIN_CELLS="${URD_MIN_CELLS:-3}"
 URD_MIN_COUNTS="${URD_MIN_COUNTS:-10}"
@@ -96,6 +98,8 @@ echo "ROOT_LABEL=${ROOT_LABEL}"
 echo "MAX_CELLS=${MAX_CELLS}"
 echo "SEED=${SEED}"
 echo "URD_SEED=${URD_SEED}"
+echo "URD_RESUME=${URD_RESUME}"
+echo "URD_FORCE_RECOMPUTE=${URD_FORCE_RECOMPUTE}"
 echo "URD_MIN_GENES=${URD_MIN_GENES}"
 echo "URD_MIN_CELLS=${URD_MIN_CELLS}"
 echo "URD_MIN_COUNTS=${URD_MIN_COUNTS}"
@@ -158,10 +162,12 @@ Rscript "${REPO_ROOT}/scripts/14_div30_first_urd.R" \
   --num-variable-genes "${URD_NUM_VARIABLE_GENES}" \
   --flood-minimum-cells "${URD_FLOOD_MINIMUM_CELLS}" \
   --flood-max-frac-na "${URD_FLOOD_MAX_FRAC_NA}" \
-  --flood-stability-div "${URD_FLOOD_STABILITY_DIV:-}"
+  --flood-stability-div "${URD_FLOOD_STABILITY_DIV:-}" \
+  --resume "${URD_RESUME}" \
+  --force-recompute "${URD_FORCE_RECOMPUTE}"
 
 # Post hoc validation panel. This does not alter the URD object; it reads the
-# saved RDS and writes the expected smoke-panel artifacts for every run:
+# saved RDS and writes the expected posthoc panel artifacts for every run:
 # UMAP pseudotime, diffusion-map pseudotime, diffusion-map annotation, flood
 # stability, top pseudotime gene cascade, and positive/negative pseudotime
 # gene tables.

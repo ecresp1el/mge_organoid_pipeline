@@ -9,7 +9,8 @@
 #   2. Create an URD object with explicit gene/cell/count filters.
 #   3. Select highly variable genes from URD's normalized logupx matrix.
 #   4. Run URD PCA, diffusion map, and flood pseudotime.
-#   5. Export pseudotime, imposed parameters, marker correlations, summaries,
+#   5. Save resumable URD checkpoints after expensive geometry stages.
+#   6. Export pseudotime, imposed parameters, marker correlations, summaries,
 #      plots, and the final URD object.
 #
 # No Seurat object is opened here. The root definition and all sidecar labels
@@ -97,6 +98,13 @@ run_stage <- function(stage, table_dir, expr) {
   result
 }
 
+as_bool <- function(x, name) {
+  value <- tolower(trimws(as.character(x)))
+  if (value %in% c("true", "t", "1", "yes", "y")) return(TRUE)
+  if (value %in% c("false", "f", "0", "no", "n")) return(FALSE)
+  stop(name, " must be true/false; got ", x, call. = FALSE)
+}
+
 parse_args <- function(args) {
   out <- list(
     `project-root` = Sys.getenv("PROJECT_ROOT"),
@@ -117,6 +125,8 @@ parse_args <- function(args) {
     `flood-minimum-cells` = Sys.getenv("URD_FLOOD_MINIMUM_CELLS", "2"),
     `flood-max-frac-na` = Sys.getenv("URD_FLOOD_MAX_FRAC_NA", "0.4"),
     `flood-stability-div` = Sys.getenv("URD_FLOOD_STABILITY_DIV", ""),
+    resume = Sys.getenv("URD_RESUME", "true"),
+    `force-recompute` = Sys.getenv("URD_FORCE_RECOMPUTE", "false"),
     help = FALSE
   )
   i <- 1L
@@ -161,6 +171,8 @@ print_usage <- function() {
     "  --flood-minimum-cells <int>       floodPseudotime minimum.cells.flooded",
     "  --flood-max-frac-na <numeric>     floodPseudotimeProcess max.frac.NA",
     "  --flood-stability-div <int>       floodPseudotimeProcess stability.div",
+    "  --resume <true|false>             Reuse saved checkpoints when present",
+    "  --force-recompute <true|false>    Ignore checkpoints and recompute stages",
     "",
     "Outputs under --outdir:",
     "  tables/div30_first_urd_parameters.tsv",
@@ -170,6 +182,8 @@ print_usage <- function() {
     "  tables/div30_first_urd_pseudotime_by_paper_cluster.tsv",
     "  plots/*.png",
     "  tables/div30_first_urd_stage_timings.tsv",
+    "  tables/div30_first_urd_checkpoint_manifest.tsv",
+    "  checkpoints/urd_after_*.rds",
     "  div30_first_urd_object.rds",
     sep = "\n"
   ))
@@ -231,6 +245,7 @@ build_config <- function(opt) {
     outdir = outdir,
     plot_dir = file.path(outdir, "plots"),
     table_dir = file.path(outdir, "tables"),
+    checkpoint_dir = file.path(outdir, "checkpoints"),
     run_label = run_label,
     root_label = opt$`root-label`,
     seed = as_int(opt$seed, "seed"),
@@ -246,7 +261,9 @@ build_config <- function(opt) {
     flood_minimum_cells = as_int(opt$`flood-minimum-cells`, "flood-minimum-cells"),
     flood_max_frac_na = as_num(opt$`flood-max-frac-na`, "flood-max-frac-na"),
     flood_stability_div = stability_div,
-    pseudotime_name = opt$`pseudotime-name`
+    pseudotime_name = opt$`pseudotime-name`,
+    resume = as_bool(opt$resume, "resume"),
+    force_recompute = as_bool(opt$`force-recompute`, "force-recompute")
   )
 }
 
@@ -260,6 +277,7 @@ parameter_table <- function(cfg) {
       "pca",
       "diffusion_map", "diffusion_map",
       "flood", "flood", "flood_process", "flood_process",
+      "checkpoint", "checkpoint",
       "output"
     ),
     parameter = c(
@@ -270,6 +288,7 @@ parameter_table <- function(cfg) {
       "pca_mp_factor",
       "knn", "sigma",
       "n_floods", "minimum_cells_flooded", "max_frac_NA", "stability_div",
+      "resume", "force_recompute",
       "seed"
     ),
     value = as.character(c(
@@ -280,6 +299,7 @@ parameter_table <- function(cfg) {
       cfg$pca_mp_factor,
       cfg$knn, cfg$sigma_text,
       cfg$n_floods, cfg$flood_minimum_cells, cfg$flood_max_frac_na, cfg$flood_stability_div,
+      cfg$resume, cfg$force_recompute,
       cfg$seed
     )),
     meaning = c(
@@ -300,10 +320,80 @@ parameter_table <- function(cfg) {
       "floodPseudotime minimum.cells.flooded.",
       "floodPseudotimeProcess max.frac.NA.",
       "floodPseudotimeProcess stability.div; defaults to min(10, n_floods).",
+      "Whether existing stage checkpoints should be reused if present.",
+      "Whether to ignore existing stage checkpoints and recompute from inputs.",
       "Random seed set before PCA, diffusion map, and flood pseudotime."
     ),
     stringsAsFactors = FALSE
   )
+}
+
+checkpoint_path <- function(cfg, stage) {
+  file.path(cfg$checkpoint_dir, paste0("urd_after_", stage, ".rds"))
+}
+
+checkpoint_manifest_path <- function(cfg) {
+  file.path(cfg$table_dir, "div30_first_urd_checkpoint_manifest.tsv")
+}
+
+write_checkpoint_manifest <- function(cfg) {
+  stages <- c("filter", "variable_genes", "pca", "diffusion_map", "flood_pseudotime", "final")
+  paths <- c(
+    checkpoint_path(cfg, "filter"),
+    checkpoint_path(cfg, "variable_genes"),
+    checkpoint_path(cfg, "pca"),
+    checkpoint_path(cfg, "diffusion_map"),
+    checkpoint_path(cfg, "flood_pseudotime"),
+    file.path(cfg$outdir, "div30_first_urd_object.rds")
+  )
+  info <- lapply(paths, function(path) {
+    if (!file.exists(path)) {
+      return(data.frame(path = path, exists = FALSE, size_bytes = NA_real_, modified_time = NA_character_))
+    }
+    file_info <- file.info(path)
+    data.frame(
+      path = path,
+      exists = TRUE,
+      size_bytes = as.numeric(file_info$size),
+      modified_time = format(file_info$mtime, "%Y-%m-%d %H:%M:%S"),
+      stringsAsFactors = FALSE
+    )
+  })
+  manifest <- data.frame(stage = stages, do.call(rbind, info), row.names = NULL, check.names = FALSE)
+  write.table(manifest, checkpoint_manifest_path(cfg), sep = "\t", row.names = FALSE, quote = FALSE)
+  invisible(manifest)
+}
+
+save_checkpoint <- function(urd, cfg, stage) {
+  dir.create(cfg$checkpoint_dir, recursive = TRUE, showWarnings = FALSE)
+  path <- checkpoint_path(cfg, stage)
+  tmp_path <- paste0(path, ".tmp")
+  log_msg("Saving checkpoint ", stage, ": ", path)
+  saveRDS(urd, tmp_path)
+  if (!file.rename(tmp_path, path)) {
+    stop("Failed to move checkpoint into place: ", tmp_path, " -> ", path, call. = FALSE)
+  }
+  write_checkpoint_manifest(cfg)
+  invisible(path)
+}
+
+load_checkpoint <- function(cfg, stage) {
+  path <- checkpoint_path(cfg, stage)
+  if (!cfg$resume || cfg$force_recompute || !file.exists(path)) return(NULL)
+  log_msg("Loading checkpoint ", stage, ": ", path)
+  readRDS(path)
+}
+
+root_cells_from_urd <- function(urd) {
+  cells <- rownames(urd@meta)
+  if (!("urd_root_candidate" %in% colnames(urd@meta))) {
+    stop("URD metadata does not contain urd_root_candidate", call. = FALSE)
+  }
+  root_cells <- cells[as.logical(urd@meta[cells, "urd_root_candidate"])]
+  if (length(root_cells) == 0) {
+    stop("No root candidate cells are present in the URD object", call. = FALSE)
+  }
+  root_cells
 }
 
 input_paths <- function(input_dir) {
@@ -388,6 +478,18 @@ run_urd_geometry <- function(urd, cfg) {
   set.seed(cfg$seed)
   log_msg("Running calcPCA with mp.factor=", cfg$pca_mp_factor)
   urd <- calcPCA(urd, mp.factor = cfg$pca_mp_factor)
+  log_msg("Running calcDM with knn=", cfg$knn, " sigma=", cfg$sigma_text)
+  calcDM(urd, knn = cfg$knn, sigma = cfg$sigma)
+}
+
+run_urd_pca <- function(urd, cfg) {
+  set.seed(cfg$seed)
+  log_msg("Running calcPCA with mp.factor=", cfg$pca_mp_factor)
+  calcPCA(urd, mp.factor = cfg$pca_mp_factor)
+}
+
+run_urd_diffusion_map <- function(urd, cfg) {
+  set.seed(cfg$seed)
   log_msg("Running calcDM with knn=", cfg$knn, " sigma=", cfg$sigma_text)
   calcDM(urd, knn = cfg$knn, sigma = cfg$sigma)
 }
@@ -595,6 +697,7 @@ write_plots <- function(pt_df, cfg) {
 run_pipeline <- function(cfg) {
   dir.create(cfg$plot_dir, recursive = TRUE, showWarnings = FALSE)
   dir.create(cfg$table_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(cfg$checkpoint_dir, recursive = TRUE, showWarnings = FALSE)
 
   log_msg("Writing imposed parameter table")
   write.table(
@@ -604,22 +707,53 @@ run_pipeline <- function(cfg) {
     row.names = FALSE,
     quote = FALSE
   )
+  write_checkpoint_manifest(cfg)
 
-  bundle <- run_stage("read_input_bundle", cfg$table_dir, read_urd_input_bundle(cfg))
-  created <- run_stage("create_filtered_urd", cfg$table_dir, create_filtered_urd(bundle, cfg))
-  rm(bundle)
-  invisible(gc())
+  final_rds_path <- file.path(cfg$outdir, "div30_first_urd_object.rds")
+  if (cfg$resume && !cfg$force_recompute && file.exists(final_rds_path)) {
+    log_msg("Loading completed URD object because resume=true: ", final_rds_path)
+    urd <- readRDS(final_rds_path)
+  } else {
+    urd <- load_checkpoint(cfg, "flood_pseudotime")
+    if (is.null(urd)) {
+      urd <- load_checkpoint(cfg, "diffusion_map")
+    }
+    if (is.null(urd)) {
+      urd <- load_checkpoint(cfg, "pca")
+      if (is.null(urd)) {
+        urd <- load_checkpoint(cfg, "variable_genes")
+        if (is.null(urd)) {
+          urd <- load_checkpoint(cfg, "filter")
+          if (is.null(urd)) {
+            bundle <- run_stage("read_input_bundle", cfg$table_dir, read_urd_input_bundle(cfg))
+            created <- run_stage("create_filtered_urd", cfg$table_dir, create_filtered_urd(bundle, cfg))
+            urd <- created$urd
+            rm(bundle, created)
+            invisible(gc())
+            run_stage("checkpoint_after_filter", cfg$table_dir, save_checkpoint(urd, cfg, "filter"))
+          }
+          urd <- run_stage("select_variable_genes", cfg$table_dir, select_variable_genes(urd, cfg))
+          run_stage("checkpoint_after_variable_genes", cfg$table_dir, save_checkpoint(urd, cfg, "variable_genes"))
+        }
+        urd <- run_stage("calc_pca", cfg$table_dir, run_urd_pca(urd, cfg))
+        run_stage("checkpoint_after_pca", cfg$table_dir, save_checkpoint(urd, cfg, "pca"))
+      }
+      urd <- run_stage("calc_diffusion_map", cfg$table_dir, run_urd_diffusion_map(urd, cfg))
+      run_stage("checkpoint_after_diffusion_map", cfg$table_dir, save_checkpoint(urd, cfg, "diffusion_map"))
+    }
+    root_cells <- root_cells_from_urd(urd)
+    urd <- run_stage("flood_pseudotime", cfg$table_dir, run_flood_pseudotime(urd, root_cells, cfg))
+    run_stage("checkpoint_after_flood_pseudotime", cfg$table_dir, save_checkpoint(urd, cfg, "flood_pseudotime"))
+  }
 
-  urd <- run_stage("select_variable_genes", cfg$table_dir, select_variable_genes(created$urd, cfg))
-  urd <- run_stage("calc_pca_and_diffusion_map", cfg$table_dir, run_urd_geometry(urd, cfg))
-  urd <- run_stage("flood_pseudotime", cfg$table_dir, run_flood_pseudotime(urd, created$root_cells, cfg))
-
+  root_cells <- root_cells_from_urd(urd)
   pt_df <- run_stage("build_pseudotime_table", cfg$table_dir, build_pseudotime_table(urd, cfg))
-  paths <- run_stage("write_tables", cfg$table_dir, write_tables(urd, pt_df, created$root_cells, cfg))
+  paths <- run_stage("write_tables", cfg$table_dir, write_tables(urd, pt_df, root_cells, cfg))
   run_stage("write_plots", cfg$table_dir, write_plots(pt_df, cfg))
 
-  rds_path <- file.path(cfg$outdir, "div30_first_urd_object.rds")
+  rds_path <- final_rds_path
   run_stage("save_urd_object", cfg$table_dir, saveRDS(urd, rds_path))
+  write_checkpoint_manifest(cfg)
   log_msg("Wrote parameters: ", paths$parameter)
   log_msg("Wrote pseudotime: ", paths$pseudotime)
   log_msg("Wrote summary: ", paths$summary)

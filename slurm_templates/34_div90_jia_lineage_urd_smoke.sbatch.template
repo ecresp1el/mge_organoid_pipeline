@@ -1,17 +1,17 @@
 #!/bin/bash
-# DIV90 Jia-lineage-driven URD smoke pipeline.
+# DIV90 Jia-lineage-driven all-cell URD pipeline.
 #
-# This run mirrors the DIV30 smoke artifact set while using DIV90-specific
+# This run mirrors the DIV30 URD artifact set while using DIV90-specific
 # biology:
 #   - Root: top RootScore cells inside cluster 12 Dividing cells.
 #   - Tips: Jia endpoint approximations, not broad SST/PV/MGE labels.
-#   - v4 final-inclusion smoke: glial endpoints are now explicit tips.
+#   - v4 inclusion logic: glial endpoints are explicit tips.
 #     Clusters 4 and 10 are combined as one astrocyte tip, and cluster 9 is
 #     an OPC tip. Stressed clusters 6 and 7 remain excluded.
 #   - Tip correction from v2 remains: cluster 2 is the CRABP1/ANGPT2-like tip,
 #     while clusters 3 and 11 stay in the manifold as retained unassigned
 #     candidates.
-#   - Outputs: first-URD pseudotime object, smoke panel, URD tree, tree report,
+#   - Outputs: first-URD pseudotime object, posthoc panel, URD tree, tree report,
 #     branch/tip tables, and Jia Fig. S11-style marker-expression validation.
 #   - Every run writes R stage timings plus Slurm resource heartbeats for
 #     troubleshooting larger full-cell submissions.
@@ -19,13 +19,13 @@
 # Submit:
 #   sbatch slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
 
-#SBATCH --job-name=div90_jia_urd
-#SBATCH --time=04:00:00
-#SBATCH --cpus-per-task=2
-#SBATCH --mem=32G
+#SBATCH --job-name=div90_jia_final
+#SBATCH --time=72:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=160G
 #SBATCH --nodes=1
-#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_%j.log
-#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_%j.log
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_allcells_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_allcells_%j.log
 #SBATCH --partition=standard
 #SBATCH --account=parent0
 
@@ -38,13 +38,15 @@ CONDA_BASE="/home/elcrespo/miniconda3"
 CONDA_ENV="${CONDA_ENV:-mge-organoid-python}"
 R_MODULE="${R_MODULE:-R/4.4.3}"
 
-RUN_LABEL="${RUN_LABEL:-div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips}"
-MAX_CELLS="${MAX_CELLS:-5000}"
+RUN_LABEL="${RUN_LABEL:-div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1}"
+MAX_CELLS="${MAX_CELLS:-0}"
 SEED="${SEED:-7}"
 URD_SEED="${URD_SEED:-${SEED}}"
-DIV90_TIP_MODE="${DIV90_TIP_MODE:-cluster_v4}"
-DIV90_ROOT_TOP_PERCENT="${DIV90_ROOT_TOP_PERCENT:-2}"
-DIV90_ROOT_MIN_CELLS="${DIV90_ROOT_MIN_CELLS:-8}"
+URD_RESUME="${URD_RESUME:-true}"
+URD_FORCE_RECOMPUTE="${URD_FORCE_RECOMPUTE:-false}"
+DIV90_TIP_MODE="${DIV90_TIP_MODE:-neuron_s9_7tip}"
+DIV90_ROOT_TOP_PERCENT="${DIV90_ROOT_TOP_PERCENT:-10}"
+DIV90_ROOT_MIN_CELLS="${DIV90_ROOT_MIN_CELLS:-1}"
 DIV90_RETAIN_CLUSTERS="${DIV90_RETAIN_CLUSTERS:-0,1,2,3,4,5,8,9,10,11,12}"
 
 URD_MIN_GENES="${URD_MIN_GENES:-500}"
@@ -107,7 +109,7 @@ monitor_resources &
 MONITOR_PID=$!
 trap 'kill "${MONITOR_PID}" 2>/dev/null || true' EXIT
 
-echo "=== DIV90 Jia-lineage URD smoke Slurm context ==="
+echo "=== DIV90 Jia-lineage all-cell URD Slurm context ==="
 date
 hostname
 echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
@@ -115,6 +117,8 @@ echo "SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-}"
 echo "SLURM_MEM_PER_NODE=${SLURM_MEM_PER_NODE:-}"
 echo "RUN_LABEL=${RUN_LABEL}"
 echo "MAX_CELLS=${MAX_CELLS}"
+echo "URD_RESUME=${URD_RESUME}"
+echo "URD_FORCE_RECOMPUTE=${URD_FORCE_RECOMPUTE}"
 echo "DIV90_TIP_MODE=${DIV90_TIP_MODE}"
 echo "DIV90_RETAIN_CLUSTERS=${DIV90_RETAIN_CLUSTERS}"
 echo "DIV90_ROOT_TOP_PERCENT=${DIV90_ROOT_TOP_PERCENT}"
@@ -189,7 +193,9 @@ Rscript "${REPO_ROOT}/scripts/14_div30_first_urd.R" \
   --num-variable-genes "${URD_NUM_VARIABLE_GENES}" \
   --flood-minimum-cells "${URD_FLOOD_MINIMUM_CELLS}" \
   --flood-max-frac-na "${URD_FLOOD_MAX_FRAC_NA}" \
-  --flood-stability-div "${URD_FLOOD_STABILITY_DIV:-}"
+  --flood-stability-div "${URD_FLOOD_STABILITY_DIV:-}" \
+  --resume "${URD_RESUME}" \
+  --force-recompute "${URD_FORCE_RECOMPUTE}"
 
 Rscript "${REPO_ROOT}/scripts/15_div30_urd_lineage_decision_report.R" \
   --urd-rds "${RUN_ROOT}/div30_first_urd_object.rds" \
@@ -197,7 +203,7 @@ Rscript "${REPO_ROOT}/scripts/15_div30_urd_lineage_decision_report.R" \
   --annotation-col "cluster_number_name" \
   --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
   --root-col "urd_root_candidate" \
-  --dataset-label "DIV90 Jia-lineage/glia-tip smoke" \
+  --dataset-label "DIV90 all-cell Jia lineage neuron-S9 seven-tip run" \
   --top-n "50" \
   --correlation-genes "variable"
 
@@ -225,7 +231,7 @@ Rscript "${REPO_ROOT}/scripts/17_div30_urd_finalize_lineage_tree_report.R" \
   --outdir "${TREE_DIR}" \
   --annotation-col "div90_jia_tip_group" \
   --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
-  --dataset-label "DIV90 Jia-lineage/glia-tip smoke" \
+  --dataset-label "DIV90 all-cell Jia lineage neuron-S9 seven-tip run" \
   --root-label "DIV90 Jia RootScore top ${DIV90_ROOT_TOP_PERCENT}% in cluster 12" \
   --tip-mapping "${TREE_DIR}/tables/tree_tip_mapping.tsv" \
   --top-n-branch-genes "50"
@@ -235,7 +241,7 @@ Rscript "${REPO_ROOT}/scripts/17_div30_urd_finalize_lineage_tree_report.R" \
   --outdir "${TREE_CLUSTER_NAME_DIR}" \
   --annotation-col "cluster_number_name" \
   --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
-  --dataset-label "DIV90 cluster-name-colored smoke" \
+  --dataset-label "DIV90 all-cell cluster-name-colored Jia lineage run" \
   --root-label "DIV90 Jia RootScore top ${DIV90_ROOT_TOP_PERCENT}% in cluster 12" \
   --tip-mapping "${TREE_DIR}/tables/tree_tip_mapping.tsv" \
   --top-n-branch-genes "50"
@@ -260,6 +266,6 @@ python "${REPO_ROOT}/python_notebooks/scripts/audit_urd_run_outputs.py" \
   --mode "div90_jia" \
   --outdir "${TABLE_DIR}"
 
-echo "=== DIV90 Jia-lineage URD smoke complete ==="
+echo "=== DIV90 Jia-lineage all-cell URD complete ==="
 date
 find "${RUN_ROOT}" -maxdepth 3 -type f | sort

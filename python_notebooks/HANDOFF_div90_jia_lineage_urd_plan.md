@@ -1145,3 +1145,58 @@ Important separation of analyses:
 - Confirm cluster 2 behavior after scoring because `CRABP1+/PV Precursors` may bridge EPHA5/MEF2C and CRABP1/ANGPT2 biology.
 - Decide after the first tree whether NR2F1/NR2F2 or CRABP1/ANGPT2 require their own explicit terminal tips.
 - Keep the Stiletti UMAP comparison as a separate upstream process using the same DIV30/DIV90 cluster mapping files.
+
+## Current Production Rerun Name
+
+The next DIV90 all-cell run should be treated as the new production/resumable
+version, not as another smoke/backfill/final scratch run.
+
+Use this run label:
+
+```text
+div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1
+```
+
+Full output path:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1
+```
+
+The biological setup is unchanged from the all-cell neuron-S9 seven-tip plan:
+
+```text
+MAX_CELLS=0
+DIV90_TIP_MODE=neuron_s9_7tip
+DIV90_ROOT_TOP_PERCENT=10
+DIV90_ROOT_MIN_CELLS=1
+TREE_TIP_LABELS=tip_lhx8_isl1_state1,tip_lhx8_isl1_state2,tip_crabp1_angpt2_fetal_precursor,tip_lhx6_nfia_epha5_mef2c_cortical,tip_nr2f1_nr2f2,tip_astrocytes,tip_opc
+```
+
+The computational URD parameters also remain unchanged for consistency with the
+prior DIV30/DIV90 runs:
+
+```text
+URD_KNN=100
+URD_N_FLOODS=20
+URD_NUM_VARIABLE_GENES=3000
+URD_PCA_MP_FACTOR=2
+URD_SIGMA=local
+```
+
+Only execution mechanics changed. The shared R runner now writes resumable
+checkpoints under:
+
+```text
+checkpoints/urd_after_filter.rds
+checkpoints/urd_after_variable_genes.rds
+checkpoints/urd_after_pca.rds
+checkpoints/urd_after_diffusion_map.rds
+checkpoints/urd_after_flood_pseudotime.rds
+tables/div30_first_urd_checkpoint_manifest.tsv
+```
+
+Resubmitting the same run label with `URD_RESUME=true` will continue from the
+latest checkpoint and then regenerate the same downstream decision reports,
+lineage-tree reports, Jia Fig. S11 marker validation, candidate marker
+projection, and output manifests.

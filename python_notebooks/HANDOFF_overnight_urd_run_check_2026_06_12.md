@@ -614,3 +614,99 @@ sacct -j 51778136,51778137,51778138 --format=JobID,JobName%32,State,ExitCode,Ela
 tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/31_div30_first_urd_51778136.log
 tail -f /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51778138.log
 ```
+
+## Resumable Production Refactor
+
+Updated after cleanup/refactor. The previous canceled, superseded, and smoke
+URD result directories were removed to reduce confusion and storage use. Kept
+directories:
+
+```text
+DIV30 completed baseline:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div30_first_urd/div30_first_urd_paper_radial_glia_30k_checkpoint_v2
+
+DIV90 completed baselines:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_allcells_root10_backfillmax_20260614_v1
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_allcells_root10_neuron_s9_7tips_v1
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_full_v4_glia_tips_root10_v1
+```
+
+Deleted directories:
+
+```text
+div30_first_urd_paper_radial_glia_allcells_backfillmax_20260614_v1
+div30_first_urd_paper_radial_glia_allcells_final_v1
+div30_first_urd_paper_radial_glia_smoke5k_knn100_v1
+div30_first_urd_paper_radial_glia_v1
+div90_urd_jia_lineage_allcells_root10_final_v1
+div90_urd_jia_lineage_full_v4_glia_tips
+div90_urd_jia_lineage_smoke5k_knn100_v1
+div90_urd_jia_lineage_smoke5k_knn100_v2_crabp1_tip
+div90_urd_jia_lineage_smoke5k_knn100_v3_glia_cells
+div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips
+```
+
+The shared URD geometry runner `scripts/14_div30_first_urd.R` is now resumable.
+It preserves the same biological/statistical parameters and only changes
+execution mechanics. It writes:
+
+```text
+checkpoints/urd_after_filter.rds
+checkpoints/urd_after_variable_genes.rds
+checkpoints/urd_after_pca.rds
+checkpoints/urd_after_diffusion_map.rds
+checkpoints/urd_after_flood_pseudotime.rds
+tables/div30_first_urd_checkpoint_manifest.tsv
+```
+
+If `URD_RESUME=true` and `URD_FORCE_RECOMPUTE=false`, resubmitting the same run
+label resumes from the latest available checkpoint. The final plots/reports are
+unchanged: the same posthoc decision report, tree reports, marker validation
+figures, candidate marker projections, and output manifests are still generated
+after the URD object exists.
+
+New clear run labels for the next production reruns:
+
+```text
+DIV30 first-pass all-cell URD:
+div30_allcells_radial_glia_firstpass_urd_resumable_v1
+
+DIV30 Jia RootScore top10 reflood:
+div30_allcells_radial_glia_jia_rootscore_top10_reflood_v1
+
+DIV90 all-cell Jia root10 neuron-S9 seven-tip URD:
+div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1
+```
+
+Parameter consistency is intentional:
+
+```text
+MAX_CELLS=0
+URD_KNN=100
+URD_N_FLOODS=20
+URD_NUM_VARIABLE_GENES=3000
+URD_PCA_MP_FACTOR=2
+URD_SIGMA=local
+URD_MIN_GENES=500
+URD_MIN_CELLS=3
+URD_MIN_COUNTS=10
+URD_FLOOD_MINIMUM_CELLS=2
+URD_FLOOD_MAX_FRAC_NA=0.4
+```
+
+Template defaults updated:
+
+```text
+slurm_templates/31_div30_first_urd.sbatch.template
+slurm_templates/35_div30_jia_rootscore_root10_reflood.sbatch.template
+slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+python_notebooks/scripts/audit_urd_run_outputs.py
+```
+
+The DIV90 template filename still has historical `smoke` in its name, but the
+default output directory and new Slurm log prefix are production/all-cell names:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_allcells_%j.log
+```
