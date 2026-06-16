@@ -616,6 +616,126 @@ the post-transfer plotting job after the selected transfer configuration is
 chosen.
 ```
 
+## Fast KNN Transfer Debug And Scale-Up
+
+Date logged: 2026-06-16
+
+Why this exists:
+
+```text
+The Seurat FindTransferAnchors-based workflow repeatedly reached feature
+selection/PCA quickly and then spent many hours inside FindTransferAnchors
+without writing final predictions. A capped Seurat pilot confirmed the bottleneck:
+load/filter/normalize/scale/PCA were fast, but FindTransferAnchors remained the
+wall even at 5,000 reference x 3,000 query cells.
+```
+
+Canonical fast-transfer code:
+
+```text
+python_notebooks/scripts/siletti_div90_fast_knn_label_transfer.py
+```
+
+Canonical fast-transfer Slurm template:
+
+```text
+slurm_templates/47_siletti_div90_fast_knn_label_transfer_pilot.sbatch.template
+```
+
+The script is intentionally not a Seurat anchor integration. It is a transparent
+label-transfer classifier:
+
+```text
+bridge MatrixMarket counts
+  -> log-normalize reference/query
+  -> select high-variance genes
+  -> sparse TruncatedSVD
+  -> cosine kNN adult-reference vote
+  -> per-cell DIV90 predicted adult label + score tables
+```
+
+Biology being transferred in the current fast-KNN jobs:
+
+```text
+reference scope: mge_llc
+adult reference superclusters: MGE interneuron + LAMP5-LHX6/chandelier
+query: DIV90 neuron-lineage cells
+label column: candidate_jia_group
+excluded label before transfer: Excluded / not assigned to Jia-style 9 groups
+```
+
+This does not change the biology relative to the original intent. It removes the
+non-biological `Excluded / not assigned to Jia-style 9 groups` label before
+training the transfer classifier. For the `candidate_jia_group` target,
+`mge_cge_llc` is not the right first scale-up because the added CGE cells mostly
+become this excluded bucket. If the target becomes broader adult interneuron
+labels such as `transferred_mtg_label` (Vip/Lamp5/Sncg/Pax6 included), then
+`mge_cge_llc` becomes biologically appropriate.
+
+Cell-cap semantics:
+
+```text
+max_reference_cells and max_query_cells are compute/debug caps only.
+They are applied after reference label filtering.
+If a cap is >0, cells are uniformly sampled with the fixed seed.
+If a cap is 0, all available cells are used.
+The cap is not a biological subset rule.
+```
+
+Reference size for the current `candidate_jia_group` fast-transfer path:
+
+| Stage | Cells |
+|---|---:|
+| Full staged Siletti MGE H5AD | 222,434 |
+| Full staged Siletti LLC H5AD | 45,118 |
+| Bridge-exported `mge_llc` reference | 26,290 |
+| `mge_llc` after dropping excluded candidate_jia_group label | 18,459 |
+| DIV90 neuron-lineage query | 16,206 |
+
+Fast-transfer parameter ledger:
+
+| Run label | Job id | Scope | Reference cap | Query cap | Features | SVD dims | k | Status |
+|---|---:|---|---:|---:|---:|---:|---:|---|
+| `siletti_div90_fast_knn_smoke_v1` | login smoke | `mge_llc` | 500 | 300 | 1,000 | 20 | 20 | COMPLETED in ~22 sec |
+| `siletti_div90_fast_knn_transfer_pilot_v1` | 51852811 | `mge_llc` | 5,000 | 3,000 | 2,000 | 30 | 50 | COMPLETED in 27 sec |
+| `siletti_div90_fast_knn_transfer_full_mge_llc_v1` | 51871420 | `mge_llc` | 0 = all usable 18,459 | 0 = all 16,206 | 3,000 | 50 | 50 | COMPLETED in 47 sec |
+
+Fast-transfer output roots:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_fast_knn_smoke_v1
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_fast_knn_transfer_pilot_v1
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_fast_knn_transfer_full_mge_llc_v1
+```
+
+Expected fast-transfer outputs per run:
+
+```text
+fast_knn/run_progress.tsv
+fast_knn/selected_transfer_features.tsv
+fast_knn/*_predictions.tsv.gz
+fast_knn/*_prediction_scores.tsv.gz
+fast_knn/*_transfer_diagnostics.json
+tables/*_query_obs_with_predictions.tsv.gz
+tables/*_cluster_label_counts.tsv
+```
+
+Full `mge_llc` fast-KNN transfer completion:
+
+```text
+job_id: 51871420
+state: COMPLETED
+elapsed: 00:00:47
+max_rss: 5,643,392K
+n_reference_cells: 18,459
+n_query_cells: 16,206
+n_features: 3,000
+n_components: 50
+k: 50
+diagnostics: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_fast_knn_transfer_full_mge_llc_v1/mge_llc/svd50_k50_ref0_query0/fast_knn/siletti_div90__candidate_jia_group__fast_knn__svd50__k50_transfer_diagnostics.json
+cluster summary: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_fast_knn_transfer_full_mge_llc_v1/mge_llc/svd50_k50_ref0_query0/tables/siletti_div90__candidate_jia_group__fast_knn__svd50__k50_cluster_label_counts.tsv
+```
+
 ## Operational Notes
 
 This metadata audit is small enough for login-node inspection because it only

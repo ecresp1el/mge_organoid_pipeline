@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Fast, transparent Siletti adult reference -> DIV90 KNN label-transfer runner.
+#
+# Biological target:
+#   Transfer adult Siletti/Jia-style labels from adult MGE/LLC reference cells
+#   onto DIV90 neuron-lineage query cells.
+#
+# Default scope:
+#   mge_llc = Siletti MGE interneuron + LAMP5-LHX6/chandelier.
+#   This is the right default for candidate_jia_group, because the Jia-style
+#   labels are MGE-derived inhibitory-neuron groups. CGE cells mostly become
+#   "Excluded / not assigned to Jia-style 9 groups" for this label column.
+#
+# Caps:
+#   SILETTI_TRANSFER_MAX_REFERENCE_CELLS and SILETTI_TRANSFER_MAX_QUERY_CELLS
+#   are compute/debug caps only. They uniformly sample cells after label
+#   filtering with a fixed seed. Set either cap to 0 to use all available cells.
+#
+# Scale-up examples:
+#   Pilot:
+#     SILETTI_TRANSFER_MAX_REFERENCE_CELLS=5000
+#     SILETTI_TRANSFER_MAX_QUERY_CELLS=3000
+#
+#   Full mge_llc Jia-style transfer:
+#     SILETTI_TRANSFER_RUN_LABEL=siletti_div90_fast_knn_transfer_full_mge_llc_v1
+#     SILETTI_TRANSFER_SCOPE=mge_llc
+#     SILETTI_TRANSFER_MAX_REFERENCE_CELLS=0
+#     SILETTI_TRANSFER_MAX_QUERY_CELLS=0
+#     SILETTI_TRANSFER_NFEATURES=3000
+#     SILETTI_TRANSFER_N_COMPONENTS=50
+#     SILETTI_TRANSFER_K=50
+
+#SBATCH --job-name=siletti-fastknn-pilot
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=80G
+#SBATCH --time=02:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-fastknn-pilot-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-fastknn-pilot-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+PYTHON="${PYTHON:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_v1}"
+SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_fast_knn_transfer_pilot_v1}"
+
+SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc}"
+SILETTI_TRANSFER_LABEL_COLUMN="${SILETTI_TRANSFER_LABEL_COLUMN:-candidate_jia_group}"
+SILETTI_TRANSFER_EXCLUDE_LABEL="${SILETTI_TRANSFER_EXCLUDE_LABEL:-Excluded / not assigned to Jia-style 9 groups}"
+SILETTI_TRANSFER_MAX_REFERENCE_CELLS="${SILETTI_TRANSFER_MAX_REFERENCE_CELLS:-5000}"
+SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-3000}"
+SILETTI_TRANSFER_NFEATURES="${SILETTI_TRANSFER_NFEATURES:-2000}"
+SILETTI_TRANSFER_N_COMPONENTS="${SILETTI_TRANSFER_N_COMPONENTS:-30}"
+SILETTI_TRANSFER_K="${SILETTI_TRANSFER_K:-50}"
+SILETTI_TRANSFER_SEED="${SILETTI_TRANSFER_SEED:-0}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+bridge_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/seurat_bridge"
+outdir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_TRANSFER_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/svd${SILETTI_TRANSFER_N_COMPONENTS}_k${SILETTI_TRANSFER_K}_ref${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}_query${SILETTI_TRANSFER_MAX_QUERY_CELLS}"
+
+echo "Siletti fast KNN pilot started: $(date)"
+echo "Host: $(hostname)"
+echo "Scope: ${SILETTI_TRANSFER_SCOPE}"
+echo "Bridge dir: ${bridge_dir}"
+echo "Output dir: ${outdir}"
+echo "Python: ${PYTHON}"
+
+"${PYTHON}" python_notebooks/scripts/siletti_div90_fast_knn_label_transfer.py \
+  --bridge-dir "${bridge_dir}" \
+  --outdir "${outdir}" \
+  --label-column "${SILETTI_TRANSFER_LABEL_COLUMN}" \
+  --exclude-label "${SILETTI_TRANSFER_EXCLUDE_LABEL}" \
+  --max-reference-cells "${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}" \
+  --max-query-cells "${SILETTI_TRANSFER_MAX_QUERY_CELLS}" \
+  --nfeatures "${SILETTI_TRANSFER_NFEATURES}" \
+  --n-components "${SILETTI_TRANSFER_N_COMPONENTS}" \
+  --k "${SILETTI_TRANSFER_K}" \
+  --seed "${SILETTI_TRANSFER_SEED}"
+
+echo "Generated files:"
+find "${outdir}" -maxdepth 4 -type f | sort
+echo "Siletti fast KNN pilot finished: $(date)"
