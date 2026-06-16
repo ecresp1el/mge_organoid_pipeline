@@ -8,20 +8,23 @@ Transcriptomic diversity of cell types across the adult human brain
 Science 382, eadd7046
 ```
 
-This is a major future reference for the project. It is not staged as an
-analysis object yet, and no expression matrices have been downloaded in this
-repo/project run.
+This is a major reference for the project. The initial metadata-only inventory
+has now been extended into a Slurm-managed DIV90 label-transfer staging run using
+the adult Siletti/CELLxGENE MGE, CGE, and LAMP5-LHX6/chandelier supercluster
+H5AD files. Large generated data are saved under the project results root, not
+inside this Git repo.
 
 ## Current Status
 
 Date logged: 2026-06-14
 
-Only lightweight public taxonomy metadata was inspected. This was done without
-Slurm and without a compute node.
+The first pass only inspected lightweight public taxonomy metadata without Slurm
+or a compute node. On 2026-06-14 this was extended into a Great Lakes
+Slurm-managed staging and Seurat label-transfer workflow.
 
-Do not treat this as a completed Siletti reference workflow. Treat it as the
-initial metadata inventory that should guide a future Slurm-managed staging
-workflow.
+Do not treat this as a final biological call yet. Treat it as a reproducible
+first Siletti adult-reference transfer sweep whose knobs and outputs are logged
+below for review and follow-up plotting.
 
 The generated metadata tables and report are saved under the project results
 root, not inside the Git repo:
@@ -377,6 +380,197 @@ Important interpretation notes:
 - Absence of fetal marker-pair hits should not be interpreted as absence of a
   developmental relationship because adult endpoints may not retain fetal
   marker genes.
+
+## DIV90 Jia-Like Siletti Label-Transfer Staging
+
+Date logged: 2026-06-14
+
+Purpose: run a Jia-like adult-reference label transfer test from Siletti adult
+human brain interneuron reference classes onto the existing DIV90 neuron-only
+query set. This is the first reproducible pass and is deliberately batched as a
+knob sweep rather than a single opaque job.
+
+Primary public source used for the large AnnData objects:
+
+```text
+CELLxGENE collection: 283d65eb-dd53-496d-adb7-7570c7caa443
+K. Siletti et al., Transcriptomic diversity of cell types across the adult human brain
+```
+
+The Linnarsson README advertises large downloadable `Neurons.h5ad` and
+`Nonneurons.h5ad` files, but the direct legacy Google Storage path tested on
+Great Lakes returned `NoSuchBucket`. The workflow therefore stages the relevant
+CELLxGENE per-supercluster H5AD assets instead.
+
+Downloaded reference H5AD assets:
+
+| Adult reference scope | CELLxGENE dataset id | Local file | Cells |
+|---|---|---|---:|
+| MGE interneuron | `e4710a02-8abc-48d5-a3e8-9ae7e9d79bdb` | `siletti_whb_mge_interneuron.h5ad` | 222,434 |
+| CGE interneuron | `bdb26abd-f4ba-4ea3-8862-c2340e7a4f55` | `siletti_whb_cge_interneuron.h5ad` | 227,671 |
+| LAMP5-LHX6 and Chandelier | `8f48c031-6692-4c82-b6c2-e4ad35cbc0aa` | `siletti_whb_lamp5_lhx6_and_chandelier.h5ad` | 45,118 |
+
+Local staging root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer
+```
+
+Repo workflow files added for this run:
+
+```text
+python_notebooks/scripts/fetch_siletti_cellxgene_supercluster_h5ads.py
+python_notebooks/scripts/prepare_siletti_div90_transfer_inputs.py
+python_notebooks/scripts/export_siletti_div90_seurat_bridge.py
+scripts/31_run_siletti_div90_seurat_label_transfer.R
+slurm_templates/39_fetch_siletti_cellxgene_supercluster_h5ads.sbatch.template
+slurm_templates/40_prepare_siletti_div90_transfer_inputs.sbatch.template
+slurm_templates/41_export_siletti_div90_seurat_bridge_array.sbatch.template
+slurm_templates/42_siletti_div90_seurat_label_transfer_array.sbatch.template
+```
+
+DIV90 query source:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div90.h5ad
+```
+
+Neuron-only DIV90 clusters included for the query:
+
+| Cluster | DIV90 label |
+|---:|---|
+| 0 | MGE Striatal/GP Fated |
+| 1 | SST+, NPY+, Cortical Fated |
+| 2 | CRABP1+/PV Precursors |
+| 3 | PV precursors/Migrating cells/Cortical-fated |
+| 5 | LHX8+ vMGE GABergic Striatal/GP fated 1 |
+| 8 | LHX8+ vMGE GABergic Striatal/GP fated 2 |
+| 11 | PV Precursors |
+
+Excluded for this transfer pass: astrocyte/pre-astrocyte, OPC/pre-OPC, stressed,
+and dividing clusters. Included query size: 16,206 cells.
+
+Completed upstream jobs:
+
+| Job id | Job name | State | Purpose |
+|---:|---|---|---|
+| 51779592 | `siletti-fetch-h5ad` | COMPLETED | Download CELLxGENE MGE, CGE, LLC H5ADs and write checksums/manifests. |
+| 51779593 | `siletti-div90-prep` | COMPLETED | Build DIV90 neuron manifest, marker/DE summaries, and Figure A heatmaps. |
+| 51779660 | `siletti-div90-bridge` | FAILED | First bridge attempt; path comparison bug collected no AnnData blocks. |
+| 51779661 | `siletti-div90-xfer` | CANCELLED | Dependency-cancelled after failed bridge attempt. |
+| 51779674 | `siletti-div90-bridge` | COMPLETED | Resubmitted bridge export after path-resolution fix. |
+| 51779675 | `siletti-div90-xfer` | FAILED/CANCELLED | First transfer array; failed on Seurat 5.1.0 `FindTransferAnchors` API mismatch. |
+| 51779847 | `siletti-div90-xfer` | RUNNING as of 2026-06-14 19:31 EDT | Corrected transfer array using installed Seurat 5.1.0 argument set. No array task had completed at the 19:31 status check. |
+
+Bridge-export scopes:
+
+| Scope | Adult reference included | Exported reference cells | Query cells | Shared genes |
+|---|---|---:|---:|---:|
+| `mge_llc` | MGE + LAMP5-LHX6/chandelier | 26,290 | 16,206 | 17,849 |
+| `mge_cge_llc` | MGE + CGE + LAMP5-LHX6/chandelier | 43,916 | 16,206 | 17,849 |
+
+Reference downsampling knobs used during bridge export:
+
+```text
+max reference cells per subcluster: 100
+max reference cells total per scope: 60000
+seed: 0
+adult label column prepared for transfer: candidate_jia_group
+```
+
+Transfer array knobs:
+
+```text
+reference scopes: mge_llc, mge_cge_llc
+reductions: rpca, cca
+dims: 20, 50
+nfeatures: 3000 variable shared features selected inside Seurat
+npcs: 50
+k.weight requested: 50
+seed: 0
+Seurat module: r-seurat/5.1.0-R-4.4.1-c3m7yfq
+R script: scripts/31_run_siletti_div90_seurat_label_transfer.R
+```
+
+The first transfer array (`51779675`) failed because this installed Seurat
+version accepts `reference.reduction` but not `query.reduction` in
+`FindTransferAnchors`. The runner was patched to use `do.call()` with the
+installed function's supported argument set and to explicitly select variable
+shared genes instead of taking the first shared genes by file order. A corrected
+v2 transfer array was submitted as job `51779847` with output run label:
+
+```text
+siletti_div90_seurat_label_transfer_sweep_v2
+```
+
+Current transfer-array status as of 2026-06-14 19:31 EDT:
+
+```text
+all 8 tasks in job 51779847 are RUNNING
+elapsed: ~00:38:42 per task
+completed transfer configs: 0/8
+final prediction tables: not yet present
+final transfer diagnostics: not yet present
+files present so far: selected_transfer_features.tsv for each config
+```
+
+Live health check as of 2026-06-14 22:05 EDT:
+
+```text
+all 8 tasks in job 51779847 are still RUNNING
+elapsed: ~03:12 per task
+completed transfer configs: 0/8
+final prediction tables: not yet present
+final transfer diagnostics: not yet present
+each R process is active at ~98-100% CPU, so the jobs are not sleeping
+observed RSS: ~13.6 GB for mge_llc tasks and ~17.8-18.2 GB for mge_cge_llc tasks
+important inefficiency: each task requested 8 CPUs but the Seurat/R process is
+effectively using about one core during this stage
+likely current stage: FindTransferAnchors/nearest-neighbor anchor search after
+feature selection
+```
+
+Backup long-walltime array prepared as of 2026-06-14 23:10 EDT:
+
+```text
+job_id: 51793560
+job_name: siletti-div90-xfer-long
+state: PENDING
+reason: JobHeldUser
+dependency: afternotok:51779847_*(unfulfilled)
+time_limit: 24:00:00
+cpus_per_task: 8
+memory: 180G
+output run label: siletti_div90_seurat_label_transfer_sweep_v3_longtime
+job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/42_siletti_div90_seurat_label_transfer_array_longtime_hold.sbatch
+```
+
+This backup array should remain held unless the current v2 array (`51779847`)
+fails or times out. If it needs to run, release it with:
+
+```bash
+scontrol release 51793560
+```
+
+Key result locations:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/source_cellxgene_superclusters
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_neuron_prep_v1
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_seurat_bridge_v1
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_seurat_label_transfer_sweep_v2
+```
+
+Figure/report status:
+
+```text
+Figure A heatmaps are generated in siletti_div90_neuron_prep_v1/plots.
+Transfer prediction and diagnostic tables are expected from the Seurat array but
+were not present at the 2026-06-14 19:31 EDT status check.
+Integrated UMAP, river/alluvial plot, and stage/composition bar plots still need
+the post-transfer plotting job after the selected transfer configuration is
+chosen.
+```
 
 ## Operational Notes
 

@@ -86,6 +86,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--root-cluster", type=int, default=int(os.environ.get("DIV90_ROOT_CLUSTER", "12")))
     parser.add_argument("--root-top-percent", type=float, default=float(os.environ.get("DIV90_ROOT_TOP_PERCENT", DEFAULT_ROOT_TOP_PERCENT)))
     parser.add_argument("--root-min-cells", type=int, default=int(os.environ.get("DIV90_ROOT_MIN_CELLS", DEFAULT_ROOT_MIN_CELLS)))
+    parser.add_argument(
+        "--tip-assignment-tsv",
+        type=Path,
+        default=Path(os.environ["DIV90_TIP_ASSIGNMENT_TSV"]) if os.environ.get("DIV90_TIP_ASSIGNMENT_TSV") else None,
+        help="Optional all-cell tip assignment TSV with div90_jia_tip_group/display/role columns.",
+    )
     return parser.parse_args()
 
 
@@ -309,7 +315,25 @@ def root_program_marker_summary(
     return pd.DataFrame(rows)
 
 
-def add_lineage_roles(metadata: pd.DataFrame) -> pd.DataFrame:
+def add_lineage_roles(metadata: pd.DataFrame, tip_assignment_tsv: Path | None = None) -> pd.DataFrame:
+    if tip_assignment_tsv is not None:
+        assignment = pd.read_csv(tip_assignment_tsv, sep="\t")
+        required = {"cell_id", "div90_jia_tip_group", "div90_jia_tip_display", "div90_jia_urd_role"}
+        missing = required.difference(assignment.columns)
+        if missing:
+            raise ValueError(f"{tip_assignment_tsv} is missing columns: {', '.join(sorted(missing))}")
+        keep_cols = [
+            "cell_id",
+            "neuron_leiden_r0_6",
+            "div90_jia_tip_group",
+            "div90_jia_tip_display",
+            "div90_jia_urd_role",
+        ]
+        keep_cols = [col for col in keep_cols if col in assignment.columns]
+        metadata = metadata.merge(assignment[keep_cols], on="cell_id", how="left", validate="one_to_one")
+        metadata["paper_cluster_annotation"] = metadata["cluster_number_name"].astype(str)
+        return metadata
+
     metadata["div90_jia_tip_group"] = metadata["cluster_id_numeric"].map(TIP_BY_CLUSTER)
     metadata["div90_jia_tip_display"] = metadata["div90_jia_tip_group"].map(TIP_DISPLAY)
     metadata["div90_jia_urd_role"] = "excluded_or_unassigned"
@@ -356,7 +380,7 @@ def main() -> None:
     umap = pd.read_csv(umap_path, sep="\t")
     metadata = obs.merge(umap, on="cell_id", how="inner", validate="one_to_one")
     metadata["cluster_id_numeric"] = pd.to_numeric(metadata["cluster_id"], errors="raise").astype(int)
-    metadata = add_lineage_roles(metadata)
+    metadata = add_lineage_roles(metadata, args.tip_assignment_tsv.expanduser().resolve() if args.tip_assignment_tsv else None)
 
     barcode_index = pd.Series(np.arange(len(barcodes)), index=barcodes.values)
     metadata["matrix_col_index"] = metadata["cell_id"].map(barcode_index)
@@ -419,6 +443,7 @@ def main() -> None:
         "div90_jia_tip_group",
         "div90_jia_tip_display",
         "div90_jia_urd_role",
+        "neuron_leiden_r0_6",
         "jia_score_RGC1",
         "jia_score_RGC2",
         "jia_score_IPC",
@@ -494,6 +519,7 @@ def main() -> None:
             {"key": "root_cluster", "value": str(args.root_cluster)},
             {"key": "root_top_percent", "value": str(args.root_top_percent)},
             {"key": "root_min_cells", "value": str(args.root_min_cells)},
+            {"key": "tip_assignment_tsv", "value": str(args.tip_assignment_tsv) if args.tip_assignment_tsv else ""},
             {"key": "tip_lhx8_isl1_clusters", "value": "0,5,8"},
             {"key": "tip_lhx6_nfia_clusters", "value": "1"},
             {"key": "tip_crabp1_angpt2_clusters", "value": "2"},

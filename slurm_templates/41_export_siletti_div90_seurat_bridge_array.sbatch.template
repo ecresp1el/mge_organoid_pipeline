@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Export Siletti/DIV90 sparse bridge matrices for Seurat label transfer.
+#
+# Submit:
+#   cp slurm_templates/41_export_siletti_div90_seurat_bridge_array.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/41_export_siletti_div90_seurat_bridge_array.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/41_export_siletti_div90_seurat_bridge_array.sbatch
+
+#SBATCH --job-name=siletti-bridge
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --array=0-1
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=96G
+#SBATCH --time=04:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-bridge-%A_%a.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-bridge-%A_%a.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_v1}"
+SILETTI_MAX_REF_CELLS_PER_SUBCLUSTER="${SILETTI_MAX_REF_CELLS_PER_SUBCLUSTER:-100}"
+SILETTI_MAX_REF_CELLS_TOTAL="${SILETTI_MAX_REF_CELLS_TOTAL:-60000}"
+SILETTI_BRIDGE_SEED="${SILETTI_BRIDGE_SEED:-0}"
+
+scopes=(mge_llc mge_cge_llc)
+scope="${scopes[${SLURM_ARRAY_TASK_ID}]}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+echo "Siletti DIV90 Seurat bridge export started: $(date)"
+echo "Host: $(hostname)"
+echo "Array task: ${SLURM_ARRAY_TASK_ID}"
+echo "Scope: ${scope}"
+echo "Run label: ${SILETTI_BRIDGE_RUN_LABEL}"
+echo "Max ref cells per subcluster: ${SILETTI_MAX_REF_CELLS_PER_SUBCLUSTER}"
+echo "Max ref cells total: ${SILETTI_MAX_REF_CELLS_TOTAL}"
+echo "Seed: ${SILETTI_BRIDGE_SEED}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" -m py_compile python_notebooks/scripts/export_siletti_div90_seurat_bridge.py
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/export_siletti_div90_seurat_bridge.py \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${SILETTI_BRIDGE_RUN_LABEL}" \
+  --scope "${scope}" \
+  --max-ref-cells-per-subcluster "${SILETTI_MAX_REF_CELLS_PER_SUBCLUSTER}" \
+  --max-ref-cells-total "${SILETTI_MAX_REF_CELLS_TOTAL}" \
+  --seed "${SILETTI_BRIDGE_SEED}"
+
+RUN_DIR="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${scope}"
+echo "Generated files:"
+find "${RUN_DIR}" -maxdepth 3 -type f | sort
+echo "Siletti DIV90 Seurat bridge export finished: $(date)"

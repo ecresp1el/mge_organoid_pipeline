@@ -42,6 +42,7 @@ RUN_LABEL="${RUN_LABEL:-div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips}"
 MAX_CELLS="${MAX_CELLS:-5000}"
 SEED="${SEED:-7}"
 URD_SEED="${URD_SEED:-${SEED}}"
+DIV90_TIP_MODE="${DIV90_TIP_MODE:-cluster_v4}"
 DIV90_ROOT_TOP_PERCENT="${DIV90_ROOT_TOP_PERCENT:-2}"
 DIV90_ROOT_MIN_CELLS="${DIV90_ROOT_MIN_CELLS:-8}"
 DIV90_RETAIN_CLUSTERS="${DIV90_RETAIN_CLUSTERS:-0,1,2,3,4,5,8,9,10,11,12}"
@@ -69,6 +70,11 @@ TREE_P_THRESH="${TREE_P_THRESH:-0.01}"
 TREE_MIN_CELLS_PER_SEGMENT="${TREE_MIN_CELLS_PER_SEGMENT:-1}"
 TREE_MIN_PSEUDOTIME_PER_SEGMENT="${TREE_MIN_PSEUDOTIME_PER_SEGMENT:-0.01}"
 HEARTBEAT_INTERVAL_SECONDS="${HEARTBEAT_INTERVAL_SECONDS:-300}"
+if [[ "${DIV90_TIP_MODE}" == "neuron_s9_7tip" ]]; then
+  TREE_TIP_LABELS="${TREE_TIP_LABELS:-tip_lhx8_isl1_state1,tip_lhx8_isl1_state2,tip_crabp1_angpt2_fetal_precursor,tip_lhx6_nfia_epha5_mef2c_cortical,tip_nr2f1_nr2f2,tip_astrocytes,tip_opc}"
+else
+  TREE_TIP_LABELS="${TREE_TIP_LABELS:-tip_lhx8_isl1,tip_lhx6_nfia,tip_crabp1_angpt2,tip_astrocytes,tip_opc}"
+fi
 
 RUN_ROOT="${PROJECT_ROOT}/results/div90_jia_lineage_urd/${RUN_LABEL}"
 INPUT_DIR="${RUN_ROOT}/inputs"
@@ -109,11 +115,13 @@ echo "SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-}"
 echo "SLURM_MEM_PER_NODE=${SLURM_MEM_PER_NODE:-}"
 echo "RUN_LABEL=${RUN_LABEL}"
 echo "MAX_CELLS=${MAX_CELLS}"
+echo "DIV90_TIP_MODE=${DIV90_TIP_MODE}"
 echo "DIV90_RETAIN_CLUSTERS=${DIV90_RETAIN_CLUSTERS}"
 echo "DIV90_ROOT_TOP_PERCENT=${DIV90_ROOT_TOP_PERCENT}"
 echo "DIV90_ROOT_MIN_CELLS=${DIV90_ROOT_MIN_CELLS}"
 echo "URD_KNN=${URD_KNN}"
 echo "URD_PSEUDOTIME_NAME=${URD_PSEUDOTIME_NAME}"
+echo "TREE_TIP_LABELS=${TREE_TIP_LABELS}"
 echo "HEARTBEAT_INTERVAL_SECONDS=${HEARTBEAT_INTERVAL_SECONDS}"
 echo "HEARTBEAT_LOG=${HEARTBEAT_LOG}"
 
@@ -121,6 +129,14 @@ source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV}"
 python --version
 which python
+
+DIV90_TIP_ASSIGNMENT_TSV=""
+if [[ "${DIV90_TIP_MODE}" == "neuron_s9_7tip" ]]; then
+  DIV90_TIP_ASSIGNMENT_TSV="${INPUT_DIR}/div90_neuron_s9_7tip_assignments.tsv"
+  python "${REPO_ROOT}/python_notebooks/scripts/div90_assign_neuron_s9_7tip_groups.py" \
+    --project-root "${PROJECT_ROOT}" \
+    --out "${DIV90_TIP_ASSIGNMENT_TSV}"
+fi
 
 echo "=== DIV90 planned plots/reports ==="
 python "${REPO_ROOT}/python_notebooks/scripts/audit_urd_run_outputs.py" \
@@ -130,16 +146,21 @@ python "${REPO_ROOT}/python_notebooks/scripts/audit_urd_run_outputs.py" \
   --planned-only \
   --artifact-types "plot,report"
 
-python "${REPO_ROOT}/python_notebooks/scripts/export_div90_jia_lineage_urd_inputs.py" \
-  --project-root "${PROJECT_ROOT}" \
-  --run-label "${RUN_LABEL}" \
-  --outdir "${INPUT_DIR}" \
-  --max-cells "${MAX_CELLS}" \
-  --seed "${SEED}" \
-  --retain-clusters "${DIV90_RETAIN_CLUSTERS}" \
-  --root-cluster "12" \
-  --root-top-percent "${DIV90_ROOT_TOP_PERCENT}" \
+EXPORT_ARGS=(
+  --project-root "${PROJECT_ROOT}"
+  --run-label "${RUN_LABEL}"
+  --outdir "${INPUT_DIR}"
+  --max-cells "${MAX_CELLS}"
+  --seed "${SEED}"
+  --retain-clusters "${DIV90_RETAIN_CLUSTERS}"
+  --root-cluster "12"
+  --root-top-percent "${DIV90_ROOT_TOP_PERCENT}"
   --root-min-cells "${DIV90_ROOT_MIN_CELLS}"
+)
+if [[ -n "${DIV90_TIP_ASSIGNMENT_TSV}" ]]; then
+  EXPORT_ARGS+=(--tip-assignment-tsv "${DIV90_TIP_ASSIGNMENT_TSV}")
+fi
+python "${REPO_ROOT}/python_notebooks/scripts/export_div90_jia_lineage_urd_inputs.py" "${EXPORT_ARGS[@]}"
 
 conda deactivate
 
@@ -187,7 +208,7 @@ Rscript "${REPO_ROOT}/scripts/16_div30_urd_build_lineage_tree.R" \
   --root-label "DIV90 Jia RootScore top ${DIV90_ROOT_TOP_PERCENT}% in cluster 12" \
   --root-col "urd_root_candidate" \
   --pseudotime-name "${URD_PSEUDOTIME_NAME}" \
-  --tip-labels "tip_lhx8_isl1,tip_lhx6_nfia,tip_crabp1_angpt2,tip_astrocytes,tip_opc" \
+  --tip-labels "${TREE_TIP_LABELS}" \
   --n-per-tip "${TREE_N_PER_TIP}" \
   --process-n-subsample "${TREE_PROCESS_N_SUBSAMPLE}" \
   --cells-per-pseudotime-bin "${TREE_CELLS_PER_PSEUDOTIME_BIN}" \

@@ -160,6 +160,163 @@ MEF2C, EPHA5, LHX6, CRABP1, LHX8, NR2F1, NR2F2
 
 onto the tree and comparing cluster 3/11 marker profiles to the v2 tip profiles.
 
+## Updated Neuron-S9 Seven-Tip Plan
+
+Later DIV90 neuron-only reclustering and Science Data S9 module scoring refined
+the neuronal endpoint model. The old v4 tip definition above is still preserved
+for reproducibility, but the next all-cell DIV90 run should use this newer
+seven-tip setup.
+
+Summary of intermediate work:
+
+```text
+1. Per-parent subclustering audit showed clusters 1, 3, and 11 have interesting
+   marker-supported splits, but those splits were sample/cell-line or depth
+   associated under conservative gates.
+
+2. Targeted validation preserved these as biological hypotheses:
+   cluster 1 = EDIL3/CRABP1 vs ACKR3/ZEB2
+   cluster 3 = BEX3/CRABP1/DCX neuroblast-like state
+   cluster 11 = ACKR3/ZEB2/MAF vs CPE/TUBB2A/CNTN1
+
+3. Neuron-only reclustering of original neuronal clusters 0,1,2,3,5,8,11
+   selected resolution 0.6, giving 9 neuron-only states.
+
+4. Science Data S9 scoring mapped those 9 states onto five anchor classes:
+   EPHA5/MEF2C
+   LHX6/NFIA
+   CRABP1/ANGPT2
+   NR2F1/NR2F2
+   LHX8/ISL1
+```
+
+The current working neuronal branch model is:
+
+```text
+1. LHX8/ISL1-like ventral MGE branch
+   neuron-only clusters 4 + 7
+   neuron-only cluster 0 retained as possible upstream/intermediate state
+
+2. CRABP1/ANGPT2-like fetal precursor branch
+   neuron-only cluster 3
+   caveat: ANGPT2 is missing from the H5AD, so this is CRABP1-driven
+
+3. LHX6/NFIA / EPHA5/MEF2C cortical interneuron branch
+   neuron-only clusters 1 + 2
+
+4. NR2F1/NR2F2-like branch
+   neuron-only clusters 5 + 6 + 8
+```
+
+Use all non-stressed DIV90 cells, as in the prior all-cell/glia-tip DIV90 run:
+
+```text
+retain original clusters: 0,1,2,3,4,5,8,9,10,11,12
+exclude original clusters: 6,7
+root pool: original cluster 12 - Dividing cells
+root selection: top 10% RootScore within cluster 12
+```
+
+Use seven tips:
+
+| Tip ID | Source cells | Expected biology |
+|---|---|---|
+| `tip_lhx8_isl1_state1` | neuron-only cluster 4 | LHX8/ISL1-like ventral MGE branch state 1 |
+| `tip_lhx8_isl1_state2` | neuron-only cluster 7 | LHX8/ISL1-like ventral MGE branch state 2 |
+| `tip_crabp1_angpt2_fetal_precursor` | neuron-only cluster 3 | CRABP1/ANGPT2-like fetal precursor branch |
+| `tip_lhx6_nfia_epha5_mef2c_cortical` | neuron-only clusters 1 + 2 | LHX6/NFIA plus EPHA5/MEF2C cortical interneuron branch |
+| `tip_nr2f1_nr2f2` | neuron-only clusters 5 + 6 + 8 | NR2F1/NR2F2-like branch |
+| `tip_astrocytes` | original clusters 4 + 10 | combined astrocyte endpoint, unchanged from prior v4 |
+| `tip_opc` | original cluster 9 | OPC endpoint, unchanged from prior v4 |
+
+Neuron-only cluster `0` is deliberately retained but not used as a tip because
+it looks immature/upstream by the marker and S9 scoring.
+
+Machine-readable plan:
+
+```text
+metadata/div90_jia_lineage_urd_plan_neuron_s9_7tips.tsv
+```
+
+Scripts/templates updated for this mode:
+
+```text
+python_notebooks/scripts/div90_assign_neuron_s9_7tip_groups.py
+python_notebooks/scripts/export_div90_jia_lineage_urd_inputs.py
+slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+```
+
+Run with:
+
+```bash
+DIV90_TIP_MODE=neuron_s9_7tip
+RUN_LABEL=div90_urd_jia_lineage_allcells_root10_neuron_s9_7tips_v1
+MAX_CELLS=0
+DIV90_ROOT_TOP_PERCENT=10
+sbatch slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+```
+
+Submitted all-cell seven-tip run:
+
+```text
+initial job 51793603:
+  cancelled because 12h walltime crossed a maintenance reservation
+
+active job 51796286:
+  RUN_LABEL = div90_urd_jia_lineage_allcells_root10_neuron_s9_7tips_v1
+  DIV90_TIP_MODE = neuron_s9_7tip
+  MAX_CELLS = 0, meaning all retained cells
+  DIV90_ROOT_TOP_PERCENT = 10
+  requested walltime = 04:00:00
+  requested memory = 128G
+  status at 2026-06-14 23:32 EDT = RUNNING on gl3156
+```
+
+Expected run root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_allcells_root10_neuron_s9_7tips_v1
+```
+
+Check command:
+
+```bash
+squeue -j 51796286
+sacct -j 51796286 --format=JobID,JobName%32,State,ExitCode,Elapsed,AllocCPUS,ReqMem,MaxRSS,NodeList
+tail -n 120 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/34_div90_jia_lineage_urd_smoke_51796286.log
+```
+
+Early checkpoint:
+
+```text
+The neuron-S9 assignment and input export completed successfully.
+The run retained 20,049 cells:
+  all non-stressed cells from original clusters 0,1,2,3,4,5,8,9,10,11,12
+
+Root pool:
+  original cluster 12, n = 358
+  selected top 10% RootScore roots, n = 36
+
+R URD stage reached:
+  scripts/14_div30_first_urd.R
+  create_filtered_urd / normalization stage
+```
+
+All-cell seven-tip assignment counts:
+
+| Role | Tip group | n cells |
+|---|---|---:|
+| retained upstream | `retained_upstream_lhx8_isl1_neuron0` | 3,479 |
+| root pool | `root_pool_cluster12_dividing_cells` | 358 |
+| tip | `tip_lhx8_isl1_state1` | 1,866 |
+| tip | `tip_lhx8_isl1_state2` | 926 |
+| tip | `tip_crabp1_angpt2_fetal_precursor` | 1,948 |
+| tip | `tip_lhx6_nfia_epha5_mef2c_cortical` | 4,747 |
+| tip | `tip_nr2f1_nr2f2` | 3,240 |
+| tip | `tip_astrocytes` | 2,570 |
+| tip | `tip_opc` | 915 |
+| excluded | `excluded_stressed` | 2,289 |
+
 ## First Smoke Run
 
 Retain:
