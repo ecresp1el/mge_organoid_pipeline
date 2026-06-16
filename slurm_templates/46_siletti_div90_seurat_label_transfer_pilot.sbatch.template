@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Pilot Siletti adult reference -> DIV90 neuron Seurat label transfer.
+# This is intentionally capped and verbose so we can verify the logic before
+# burning another full-size array.
+
+#SBATCH --job-name=siletti-xfer-pilot
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=80G
+#SBATCH --time=04:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-xfer-pilot-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-xfer-pilot-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_v1}"
+SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_seurat_label_transfer_pilot_v1}"
+
+SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc}"
+SILETTI_TRANSFER_REDUCTION="${SILETTI_TRANSFER_REDUCTION:-pcaproject}"
+SILETTI_TRANSFER_DIMS="${SILETTI_TRANSFER_DIMS:-20}"
+SILETTI_TRANSFER_LABEL_COLUMN="${SILETTI_TRANSFER_LABEL_COLUMN:-candidate_jia_group}"
+SILETTI_TRANSFER_NFEATURES="${SILETTI_TRANSFER_NFEATURES:-2000}"
+SILETTI_TRANSFER_NPCS="${SILETTI_TRANSFER_NPCS:-30}"
+SILETTI_TRANSFER_SEED="${SILETTI_TRANSFER_SEED:-0}"
+SILETTI_TRANSFER_K_WEIGHT="${SILETTI_TRANSFER_K_WEIGHT:-30}"
+SILETTI_TRANSFER_MAX_REFERENCE_CELLS="${SILETTI_TRANSFER_MAX_REFERENCE_CELLS:-5000}"
+SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-3000}"
+SILETTI_TRANSFER_EXCLUDE_LABEL="${SILETTI_TRANSFER_EXCLUDE_LABEL:-Excluded / not assigned to Jia-style 9 groups}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+bridge_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/seurat_bridge"
+outdir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_TRANSFER_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/${SILETTI_TRANSFER_REDUCTION}_dims${SILETTI_TRANSFER_DIMS}"
+
+echo "Siletti DIV90 pilot transfer started: $(date)"
+echo "Host: $(hostname)"
+echo "Scope: ${SILETTI_TRANSFER_SCOPE}"
+echo "Reduction: ${SILETTI_TRANSFER_REDUCTION}"
+echo "Dims: ${SILETTI_TRANSFER_DIMS}"
+echo "Label column: ${SILETTI_TRANSFER_LABEL_COLUMN}"
+echo "Exclude label: ${SILETTI_TRANSFER_EXCLUDE_LABEL}"
+echo "Max reference cells: ${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}"
+echo "Max query cells: ${SILETTI_TRANSFER_MAX_QUERY_CELLS}"
+echo "Bridge dir: ${bridge_dir}"
+echo "Output dir: ${outdir}"
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript -e "invisible(parse(file='scripts/31_run_siletti_div90_seurat_label_transfer.R')); cat('parse_ok\n')"
+
+Rscript scripts/31_run_siletti_div90_seurat_label_transfer.R \
+  --bridge-dir "${bridge_dir}" \
+  --outdir "${outdir}" \
+  --label-column "${SILETTI_TRANSFER_LABEL_COLUMN}" \
+  --exclude-label "${SILETTI_TRANSFER_EXCLUDE_LABEL}" \
+  --reduction "${SILETTI_TRANSFER_REDUCTION}" \
+  --dims "${SILETTI_TRANSFER_DIMS}" \
+  --nfeatures "${SILETTI_TRANSFER_NFEATURES}" \
+  --npcs "${SILETTI_TRANSFER_NPCS}" \
+  --seed "${SILETTI_TRANSFER_SEED}" \
+  --k-weight "${SILETTI_TRANSFER_K_WEIGHT}" \
+  --max-reference-cells "${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}" \
+  --max-query-cells "${SILETTI_TRANSFER_MAX_QUERY_CELLS}" \
+  --seurat-verbose true
+
+echo "Generated files:"
+find "${outdir}" -maxdepth 4 -type f | sort
+echo "Siletti DIV90 pilot transfer finished: $(date)"
