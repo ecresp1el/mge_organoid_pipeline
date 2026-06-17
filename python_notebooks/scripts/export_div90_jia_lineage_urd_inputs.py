@@ -14,7 +14,7 @@ It keeps the major processing decisions outside the URD R step:
     combined astrocyte and OPC endpoints.
 
 The output file names intentionally use the legacy `div30_first_urd_*` names
-because scripts/14_div30_first_urd.R consumes that input bundle format. The
+because scripts/14_urd_first_pass_pseudotime.R consumes that input bundle format. The
 manifest records that this is a DIV90 Jia-lineage run.
 """
 
@@ -534,7 +534,7 @@ def main() -> None:
             {"key": "n_selected_cells", "value": str(len(selected))},
             {"key": "n_root_cells", "value": str(int(selected["urd_root_candidate"].sum()))},
             {"key": "root_program_marker_summary_tsv", "value": str(outdir / "root_score_program_marker_summary.tsv")},
-            {"key": "compatibility_note", "value": "Output bundle uses div30_first_urd_* file names for scripts/14_div30_first_urd.R compatibility."},
+            {"key": "compatibility_note", "value": "Output bundle uses div30_first_urd_* file names for scripts/14_urd_first_pass_pseudotime.R compatibility."},
             {"key": "counts_mtx", "value": str(selected_counts_path)},
             {"key": "features_tsv", "value": str(selected_features_path)},
             {"key": "barcodes_tsv", "value": str(selected_barcodes_path)},

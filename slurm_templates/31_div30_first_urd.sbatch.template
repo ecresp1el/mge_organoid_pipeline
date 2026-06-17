@@ -46,6 +46,8 @@ URD_MIN_GENES="${URD_MIN_GENES:-500}"
 URD_MIN_CELLS="${URD_MIN_CELLS:-3}"
 URD_MIN_COUNTS="${URD_MIN_COUNTS:-10}"
 URD_PCA_MP_FACTOR="${URD_PCA_MP_FACTOR:-2}"
+URD_DM_METHOD="${URD_DM_METHOD:-auto}"
+URD_DM_PCA_DIMS="${URD_DM_PCA_DIMS:-}"
 URD_KNN="${URD_KNN:-100}"
 URD_SIGMA="${URD_SIGMA:-local}"
 URD_N_FLOODS="${URD_N_FLOODS:-20}"
@@ -104,6 +106,8 @@ echo "URD_MIN_GENES=${URD_MIN_GENES}"
 echo "URD_MIN_CELLS=${URD_MIN_CELLS}"
 echo "URD_MIN_COUNTS=${URD_MIN_COUNTS}"
 echo "URD_PCA_MP_FACTOR=${URD_PCA_MP_FACTOR}"
+echo "URD_DM_METHOD=${URD_DM_METHOD}"
+echo "URD_DM_PCA_DIMS=${URD_DM_PCA_DIMS:-all_stored_pcs}"
 echo "URD_KNN=${URD_KNN}"
 echo "URD_SIGMA=${URD_SIGMA}"
 echo "URD_N_FLOODS=${URD_N_FLOODS}"
@@ -145,7 +149,7 @@ which Rscript
 
 Rscript -e 'pkgs <- c("Matrix", "URD", "ggplot2"); status <- sapply(pkgs, requireNamespace, quietly=TRUE); print(data.frame(package=pkgs, installed=status), row.names=FALSE); quit(status=ifelse(all(status), 0, 1))'
 
-Rscript "${REPO_ROOT}/scripts/14_div30_first_urd.R" \
+Rscript "${REPO_ROOT}/scripts/14_urd_first_pass_pseudotime.R" \
   --project-root "${PROJECT_ROOT}" \
   --input-dir "${INPUT_DIR}" \
   --outdir "${RUN_ROOT}" \
@@ -156,6 +160,8 @@ Rscript "${REPO_ROOT}/scripts/14_div30_first_urd.R" \
   --min-cells "${URD_MIN_CELLS}" \
   --min-counts "${URD_MIN_COUNTS}" \
   --pca-mp-factor "${URD_PCA_MP_FACTOR}" \
+  --dm-method "${URD_DM_METHOD}" \
+  --dm-pca-dims "${URD_DM_PCA_DIMS:-}" \
   --knn "${URD_KNN}" \
   --sigma "${URD_SIGMA}" \
   --n-floods "${URD_N_FLOODS}" \

@@ -646,7 +646,7 @@ div90_urd_jia_lineage_smoke5k_knn100_v3_glia_cells
 div90_urd_jia_lineage_smoke5k_knn100_v4_glia_tips
 ```
 
-The shared URD geometry runner `scripts/14_div30_first_urd.R` is now resumable.
+The shared URD geometry runner `scripts/14_urd_first_pass_pseudotime.R` is now resumable.
 It preserves the same biological/statistical parameters and only changes
 execution mechanics. It writes:
 
@@ -792,4 +792,161 @@ python python_notebooks/scripts/audit_urd_run_outputs.py \
   --run-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1 \
   --mode div90_jia \
   --outdir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1/tables
+```
+
+## DIV30 All-Cell URD Failure And Resumed Rerun Plan
+
+Checked: 2026-06-17 EDT
+
+Job `51810088` (`div30_all_urd1`) failed after `1-14:48:32`, not because of
+the 48h walltime. It failed inside the first-pass DIV30 `calc_diffusion_map`
+stage.
+
+Sequence of events:
+
+```text
+input export                 completed; selected_cells=90,631
+read_input_bundle            completed in 177 sec
+create_filtered_urd          completed in 573 sec
+checkpoint_after_filter      completed
+select_variable_genes        completed; URD_NUM_VARIABLE_GENES=3000
+checkpoint_after_variable_genes completed
+calc_pca                     completed in 2,989 sec
+checkpoint_after_pca         completed; urd_after_pca.rds exists
+calc_diffusion_map           failed after 134,553 sec
+```
+
+Exact failure:
+
+```text
+STAGE_FAIL calc_diffusion_map elapsed_seconds=134553.09
+error=attempt to construct sparseMatrix with more than 2^31-1 nonzero entries
+```
+
+Completed checkpoints from this run:
+
+```text
+checkpoints/urd_after_filter.rds
+checkpoints/urd_after_variable_genes.rds
+checkpoints/urd_after_pca.rds
+```
+
+Missing after the failure:
+
+```text
+checkpoints/urd_after_diffusion_map.rds
+checkpoints/urd_after_flood_pseudotime.rds
+div30_first_urd_object.rds
+```
+
+Diagnosis: original `URD::calcDM()` still uses the dense expression/destiny
+path. For the all-cell DIV30 run (`90,631` cells), the implied pairwise index
+space is above R Matrix's `2^31-1` sparse-index ceiling. More walltime or more
+CPUs will not make this specific path succeed.
+
+The causal variable/function pair is:
+
+```text
+Function: scripts/14_urd_first_pass_pseudotime.R -> run_urd_diffusion_map()
+Old call: URD::calcDM(urd, knn = cfg$knn, sigma.use = cfg$sigma)
+
+Key variable causing scale failure:
+  n_cells = nrow(urd@meta) = 90,631
+
+Why it fails:
+  n_cells^2 = 8,213,978,161 potential pairwise entries,
+  which exceeds Matrix's 2^31-1 sparse-index ceiling.
+```
+
+`URD_KNN=100`, `URD_SIGMA=local`, and `URD_NUM_VARIABLE_GENES=3000` affect the
+size and runtime of the original `calcDM()` call, but the hard failure is driven
+by the all-cell `n_cells` crossing the sparse Matrix index ceiling in the
+destiny/URD diffusion-map path.
+
+Patch made in this checkout:
+
+```text
+scripts/14_urd_first_pass_pseudotime.R
+  Adds --dm-method auto|urd_expression|pca_knn.
+  auto preserves original URD calcDM for smaller runs but switches oversized
+  runs to a sparse PCA-kNN transition matrix using RANN.
+  The PCA-kNN path imports a valid destiny::DiffusionMap object with sparse
+  transitions so URD flood pseudotime can continue from the existing PCA
+  checkpoint.
+
+slurm_templates/31_div30_first_urd.sbatch.template
+  Echoes and passes URD_DM_METHOD and URD_DM_PCA_DIMS.
+
+slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+  Also echoes and passes URD_DM_METHOD and URD_DM_PCA_DIMS.
+  DIV90 already calls the same shared scripts/14_urd_first_pass_pseudotime.R geometry
+  runner, so the same auto/pca_knn guard applies there.
+```
+
+Validation performed:
+
+```text
+R parse scripts/14_urd_first_pass_pseudotime.R: OK
+Rscript scripts/14_urd_first_pass_pseudotime.R --help: OK
+bash -n slurm_templates/31_div30_first_urd.sbatch.template: OK
+bash -n slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template: OK
+git diff --check: OK
+```
+
+Current job state:
+
+```text
+51810088 div30_all_urd1     FAILED    1:0 after 1-14:48:32
+51810089 div30_jia_root10   CANCELLED dependency never ran after failed 51810088
+51810090 div90_jia_final    COMPLETED 0:0 after 04:04:44
+```
+
+Recommended resumed rerun:
+
+1. Resubmit DIV30 first-pass with the same `RUN_LABEL` and `URD_RESUME=true`.
+   It should load `checkpoints/urd_after_pca.rds` and resume at diffusion map,
+   using `URD_DM_METHOD=auto` or explicit `URD_DM_METHOD=pca_knn`.
+2. Watch for `Resolved diffusion map method: pca_knn` in the new log. If it says
+   `urd_expression`, stop the job because it is not on the intended resumed-rerun path.
+3. Resubmit the RootScore/reflood job with `--dependency=afterok:<new_DIV30_job>`.
+
+Chained inputs and outputs:
+
+| Step | Job/template | Inputs consumed | Outputs produced | Next dependency |
+|---|---|---|---|---|
+| 1 | `31_div30_first_urd.sbatch.template` via `scripts/14_urd_first_pass_pseudotime.R` | Existing run directory `results/div30_first_urd/div30_allcells_radial_glia_firstpass_urd_resumable_v1/`; most importantly `checkpoints/urd_after_pca.rds`, plus the shared input bundle under `inputs/` if earlier checkpoints must be rebuilt | `div30_first_urd_object.rds`; `checkpoints/urd_after_diffusion_map.rds`; `checkpoints/urd_after_flood_pseudotime.rds`; `tables/div30_first_urd_pseudotime.tsv`; `tables/div30_first_urd_summary.tsv`; first-pass plots and lineage-decision report | Step 2 must use `--dependency=afterok:<new_step1_job_id>` |
+| 2 | `35_div30_jia_rootscore_root10_reflood.sbatch.template` | `URD_RDS=${RUN_ROOT}/div30_first_urd_object.rds` from Step 1; `paper_cluster_annotation == "Radial glia"` root pool; Jia RootScore inputs already stored in the URD metadata/expression object | `${ROOTSCORE_DIR}/div30_urd_jia_rootscore_object.rds`; `${ROOTSCORE_DIR}/tables/root_score_*`; `${REFLOOD_DIR}/div30_urd_reflood_object.rds`; `${REFLOOD_DIR}/lineage_decision_report/`; refreshed `urd_output_manifest.tsv` | Downstream tree/figure jobs should wait for Step 2 if they use the RootScore pseudotime |
+
+Important naming note: Step 1 is a **rerun submission** but not a full restart.
+With `URD_RESUME=true` and `URD_FORCE_RECOMPUTE=false`, the script should load
+`urd_after_pca.rds` and continue at `calc_diffusion_map`. If that checkpoint is
+missing or unreadable, the same script can fall back to earlier checkpoints or
+the shared input bundle, but that would take longer and should be noted in the
+log.
+
+Suggested command:
+
+```bash
+RUN_LABEL="div30_allcells_radial_glia_firstpass_urd_resumable_v1" \
+ROOT_LABEL="Radial glia" \
+MAX_CELLS=0 \
+URD_RESUME=true \
+URD_FORCE_RECOMPUTE=false \
+URD_DM_METHOD=pca_knn \
+HEARTBEAT_INTERVAL_SECONDS=300 \
+sbatch --parsable --export=ALL --job-name=div30_all_urd1_rerun --time=24:00:00 --cpus-per-task=8 --mem=160G \
+  slurm_templates/31_div30_first_urd.sbatch.template
+```
+
+Then:
+
+```bash
+RUN_LABEL="div30_allcells_radial_glia_firstpass_urd_resumable_v1" \
+ROOT_RUN_LABEL="div30_allcells_radial_glia_jia_rootscore_top10_reflood_v1" \
+SELECTED_PCT=10 \
+POOL_COL="paper_cluster_annotation" \
+POOL_VALUE="Radial glia" \
+PSEUDOTIME_NAME="jia_rootscore_top10pct_radial_glia_root" \
+sbatch --parsable --export=ALL --dependency=afterok:<NEW_DIV30_JOB_ID> --job-name=div30_jia_root10 --time=18:00:00 --cpus-per-task=4 --mem=160G \
+  slurm_templates/35_div30_jia_rootscore_root10_reflood.sbatch.template
 ```

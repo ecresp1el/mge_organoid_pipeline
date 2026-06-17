@@ -18,7 +18,7 @@ This script imposes only input-bundle decisions:
 
 It does not normalize expression, choose variable genes, compute PCA/diffusion
 maps, or run pseudotime. Those URD-specific parameters live in
-scripts/14_div30_first_urd.R and are recorded by that script in
+scripts/14_urd_first_pass_pseudotime.R and are recorded by that script in
 tables/div30_first_urd_parameters.tsv.
 """
 

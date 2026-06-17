@@ -1,11 +1,11 @@
 #!/usr/bin/env Rscript
 
-# First-pass URD pseudotime for DIV30 cells.
+# Shared first-pass URD pseudotime runner for DIV30 and DIV90 input bundles.
 #
 # This script is deliberately organized as a small, auditable pipeline:
 #
-#   1. Read a plain Matrix Market input bundle produced by
-#      python_notebooks/scripts/export_div30_first_urd_inputs.py.
+#   1. Read a plain Matrix Market input bundle produced by the DIV30 or DIV90
+#      URD input exporters.
 #   2. Create an URD object with explicit gene/cell/count filters.
 #   3. Select highly variable genes from URD's normalized logupx matrix.
 #   4. Run URD PCA, diffusion map, and flood pseudotime.
@@ -114,6 +114,8 @@ parse_args <- function(args) {
     `root-label` = Sys.getenv("ROOT_LABEL", "Radial glia"),
     `pseudotime-name` = Sys.getenv("URD_PSEUDOTIME_NAME", "paper_radial_glia_root"),
     seed = Sys.getenv("URD_SEED", Sys.getenv("SEED", "7")),
+    `dm-method` = Sys.getenv("URD_DM_METHOD", "auto"),
+    `dm-pca-dims` = Sys.getenv("URD_DM_PCA_DIMS", ""),
     knn = Sys.getenv("URD_KNN", "100"),
     sigma = Sys.getenv("URD_SIGMA", "local"),
     `n-floods` = Sys.getenv("URD_N_FLOODS", "20"),
@@ -150,9 +152,9 @@ parse_args <- function(args) {
 print_usage <- function() {
   cat(paste(
     "Usage:",
-    "  Rscript scripts/14_div30_first_urd.R --project-root <PROJECT_ROOT> [--input-dir <dir>] [--outdir <dir>]",
+    "  Rscript scripts/14_urd_first_pass_pseudotime.R --project-root <PROJECT_ROOT> [--input-dir <dir>] [--outdir <dir>]",
     "",
-    "Inputs in --input-dir:",
+    "Inputs in --input-dir, using the shared legacy bundle filenames:",
     "  div30_first_urd_counts.mtx",
     "  div30_first_urd_features.tsv",
     "  div30_first_urd_cell_metadata.tsv",
@@ -165,6 +167,9 @@ print_usage <- function() {
     "  --min-counts <int>                URD createURD gene/count filter",
     "  --num-variable-genes <int>        Top variable genes stored in urd@var.genes",
     "  --pca-mp-factor <numeric>         calcPCA Marchenko-Pastur factor",
+    "  --dm-method <auto|urd_expression|pca_knn>",
+    "                                      Diffusion geometry method; auto keeps URD calcDM below the Matrix index ceiling and uses PCA-kNN above it",
+    "  --dm-pca-dims <int>               Number of stored PCs for pca_knn; empty uses all stored PCs",
     "  --knn <int>                       calcDM k nearest neighbors",
     "  --sigma <local|NULL|numeric>      calcDM sigma",
     "  --n-floods <int>                  floodPseudotime replicate count",
@@ -174,7 +179,7 @@ print_usage <- function() {
     "  --resume <true|false>             Reuse saved checkpoints when present",
     "  --force-recompute <true|false>    Ignore checkpoints and recompute stages",
     "",
-    "Outputs under --outdir:",
+    "Outputs under --outdir, using the shared legacy artifact filenames:",
     "  tables/div30_first_urd_parameters.tsv",
     "  tables/div30_first_urd_pseudotime.tsv",
     "  tables/div30_first_urd_summary.tsv",
@@ -222,6 +227,14 @@ parse_sigma <- function(sigma_text) {
   sigma_text
 }
 
+validate_dm_method <- function(method) {
+  allowed <- c("auto", "urd_expression", "pca_knn")
+  if (!(method %in% allowed)) {
+    stop("dm-method must be one of: ", paste(allowed, collapse = ", "), "; got ", method, call. = FALSE)
+  }
+  method
+}
+
 build_config <- function(opt) {
   if (!nzchar(opt$`project-root`)) stop("PROJECT_ROOT or --project-root is required", call. = FALSE)
   project_root <- trim_trailing_slash(opt$`project-root`)
@@ -254,6 +267,8 @@ build_config <- function(opt) {
     min_counts = as_int(opt$`min-counts`, "min-counts"),
     num_variable_genes = as_int(opt$`num-variable-genes`, "num-variable-genes"),
     pca_mp_factor = as_num(opt$`pca-mp-factor`, "pca-mp-factor"),
+    dm_method = validate_dm_method(tolower(trimws(opt$`dm-method`))),
+    dm_pca_dims = if (nzchar(opt$`dm-pca-dims`)) as_int(opt$`dm-pca-dims`, "dm-pca-dims") else NA_integer_,
     knn = as_int(opt$knn, "knn"),
     sigma_text = opt$sigma,
     sigma = parse_sigma(opt$sigma),
@@ -275,7 +290,7 @@ parameter_table <- function(cfg) {
       "filter", "filter", "filter",
       "variable_genes",
       "pca",
-      "diffusion_map", "diffusion_map",
+      "diffusion_map", "diffusion_map", "diffusion_map", "diffusion_map",
       "flood", "flood", "flood_process", "flood_process",
       "checkpoint", "checkpoint",
       "output"
@@ -286,7 +301,7 @@ parameter_table <- function(cfg) {
       "min_genes", "min_cells", "min_counts",
       "num_variable_genes",
       "pca_mp_factor",
-      "knn", "sigma",
+      "dm_method", "dm_pca_dims", "knn", "sigma",
       "n_floods", "minimum_cells_flooded", "max_frac_NA", "stability_div",
       "resume", "force_recompute",
       "seed"
@@ -297,7 +312,7 @@ parameter_table <- function(cfg) {
       cfg$min_genes, cfg$min_cells, cfg$min_counts,
       cfg$num_variable_genes,
       cfg$pca_mp_factor,
-      cfg$knn, cfg$sigma_text,
+      cfg$dm_method, cfg$dm_pca_dims, cfg$knn, cfg$sigma_text,
       cfg$n_floods, cfg$flood_minimum_cells, cfg$flood_max_frac_na, cfg$flood_stability_div,
       cfg$resume, cfg$force_recompute,
       cfg$seed
@@ -314,8 +329,10 @@ parameter_table <- function(cfg) {
       "createURD keeps genes with at least this many total counts.",
       "Number of highest-variance log-normalized genes stored in urd@var.genes.",
       "calcPCA Marchenko-Pastur multiplier used to estimate significant PCs.",
-      "calcDM nearest-neighbor count.",
-      "calcDM sigma setting; local means local adaptive sigma.",
+      "Diffusion geometry method. auto uses original URD calcDM only when the cell count is below R's sparse Matrix index ceiling.",
+      "Number of stored PCs used by pca_knn; NA means all stored PCs.",
+      "Nearest-neighbor count for diffusion geometry.",
+      "Diffusion sigma setting; local means local adaptive sigma.",
       "Number of flood pseudotime replicates.",
       "floodPseudotime minimum.cells.flooded.",
       "floodPseudotimeProcess max.frac.NA.",
@@ -478,8 +495,7 @@ run_urd_geometry <- function(urd, cfg) {
   set.seed(cfg$seed)
   log_msg("Running calcPCA with mp.factor=", cfg$pca_mp_factor)
   urd <- calcPCA(urd, mp.factor = cfg$pca_mp_factor)
-  log_msg("Running calcDM with knn=", cfg$knn, " sigma=", cfg$sigma_text)
-  calcDM(urd, knn = cfg$knn, sigma = cfg$sigma)
+  run_urd_diffusion_map(urd, cfg)
 }
 
 run_urd_pca <- function(urd, cfg) {
@@ -488,10 +504,140 @@ run_urd_pca <- function(urd, cfg) {
   calcPCA(urd, mp.factor = cfg$pca_mp_factor)
 }
 
+matrix_index_ceiling <- function() {
+  as.numeric(.Machine$integer.max)
+}
+
+resolve_dm_method <- function(urd, cfg) {
+  n_cells <- nrow(urd@meta)
+  pairwise_entries <- as.numeric(n_cells) * as.numeric(n_cells)
+  if (cfg$dm_method == "auto" && pairwise_entries > matrix_index_ceiling()) {
+    return("pca_knn")
+  }
+  if (cfg$dm_method == "auto") return("urd_expression")
+  cfg$dm_method
+}
+
+guard_urd_expression_dm <- function(urd, cfg) {
+  n_cells <- nrow(urd@meta)
+  pairwise_entries <- as.numeric(n_cells) * as.numeric(n_cells)
+  if (pairwise_entries > matrix_index_ceiling()) {
+    stop(
+      "Refusing original URD calcDM for ", n_cells, " cells because n_cells^2=",
+      format(pairwise_entries, scientific = FALSE),
+      " exceeds R Matrix's 2^31-1 sparse-index ceiling. Use --dm-method pca_knn ",
+      "or downsample below ~46k cells before running expression-based calcDM.",
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
+}
+
+extract_pca_matrix <- function(urd, cfg) {
+  if (nrow(urd@pca.scores) == 0 || ncol(urd@pca.scores) == 0) {
+    stop("pca_knn diffusion requires populated urd@pca.scores. Run calcPCA first.", call. = FALSE)
+  }
+  pca <- as.matrix(urd@pca.scores)
+  if (is.null(rownames(pca))) rownames(pca) <- rownames(urd@meta)
+  pca <- pca[rownames(urd@meta), , drop = FALSE]
+  n_dims <- if (is.na(cfg$dm_pca_dims)) ncol(pca) else min(cfg$dm_pca_dims, ncol(pca))
+  if (n_dims < 2) stop("pca_knn diffusion requires at least two PC dimensions.", call. = FALSE)
+  pca[, seq_len(n_dims), drop = FALSE]
+}
+
+pca_knn_transition_matrix <- function(coords, cfg) {
+  if (!requireNamespace("RANN", quietly = TRUE)) {
+    stop("pca_knn diffusion requires R package RANN.", call. = FALSE)
+  }
+  n_cells <- nrow(coords)
+  k <- min(cfg$knn, n_cells - 1L)
+  if (k < 2) stop("pca_knn diffusion requires at least three cells.", call. = FALSE)
+  log_msg("Building PCA-kNN graph with cells=", n_cells, " dims=", ncol(coords), " k=", k)
+  nn <- RANN::nn2(coords, k = k + 1L)
+  idx <- nn$nn.idx[, -1L, drop = FALSE]
+  dist <- nn$nn.dists[, -1L, drop = FALSE]
+
+  sigma_text <- cfg$sigma_text
+  if (identical(tolower(sigma_text), "local")) {
+    sigma <- dist[, k]
+    positive <- sigma[is.finite(sigma) & sigma > 0]
+    if (length(positive) == 0) stop("Could not estimate local sigma from PCA-kNN distances.", call. = FALSE)
+    sigma[!is.finite(sigma) | sigma <= 0] <- stats::median(positive)
+    weights <- exp(-(dist^2) / pmax(sigma[row(dist)] * sigma[idx], .Machine$double.eps))
+  } else if (is.numeric(cfg$sigma)) {
+    weights <- exp(-(dist^2) / pmax(cfg$sigma^2, .Machine$double.eps))
+  } else {
+    positive <- dist[is.finite(dist) & dist > 0]
+    global_sigma <- stats::median(positive)
+    log_msg("Using median PCA-kNN distance as global sigma=", signif(global_sigma, 4))
+    weights <- exp(-(dist^2) / pmax(global_sigma^2, .Machine$double.eps))
+  }
+
+  i <- rep(seq_len(n_cells), each = k)
+  tm <- Matrix::sparseMatrix(
+    i = i,
+    j = as.vector(t(idx)),
+    x = as.vector(t(weights)),
+    dims = c(n_cells, n_cells)
+  )
+  tm <- Matrix::forceSymmetric((tm + Matrix::t(tm)) / 2, uplo = "U")
+  rownames(tm) <- rownames(coords)
+  colnames(tm) <- rownames(coords)
+  Matrix::drop0(tm)
+}
+
+run_pca_knn_diffusion_map <- function(urd, cfg) {
+  coords <- extract_pca_matrix(urd, cfg)
+  tm <- pca_knn_transition_matrix(coords, cfg)
+  eig <- scale(coords)
+  eig[!is.finite(eig)] <- 0
+  n_eigs <- min(200L, ncol(eig))
+  eig <- eig[, seq_len(n_eigs), drop = FALSE]
+  colnames(eig) <- paste0("DC", seq_len(ncol(eig)))
+  rownames(eig) <- rownames(coords)
+
+  sigmas <- methods::new(
+    "Sigmas",
+    log_sigmas = NULL,
+    dim_norms = NULL,
+    optimal_sigma = NULL,
+    optimal_idx = NULL,
+    avrd_norms = NULL
+  )
+  dm <- methods::new(
+    "DiffusionMap",
+    eigenvalues = rep(NA_real_, ncol(eig)),
+    eigenvectors = eig,
+    sigmas = sigmas,
+    data_env = new.env(parent = emptyenv()),
+    eigenvec0 = rep(1, nrow(eig)),
+    transitions = tm,
+    d = as.numeric(Matrix::rowSums(tm)),
+    d_norm = as.numeric(Matrix::rowSums(tm)),
+    k = cfg$knn,
+    n_local = min(cfg$knn, 7L),
+    density_norm = FALSE,
+    rotate = FALSE,
+    distance = "euclidean",
+    censor_val = NULL,
+    censor_range = NULL,
+    missing_range = NULL,
+    vars = colnames(coords)
+  )
+  log_msg("Importing PCA-kNN transition matrix into URD object; nnz=", length(dm@transitions@x))
+  importDM(urd, dm)
+}
+
 run_urd_diffusion_map <- function(urd, cfg) {
   set.seed(cfg$seed)
-  log_msg("Running calcDM with knn=", cfg$knn, " sigma=", cfg$sigma_text)
-  calcDM(urd, knn = cfg$knn, sigma = cfg$sigma)
+  method <- resolve_dm_method(urd, cfg)
+  log_msg("Resolved diffusion map method: ", method, " (requested=", cfg$dm_method, ")")
+  if (method == "pca_knn") {
+    return(run_pca_knn_diffusion_map(urd, cfg))
+  }
+  guard_urd_expression_dm(urd, cfg)
+  log_msg("Running original URD calcDM with knn=", cfg$knn, " sigma=", cfg$sigma_text)
+  calcDM(urd, knn = cfg$knn, sigma.use = cfg$sigma)
 }
 
 run_flood_pseudotime <- function(urd, root_cells, cfg) {
@@ -630,6 +776,9 @@ write_tables <- function(urd, pt_df, root_cells, cfg) {
       "n_cells_urd",
       "n_root_cells_urd",
       "n_variable_genes",
+      "dm_method_requested",
+      "dm_method_resolved",
+      "dm_pca_dims",
       "knn",
       "sigma",
       "n_floods",
@@ -645,6 +794,9 @@ write_tables <- function(urd, pt_df, root_cells, cfg) {
       nrow(pt_df),
       length(root_cells),
       length(urd@var.genes),
+      cfg$dm_method,
+      resolve_dm_method(urd, cfg),
+      cfg$dm_pca_dims,
       cfg$knn,
       cfg$sigma_text,
       cfg$n_floods,
@@ -676,7 +828,7 @@ write_plots <- function(pt_df, cfg) {
       coord_equal() +
       scale_color_viridis_c(na.value = "grey85") +
       theme_void(base_size = 10) +
-      labs(color = "URD pseudotime", title = "DIV30 first URD: paper Radial glia root")
+      labs(color = "URD pseudotime", title = paste0(cfg$run_label, ": ", cfg$root_label))
   )
   dev.off()
 
@@ -687,7 +839,7 @@ write_plots <- function(pt_df, cfg) {
         geom_boxplot(outlier.size = 0.2) +
         theme_bw(base_size = 10) +
         theme(axis.text.x = element_text(angle = 30, hjust = 1), legend.position = "none") +
-        labs(x = NULL, y = "URD pseudotime", title = "DIV30 first URD pseudotime by paper/manual annotation")
+        labs(x = NULL, y = "URD pseudotime", title = paste0(cfg$run_label, " pseudotime by annotation"))
     )
     dev.off()
   }

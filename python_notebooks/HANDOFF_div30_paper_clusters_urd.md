@@ -221,7 +221,7 @@ Workflow files:
 
 ```text
 python_notebooks/scripts/export_div30_first_urd_inputs.py
-scripts/14_div30_first_urd.R
+scripts/14_urd_first_pass_pseudotime.R
 slurm_templates/31_div30_first_urd.sbatch.template
 ```
 
@@ -278,7 +278,7 @@ inputs/div30_first_urd_input_manifest.tsv
 Script:
 
 ```text
-scripts/14_div30_first_urd.R
+scripts/14_urd_first_pass_pseudotime.R
 ```
 
 The R script has been refactored into named processing functions so the lineage logic is isolated:

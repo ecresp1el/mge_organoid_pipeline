@@ -81,7 +81,7 @@ slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
 The Slurm run reuses the existing DIV30 URD runner/reporting scripts where the computational logic should match DIV30:
 
 ```text
-scripts/14_div30_first_urd.R
+scripts/14_urd_first_pass_pseudotime.R
 scripts/15_div30_urd_lineage_decision_report.R
 scripts/16_div30_urd_build_lineage_tree.R
 scripts/17_div30_urd_finalize_lineage_tree_report.R
@@ -89,7 +89,7 @@ scripts/25_div30_urd_jia_fig_s11_marker_validation.R
 scripts/27_div90_urd_project_candidate_lineage_markers.R
 ```
 
-Compatibility note: the DIV90 exporter writes input-bundle files with the legacy `div30_first_urd_*` names because `scripts/14_div30_first_urd.R` consumes that bundle format. The run directory, metadata, root column, pseudotime column, reports, and manifest identify this as DIV90.
+Compatibility note: the DIV90 exporter writes input-bundle files with the legacy `div30_first_urd_*` names because `scripts/14_urd_first_pass_pseudotime.R` consumes that bundle format. The run directory, metadata, root column, pseudotime column, reports, and manifest identify this as DIV90.
 
 ## DIV90 Cluster Mapping
 
@@ -343,7 +343,7 @@ Root pool:
   selected top 10% RootScore roots, n = 36
 
 R URD stage reached:
-  scripts/14_div30_first_urd.R
+  scripts/14_urd_first_pass_pseudotime.R
   create_filtered_urd / normalization stage
 ```
 
