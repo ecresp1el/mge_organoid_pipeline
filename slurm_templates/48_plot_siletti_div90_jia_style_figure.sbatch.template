@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Generate Jia-style Siletti adult-reference plots for DIV90 neurons.
+#
+# Submit:
+#   cp slurm_templates/48_plot_siletti_div90_jia_style_figure.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/48_plot_siletti_div90_jia_style_figure.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/48_plot_siletti_div90_jia_style_figure.sbatch
+
+#SBATCH --job-name=siletti-jia-fig
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=96G
+#SBATCH --time=04:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-jia-fig-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-jia-fig-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+SILETTI_FIGURE_RUN_LABEL="${SILETTI_FIGURE_RUN_LABEL:-siletti_div90_jia_style_figure_v1}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_v1}"
+SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_fast_knn_transfer_full_mge_llc_v1}"
+SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc}"
+SILETTI_TRANSFER_N_COMPONENTS="${SILETTI_TRANSFER_N_COMPONENTS:-50}"
+SILETTI_TRANSFER_K="${SILETTI_TRANSFER_K:-50}"
+SILETTI_TRANSFER_MAX_REFERENCE_CELLS="${SILETTI_TRANSFER_MAX_REFERENCE_CELLS:-0}"
+SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-0}"
+
+SILETTI_FIGURE_LABEL_COLUMN="${SILETTI_FIGURE_LABEL_COLUMN:-candidate_jia_group}"
+SILETTI_FIGURE_EXCLUDE_LABEL="${SILETTI_FIGURE_EXCLUDE_LABEL:-Excluded / not assigned to Jia-style 9 groups}"
+SILETTI_FIGURE_SOURCE_CLASS_COL="${SILETTI_FIGURE_SOURCE_CLASS_COL:-div90_broad_class}"
+SILETTI_FIGURE_SAMPLE_COL="${SILETTI_FIGURE_SAMPLE_COL:-orig.ident}"
+SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED="${SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED:-0.0}"
+SILETTI_FIGURE_NFEATURES="${SILETTI_FIGURE_NFEATURES:-3000}"
+SILETTI_FIGURE_N_COMPONENTS="${SILETTI_FIGURE_N_COMPONENTS:-50}"
+SILETTI_FIGURE_SEED="${SILETTI_FIGURE_SEED:-0}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+bridge_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/seurat_bridge"
+transfer_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_TRANSFER_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/svd${SILETTI_TRANSFER_N_COMPONENTS}_k${SILETTI_TRANSFER_K}_ref${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}_query${SILETTI_TRANSFER_MAX_QUERY_CELLS}"
+outdir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_FIGURE_RUN_LABEL}"
+
+echo "Siletti DIV90 Jia-style figure job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Bridge dir: ${bridge_dir}"
+echo "Transfer dir: ${transfer_dir}"
+echo "Output dir: ${outdir}"
+echo "Label column: ${SILETTI_FIGURE_LABEL_COLUMN}"
+echo "Source class column: ${SILETTI_FIGURE_SOURCE_CLASS_COL}"
+echo "Sample column: ${SILETTI_FIGURE_SAMPLE_COL}"
+echo "Min score assigned threshold: ${SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED}"
+echo "Figure features: ${SILETTI_FIGURE_NFEATURES}"
+echo "Figure components: ${SILETTI_FIGURE_N_COMPONENTS}"
+echo "Seed: ${SILETTI_FIGURE_SEED}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" -m py_compile python_notebooks/scripts/plot_siletti_div90_jia_figure.py
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/plot_siletti_div90_jia_figure.py \
+  --bridge-dir "${bridge_dir}" \
+  --transfer-dir "${transfer_dir}" \
+  --outdir "${outdir}" \
+  --label-column "${SILETTI_FIGURE_LABEL_COLUMN}" \
+  --exclude-label "${SILETTI_FIGURE_EXCLUDE_LABEL}" \
+  --source-class-col "${SILETTI_FIGURE_SOURCE_CLASS_COL}" \
+  --sample-col "${SILETTI_FIGURE_SAMPLE_COL}" \
+  --min-score-for-assigned "${SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED}" \
+  --nfeatures "${SILETTI_FIGURE_NFEATURES}" \
+  --n-components "${SILETTI_FIGURE_N_COMPONENTS}" \
+  --seed "${SILETTI_FIGURE_SEED}"
+
+echo "Generated files:"
+find "${outdir}" -maxdepth 3 -type f | sort
+echo "Siletti DIV90 Jia-style figure job finished: $(date)"
