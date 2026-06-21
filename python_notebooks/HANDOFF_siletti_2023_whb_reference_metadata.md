@@ -736,6 +736,238 @@ diagnostics: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/s
 cluster summary: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_fast_knn_transfer_full_mge_llc_v1/mge_llc/svd50_k50_ref0_query0/tables/siletti_div90__candidate_jia_group__fast_knn__svd50__k50_cluster_label_counts.tsv
 ```
 
+## Provisional Update 2026-06-21: DIV90 Siletti Mapping Debug / Cholinergic Reference
+
+This section is a working audit trail, not a final endorsed method. Several
+scripts and result folders were added while debugging the Seurat/Jia-style
+mapping path. They may be deleted or replaced later after the biology and
+method choice are reviewed.
+
+### Biological scope correction: adult cholinergic cells
+
+The original `mge_llc` adult reference did **not** contain adult cholinergic
+cells. It only included:
+
+```text
+MGE interneuron
+LAMP5-LHX6 and Chandelier
+```
+
+The broader Siletti metadata has a Jia-style `Subpallial Cholinergic neurons`
+candidate group, but those cells are in:
+
+```text
+Siletti supercluster: Splatter
+Cluster: 400
+Subclusters: 1634, 1635, 1636, 1637, 1638, 1640, 1641, 1642
+Regions: mostly BasalForebrain / Amygdala
+Marker rule in metadata script: Subpallial + NT-CHOL + CHAT or SLC5A7
+```
+
+To keep this explicit, a new adult bridge scope was added:
+
+```text
+mge_llc_cholinergic =
+  MGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Splatter restricted to cluster 400 cholinergic subclusters only
+```
+
+The full, non-subsampled bridge completed:
+
+```text
+job_id: 52082869_2
+state: COMPLETED
+run_label: siletti_div90_seurat_bridge_cholinergic_full_reference_v1
+scope: mge_llc_cholinergic
+max_ref_cells_per_subcluster: 0
+max_ref_cells_total: 0
+n_reference_cells_exported: 268,321
+n_query_cells_exported: 16,206
+n_shared_genes: 17,849
+output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_seurat_bridge_cholinergic_full_reference_v1/mge_llc_cholinergic
+```
+
+The corresponding full fast-KNN feature/transfer run completed:
+
+```text
+job_id: 52082870
+state: COMPLETED
+run_label: siletti_div90_fast_knn_transfer_full_mge_llc_cholinergic_full_reference_v1
+scope: mge_llc_cholinergic
+output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_fast_knn_transfer_full_mge_llc_cholinergic_full_reference_v1/mge_llc_cholinergic/svd50_k50_ref0_query0
+```
+
+### Seurat RPCA/CCA issue
+
+The initial Seurat RPCA mapping workflow stalled in `FindTransferAnchors`.
+
+Cancelled job:
+
+```text
+job_id: 52081495
+reason for cancel: ran ~26 hours but only accumulated ~26 minutes CPU
+last progress line: find_transfer_anchors start
+reference cells in that run: 18,459 usable old mge_llc cells
+query cells: 16,206
+features: 3,000
+reduction: rpca
+```
+
+Microdebug jobs showed that this was not simply a full-data-size problem.
+Four small tests all timed out at `FindTransferAnchors` after 20 minutes:
+
+```text
+job_id: 52083020_[0-3]
+adult cells: ~975
+DIV90 cells: 1,000
+features: 500
+dims: 1:10
+
+A1 rpca, k.filter=100, nn.method=annoy -> timeout
+A2 rpca, k.filter=NA,  nn.method=annoy -> timeout
+A3 cca,  k.filter=100, nn.method=annoy -> timeout
+A4 rpca, k.filter=100, nn.method=rann  -> timeout
+```
+
+Interpretation:
+
+```text
+The stall is not explained by cell count, feature count, k.filter, Annoy vs
+RANN, or RPCA alone. It appears to be a Seurat 5.1.0 FindTransferAnchors
+behavior for these RPCA/CCA-style calls in this environment/object setup.
+```
+
+### Object-integrity audit and pcaproject workaround
+
+A hard object-integrity S0 audit was added before running any further anchor
+calls. It validated the original and stripped objects for:
+
+```text
+Seurat/R version
+Assays and DefaultAssay
+RNA Assay5 layers
+counts/data dimensions
+non-empty RNA data layer with nonzero values
+unique feature names
+unique cell names
+metadata rownames matching object cell names
+shared feature length
+selected anchor feature presence
+reference PCA existence and alignment
+requested dims within available PCs
+finite PCA embeddings
+query RNA data usability for selected features
+```
+
+S0 result:
+
+```text
+job_id: 52084521
+state: COMPLETED
+output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/seurat_anchor_object_integrity_s0
+Seurat: 5.1.0
+SeuratObject: 5.0.2
+R: 4.4.1
+original objects: validation PASS
+stripped RNA-only objects: validation PASS
+stripped pcaproject FindTransferAnchors: COMPLETED
+cells: 2,418 adult x 2,999 DIV90
+features: 3,000
+dims: 1:20
+anchors found: 107
+anchors retained after filtering: 39
+elapsed FindTransferAnchors: 100.139 sec
+```
+
+Important interpretation:
+
+```text
+The Seurat objects are not obviously malformed by the hard audit.
+Seurat FindTransferAnchors is not universally broken.
+The validated path that worked was stripped RNA-only objects built from the RNA
+data layer, using reduction='pcaproject' and reference.reduction='pca'.
+This is a workaround, not yet a biologically finalized method.
+```
+
+### Current provisional Seurat pcaproject transfer
+
+A production-style stripped RNA-only pcaproject transfer was launched against
+the full cholinergic-aware adult reference. This is currently **in progress**
+and should not be interpreted until it completes and outputs are reviewed.
+
+```text
+job_id: 52086244
+state at handoff update: RUNNING on gl3090
+run_label: seurat_pcaproject_transfer_stripped_cholinergic_full_reference
+bridge: siletti_div90_seurat_bridge_cholinergic_full_reference_v1/mge_llc_cholinergic
+transfer features: siletti_div90_fast_knn_transfer_full_mge_llc_cholinergic_full_reference_v1/mge_llc_cholinergic/svd50_k50_ref0_query0/fast_knn/selected_transfer_features.tsv
+reference cells loaded: 268,321
+reference cells after excluding non-Jia label: 223,436
+query cells: 16,206
+features: 3,000
+dims: 1:20
+method: stripped RNA-only pcaproject anchors + TransferData
+output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/seurat_pcaproject_transfer_stripped_cholinergic_full_reference
+```
+
+Current progress at time of handoff edit:
+
+```text
+2026-06-21 16:17:53 run start
+2026-06-21 16:26:42 load_reference end, elapsed_sec=529.073
+2026-06-21 16:26:57 load_query end, elapsed_sec=15.488
+2026-06-21 16:26:57 object_sizes_initial reference=268321; query=16206; genes=17849
+2026-06-21 16:27:25 filter_reference_label before=268321; after=223436
+2026-06-21 16:27:25 prepare_original_reference start
+```
+
+Expected outputs if the run completes:
+
+```text
+seurat_pcaproject_per_cell_predictions.tsv
+seurat_pcaproject_prediction_scores_by_class.tsv
+seurat_pcaproject_anchor_summary.tsv
+seurat_pcaproject_transfer_progress.tsv
+tables/seurat_pcaproject_object_sizes.tsv
+seurat/selected_transfer_features.tsv
+```
+
+### New/provisional scripts and templates added during this debug
+
+These are useful for reproducing the audit, but they are not necessarily final
+pipeline components:
+
+```text
+scripts/32_siletti_div90_seurat_rpca_jia_style_mapping.R
+scripts/33_siletti_seurat_rpca_anchor_stall_debug.R
+scripts/34_siletti_seurat_anchor_object_integrity_s0.R
+scripts/35_siletti_seurat_pcaproject_transfer_stripped.R
+
+slurm_templates/53_siletti_div90_seurat_rpca_jia_style_mapping.sbatch.template
+slurm_templates/54_siletti_seurat_rpca_anchor_stall_debug.sbatch.template
+slurm_templates/55_siletti_seurat_anchor_parallel_microdebug.sbatch.template
+slurm_templates/56_siletti_seurat_anchor_object_integrity_s0.sbatch.template
+slurm_templates/57_siletti_seurat_pcaproject_transfer_stripped.sbatch.template
+```
+
+Also modified during this debug:
+
+```text
+python_notebooks/scripts/fetch_siletti_cellxgene_supercluster_h5ads.py
+python_notebooks/scripts/export_siletti_div90_seurat_bridge.py
+slurm_templates/39_fetch_siletti_cellxgene_supercluster_h5ads.sbatch.template
+slurm_templates/41_export_siletti_div90_seurat_bridge_array.sbatch.template
+```
+
+Core caution:
+
+```text
+Do not treat the stripped pcaproject output as the final Jia-style result until
+we inspect anchor counts, prediction score distributions, cholinergic behavior,
+and whether the mapping is biologically sensible for DIV90 classes.
+```
+
 ## Operational Notes
 
 This metadata audit is small enough for login-node inspection because it only
