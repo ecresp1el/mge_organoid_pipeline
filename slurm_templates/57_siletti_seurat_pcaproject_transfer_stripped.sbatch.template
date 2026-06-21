@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Run validated stripped RNA-only Seurat pcaproject label transfer.
+#
+# Submit:
+#   cp slurm_templates/57_siletti_seurat_pcaproject_transfer_stripped.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/57_siletti_seurat_pcaproject_transfer_stripped.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/57_siletti_seurat_pcaproject_transfer_stripped.sbatch
+
+#SBATCH --job-name=siletti-pcaproject
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=180G
+#SBATCH --time=24:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-pcaproject-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-pcaproject-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_cholinergic_full_reference_v1}"
+SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_fast_knn_transfer_full_mge_llc_cholinergic_full_reference_v1}"
+SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc_cholinergic}"
+SILETTI_TRANSFER_N_COMPONENTS="${SILETTI_TRANSFER_N_COMPONENTS:-50}"
+SILETTI_TRANSFER_K="${SILETTI_TRANSFER_K:-50}"
+SILETTI_TRANSFER_MAX_REFERENCE_CELLS="${SILETTI_TRANSFER_MAX_REFERENCE_CELLS:-0}"
+SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-0}"
+SILETTI_PCAPROJECT_RUN_LABEL="${SILETTI_PCAPROJECT_RUN_LABEL:-seurat_pcaproject_transfer_stripped_cholinergic_full_reference}"
+
+SILETTI_PCAPROJECT_NFEATURES="${SILETTI_PCAPROJECT_NFEATURES:-3000}"
+SILETTI_PCAPROJECT_NPCS="${SILETTI_PCAPROJECT_NPCS:-50}"
+SILETTI_PCAPROJECT_DIMS="${SILETTI_PCAPROJECT_DIMS:-20}"
+SILETTI_PCAPROJECT_MAX_REFERENCE_CELLS="${SILETTI_PCAPROJECT_MAX_REFERENCE_CELLS:-0}"
+SILETTI_PCAPROJECT_MAX_QUERY_CELLS="${SILETTI_PCAPROJECT_MAX_QUERY_CELLS:-0}"
+SILETTI_PCAPROJECT_K_ANCHOR="${SILETTI_PCAPROJECT_K_ANCHOR:-5}"
+SILETTI_PCAPROJECT_K_FILTER="${SILETTI_PCAPROJECT_K_FILTER:-100}"
+SILETTI_PCAPROJECT_K_SCORE="${SILETTI_PCAPROJECT_K_SCORE:-30}"
+SILETTI_PCAPROJECT_MAX_FEATURES="${SILETTI_PCAPROJECT_MAX_FEATURES:-200}"
+SILETTI_PCAPROJECT_K_WEIGHT="${SILETTI_PCAPROJECT_K_WEIGHT:-50}"
+SILETTI_PCAPROJECT_NN_METHOD="${SILETTI_PCAPROJECT_NN_METHOD:-annoy}"
+SILETTI_PCAPROJECT_N_TREES="${SILETTI_PCAPROJECT_N_TREES:-50}"
+SILETTI_PCAPROJECT_SEED="${SILETTI_PCAPROJECT_SEED:-0}"
+SILETTI_PCAPROJECT_SAVE_RDS="${SILETTI_PCAPROJECT_SAVE_RDS:-false}"
+SILETTI_PCAPROJECT_VERBOSE="${SILETTI_PCAPROJECT_VERBOSE:-true}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+bridge_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/seurat_bridge"
+transfer_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_TRANSFER_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/svd${SILETTI_TRANSFER_N_COMPONENTS}_k${SILETTI_TRANSFER_K}_ref${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}_query${SILETTI_TRANSFER_MAX_QUERY_CELLS}"
+outdir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_PCAPROJECT_RUN_LABEL}"
+
+echo "Siletti stripped RNA-only Seurat pcaproject transfer started: $(date)"
+echo "Host: $(hostname)"
+echo "Bridge dir: ${bridge_dir}"
+echo "Transfer dir: ${transfer_dir}"
+echo "Output dir: ${outdir}"
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+echo "Cells caps reference/query: ${SILETTI_PCAPROJECT_MAX_REFERENCE_CELLS}/${SILETTI_PCAPROJECT_MAX_QUERY_CELLS}"
+echo "Features/npcs/dims: ${SILETTI_PCAPROJECT_NFEATURES}/${SILETTI_PCAPROJECT_NPCS}/1:${SILETTI_PCAPROJECT_DIMS}"
+echo "pcaproject k.filter/k.weight: ${SILETTI_PCAPROJECT_K_FILTER}/${SILETTI_PCAPROJECT_K_WEIGHT}"
+
+Rscript -e "invisible(parse(file='scripts/35_siletti_seurat_pcaproject_transfer_stripped.R')); cat('parse_ok\n')"
+
+Rscript scripts/35_siletti_seurat_pcaproject_transfer_stripped.R \
+  --bridge-dir "${bridge_dir}" \
+  --transfer-dir "${transfer_dir}" \
+  --outdir "${outdir}" \
+  --nfeatures "${SILETTI_PCAPROJECT_NFEATURES}" \
+  --npcs "${SILETTI_PCAPROJECT_NPCS}" \
+  --dims "${SILETTI_PCAPROJECT_DIMS}" \
+  --max-reference-cells "${SILETTI_PCAPROJECT_MAX_REFERENCE_CELLS}" \
+  --max-query-cells "${SILETTI_PCAPROJECT_MAX_QUERY_CELLS}" \
+  --k-anchor "${SILETTI_PCAPROJECT_K_ANCHOR}" \
+  --k-filter "${SILETTI_PCAPROJECT_K_FILTER}" \
+  --k-score "${SILETTI_PCAPROJECT_K_SCORE}" \
+  --max-features "${SILETTI_PCAPROJECT_MAX_FEATURES}" \
+  --k-weight "${SILETTI_PCAPROJECT_K_WEIGHT}" \
+  --nn-method "${SILETTI_PCAPROJECT_NN_METHOD}" \
+  --n-trees "${SILETTI_PCAPROJECT_N_TREES}" \
+  --seed "${SILETTI_PCAPROJECT_SEED}" \
+  --save-rds "${SILETTI_PCAPROJECT_SAVE_RDS}" \
+  --seurat-verbose "${SILETTI_PCAPROJECT_VERBOSE}"
+
+echo "Generated files:"
+find "${outdir}" -maxdepth 3 -type f | sort
+echo "Siletti stripped RNA-only Seurat pcaproject transfer finished: $(date)"
