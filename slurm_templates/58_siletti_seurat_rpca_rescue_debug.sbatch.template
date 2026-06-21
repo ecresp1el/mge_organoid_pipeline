@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Test whether RPCA itself works, or only FindTransferAnchors(reduction='rpca') stalls.
+#
+# Submit:
+#   cp slurm_templates/58_siletti_seurat_rpca_rescue_debug.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/58_siletti_seurat_rpca_rescue_debug.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/58_siletti_seurat_rpca_rescue_debug.sbatch
+
+#SBATCH --job-name=siletti-rpca-debug
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --array=0-3
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=60G
+#SBATCH --time=00:45:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-rpca-debug-%A_%a.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-rpca-debug-%A_%a.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_v1}"
+SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc}"
+SILETTI_RPCA_DEBUG_RUN_LABEL="${SILETTI_RPCA_DEBUG_RUN_LABEL:-seurat_rpca_rescue_debug}"
+SILETTI_RPCA_DEBUG_TIMEOUT="${SILETTI_RPCA_DEBUG_TIMEOUT:-20m}"
+SILETTI_RPCA_DEBUG_MAX_REFERENCE_CELLS="${SILETTI_RPCA_DEBUG_MAX_REFERENCE_CELLS:-1000}"
+SILETTI_RPCA_DEBUG_MAX_QUERY_CELLS="${SILETTI_RPCA_DEBUG_MAX_QUERY_CELLS:-1000}"
+SILETTI_RPCA_DEBUG_NFEATURES="${SILETTI_RPCA_DEBUG_NFEATURES:-2000}"
+SILETTI_RPCA_DEBUG_NPCS="${SILETTI_RPCA_DEBUG_NPCS:-20}"
+SILETTI_RPCA_DEBUG_DIMS="${SILETTI_RPCA_DEBUG_DIMS:-20}"
+SILETTI_RPCA_DEBUG_K_FILTER="${SILETTI_RPCA_DEBUG_K_FILTER:-NA}"
+SILETTI_RPCA_DEBUG_SEED="${SILETTI_RPCA_DEBUG_SEED:-0}"
+SILETTI_RPCA_DEBUG_VERBOSE="${SILETTI_RPCA_DEBUG_VERBOSE:-true}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+bridge_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/seurat_bridge"
+outdir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_RPCA_DEBUG_RUN_LABEL}"
+mkdir -p "${outdir}"
+
+modes=(
+  "integration_rpca"
+  "transfer_rpca"
+  "transfer_rpca_l2_false"
+  "transfer_rpca_approx_false"
+)
+mode="${modes[${SLURM_ARRAY_TASK_ID}]}"
+
+echo "Siletti Seurat RPCA rescue/debug started: $(date)"
+echo "Host: $(hostname)"
+echo "Array task: ${SLURM_ARRAY_TASK_ID}"
+echo "Mode: ${mode}"
+echo "Bridge dir: ${bridge_dir}"
+echo "Output dir: ${outdir}"
+echo "Timeout: ${SILETTI_RPCA_DEBUG_TIMEOUT}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript -e "invisible(parse(file='scripts/36_siletti_seurat_rpca_rescue_debug.R')); cat('parse_ok\n')"
+
+summary_path="${outdir}/rpca_rescue_debug_summary.tsv"
+if [[ ! -f "${summary_path}" ]]; then
+  printf "timestamp\tmode\texit_status\tstatus\n" > "${summary_path}"
+fi
+
+set +e
+timeout "${SILETTI_RPCA_DEBUG_TIMEOUT}" Rscript scripts/36_siletti_seurat_rpca_rescue_debug.R \
+  --bridge-dir "${bridge_dir}" \
+  --outdir "${outdir}" \
+  --mode "${mode}" \
+  --max-reference-cells "${SILETTI_RPCA_DEBUG_MAX_REFERENCE_CELLS}" \
+  --max-query-cells "${SILETTI_RPCA_DEBUG_MAX_QUERY_CELLS}" \
+  --nfeatures "${SILETTI_RPCA_DEBUG_NFEATURES}" \
+  --npcs "${SILETTI_RPCA_DEBUG_NPCS}" \
+  --dims "${SILETTI_RPCA_DEBUG_DIMS}" \
+  --k-filter "${SILETTI_RPCA_DEBUG_K_FILTER}" \
+  --seed "${SILETTI_RPCA_DEBUG_SEED}" \
+  --seurat-verbose "${SILETTI_RPCA_DEBUG_VERBOSE}"
+status=$?
+set -e
+
+if [[ "${status}" -eq 0 ]]; then
+  result="completed"
+elif [[ "${status}" -eq 124 ]]; then
+  result="timeout_stall_gt_${SILETTI_RPCA_DEBUG_TIMEOUT}"
+  mode_dir="${outdir}/${mode}"
+  mkdir -p "${mode_dir}"
+  if [[ ! -f "${mode_dir}/summary.tsv" ]]; then
+    cat > "${mode_dir}/summary.tsv" <<EOF
+mode	completed	n_anchors	elapsed_sec	error
+${mode}	FALSE	NA	NA	timeout_${SILETTI_RPCA_DEBUG_TIMEOUT}
+EOF
+  fi
+else
+  result="failed"
+fi
+
+printf "%s\t%s\t%s\t%s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "${mode}" "${status}" "${result}" >> "${summary_path}"
+echo "Mode ${mode} result: ${result} exit=${status}"
+find "${outdir}/${mode}" -maxdepth 1 -type f | sort || true
+echo "Siletti Seurat RPCA rescue/debug finished: $(date)"

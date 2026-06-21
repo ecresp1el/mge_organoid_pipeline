@@ -933,6 +933,84 @@ tables/seurat_pcaproject_object_sizes.tsv
 seurat/selected_transfer_features.tsv
 ```
 
+Follow-up check:
+
+```text
+squeue -j 52086244
+sacct -j 52086244 --format=JobID,JobName%35,State,ExitCode,Elapsed,MaxRSS,NodeList -P
+tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/seurat_pcaproject_transfer_stripped_cholinergic_full_reference/seurat_pcaproject_transfer_progress.tsv
+cat /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/seurat_pcaproject_transfer_stripped_cholinergic_full_reference/seurat_pcaproject_anchor_summary.tsv
+```
+
+If this completes, review the number of anchors, TransferData score
+distributions, and whether DIV90 LHX8/ISL1/cholinergic-like classes receive the
+new adult `Subpallial Cholinergic neurons` label at plausible rates. Do not
+promote this to the final Jia-style figure workflow until those checks are done.
+
+### Pending RPCA rescue/debug array
+
+An additional RPCA-specific debug array was launched to determine whether RPCA
+itself works through Seurat's official integration path, or whether only
+`FindTransferAnchors(reduction="rpca")` stalls.
+
+```text
+job_id: 52086386_[0-3]
+run_label: seurat_rpca_rescue_debug
+state at handoff update: PENDING/RUNNING depending on scheduler
+output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/seurat_rpca_rescue_debug
+```
+
+Array modes:
+
+```text
+0 integration_rpca
+  FindIntegrationAnchors(object.list=list(reference, query),
+                         reduction="rpca",
+                         dims=1:20,
+                         k.filter=NA)
+
+1 transfer_rpca
+  FindTransferAnchors(reduction="rpca",
+                      reference.reduction="pca",
+                      k.filter=NA)
+
+2 transfer_rpca_l2_false
+  Same transfer RPCA, plus l2.norm=FALSE
+
+3 transfer_rpca_approx_false
+  Same transfer RPCA, plus approx.pca=FALSE
+```
+
+All use stripped RNA-only objects, shared genes only, ~1,000 adult cells,
+~1,000 DIV90 cells, 2,000 features, `npcs=20`, `dims=1:20`, `n.trees=10`, and a
+20-minute timeout per task.
+
+Follow-up check:
+
+```text
+squeue -j 52086386
+sacct -j 52086386 --format=JobID,JobName%35,State,ExitCode,Elapsed,MaxRSS,NodeList -P
+cat /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/seurat_rpca_rescue_debug/rpca_rescue_debug_summary.tsv
+for d in /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/seurat_rpca_rescue_debug/*; do echo "### $d"; tail -n 40 "$d/progress.tsv" 2>/dev/null; cat "$d/summary.tsv" 2>/dev/null; done
+```
+
+Interpretation guide:
+
+```text
+FindIntegrationAnchors RPCA completes, transfer RPCA stalls:
+  problem is specific to Seurat transfer RPCA.
+
+Both integration RPCA and transfer RPCA stall:
+  RPCA internals are likely broken/problematic in this environment or object
+  setup.
+
+transfer_rpca_approx_false completes:
+  suspect truncated PCA / irlba / approximate PCA behavior.
+
+transfer_rpca_l2_false completes:
+  suspect L2 normalization / reduction handling.
+```
+
 ### New/provisional scripts and templates added during this debug
 
 These are useful for reproducing the audit, but they are not necessarily final
@@ -943,12 +1021,14 @@ scripts/32_siletti_div90_seurat_rpca_jia_style_mapping.R
 scripts/33_siletti_seurat_rpca_anchor_stall_debug.R
 scripts/34_siletti_seurat_anchor_object_integrity_s0.R
 scripts/35_siletti_seurat_pcaproject_transfer_stripped.R
+scripts/36_siletti_seurat_rpca_rescue_debug.R
 
 slurm_templates/53_siletti_div90_seurat_rpca_jia_style_mapping.sbatch.template
 slurm_templates/54_siletti_seurat_rpca_anchor_stall_debug.sbatch.template
 slurm_templates/55_siletti_seurat_anchor_parallel_microdebug.sbatch.template
 slurm_templates/56_siletti_seurat_anchor_object_integrity_s0.sbatch.template
 slurm_templates/57_siletti_seurat_pcaproject_transfer_stripped.sbatch.template
+slurm_templates/58_siletti_seurat_rpca_rescue_debug.sbatch.template
 ```
 
 Also modified during this debug:
