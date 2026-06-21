@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# Validate Seurat transfer objects, then run one stripped RNA-only pcaproject S0 smoke test.
+#
+# Submit:
+#   cp slurm_templates/56_siletti_seurat_anchor_object_integrity_s0.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/56_siletti_seurat_anchor_object_integrity_s0.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/56_siletti_seurat_anchor_object_integrity_s0.sbatch
+
+#SBATCH --job-name=siletti-anchor-s0
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=80G
+#SBATCH --time=01:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-anchor-s0-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-anchor-s0-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_v1}"
+SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_fast_knn_transfer_full_mge_llc_v1}"
+SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc}"
+SILETTI_TRANSFER_N_COMPONENTS="${SILETTI_TRANSFER_N_COMPONENTS:-50}"
+SILETTI_TRANSFER_K="${SILETTI_TRANSFER_K:-50}"
+SILETTI_TRANSFER_MAX_REFERENCE_CELLS="${SILETTI_TRANSFER_MAX_REFERENCE_CELLS:-0}"
+SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-0}"
+SILETTI_ANCHOR_S0_RUN_LABEL="${SILETTI_ANCHOR_S0_RUN_LABEL:-seurat_anchor_object_integrity_s0}"
+SILETTI_ANCHOR_S0_TIMEOUT="${SILETTI_ANCHOR_S0_TIMEOUT:-30m}"
+SILETTI_ANCHOR_S0_MAX_REFERENCE_CELLS="${SILETTI_ANCHOR_S0_MAX_REFERENCE_CELLS:-3000}"
+SILETTI_ANCHOR_S0_MAX_QUERY_CELLS="${SILETTI_ANCHOR_S0_MAX_QUERY_CELLS:-3000}"
+SILETTI_ANCHOR_S0_NFEATURES="${SILETTI_ANCHOR_S0_NFEATURES:-3000}"
+SILETTI_ANCHOR_S0_DIMS="${SILETTI_ANCHOR_S0_DIMS:-20}"
+SILETTI_ANCHOR_S0_K_FILTER="${SILETTI_ANCHOR_S0_K_FILTER:-100}"
+SILETTI_ANCHOR_S0_NN_METHOD="${SILETTI_ANCHOR_S0_NN_METHOD:-annoy}"
+SILETTI_ANCHOR_S0_SEED="${SILETTI_ANCHOR_S0_SEED:-0}"
+SILETTI_ANCHOR_S0_VERBOSE="${SILETTI_ANCHOR_S0_VERBOSE:-true}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+bridge_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/seurat_bridge"
+transfer_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_TRANSFER_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/svd${SILETTI_TRANSFER_N_COMPONENTS}_k${SILETTI_TRANSFER_K}_ref${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}_query${SILETTI_TRANSFER_MAX_QUERY_CELLS}"
+outdir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_ANCHOR_S0_RUN_LABEL}"
+mkdir -p "${outdir}"
+
+echo "Siletti Seurat anchor object-integrity S0 started: $(date)"
+echo "Host: $(hostname)"
+echo "Bridge dir: ${bridge_dir}"
+echo "Transfer dir: ${transfer_dir}"
+echo "Output dir: ${outdir}"
+echo "Timeout: ${SILETTI_ANCHOR_S0_TIMEOUT}"
+echo "Cells/features/dims: ${SILETTI_ANCHOR_S0_MAX_REFERENCE_CELLS}x${SILETTI_ANCHOR_S0_MAX_QUERY_CELLS}/${SILETTI_ANCHOR_S0_NFEATURES}/1:${SILETTI_ANCHOR_S0_DIMS}"
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript -e "invisible(parse(file='scripts/34_siletti_seurat_anchor_object_integrity_s0.R')); cat('parse_ok\n')"
+
+set +e
+timeout "${SILETTI_ANCHOR_S0_TIMEOUT}" Rscript scripts/34_siletti_seurat_anchor_object_integrity_s0.R \
+  --bridge-dir "${bridge_dir}" \
+  --transfer-dir "${transfer_dir}" \
+  --outdir "${outdir}" \
+  --max-reference-cells "${SILETTI_ANCHOR_S0_MAX_REFERENCE_CELLS}" \
+  --max-query-cells "${SILETTI_ANCHOR_S0_MAX_QUERY_CELLS}" \
+  --nfeatures "${SILETTI_ANCHOR_S0_NFEATURES}" \
+  --dims "${SILETTI_ANCHOR_S0_DIMS}" \
+  --k-filter "${SILETTI_ANCHOR_S0_K_FILTER}" \
+  --nn-method "${SILETTI_ANCHOR_S0_NN_METHOD}" \
+  --seed "${SILETTI_ANCHOR_S0_SEED}" \
+  --seurat-verbose "${SILETTI_ANCHOR_S0_VERBOSE}"
+status=$?
+set -e
+
+if [[ "${status}" -eq 124 ]]; then
+  echo "S0 timed out after ${SILETTI_ANCHOR_S0_TIMEOUT}" | tee "${outdir}/s0_timeout.txt"
+elif [[ "${status}" -ne 0 ]]; then
+  echo "S0 failed with exit status ${status}" | tee "${outdir}/s0_failed.txt"
+else
+  echo "S0 completed successfully" | tee "${outdir}/s0_completed.txt"
+fi
+
+echo "Generated files:"
+find "${outdir}" -maxdepth 2 -type f | sort
+echo "Siletti Seurat anchor object-integrity S0 finished: $(date)"
+exit "${status}"
