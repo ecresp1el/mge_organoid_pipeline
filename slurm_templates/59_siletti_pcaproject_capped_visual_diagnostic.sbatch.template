@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Visualize capped stripped RNA-only Seurat pcaproject transfer diagnostics.
+#
+# Submit:
+#   cp slurm_templates/59_siletti_pcaproject_capped_visual_diagnostic.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/59_siletti_pcaproject_capped_visual_diagnostic.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/59_siletti_pcaproject_capped_visual_diagnostic.sbatch
+
+#SBATCH --job-name=siletti-pcaplot
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=80G
+#SBATCH --time=02:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-pcaplot-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-pcaplot-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_cholinergic_full_reference_v1}"
+SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_fast_knn_transfer_full_mge_llc_cholinergic_full_reference_v1}"
+SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc_cholinergic}"
+SILETTI_TRANSFER_N_COMPONENTS="${SILETTI_TRANSFER_N_COMPONENTS:-50}"
+SILETTI_TRANSFER_K="${SILETTI_TRANSFER_K:-50}"
+SILETTI_TRANSFER_MAX_REFERENCE_CELLS="${SILETTI_TRANSFER_MAX_REFERENCE_CELLS:-0}"
+SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-0}"
+SILETTI_PCAPLOT_RUN_LABEL="${SILETTI_PCAPLOT_RUN_LABEL:-seurat_pcaproject_transfer_stripped_cholinergic_capped_visual_diagnostic}"
+
+SILETTI_PCAPLOT_NFEATURES="${SILETTI_PCAPLOT_NFEATURES:-3000}"
+SILETTI_PCAPLOT_NPCS="${SILETTI_PCAPLOT_NPCS:-50}"
+SILETTI_PCAPLOT_DIMS="${SILETTI_PCAPLOT_DIMS:-20}"
+SILETTI_PCAPLOT_MAX_REFERENCE_CELLS="${SILETTI_PCAPLOT_MAX_REFERENCE_CELLS:-3000}"
+SILETTI_PCAPLOT_MAX_QUERY_CELLS="${SILETTI_PCAPLOT_MAX_QUERY_CELLS:-3000}"
+SILETTI_PCAPLOT_K_ANCHOR="${SILETTI_PCAPLOT_K_ANCHOR:-5}"
+SILETTI_PCAPLOT_K_FILTER="${SILETTI_PCAPLOT_K_FILTER:-100}"
+SILETTI_PCAPLOT_K_SCORE="${SILETTI_PCAPLOT_K_SCORE:-30}"
+SILETTI_PCAPLOT_MAX_FEATURES="${SILETTI_PCAPLOT_MAX_FEATURES:-200}"
+SILETTI_PCAPLOT_K_WEIGHT="${SILETTI_PCAPLOT_K_WEIGHT:-50}"
+SILETTI_PCAPLOT_NN_METHOD="${SILETTI_PCAPLOT_NN_METHOD:-annoy}"
+SILETTI_PCAPLOT_N_TREES="${SILETTI_PCAPLOT_N_TREES:-50}"
+SILETTI_PCAPLOT_SEED="${SILETTI_PCAPLOT_SEED:-0}"
+SILETTI_PCAPLOT_VERBOSE="${SILETTI_PCAPLOT_VERBOSE:-true}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+bridge_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/seurat_bridge"
+transfer_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_TRANSFER_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/svd${SILETTI_TRANSFER_N_COMPONENTS}_k${SILETTI_TRANSFER_K}_ref${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}_query${SILETTI_TRANSFER_MAX_QUERY_CELLS}"
+outdir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_PCAPLOT_RUN_LABEL}"
+
+echo "Siletti capped pcaproject visual diagnostic started: $(date)"
+echo "Host: $(hostname)"
+echo "Bridge dir: ${bridge_dir}"
+echo "Transfer dir: ${transfer_dir}"
+echo "Output dir: ${outdir}"
+echo "Caps reference/query: ${SILETTI_PCAPLOT_MAX_REFERENCE_CELLS}/${SILETTI_PCAPLOT_MAX_QUERY_CELLS}"
+echo "Features/npcs/dims: ${SILETTI_PCAPLOT_NFEATURES}/${SILETTI_PCAPLOT_NPCS}/1:${SILETTI_PCAPLOT_DIMS}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript -e "invisible(parse(file='scripts/37_siletti_pcaproject_capped_visual_diagnostic.R')); cat('parse_ok\n')"
+
+Rscript scripts/37_siletti_pcaproject_capped_visual_diagnostic.R \
+  --bridge-dir "${bridge_dir}" \
+  --transfer-dir "${transfer_dir}" \
+  --outdir "${outdir}" \
+  --nfeatures "${SILETTI_PCAPLOT_NFEATURES}" \
+  --npcs "${SILETTI_PCAPLOT_NPCS}" \
+  --dims "${SILETTI_PCAPLOT_DIMS}" \
+  --max-reference-cells "${SILETTI_PCAPLOT_MAX_REFERENCE_CELLS}" \
+  --max-query-cells "${SILETTI_PCAPLOT_MAX_QUERY_CELLS}" \
+  --k-anchor "${SILETTI_PCAPLOT_K_ANCHOR}" \
+  --k-filter "${SILETTI_PCAPLOT_K_FILTER}" \
+  --k-score "${SILETTI_PCAPLOT_K_SCORE}" \
+  --max-features "${SILETTI_PCAPLOT_MAX_FEATURES}" \
+  --k-weight "${SILETTI_PCAPLOT_K_WEIGHT}" \
+  --nn-method "${SILETTI_PCAPLOT_NN_METHOD}" \
+  --n-trees "${SILETTI_PCAPLOT_N_TREES}" \
+  --seed "${SILETTI_PCAPLOT_SEED}" \
+  --seurat-verbose "${SILETTI_PCAPLOT_VERBOSE}"
+
+echo "Generated files:"
+find "${outdir}" -maxdepth 3 -type f | sort
+echo "Siletti capped pcaproject visual diagnostic finished: $(date)"
