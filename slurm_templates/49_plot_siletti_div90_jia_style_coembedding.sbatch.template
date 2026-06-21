@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Generate Jia-style joint co-embedding diagnostics for Siletti adult MGE/LLC
+# reference cells and DIV90 neuron-lineage query cells.
+#
+# Submit:
+#   cp slurm_templates/49_plot_siletti_div90_jia_style_coembedding.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/49_plot_siletti_div90_jia_style_coembedding.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/49_plot_siletti_div90_jia_style_coembedding.sbatch
+
+#SBATCH --job-name=siletti-coembed
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=96G
+#SBATCH --time=04:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-coembed-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-coembed-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+SILETTI_COEMBED_RUN_LABEL="${SILETTI_COEMBED_RUN_LABEL:-unintegrated_joint_embedding_adult_div90}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_v1}"
+SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_fast_knn_transfer_full_mge_llc_v1}"
+SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc}"
+SILETTI_TRANSFER_N_COMPONENTS="${SILETTI_TRANSFER_N_COMPONENTS:-50}"
+SILETTI_TRANSFER_K="${SILETTI_TRANSFER_K:-50}"
+SILETTI_TRANSFER_MAX_REFERENCE_CELLS="${SILETTI_TRANSFER_MAX_REFERENCE_CELLS:-0}"
+SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-0}"
+
+SILETTI_COEMBED_LABEL_COLUMN="${SILETTI_COEMBED_LABEL_COLUMN:-candidate_jia_group}"
+SILETTI_COEMBED_EXCLUDE_LABEL="${SILETTI_COEMBED_EXCLUDE_LABEL:-Excluded / not assigned to Jia-style 9 groups}"
+SILETTI_COEMBED_QUERY_CLASS_COL="${SILETTI_COEMBED_QUERY_CLASS_COL:-div90_broad_class}"
+SILETTI_COEMBED_NFEATURES="${SILETTI_COEMBED_NFEATURES:-3000}"
+SILETTI_COEMBED_N_COMPONENTS="${SILETTI_COEMBED_N_COMPONENTS:-50}"
+SILETTI_COEMBED_NEIGHBOR_K="${SILETTI_COEMBED_NEIGHBOR_K:-50}"
+SILETTI_COEMBED_UMAP_NEIGHBORS="${SILETTI_COEMBED_UMAP_NEIGHBORS:-30}"
+SILETTI_COEMBED_UMAP_MIN_DIST="${SILETTI_COEMBED_UMAP_MIN_DIST:-0.3}"
+SILETTI_COEMBED_UMAP_METRIC="${SILETTI_COEMBED_UMAP_METRIC:-cosine}"
+SILETTI_COEMBED_SEED="${SILETTI_COEMBED_SEED:-0}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+bridge_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/seurat_bridge"
+transfer_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_TRANSFER_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/svd${SILETTI_TRANSFER_N_COMPONENTS}_k${SILETTI_TRANSFER_K}_ref${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}_query${SILETTI_TRANSFER_MAX_QUERY_CELLS}"
+outdir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_COEMBED_RUN_LABEL}"
+
+echo "Siletti DIV90 Jia-style co-embedding job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Bridge dir: ${bridge_dir}"
+echo "Transfer dir: ${transfer_dir}"
+echo "Output dir: ${outdir}"
+echo "Label column: ${SILETTI_COEMBED_LABEL_COLUMN}"
+echo "Query class column: ${SILETTI_COEMBED_QUERY_CLASS_COL}"
+echo "Features: ${SILETTI_COEMBED_NFEATURES}"
+echo "Components: ${SILETTI_COEMBED_N_COMPONENTS}"
+echo "Adult neighbor k: ${SILETTI_COEMBED_NEIGHBOR_K}"
+echo "UMAP neighbors: ${SILETTI_COEMBED_UMAP_NEIGHBORS}"
+echo "UMAP min.dist: ${SILETTI_COEMBED_UMAP_MIN_DIST}"
+echo "UMAP metric: ${SILETTI_COEMBED_UMAP_METRIC}"
+echo "Seed: ${SILETTI_COEMBED_SEED}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" -m py_compile python_notebooks/scripts/plot_siletti_div90_jia_coembedding.py
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/plot_siletti_div90_jia_coembedding.py \
+  --bridge-dir "${bridge_dir}" \
+  --transfer-dir "${transfer_dir}" \
+  --outdir "${outdir}" \
+  --label-column "${SILETTI_COEMBED_LABEL_COLUMN}" \
+  --exclude-label "${SILETTI_COEMBED_EXCLUDE_LABEL}" \
+  --query-class-col "${SILETTI_COEMBED_QUERY_CLASS_COL}" \
+  --nfeatures "${SILETTI_COEMBED_NFEATURES}" \
+  --n-components "${SILETTI_COEMBED_N_COMPONENTS}" \
+  --neighbor-k "${SILETTI_COEMBED_NEIGHBOR_K}" \
+  --umap-neighbors "${SILETTI_COEMBED_UMAP_NEIGHBORS}" \
+  --umap-min-dist "${SILETTI_COEMBED_UMAP_MIN_DIST}" \
+  --umap-metric "${SILETTI_COEMBED_UMAP_METRIC}" \
+  --seed "${SILETTI_COEMBED_SEED}"
+
+echo "Generated files:"
+find "${outdir}" -maxdepth 3 -type f | sort
+echo "Siletti DIV90 Jia-style co-embedding job finished: $(date)"

@@ -23,7 +23,7 @@ REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipel
 PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
 CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
 
-SILETTI_FIGURE_RUN_LABEL="${SILETTI_FIGURE_RUN_LABEL:-siletti_div90_jia_style_figure_v1}"
+SILETTI_FIGURE_RUN_LABEL="${SILETTI_FIGURE_RUN_LABEL:-siletti_div90_jia_style_figure}"
 SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_v1}"
 SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_fast_knn_transfer_full_mge_llc_v1}"
 SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc}"
@@ -40,6 +40,7 @@ SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED="${SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED:-
 SILETTI_FIGURE_NFEATURES="${SILETTI_FIGURE_NFEATURES:-3000}"
 SILETTI_FIGURE_N_COMPONENTS="${SILETTI_FIGURE_N_COMPONENTS:-50}"
 SILETTI_FIGURE_SEED="${SILETTI_FIGURE_SEED:-0}"
+SILETTI_FIGURE_UMAP_MODE="${SILETTI_FIGURE_UMAP_MODE:-reference_project}"
 
 mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
 cd "${REPO_ROOT}"
@@ -65,6 +66,7 @@ echo "Sample column: ${SILETTI_FIGURE_SAMPLE_COL}"
 echo "Min score assigned threshold: ${SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED}"
 echo "Figure features: ${SILETTI_FIGURE_NFEATURES}"
 echo "Figure components: ${SILETTI_FIGURE_N_COMPONENTS}"
+echo "UMAP mode: ${SILETTI_FIGURE_UMAP_MODE}"
 echo "Seed: ${SILETTI_FIGURE_SEED}"
 echo "python: $("${CONDA_ENV_BIN}/python" --version)"
 
@@ -81,6 +83,7 @@ echo "python: $("${CONDA_ENV_BIN}/python" --version)"
   --min-score-for-assigned "${SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED}" \
   --nfeatures "${SILETTI_FIGURE_NFEATURES}" \
   --n-components "${SILETTI_FIGURE_N_COMPONENTS}" \
+  --umap-mode "${SILETTI_FIGURE_UMAP_MODE}" \
   --seed "${SILETTI_FIGURE_SEED}"
 
 echo "Generated files:"

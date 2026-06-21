@@ -9,9 +9,10 @@ DIV90 organoid setting:
 * fetal classes -> DIV90 cluster/broad-class labels
 * developmental stages -> DIV90 samples
 
-The input transfer is the fast KNN Siletti run. The UMAP is a reproducible
-shared expression-space diagnostic built from the same bridge matrices and
-selected genes used by the fast KNN transfer.
+The input transfer is the fast KNN Siletti run. By default, the UMAP is fit on
+the adult Siletti reference and DIV90 cells are projected into that adult
+manifold. This keeps the workflow Python-only while making Panel B an explicit
+adult-reference overlay rather than a de novo combined UMAP.
 """
 
 from __future__ import annotations
@@ -58,7 +59,7 @@ DEFAULT_TRANSFER_DIR = (
 DEFAULT_OUTDIR = (
     PROJECT_ROOT_DEFAULT
     / "results/siletti_2023_whb_reference_label_transfer"
-    / "siletti_div90_jia_style_figure_v1"
+    / "siletti_div90_jia_style_figure"
 )
 
 ADULT_ORDER = [
@@ -149,6 +150,7 @@ def prepare_embedding(
     nfeatures: int,
     n_components: int,
     seed: int,
+    umap_mode: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     x_ref, genes_ref, meta_ref = read_bridge_counts("reference", bridge_dir)
     x_query, genes_query, meta_query = read_bridge_counts("query", bridge_dir)
@@ -178,10 +180,6 @@ def prepare_embedding(
     x_ref_norm = log_normalize(x_ref)[:, feature_idx]
     x_query_norm = log_normalize(x_query)[:, feature_idx]
     n_components_use = min(n_components, len(feature_idx) - 1, x_ref_norm.shape[0] - 1, x_query_norm.shape[0] - 1)
-    svd = TruncatedSVD(n_components=n_components_use, random_state=seed)
-    ref_pcs = svd.fit_transform(x_ref_norm)
-    query_pcs = svd.transform(x_query_norm)
-    pcs = np.vstack([normalize(ref_pcs), normalize(query_pcs)])
 
     reducer = umap.UMAP(
         n_neighbors=30,
@@ -190,9 +188,25 @@ def prepare_embedding(
         random_state=seed,
         low_memory=True,
     )
-    coords = reducer.fit_transform(pcs)
-    ref_coords = coords[: ref_pcs.shape[0], :]
-    query_coords = coords[ref_pcs.shape[0] :, :]
+
+    if umap_mode == "reference_project":
+        svd = TruncatedSVD(n_components=n_components_use, random_state=seed)
+        ref_pcs = normalize(svd.fit_transform(x_ref_norm))
+        query_pcs = normalize(svd.transform(x_query_norm))
+        ref_coords = reducer.fit_transform(ref_pcs)
+        query_coords = reducer.transform(query_pcs)
+        fit_description = "SVD and UMAP fit on adult Siletti reference; DIV90 projected with the fitted models"
+    elif umap_mode == "combined":
+        svd = TruncatedSVD(n_components=n_components_use, random_state=seed)
+        ref_pcs = svd.fit_transform(x_ref_norm)
+        query_pcs = svd.transform(x_query_norm)
+        pcs = np.vstack([normalize(ref_pcs), normalize(query_pcs)])
+        coords = reducer.fit_transform(pcs)
+        ref_coords = coords[: ref_pcs.shape[0], :]
+        query_coords = coords[ref_pcs.shape[0] :, :]
+        fit_description = "SVD fit on adult Siletti reference; UMAP fit on combined adult reference plus DIV90 query"
+    else:
+        raise ValueError(f"Unknown umap_mode: {umap_mode}")
 
     meta_ref = meta_ref.copy()
     meta_ref["dataset"] = "Siletti adult reference"
@@ -213,6 +227,8 @@ def prepare_embedding(
         "umap_n_neighbors": 30,
         "umap_min_dist": 0.3,
         "umap_metric": "cosine",
+        "umap_mode": umap_mode,
+        "embedding_fit_description": fit_description,
     }
     return meta_ref, meta_query, diag
 
@@ -479,6 +495,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--nfeatures", type=int, default=3000)
     parser.add_argument("--n-components", type=int, default=50)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--umap-mode",
+        choices=["reference_project", "combined"],
+        default="reference_project",
+        help="reference_project fits UMAP on adult reference and projects DIV90; combined fits UMAP on both datasets.",
+    )
     return parser.parse_args()
 
 
@@ -498,6 +520,7 @@ def main() -> None:
         args.nfeatures,
         args.n_components,
         args.seed,
+        args.umap_mode,
     )
     query = attach_predictions(query_umap, args.transfer_dir, args.min_score_for_assigned)
 
@@ -538,6 +561,7 @@ def main() -> None:
         "nfeatures_requested": args.nfeatures,
         "n_components_requested": args.n_components,
         "seed": args.seed,
+        "umap_mode": args.umap_mode,
         **diag,
     }
     (tables_dir / "plot_config.json").write_text(json.dumps(config, indent=2, sort_keys=True) + "\n")
@@ -553,6 +577,8 @@ def main() -> None:
         "",
         "`transferred_mtg_label` is an adult-reference annotation from the Siletti/Linnarsson workbook,",
         "not a label transferred from Siletti to DIV90 in this run.",
+        "",
+        f"UMAP mode: {args.umap_mode}.",
         "",
         f"Assigned-cell threshold: prediction.score.max >= {args.min_score_for_assigned}",
         "",

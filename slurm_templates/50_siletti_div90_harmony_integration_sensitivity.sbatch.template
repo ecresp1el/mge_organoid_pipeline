@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Run Harmony integration sensitivity for adult Siletti MGE/LLC reference cells
+# and DIV90 neuron-lineage query cells.
+#
+# Submit:
+#   cp slurm_templates/50_siletti_div90_harmony_integration_sensitivity.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/50_siletti_div90_harmony_integration_sensitivity.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/50_siletti_div90_harmony_integration_sensitivity.sbatch
+
+#SBATCH --job-name=siletti-harmony
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=96G
+#SBATCH --time=04:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-harmony-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-harmony-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+SILETTI_HARMONY_RUN_LABEL="${SILETTI_HARMONY_RUN_LABEL:-harmony_integrated_adult_div90}"
+SILETTI_UNINTEGRATED_RUN_LABEL="${SILETTI_UNINTEGRATED_RUN_LABEL:-unintegrated_joint_embedding_adult_div90}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_v1}"
+SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_fast_knn_transfer_full_mge_llc_v1}"
+SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc}"
+SILETTI_TRANSFER_N_COMPONENTS="${SILETTI_TRANSFER_N_COMPONENTS:-50}"
+SILETTI_TRANSFER_K="${SILETTI_TRANSFER_K:-50}"
+SILETTI_TRANSFER_MAX_REFERENCE_CELLS="${SILETTI_TRANSFER_MAX_REFERENCE_CELLS:-0}"
+SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-0}"
+
+SILETTI_HARMONY_LABEL_COLUMN="${SILETTI_HARMONY_LABEL_COLUMN:-candidate_jia_group}"
+SILETTI_HARMONY_EXCLUDE_LABEL="${SILETTI_HARMONY_EXCLUDE_LABEL:-Excluded / not assigned to Jia-style 9 groups}"
+SILETTI_HARMONY_QUERY_CLASS_COL="${SILETTI_HARMONY_QUERY_CLASS_COL:-div90_broad_class}"
+SILETTI_HARMONY_NFEATURES="${SILETTI_HARMONY_NFEATURES:-3000}"
+SILETTI_HARMONY_N_COMPONENTS="${SILETTI_HARMONY_N_COMPONENTS:-50}"
+SILETTI_HARMONY_NEIGHBOR_K="${SILETTI_HARMONY_NEIGHBOR_K:-50}"
+SILETTI_HARMONY_UMAP_NEIGHBORS="${SILETTI_HARMONY_UMAP_NEIGHBORS:-30}"
+SILETTI_HARMONY_UMAP_MIN_DIST="${SILETTI_HARMONY_UMAP_MIN_DIST:-0.3}"
+SILETTI_HARMONY_UMAP_METRIC="${SILETTI_HARMONY_UMAP_METRIC:-cosine}"
+SILETTI_HARMONY_THETA="${SILETTI_HARMONY_THETA:-2.0}"
+SILETTI_HARMONY_LAMBDA="${SILETTI_HARMONY_LAMBDA:-1.0}"
+SILETTI_HARMONY_MAX_ITER="${SILETTI_HARMONY_MAX_ITER:-20}"
+SILETTI_HARMONY_SEED="${SILETTI_HARMONY_SEED:-0}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+bridge_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/seurat_bridge"
+transfer_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_TRANSFER_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/svd${SILETTI_TRANSFER_N_COMPONENTS}_k${SILETTI_TRANSFER_K}_ref${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}_query${SILETTI_TRANSFER_MAX_QUERY_CELLS}"
+unintegrated_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_UNINTEGRATED_RUN_LABEL}"
+outdir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_HARMONY_RUN_LABEL}"
+
+echo "Siletti DIV90 Harmony integration sensitivity job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Bridge dir: ${bridge_dir}"
+echo "Transfer dir: ${transfer_dir}"
+echo "Unintegrated diagnostic dir: ${unintegrated_dir}"
+echo "Output dir: ${outdir}"
+echo "Label column: ${SILETTI_HARMONY_LABEL_COLUMN}"
+echo "Query class column: ${SILETTI_HARMONY_QUERY_CLASS_COL}"
+echo "Features: ${SILETTI_HARMONY_NFEATURES}"
+echo "Components: ${SILETTI_HARMONY_N_COMPONENTS}"
+echo "Adult neighbor k: ${SILETTI_HARMONY_NEIGHBOR_K}"
+echo "Harmony theta/lambda/max_iter: ${SILETTI_HARMONY_THETA}/${SILETTI_HARMONY_LAMBDA}/${SILETTI_HARMONY_MAX_ITER}"
+echo "UMAP neighbors/min.dist/metric: ${SILETTI_HARMONY_UMAP_NEIGHBORS}/${SILETTI_HARMONY_UMAP_MIN_DIST}/${SILETTI_HARMONY_UMAP_METRIC}"
+echo "Seed: ${SILETTI_HARMONY_SEED}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" -m py_compile python_notebooks/scripts/plot_siletti_div90_jia_integration_sensitivity.py
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/plot_siletti_div90_jia_integration_sensitivity.py \
+  --bridge-dir "${bridge_dir}" \
+  --transfer-dir "${transfer_dir}" \
+  --unintegrated-dir "${unintegrated_dir}" \
+  --outdir "${outdir}" \
+  --label-column "${SILETTI_HARMONY_LABEL_COLUMN}" \
+  --exclude-label "${SILETTI_HARMONY_EXCLUDE_LABEL}" \
+  --query-class-col "${SILETTI_HARMONY_QUERY_CLASS_COL}" \
+  --nfeatures "${SILETTI_HARMONY_NFEATURES}" \
+  --n-components "${SILETTI_HARMONY_N_COMPONENTS}" \
+  --neighbor-k "${SILETTI_HARMONY_NEIGHBOR_K}" \
+  --umap-neighbors "${SILETTI_HARMONY_UMAP_NEIGHBORS}" \
+  --umap-min-dist "${SILETTI_HARMONY_UMAP_MIN_DIST}" \
+  --umap-metric "${SILETTI_HARMONY_UMAP_METRIC}" \
+  --harmony-theta "${SILETTI_HARMONY_THETA}" \
+  --harmony-lambda "${SILETTI_HARMONY_LAMBDA}" \
+  --harmony-max-iter "${SILETTI_HARMONY_MAX_ITER}" \
+  --seed "${SILETTI_HARMONY_SEED}"
+
+echo "Generated files:"
+find "${outdir}" -maxdepth 3 -type f | sort
+echo "Siletti DIV90 Harmony integration sensitivity job finished: $(date)"
