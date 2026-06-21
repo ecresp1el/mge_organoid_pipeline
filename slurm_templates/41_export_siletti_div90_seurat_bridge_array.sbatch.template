@@ -9,7 +9,7 @@
 #SBATCH --job-name=siletti-bridge
 #SBATCH --account=parent0
 #SBATCH --partition=standard
-#SBATCH --array=0-1
+#SBATCH --array=0-2
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
@@ -28,7 +28,7 @@ SILETTI_MAX_REF_CELLS_PER_SUBCLUSTER="${SILETTI_MAX_REF_CELLS_PER_SUBCLUSTER:-10
 SILETTI_MAX_REF_CELLS_TOTAL="${SILETTI_MAX_REF_CELLS_TOTAL:-60000}"
 SILETTI_BRIDGE_SEED="${SILETTI_BRIDGE_SEED:-0}"
 
-scopes=(mge_llc mge_cge_llc)
+scopes=(mge_llc mge_cge_llc mge_llc_cholinergic)
 scope="${scopes[${SLURM_ARRAY_TASK_ID}]}"
 
 mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"

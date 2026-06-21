@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Parallel micro-debug of Seurat FindTransferAnchors failure modes.
+#
+# Submit:
+#   cp slurm_templates/55_siletti_seurat_anchor_parallel_microdebug.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/55_siletti_seurat_anchor_parallel_microdebug.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/55_siletti_seurat_anchor_parallel_microdebug.sbatch
+
+#SBATCH --job-name=siletti-anchor-micro
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --array=0-3
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=40G
+#SBATCH --time=00:45:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-anchor-micro-%A_%a.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-anchor-micro-%A_%a.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_v1}"
+SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_fast_knn_transfer_full_mge_llc_v1}"
+SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc}"
+SILETTI_TRANSFER_N_COMPONENTS="${SILETTI_TRANSFER_N_COMPONENTS:-50}"
+SILETTI_TRANSFER_K="${SILETTI_TRANSFER_K:-50}"
+SILETTI_TRANSFER_MAX_REFERENCE_CELLS="${SILETTI_TRANSFER_MAX_REFERENCE_CELLS:-0}"
+SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-0}"
+SILETTI_ANCHOR_MICRO_RUN_LABEL="${SILETTI_ANCHOR_MICRO_RUN_LABEL:-seurat_anchor_parallel_microdebug}"
+SILETTI_ANCHOR_MICRO_TIMEOUT="${SILETTI_ANCHOR_MICRO_TIMEOUT:-20m}"
+SILETTI_ANCHOR_MICRO_MAX_REFERENCE_CELLS="${SILETTI_ANCHOR_MICRO_MAX_REFERENCE_CELLS:-1000}"
+SILETTI_ANCHOR_MICRO_MAX_QUERY_CELLS="${SILETTI_ANCHOR_MICRO_MAX_QUERY_CELLS:-1000}"
+SILETTI_ANCHOR_MICRO_SEED="${SILETTI_ANCHOR_MICRO_SEED:-0}"
+SILETTI_ANCHOR_MICRO_VERBOSE="${SILETTI_ANCHOR_MICRO_VERBOSE:-true}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+bridge_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/seurat_bridge"
+transfer_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_TRANSFER_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/svd${SILETTI_TRANSFER_N_COMPONENTS}_k${SILETTI_TRANSFER_K}_ref${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}_query${SILETTI_TRANSFER_MAX_QUERY_CELLS}"
+outdir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_ANCHOR_MICRO_RUN_LABEL}"
+mkdir -p "${outdir}"
+
+configs=(
+  "A1 500 10 100 rpca annoy"
+  "A2 500 10 NA rpca annoy"
+  "A3 500 10 100 cca annoy"
+  "A4 500 10 100 rpca rann"
+)
+read -r test_id nfeatures dims k_filter reduction nn_method <<<"${configs[${SLURM_ARRAY_TASK_ID}]}"
+
+echo "Siletti Seurat anchor micro-debug started: $(date)"
+echo "Host: $(hostname)"
+echo "Array task: ${SLURM_ARRAY_TASK_ID}"
+echo "Test: ${test_id}"
+echo "features=${nfeatures} dims=1:${dims} k.filter=${k_filter} reduction=${reduction} nn.method=${nn_method}"
+echo "Bridge dir: ${bridge_dir}"
+echo "Transfer dir: ${transfer_dir}"
+echo "Output dir: ${outdir}"
+echo "Timeout: ${SILETTI_ANCHOR_MICRO_TIMEOUT}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript -e "invisible(parse(file='scripts/33_siletti_seurat_rpca_anchor_stall_debug.R')); cat('parse_ok\n')"
+
+summary_path="${outdir}/parallel_microdebug_summary.tsv"
+if [[ ! -f "${summary_path}" ]]; then
+  printf "timestamp\ttest_id\tnfeatures\tdims\tk_filter\treduction\tnn_method\texit_status\tstatus\n" > "${summary_path}"
+fi
+
+set +e
+timeout "${SILETTI_ANCHOR_MICRO_TIMEOUT}" Rscript scripts/33_siletti_seurat_rpca_anchor_stall_debug.R \
+  --bridge-dir "${bridge_dir}" \
+  --transfer-dir "${transfer_dir}" \
+  --outdir "${outdir}" \
+  --test-id "${test_id}" \
+  --nfeatures "${nfeatures}" \
+  --dims "${dims}" \
+  --k-filter "${k_filter}" \
+  --reduction "${reduction}" \
+  --nn-method "${nn_method}" \
+  --max-reference-cells "${SILETTI_ANCHOR_MICRO_MAX_REFERENCE_CELLS}" \
+  --max-query-cells "${SILETTI_ANCHOR_MICRO_MAX_QUERY_CELLS}" \
+  --seed "${SILETTI_ANCHOR_MICRO_SEED}" \
+  --seurat-verbose "${SILETTI_ANCHOR_MICRO_VERBOSE}"
+status=$?
+set -e
+
+if [[ "${status}" -eq 0 ]]; then
+  result="completed"
+elif [[ "${status}" -eq 124 ]]; then
+  result="timeout_stall_gt_${SILETTI_ANCHOR_MICRO_TIMEOUT}"
+  test_dir="${outdir}/test_${test_id}"
+  mkdir -p "${test_dir}"
+  if [[ ! -f "${test_dir}/test_summary.tsv" ]]; then
+    cat > "${test_dir}/test_summary.tsv" <<EOF
+test_id	completed	n_anchors	find_transfer_anchors_elapsed_sec	error	n_warnings	reference_cells_used	query_cells_used	n_features	dims	k_filter	reduction	nn_method
+${test_id}	FALSE	NA	NA	timeout_${SILETTI_ANCHOR_MICRO_TIMEOUT}	NA	NA	NA	${nfeatures}	1:${dims}	${k_filter}	${reduction}	${nn_method}
+EOF
+  fi
+else
+  result="failed"
+fi
+
+printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "${test_id}" "${nfeatures}" "${dims}" "${k_filter}" "${reduction}" "${nn_method}" "${status}" "${result}" >> "${summary_path}"
+
+echo "Test ${test_id} result: ${result} exit=${status}"
+find "${outdir}/test_${test_id}" -maxdepth 1 -type f | sort || true
+echo "Siletti Seurat anchor micro-debug finished: $(date)"

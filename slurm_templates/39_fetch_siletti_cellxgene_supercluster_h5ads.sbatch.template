@@ -23,6 +23,7 @@ REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipel
 PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
 CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
 SILETTI_FETCH_OVERWRITE="${SILETTI_FETCH_OVERWRITE:-0}"
+SILETTI_TARGET_SUPERCLUSTERS="${SILETTI_TARGET_SUPERCLUSTERS:-MGE interneuron,CGE interneuron,LAMP5-LHX6 and Chandelier,Splatter}"
 
 mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
 cd "${REPO_ROOT}"
@@ -36,11 +37,12 @@ echo "Host: $(hostname)"
 echo "Repo root: ${REPO_ROOT}"
 echo "Project/data root: ${PROJECT_ROOT}"
 echo "Overwrite: ${SILETTI_FETCH_OVERWRITE}"
+echo "Target superclusters: ${SILETTI_TARGET_SUPERCLUSTERS}"
 echo "python: $("${CONDA_ENV_BIN}/python" --version)"
 
 "${CONDA_ENV_BIN}/python" -m py_compile python_notebooks/scripts/fetch_siletti_cellxgene_supercluster_h5ads.py
 
-args=(--project-root "${PROJECT_ROOT}")
+args=(--project-root "${PROJECT_ROOT}" --target-superclusters "${SILETTI_TARGET_SUPERCLUSTERS}")
 if [[ "${SILETTI_FETCH_OVERWRITE}" == "1" ]]; then
   args+=(--overwrite)
 fi

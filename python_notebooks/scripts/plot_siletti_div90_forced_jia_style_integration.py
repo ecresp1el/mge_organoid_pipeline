@@ -29,6 +29,7 @@ import seaborn as sns
 from anndata import AnnData
 from scipy import sparse
 from sklearn.decomposition import TruncatedSVD
+from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import normalize
 
 from plot_siletti_div90_jia_coembedding import (
@@ -163,10 +164,54 @@ def make_adata(ref: pd.DataFrame, query: pd.DataFrame, x_harmony: np.ndarray) ->
     return adata
 
 
-def run_forced_graph(adata: AnnData, args: argparse.Namespace) -> str:
+def clear_neighbor_graph(adata: AnnData) -> None:
+    for key in ["neighbors"]:
+        if key in adata.uns:
+            del adata.uns[key]
+    for key in ["connectivities", "distances"]:
+        if key in adata.obsp:
+            del adata.obsp[key]
+
+
+def graph_audit(adata: AnnData, label: str) -> dict:
+    neighbors = adata.uns.get("neighbors", {})
+    audit = {
+        "label": label,
+        "adata_uns_keys": sorted(map(str, adata.uns.keys())),
+        "adata_obsp_keys": sorted(map(str, adata.obsp.keys())),
+        "neighbors": neighbors,
+        "connectivities_shape": list(adata.obsp["connectivities"].shape) if "connectivities" in adata.obsp else None,
+        "distances_shape": list(adata.obsp["distances"].shape) if "distances" in adata.obsp else None,
+    }
+    print(f"[forced-bbknn-audit] {label} adata.uns.keys(): {audit['adata_uns_keys']}", flush=True)
+    print(f"[forced-bbknn-audit] {label} adata.uns['neighbors']: {neighbors}", flush=True)
+    print(f"[forced-bbknn-audit] {label} adata.obsp.keys(): {audit['adata_obsp_keys']}", flush=True)
+    print(f"[forced-bbknn-audit] {label} connectivities shape: {audit['connectivities_shape']}", flush=True)
+    print(f"[forced-bbknn-audit] {label} distances shape: {audit['distances_shape']}", flush=True)
+    if "connectivities" not in adata.obsp or "distances" not in adata.obsp:
+        raise RuntimeError("BBKNN did not write both adata.obsp['connectivities'] and adata.obsp['distances'].")
+    if "neighbors" not in adata.uns:
+        raise RuntimeError("BBKNN did not write adata.uns['neighbors'].")
+    return audit
+
+
+def source_umap_silhouette(adata: AnnData) -> float:
+    source = (adata.obs["source_label"].astype(str).to_numpy() == "DIV90_query").astype(int)
+    return float(silhouette_score(adata.obsm["X_umap"], source, metric="euclidean"))
+
+
+def run_forced_graph(adata: AnnData, args: argparse.Namespace, label: str) -> tuple[str, dict]:
+    clear_neighbor_graph(adata)
     if importlib.util.find_spec("bbknn") is not None:
         import bbknn
 
+        print(
+            "[forced-bbknn-audit] Running BBKNN "
+            f"label={label} batch_key=source_label use_rep=X_pca "
+            f"neighbors_within_batch={args.bbknn_neighbors_within_batch} "
+            f"n_pcs={args.bbknn_n_pcs} metric={args.bbknn_metric} trim={args.bbknn_trim}",
+            flush=True,
+        )
         bbknn.bbknn(
             adata,
             batch_key="source_label",
@@ -179,7 +224,7 @@ def run_forced_graph(adata: AnnData, args: argparse.Namespace) -> str:
             annoy_n_trees=args.bbknn_annoy_n_trees,
             pynndescent_random_state=args.seed,
         )
-        return "BBKNN"
+        return "BBKNN", graph_audit(adata, label)
 
     if importlib.util.find_spec("scanorama") is not None:
         raise RuntimeError("Scanorama fallback is available but not implemented for graph-forced UMAP in this script.")
@@ -209,6 +254,25 @@ def save_plot(fig: plt.Figure, plots_dir: Path, name: str) -> None:
     fig.savefig(plots_dir / f"{name}.png", dpi=300, bbox_inches="tight")
     fig.savefig(plots_dir / f"{name}.pdf", bbox_inches="tight")
     plt.close(fig)
+
+
+def fit_umap_from_bbknn_graph(adata: AnnData, args: argparse.Namespace, label: str) -> float:
+    print(
+        "[forced-bbknn-audit] Running sc.tl.umap "
+        f"label={label} neighbors_key=neighbors min_dist={args.umap_min_dist} "
+        f"spread={args.umap_spread} random_state={args.seed}",
+        flush=True,
+    )
+    sc.tl.umap(
+        adata,
+        neighbors_key="neighbors",
+        min_dist=args.umap_min_dist,
+        spread=args.umap_spread,
+        random_state=args.seed,
+    )
+    sil = source_umap_silhouette(adata)
+    print(f"[forced-bbknn-audit] {label} source UMAP silhouette: {sil}", flush=True)
+    return sil
 
 
 def plot_source(ref: pd.DataFrame, query: pd.DataFrame, plots_dir: Path) -> None:
@@ -372,10 +436,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bbknn-neighbors-within-batch", type=int, default=25)
     parser.add_argument("--bbknn-n-pcs", type=int, default=50)
     parser.add_argument("--bbknn-metric", default="euclidean")
-    parser.add_argument("--bbknn-trim", type=parse_trim, default=None)
+    parser.add_argument("--bbknn-trim", type=parse_trim, default=0)
     parser.add_argument("--bbknn-computation", default="annoy")
     parser.add_argument("--bbknn-annoy-n-trees", type=int, default=50)
-    parser.add_argument("--umap-min-dist", type=float, default=0.3)
+    parser.add_argument("--umap-min-dist", type=float, default=0.5)
     parser.add_argument("--umap-spread", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=0)
     return parser.parse_args()
@@ -393,8 +457,8 @@ def main() -> None:
     ref, query, x_svd, metadata, diag = load_svd_inputs(args)
     x_harmony = run_harmony(x_svd, metadata, args)
     adata = make_adata(ref, query, x_harmony)
-    method = run_forced_graph(adata, args)
-    sc.tl.umap(adata, min_dist=args.umap_min_dist, spread=args.umap_spread, random_state=args.seed)
+    method, bbknn_graph_audit = run_forced_graph(adata, args, label="primary")
+    source_silhouette = fit_umap_from_bbknn_graph(adata, args, label="primary")
     ref, query = add_umap_to_metadata(adata, ref, query)
 
     palette = div90_palette(query)
@@ -413,9 +477,11 @@ def main() -> None:
     method_info = {
         "integration_method": method,
         "graph_method": "BBKNN batch-balanced neighbor graph" if method == "BBKNN" else method,
-        "umap_source": "Scanpy UMAP fit from BBKNN connectivities in adata.obsp['connectivities']",
+        "umap_source": "Scanpy UMAP called with neighbors_key='neighbors' after BBKNN wrote adata.uns['neighbors'] and adata.obsp['connectivities']",
         "batch_key": "source_label",
         "source_labels": ["adult_reference", "DIV90_query"],
+        "bbknn_graph_audit": bbknn_graph_audit,
+        "source_umap_silhouette": source_silhouette,
         "intent": "Forced Jia-style integrated visualization; not an adult-reference projection.",
     }
     parameters = {
@@ -445,9 +511,9 @@ def main() -> None:
         **diag,
     }
     for target in [tables_dir / "forced_integration_method.json", args.outdir / "forced_integration_method.json"]:
-        target.write_text(json.dumps(method_info, indent=2, sort_keys=True) + "\n")
+        target.write_text(json.dumps(method_info, indent=2, sort_keys=True, default=str) + "\n")
     for target in [tables_dir / "forced_integration_parameters.json", args.outdir / "forced_integration_parameters.json"]:
-        target.write_text(json.dumps(parameters, indent=2, sort_keys=True) + "\n")
+        target.write_text(json.dumps(parameters, indent=2, sort_keys=True, default=str) + "\n")
     (tables_dir / "forced_integration_div90_palette.json").write_text(json.dumps(palette, indent=2, sort_keys=True) + "\n")
 
     readme = [
@@ -460,7 +526,7 @@ def main() -> None:
     ]
     (reports_dir / "README_forced_jia_style_integration.md").write_text("\n".join(readme) + "\n")
 
-    print(json.dumps({"method": method_info, "parameters": parameters}, indent=2, sort_keys=True))
+    print(json.dumps({"method": method_info, "parameters": parameters}, indent=2, sort_keys=True, default=str))
 
 
 if __name__ == "__main__":

@@ -35,6 +35,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--chunk-size", type=int, default=16 * 1024 * 1024)
+    parser.add_argument(
+        "--target-superclusters",
+        default=os.environ.get("SILETTI_TARGET_SUPERCLUSTERS", ",".join(TARGET_SUPERCLUSTERS)),
+        help="Comma-separated CELLxGENE supercluster titles to stage.",
+    )
     return parser.parse_args()
 
 
@@ -84,6 +89,9 @@ def download(url: str, path: Path, expected_size: int | None, chunk_size: int, o
 
 def main() -> None:
     args = parse_args()
+    target_superclusters = tuple(x.strip() for x in args.target_superclusters.split(",") if x.strip())
+    if not target_superclusters:
+        raise ValueError("No target superclusters requested.")
     project_root = Path(args.project_root)
     outdir = (
         Path(args.outdir)
@@ -108,7 +116,7 @@ def main() -> None:
         if not title.startswith("Supercluster:"):
             continue
         supercluster = title.removeprefix("Supercluster:").strip()
-        if supercluster not in TARGET_SUPERCLUSTERS:
+        if supercluster not in target_superclusters:
             continue
         h5ads = [asset for asset in dataset.get("assets", []) if asset.get("filetype") == "H5AD"]
         if len(h5ads) != 1:
@@ -173,7 +181,7 @@ def main() -> None:
         "Target superclusters:",
         "",
     ]
-    report.extend(f"- {x}" for x in TARGET_SUPERCLUSTERS)
+    report.extend(f"- {x}" for x in target_superclusters)
     report.extend(
         [
             "",

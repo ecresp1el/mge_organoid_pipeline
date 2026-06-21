@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Run Seurat RPCA Jia-style adult Siletti MGE/LLC -> DIV90 mapping.
+#
+# Submit:
+#   cp slurm_templates/53_siletti_div90_seurat_rpca_jia_style_mapping.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/53_siletti_div90_seurat_rpca_jia_style_mapping.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/53_siletti_div90_seurat_rpca_jia_style_mapping.sbatch
+
+#SBATCH --job-name=siletti-rpca-map
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=180G
+#SBATCH --time=24:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-rpca-map-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-rpca-map-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+SILETTI_BRIDGE_RUN_LABEL="${SILETTI_BRIDGE_RUN_LABEL:-siletti_div90_seurat_bridge_v1}"
+SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_fast_knn_transfer_full_mge_llc_v1}"
+SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc}"
+SILETTI_TRANSFER_N_COMPONENTS="${SILETTI_TRANSFER_N_COMPONENTS:-50}"
+SILETTI_TRANSFER_K="${SILETTI_TRANSFER_K:-50}"
+SILETTI_TRANSFER_MAX_REFERENCE_CELLS="${SILETTI_TRANSFER_MAX_REFERENCE_CELLS:-0}"
+SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-0}"
+SILETTI_RPCA_RUN_LABEL="${SILETTI_RPCA_RUN_LABEL:-seurat_rpca_jia_style_mapping}"
+
+SILETTI_RPCA_SUBTYPE_LABEL_COLUMN="${SILETTI_RPCA_SUBTYPE_LABEL_COLUMN:-candidate_jia_group}"
+SILETTI_RPCA_BROAD_LABEL_COLUMN="${SILETTI_RPCA_BROAD_LABEL_COLUMN:-jia_side}"
+SILETTI_RPCA_QUERY_CLASS_COL="${SILETTI_RPCA_QUERY_CLASS_COL:-div90_broad_class}"
+SILETTI_RPCA_EXCLUDE_LABEL="${SILETTI_RPCA_EXCLUDE_LABEL:-Excluded / not assigned to Jia-style 9 groups}"
+SILETTI_RPCA_NFEATURES="${SILETTI_RPCA_NFEATURES:-3000}"
+SILETTI_RPCA_NPCS="${SILETTI_RPCA_NPCS:-50}"
+SILETTI_RPCA_DIMS="${SILETTI_RPCA_DIMS:-20}"
+SILETTI_RPCA_SEED="${SILETTI_RPCA_SEED:-0}"
+SILETTI_RPCA_K_WEIGHT="${SILETTI_RPCA_K_WEIGHT:-50}"
+SILETTI_RPCA_K_ANCHOR="${SILETTI_RPCA_K_ANCHOR:-5}"
+SILETTI_RPCA_K_FILTER="${SILETTI_RPCA_K_FILTER:-NA}"
+SILETTI_RPCA_K_SCORE="${SILETTI_RPCA_K_SCORE:-30}"
+SILETTI_RPCA_MAX_FEATURES="${SILETTI_RPCA_MAX_FEATURES:-200}"
+SILETTI_RPCA_NN_METHOD="${SILETTI_RPCA_NN_METHOD:-annoy}"
+SILETTI_RPCA_N_TREES="${SILETTI_RPCA_N_TREES:-50}"
+SILETTI_RPCA_SAVE_RDS="${SILETTI_RPCA_SAVE_RDS:-false}"
+SILETTI_RPCA_SEURAT_VERBOSE="${SILETTI_RPCA_SEURAT_VERBOSE:-true}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+bridge_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_BRIDGE_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/seurat_bridge"
+transfer_dir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_TRANSFER_RUN_LABEL}/${SILETTI_TRANSFER_SCOPE}/svd${SILETTI_TRANSFER_N_COMPONENTS}_k${SILETTI_TRANSFER_K}_ref${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}_query${SILETTI_TRANSFER_MAX_QUERY_CELLS}"
+outdir="${PROJECT_ROOT}/results/siletti_2023_whb_reference_label_transfer/${SILETTI_RPCA_RUN_LABEL}"
+
+echo "Siletti DIV90 Seurat RPCA Jia-style mapping started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project root: ${PROJECT_ROOT}"
+echo "Bridge dir: ${bridge_dir}"
+echo "Transfer dir: ${transfer_dir}"
+echo "Output dir: ${outdir}"
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+echo "RPCA dims/npcs/features: ${SILETTI_RPCA_DIMS}/${SILETTI_RPCA_NPCS}/${SILETTI_RPCA_NFEATURES}"
+echo "Subtype label column: ${SILETTI_RPCA_SUBTYPE_LABEL_COLUMN}"
+echo "Broad label column: ${SILETTI_RPCA_BROAD_LABEL_COLUMN}"
+echo "Query class column: ${SILETTI_RPCA_QUERY_CLASS_COL}"
+echo "Exclude label: ${SILETTI_RPCA_EXCLUDE_LABEL}"
+
+Rscript -e "invisible(parse(file='scripts/32_siletti_div90_seurat_rpca_jia_style_mapping.R')); cat('parse_ok\n')"
+
+Rscript scripts/32_siletti_div90_seurat_rpca_jia_style_mapping.R \
+  --bridge-dir "${bridge_dir}" \
+  --transfer-dir "${transfer_dir}" \
+  --outdir "${outdir}" \
+  --subtype-label-column "${SILETTI_RPCA_SUBTYPE_LABEL_COLUMN}" \
+  --broad-label-column "${SILETTI_RPCA_BROAD_LABEL_COLUMN}" \
+  --query-class-col "${SILETTI_RPCA_QUERY_CLASS_COL}" \
+  --exclude-label "${SILETTI_RPCA_EXCLUDE_LABEL}" \
+  --nfeatures "${SILETTI_RPCA_NFEATURES}" \
+  --npcs "${SILETTI_RPCA_NPCS}" \
+  --dims "${SILETTI_RPCA_DIMS}" \
+  --seed "${SILETTI_RPCA_SEED}" \
+  --k-weight "${SILETTI_RPCA_K_WEIGHT}" \
+  --k-anchor "${SILETTI_RPCA_K_ANCHOR}" \
+  --k-filter "${SILETTI_RPCA_K_FILTER}" \
+  --k-score "${SILETTI_RPCA_K_SCORE}" \
+  --max-features "${SILETTI_RPCA_MAX_FEATURES}" \
+  --nn-method "${SILETTI_RPCA_NN_METHOD}" \
+  --n-trees "${SILETTI_RPCA_N_TREES}" \
+  --seurat-verbose "${SILETTI_RPCA_SEURAT_VERBOSE}" \
+  --save-rds "${SILETTI_RPCA_SAVE_RDS}"
+
+echo "Generated files:"
+find "${outdir}" -maxdepth 3 -type f | sort
+echo "Siletti DIV90 Seurat RPCA Jia-style mapping finished: $(date)"

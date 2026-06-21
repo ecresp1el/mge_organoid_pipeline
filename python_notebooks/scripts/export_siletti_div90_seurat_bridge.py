@@ -17,13 +17,18 @@ from scipy import io, sparse
 PROJECT_ROOT_DEFAULT = "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
 SCOPES = {
     "mge_llc": ("MGE interneuron", "LAMP5-LHX6 and Chandelier"),
+    "mge_llc_cholinergic": ("MGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
     "mge_cge_llc": ("MGE interneuron", "CGE interneuron", "LAMP5-LHX6 and Chandelier"),
 }
 H5AD_BY_SUPERCLUSTER = {
     "MGE interneuron": "siletti_whb_mge_interneuron.h5ad",
     "CGE interneuron": "siletti_whb_cge_interneuron.h5ad",
     "LAMP5-LHX6 and Chandelier": "siletti_whb_lamp5_lhx6_and_chandelier.h5ad",
+    "Splatter": "siletti_whb_splatter.h5ad",
 }
+CHOLINERGIC_SPLATTER_CLUSTER_ID = "400"
+CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS = {"1634", "1635", "1636", "1637", "1638", "1640", "1641", "1642"}
+CHOLINERGIC_JIA_GROUP = "Subpallial Cholinergic neurons"
 
 
 def parse_args() -> argparse.Namespace:
@@ -80,7 +85,7 @@ def load_reference_metadata_and_indices(
     max_per_subcluster: int,
     max_total: int,
     seed: int,
-) -> tuple[list[ad.AnnData], pd.DataFrame]:
+) -> tuple[list[ad.AnnData], pd.DataFrame, pd.DataFrame]:
     rng = np.random.default_rng(seed)
     jia = read_jia_mapping(project_root)
     adatas = []
@@ -110,17 +115,66 @@ def load_reference_metadata_and_indices(
     meta["candidate_jia_group"] = meta["candidate_jia_group"].fillna("unassigned_jia_group").astype(str)
     meta["best_fetal_pair"] = meta["best_fetal_pair"].fillna("No fetal marker-pair hit").astype(str)
 
+    scope_audit = []
+    for supercluster, sub in meta.groupby("source_supercluster", sort=False):
+        scope_audit.append(
+            {
+                "stage": "loaded_before_scope_filter",
+                "source_supercluster": supercluster,
+                "candidate_jia_group": "ALL",
+                "n_cells": int(sub.shape[0]),
+            }
+        )
+
+    if scope == "mge_llc_cholinergic":
+        is_splatter = meta["source_supercluster"].eq("Splatter")
+        is_cholinergic_splatter = (
+            is_splatter
+            & meta["cluster_id"].eq(CHOLINERGIC_SPLATTER_CLUSTER_ID)
+            & meta["subcluster_id"].isin(CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS)
+            & meta["candidate_jia_group"].eq(CHOLINERGIC_JIA_GROUP)
+        )
+        keep = (~is_splatter) | is_cholinergic_splatter
+        scope_audit.append(
+            {
+                "stage": "splatter_cholinergic_filter",
+                "source_supercluster": "Splatter",
+                "candidate_jia_group": CHOLINERGIC_JIA_GROUP,
+                "n_cells": int(is_cholinergic_splatter.sum()),
+            }
+        )
+        scope_audit.append(
+            {
+                "stage": "splatter_excluded_by_scope_filter",
+                "source_supercluster": "Splatter",
+                "candidate_jia_group": "non_cholinergic_or_not_cluster_400",
+                "n_cells": int((is_splatter & ~is_cholinergic_splatter).sum()),
+            }
+        )
+        meta = meta.loc[keep].copy()
+
     selected_indices = []
     for _, sub in meta.groupby("siletti_subcluster_label", sort=False):
         idx = sub.index.to_numpy()
-        if idx.size > max_per_subcluster:
+        if max_per_subcluster > 0 and idx.size > max_per_subcluster:
             idx = rng.choice(idx, size=max_per_subcluster, replace=False)
         selected_indices.extend(idx.tolist())
     selected_indices = np.array(selected_indices, dtype=int)
-    if selected_indices.size > max_total:
+    if max_total > 0 and selected_indices.size > max_total:
         selected_indices = rng.choice(selected_indices, size=max_total, replace=False)
     selected_indices.sort()
-    return adatas, meta.loc[selected_indices].copy()
+    selected_meta = meta.loc[selected_indices].copy()
+    selection_stage = "exported_all_after_scope_filter" if max_per_subcluster <= 0 and max_total <= 0 else "exported_after_subsampling"
+    for (supercluster, group), sub in selected_meta.groupby(["source_supercluster", "candidate_jia_group"], sort=False):
+        scope_audit.append(
+            {
+                "stage": selection_stage,
+                "source_supercluster": supercluster,
+                "candidate_jia_group": group,
+                "n_cells": int(sub.shape[0]),
+            }
+        )
+    return adatas, selected_meta, pd.DataFrame(scope_audit)
 
 
 def collect_reference_matrix(adatas: list[ad.AnnData], meta: pd.DataFrame, genes: list[str], ref_gene_to_idx: dict[str, int]) -> sparse.csr_matrix:
@@ -170,7 +224,7 @@ def main() -> None:
         / "results/siletti_2023_whb_reference_label_transfer/siletti_div90_neuron_prep_v1/tables/div90_siletti_query_neuron_cells.tsv"
     )
 
-    ref_adatas, ref_meta = load_reference_metadata_and_indices(
+    ref_adatas, ref_meta, scope_audit = load_reference_metadata_and_indices(
         project_root,
         source_dir,
         args.scope,
@@ -220,6 +274,7 @@ def main() -> None:
     query_meta.to_csv(table_dir / "div90_query_cell_metadata.tsv.gz", sep="\t", index=False)
     pd.DataFrame({"gene": shared_genes}).to_csv(table_dir / "siletti_div90_shared_genes.tsv", sep="\t", index=False)
     ref_gene_audit.to_csv(table_dir / "siletti_reference_gene_uniqueness_audit.tsv.gz", sep="\t", index=False)
+    scope_audit.to_csv(table_dir / "siletti_reference_scope_and_subsampling_audit.tsv", sep="\t", index=False)
 
     label_counts = []
     for col in ["siletti_supercluster_label", "cell_type", "siletti_cluster_label", "siletti_subcluster_label", "transferred_mtg_label", "candidate_jia_group", "best_fetal_pair"]:
@@ -230,6 +285,9 @@ def main() -> None:
     config = {
         "scope": args.scope,
         "superclusters": SCOPES[args.scope],
+        "cholinergic_splatter_cluster_id": CHOLINERGIC_SPLATTER_CLUSTER_ID if args.scope == "mge_llc_cholinergic" else None,
+        "cholinergic_splatter_subcluster_ids": sorted(CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS) if args.scope == "mge_llc_cholinergic" else None,
+        "cholinergic_jia_group": CHOLINERGIC_JIA_GROUP if args.scope == "mge_llc_cholinergic" else None,
         "max_ref_cells_per_subcluster": args.max_ref_cells_per_subcluster,
         "max_ref_cells_total": args.max_ref_cells_total,
         "seed": args.seed,
