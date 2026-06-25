@@ -167,7 +167,9 @@ make_stripped_from_data_layer <- function(object, assay, features, npcs, verbose
 
 choose_k_weight <- function(anchors, requested) {
   n_anchors <- nrow(as.data.frame(anchors@anchors))
-  if (n_anchors <= requested) max(1L, n_anchors - 1L) else requested
+  # TransferData can fail when retained anchor cells are fewer than k.weight.
+  # Keep this deliberately conservative for the capped diagnostic run.
+  max(1L, min(as.integer(requested), n_anchors - 1L, 20L))
 }
 
 palette_for <- function(labels, palette = "Dark 3") {
