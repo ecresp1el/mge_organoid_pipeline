@@ -1740,15 +1740,38 @@ Fix:
   reference H5ADs and DIV90 query.
 
 Corrected v2 chain:
-  52398418_0  siletti-all-bridge-v2  PENDING/RUNNING after submission
-  52398421    siletti-all-knn-v2     PENDING after bridge
-  52398423    siletti-all-plot-v2    PENDING after kNN
+  52398418_0  siletti-all-bridge-v2  COMPLETED  00:05:35  max RSS 22772156K  gl3027
+  52398421    siletti-all-knn-v2     COMPLETED  00:01:47  max RSS 14302360K  gl3478
+  52398423    siletti-all-plot-v2    COMPLETED  00:03:41  max RSS 12706328K  gl3027
 
-Corrected v2 expected plot output:
+Corrected v2 plot output:
   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v2/plots
 
 Canceled obsolete v1 plot-only fix:
   52398318
+```
+
+Corrected v2 assignment summary:
+
+```text
+The corrected v2 run no longer collapses to Upper-layer intratelencephalic.
+Most cells assign to Siletti `Splatter`, with small MGE/CGE/Miscellaneous calls.
+This is a corrected broad all-supercluster diagnostic, but it should still be
+reviewed biologically before final packaging.
+
+Predicted supercluster counts:
+  Splatter: 16,122
+  Miscellaneous: 31
+  MGE interneuron: 26
+  CGE interneuron: 24
+  Committed oligodendrocyte precursor: 2
+  Fibroblast: 1
+
+Corrected v2 files:
+  figure_B_all_supercluster_reference_div90_overlay.png/pdf
+  figure_B_div90_predicted_siletti_superclusters.png/pdf
+  figure_C_div90_class_to_siletti_supercluster_river.png/pdf
+  figure_D_sample_predicted_siletti_supercluster_proportions.png/pdf
 ```
 
 Assignment/methods summary:

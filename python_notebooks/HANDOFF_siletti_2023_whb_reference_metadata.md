@@ -1577,6 +1577,10 @@ Corrected all-supercluster v2 rerun:
 Corrected bridge:
   job_id: 52398418_0
   job_name: siletti-all-bridge-v2
+  final state: COMPLETED
+  elapsed: 00:05:35
+  max RSS: 22772156K
+  node: gl3027
   run_label: siletti_div90_all_supercluster_plot_bridge_v2
   scope: all_superclusters
   output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_plot_bridge_v2/all_superclusters
@@ -1584,6 +1588,10 @@ Corrected bridge:
 Corrected fast-kNN:
   job_id: 52398421
   job_name: siletti-all-knn-v2
+  final state: COMPLETED
+  elapsed: 00:01:47
+  max RSS: 14302360K
+  node: gl3478
   dependency: afterok:52398418
   run_label: siletti_div90_fast_knn_all_supercluster_source_supercluster_v2
   label_column: source_supercluster
@@ -1592,11 +1600,55 @@ Corrected fast-kNN:
 Corrected plots:
   job_id: 52398423
   job_name: siletti-all-plot-v2
+  final state: COMPLETED
+  elapsed: 00:03:41
+  max RSS: 12706328K
+  node: gl3027
   dependency: afterok:52398421
   output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v2
 
 Canceled obsolete v1 plot-fix job:
   job_id: 52398318
+```
+
+Corrected v2 assignment summary:
+
+```text
+The v2 run fixed the first-H5AD/upper-layer collapse. It does not assign cells
+to Upper-layer intratelencephalic. However, it mostly assigns DIV90 cells to
+the Siletti `Splatter` supercluster, with small MGE/CGE/Miscellaneous calls.
+Treat as a corrected broad all-supercluster diagnostic, not yet a final
+biological interpretation.
+
+Predicted supercluster counts:
+  Splatter: 16,122
+  Miscellaneous: 31
+  MGE interneuron: 26
+  CGE interneuron: 24
+  Committed oligodendrocyte precursor: 2
+  Fibroblast: 1
+
+By DIV90 broad class:
+  CRABP1+/PV Precursors:
+    Splatter 3,462; CGE interneuron 21; Miscellaneous 9; MGE interneuron 8;
+    Committed oligodendrocyte precursor 2; Fibroblast 1
+  LHX8+ vMGE GABergic Striatal/GP fated 1:
+    Splatter 1,923; MGE interneuron 1
+  LHX8+ vMGE GABergic Striatal/GP fated 2:
+    Splatter 922
+  MGE Striatal/GP Fated:
+    Splatter 3,598; Miscellaneous 2; CGE interneuron 1
+  PV Precursors:
+    Splatter 412; MGE interneuron 13
+  PV precursors/Migrating cells/Cortical-fated:
+    Splatter 2,282; MGE interneuron 1
+  SST+, NPY +, Cortical Fated:
+    Splatter 3,523; Miscellaneous 20; MGE interneuron 3; CGE interneuron 2
+
+Score summary:
+  mean max score: 0.957895
+  min max score: 0.259209
+  median max score: 1.000000
 ```
 
 Draft methods wording:
