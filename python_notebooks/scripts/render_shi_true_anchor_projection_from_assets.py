@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -100,6 +101,13 @@ def normalize_bool(series: pd.Series) -> pd.Series:
     return series.astype(str).str.lower().isin({"true", "t", "1", "yes"})
 
 
+def canonical_gw_label(value: object) -> str:
+    match = re.search(r"GW\s*0*([0-9]+)", str(value), flags=re.IGNORECASE)
+    if not match:
+        return "unlabeled"
+    return f"GW{int(match.group(1)):02d}"
+
+
 def scaled_xy(df: pd.DataFrame, x_col: str = "coord_1", y_col: str = "coord_2") -> np.ndarray:
     coords = df[[x_col, y_col]].astype(float).to_numpy()
     out = coords.copy()
@@ -147,7 +155,9 @@ def attach_query_predictions(query: pd.DataFrame, predictions: pd.DataFrame, stu
         "shi_seurat_full_prediction_score",
         "shi_seurat_full_week_prediction_score",
     ]
-    return query.merge(pred[keep_cols], on="cell_id", how="left")
+    out = query.merge(pred[keep_cols], on="cell_id", how="left")
+    out["shi_seurat_full_predicted_shi_week_label"] = out["shi_seurat_full_predicted_shi_week_label"].map(canonical_gw_label)
+    return out
 
 
 def load_study(run_dir: Path, study_id: str, predictions: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -158,6 +168,8 @@ def load_study(run_dir: Path, study_id: str, predictions: pd.DataFrame) -> tuple
     reference = read_tsv(tables / f"{study_id}_shi_reference_coordinates_for_anchor_plot.tsv.gz")
     query["cell_id"] = query["cell_id"].astype(str)
     reference["cell_id"] = reference["cell_id"].astype(str)
+    if "shi_week_label" in reference.columns:
+        reference["shi_week_label"] = reference["shi_week_label"].map(canonical_gw_label)
 
     if "plot_include" in links.columns:
         links = links.loc[normalize_bool(links["plot_include"])].copy()

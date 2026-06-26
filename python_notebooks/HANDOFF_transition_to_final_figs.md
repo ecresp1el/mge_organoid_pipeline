@@ -1264,7 +1264,7 @@ Current status:
       python_notebooks/scripts/render_shi_true_anchor_projection_from_assets.py
       slurm_templates/49e_render_shi_true_anchor_projection_from_assets.sbatch.template
     Final plot-only Slurm job:
-      52389891, COMPLETED, 00:00:52, MaxRSS 1069688K, ExitCode 0:0
+      52391075, COMPLETED, 00:01:23, MaxRSS 1122144K, ExitCode 0:0
     Output directory:
       /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_anchor_projection_v1/true_anchor_projection_plots
     This renderer fixes the plotting-only reference ID mismatch by stripping
@@ -1272,11 +1272,32 @@ Current status:
     table. It does not rerun FindTransferAnchors.
     Current formatted figure adds lower reference subpanels under each
     projection panel:
-      query UMAP colored by query cluster, with cluster numbers at centroids
-      Shi reference UMAP colored by Shi major class or GW/stage
+      query UMAP colored by saved winner-take-all TransferData label, with
+      query cluster numbers overlaid at centroids
+      Shi reference UMAP colored by matching Shi major class or canonical
+      GW/stage label, with label names printed on the lower reference UMAP
+      top query UMAPs, top Shi reference UMAPs, and anchor links share the same
+      palette for the selected label mode
     Current renderer uses full saved anchor-pair tables for lines, not the
     top-anchor-only table, and plots all cells from saved coordinate tables
     without point downsampling.
+    Winner-take-all label source:
+      /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1/tables/cross_study_shi_seurat_label_transfer_obs.tsv.gz
+    Plot-only GW canonicalization:
+      raw Shi reference labels such as GW12_02 and GW16/12_01 are plotted as
+      GW12 and GW16 so the reference UMAP, query WTA labels, and lines share
+      the same canonical GW palette.
+  - Final-figures candidate package created:
+      /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_shi_true_anchor_projection_v1_candidate
+    Package contains:
+      figures/ PNG, PDF, SVG outputs
+      code/ render script, anchor asset script, original v1 transfer script,
+            and Slurm templates 49d/49e
+      logs/ final plot Slurm log plus DIV30/DIV90 anchor asset Slurm logs
+      tables/ render diagnostics plus DIV30/DIV90 anchor diagnostics and
+              selected-study manifest
+      provenance/ handoff snapshot, git status/commit, manifests, checksums
+      README.md with method-ready documentation and exact code-line references
   - Local/login-node R inspection failed/OOMed with exit 137 when trying to
     read large RDS objects, so any heavy R/Seurat inspection should use Slurm.
   - A first submission with 200G memory was rejected by Slurm because the node
@@ -1374,6 +1395,8 @@ Completed true-anchor plot-only diagnostics:
     n_query_cells_plotted_no_downsampling = 90631
     n_reference_cells_plotted_no_downsampling = 38831
     n_anchor_links_after_link_flag_filter = 665
+    n_query_cells_with_wta_major_label = 90631
+    n_query_cells_with_wta_gw_label = 90631
     n_reference_ids_exact_match_before_suffix_fix = 0
     n_reference_ids_match_after_suffix_fix = 665
     n_query_ids_match_coordinates = 665
@@ -1385,6 +1408,8 @@ Completed true-anchor plot-only diagnostics:
     n_query_cells_plotted_no_downsampling = 20049
     n_reference_cells_plotted_no_downsampling = 38831
     n_anchor_links_after_link_flag_filter = 1096
+    n_query_cells_with_wta_major_label = 20049
+    n_query_cells_with_wta_gw_label = 20049
     n_reference_ids_exact_match_before_suffix_fix = 0
     n_reference_ids_match_after_suffix_fix = 1096
     n_query_ids_match_coordinates = 939
@@ -1407,8 +1432,11 @@ Completed true-anchor plot-only diagnostics:
     Lines connect all saved true Seurat anchor links that survive plotting
     coordinate/visual filters.
     A lower subpanel under each projection panel shows:
-      query clusters
-      Shi major classes or Shi GW/stage labels
+      query winner-take-all labels with query cluster numbers overlaid
+      Shi major class or canonical Shi GW/stage labels with printed label names
+    "Filter" in the true-anchor plot diagnostics means visualization-only
+    coordinate/cluster exclusion, not winner-take-all assignment. Winner-take-all
+    labels come from the saved Seurat TransferData prediction columns.
     DIV90 query uses visualization-only stressed-cell exclusion and vertical
     flip, matching finalized Shi UMAP logic.
 
@@ -1416,6 +1444,13 @@ Current next step:
   Review the rendered PNG/PDF/SVG in true_anchor_projection_plots/figures. If
   aesthetics need more tuning, rerun only the plot-only script/template; do not
   rerun FindTransferAnchors unless the anchor assets themselves are questioned.
+  For methods writing, use the package README:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_shi_true_anchor_projection_v1_candidate/README.md
+  It documents:
+    original TransferData WTA label derivation
+    true Seurat anchor asset generation
+    plot-only rendering inputs and exact code line references
+    visualization rules and filter/winner-take-all distinction
 
 Git/worktree note at pause:
   Modified/tracked:
