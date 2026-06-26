@@ -263,6 +263,52 @@ tables/cross_study_marker_expression_distribution_audit.tsv
 tables/cross_study_marker_expression_internal_plot_filter_summary.tsv
 ```
 
+Cluster QC assets created during final-figure transition:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12/cluster_qc/
+```
+
+Cluster QC source manifest:
+
+```text
+cluster_qc/cluster_umap_qc_source_manifest.tsv
+```
+
+This manifest records, per study:
+
+```text
+study_id
+study_label
+marker_table_path
+source_seurat_path
+source_h5ad_path
+reduction
+cluster_col_source
+sample_col_source
+n_cells_loaded
+```
+
+Cluster QC tables:
+
+```text
+cluster_qc/cluster_umap_qc_figure_filter_summary.tsv
+cluster_qc/cluster_umap_qc_study_summary.tsv
+cluster_qc/cluster_umap_qc_cluster_counts.tsv
+cluster_qc/cluster_umap_qc_sample_cluster_counts.tsv
+```
+
+Cluster QC plots:
+
+```text
+cluster_qc/cross_study_marker_expression_v12_cluster_umap_qc_figure_default.png
+cluster_qc/cross_study_marker_expression_v12_cluster_umap_qc_figure_default.pdf
+cluster_qc/cross_study_marker_expression_v12_cluster_umap_qc_figure_default.svg
+cluster_qc/cross_study_marker_expression_v12_cluster_umap_qc_all_prepared_cells.png
+cluster_qc/cross_study_marker_expression_v12_cluster_umap_qc_all_prepared_cells.pdf
+cluster_qc/cross_study_marker_expression_v12_cluster_umap_qc_all_prepared_cells.svg
+```
+
 ### Log Audit
 
 Log audit:
@@ -302,6 +348,14 @@ Full rerun is short, but plot-only is the correct default unless genes/studies o
 prepared marker tables need to change.
 ```
 
+Cluster QC decision:
+
+```text
+Use existing v12 per-study marker-expression tables. These already contain
+cell_id, study_id, study_label, sample, cluster, umap_1, and umap_2. No upstream
+analysis or Seurat/H5AD extraction was rerun.
+```
+
 ### Modification Log
 
 ```text
@@ -309,12 +363,20 @@ prepared marker tables need to change.
   - Candidate identified.
   - Logs checked.
   - No formatting modifications made yet.
+  - Created quick cluster UMAP QC script:
+    python_notebooks/scripts/plot_cross_study_cluster_umap_qc.py
+  - Generated cluster QC outputs under:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12/cluster_qc
+  - Figure-default QC applies the same study/filter logic as v12 plotting:
+    exclude bershteyn_2025; Samarasinghe controls only.
 ```
 
 ### Validation
 
 ```text
 Pending user visual review of candidate v12 plots.
+Cluster QC grid was visually spot-checked after render. The figure-default grid
+uses study table order and shows cluster IDs over each study's UMAP.
 ```
 
 ### Final Figure Package
