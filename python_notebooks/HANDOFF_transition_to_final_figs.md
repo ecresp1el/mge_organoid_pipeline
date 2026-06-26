@@ -1241,11 +1241,15 @@ Current implementation started:
     scripts/14_save_shi_query_anchor_projection_assets.R
 
 Current status:
-  - Script has been written but not yet Slurm-submitted.
-  - No anchor assets have been generated yet.
-  - No Slurm template for this new anchor-asset job has been added yet.
+  - Script has been written.
+  - Slurm template has been written.
+  - Slurm job has been submitted and is pending.
+  - No anchor assets have been generated yet as of the last check.
   - Local/login-node R inspection failed/OOMed with exit 137 when trying to
     read large RDS objects, so this must be run on Slurm.
+  - A first submission with 200G memory was rejected by Slurm because the node
+    configuration was unavailable; the accepted submission uses 160G, matching
+    the existing Shi transfer array memory request.
 
 Intended output run label:
   cross_study_shi_seurat_anchor_projection_v1
@@ -1285,27 +1289,29 @@ Important behavior:
 
 Next steps tomorrow:
   1. Read/review scripts/14_save_shi_query_anchor_projection_assets.R.
-  2. Create a Slurm template, likely:
+  2. Review Slurm template:
        slurm_templates/49d_save_shi_query_anchor_projection_assets.sbatch.template
-     using the Seurat-capable env/module pattern from existing Seurat jobs.
-     The conda Rscript exists at:
-       /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/Rscript
-     Existing Seurat array templates also use:
+     It uses the Seurat-capable module pattern from existing Seurat jobs:
        module load Bioinformatics
        module load r-seurat/5.1.0-R-4.4.1-c3m7yfq
-  3. Run an R parse check in the chosen Slurm environment if possible.
-  4. Submit via Slurm, not locally.
-  5. Watch logs, timing, memory.
-  6. Validate outputs:
+  3. Check Slurm job:
+       52371983
+     Last known state:
+       RUNNING on gl3018, elapsed 00:00:39 at last poll
+  4. Watch logs, timing, memory.
+  5. Validate outputs:
        anchor RDS files exist and are nonzero
        anchor-pair TSVs exist and have cell1/cell2/query/reference IDs
        diagnostics report n_anchors and unique query/reference anchor cells
        static PNG/PDF/SVG render
        README/provenance/checksums are present
-  7. Then decide whether to make a polished publication-style anchor plot from
+  6. Then decide whether to make a polished publication-style anchor plot from
      those true assets.
 
 Git/worktree note at pause:
-  Untracked:
+  Modified/tracked:
+    python_notebooks/HANDOFF_transition_to_final_figs.md
     scripts/14_save_shi_query_anchor_projection_assets.R
+  Untracked/new:
+    slurm_templates/49d_save_shi_query_anchor_projection_assets.sbatch.template
 ```

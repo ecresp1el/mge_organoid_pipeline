@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Save true Seurat anchor/projection assets for DIV30/DIV90 against Shi 2019.
+
+#SBATCH --job-name=shi-anchor-assets
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=160G
+#SBATCH --time=06:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-anchor-assets-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-anchor-assets-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+SHI_ANCHOR_PROJECTION_RUN_LABEL="${SHI_ANCHOR_PROJECTION_RUN_LABEL:-cross_study_shi_seurat_anchor_projection_v1}"
+SHI_REFERENCE_RDS="${SHI_REFERENCE_RDS:-${PROJECT_ROOT}/results/shi_2019_paper_qc/shi_2019_seurat.rds}"
+SHI_REFERENCE_LABELS_TSV="${SHI_REFERENCE_LABELS_TSV:-${PROJECT_ROOT}/results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1/seurat/shi_reference_labels_for_seurat.tsv}"
+SHI_ANCHOR_DIMS="${SHI_ANCHOR_DIMS:-50}"
+SHI_ANCHOR_MIN_SHARED_FEATURES="${SHI_ANCHOR_MIN_SHARED_FEATURES:-500}"
+OUTDIR="${OUTDIR:-${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/${SHI_ANCHOR_PROJECTION_RUN_LABEL}}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${OUTDIR}"/{logs,provenance}
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export SHI_ANCHOR_PROJECTION_RUN_LABEL
+export SHI_REFERENCE_RDS
+export SHI_REFERENCE_LABELS_TSV
+
+echo "Shi anchor projection asset job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${SHI_ANCHOR_PROJECTION_RUN_LABEL}"
+echo "Output dir: ${OUTDIR}"
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript -e "invisible(parse(file='scripts/14_save_shi_query_anchor_projection_assets.R')); cat('parse_ok\n')"
+
+Rscript scripts/14_save_shi_query_anchor_projection_assets.R \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${SHI_ANCHOR_PROJECTION_RUN_LABEL}" \
+  --outdir "${OUTDIR}" \
+  --reference "${SHI_REFERENCE_RDS}" \
+  --reference-labels-tsv "${SHI_REFERENCE_LABELS_TSV}" \
+  --helper-script scripts/13_run_cross_study_shi_seurat_label_transfer.R \
+  --study-id "varela_div30,varela_div90" \
+  --dims "${SHI_ANCHOR_DIMS}" \
+  --min-shared-features "${SHI_ANCHOR_MIN_SHARED_FEATURES}" \
+  --save-anchor-rds true
+
+for study in varela_div30 varela_div90
+do
+  for path in \
+    "${OUTDIR}/seurat/anchors/${study}_shi_full_transfer_anchors.rds" \
+    "${OUTDIR}/tables/${study}_shi_full_anchor_pairs.tsv.gz" \
+    "${OUTDIR}/tables/${study}_shi_full_top_anchor_per_query.tsv.gz" \
+    "${OUTDIR}/tables/${study}_shi_reference_coordinates_for_anchor_plot.tsv.gz" \
+    "${OUTDIR}/tables/${study}_query_coordinates_for_anchor_plot.tsv.gz"
+  do
+    if [[ ! -s "${path}" ]]; then
+      echo "Missing expected output: ${path}" >&2
+      exit 1
+    fi
+  done
+done
+
+cp -p scripts/14_save_shi_query_anchor_projection_assets.R "${OUTDIR}/provenance/"
+cp -p "${BASH_SOURCE[0]}" "${OUTDIR}/provenance/"
+cp -p "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-anchor-assets-${SLURM_JOB_ID}.out" "${OUTDIR}/logs/" 2>/dev/null || true
+cp -p "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-anchor-assets-${SLURM_JOB_ID}.err" "${OUTDIR}/logs/" 2>/dev/null || true
+
+{
+  echo "rendered_at	$(date --iso-8601=seconds)"
+  echo "slurm_job_id	${SLURM_JOB_ID:-NA}"
+  echo "repo_root	${REPO_ROOT}"
+  echo "project_root	${PROJECT_ROOT}"
+  echo "run_label	${SHI_ANCHOR_PROJECTION_RUN_LABEL}"
+  echo "reference_rds	${SHI_REFERENCE_RDS}"
+  echo "reference_labels_tsv	${SHI_REFERENCE_LABELS_TSV}"
+  echo "output_dir	${OUTDIR}"
+  echo "studies	varela_div30,varela_div90"
+  echo "dims	1:${SHI_ANCHOR_DIMS}"
+  echo "purpose	save true Seurat TransferAnchorSet objects and query-reference anchor-pair tables"
+  echo "does_not_overwrite	finalized v1 prediction tables or final_figures"
+} > "${OUTDIR}/provenance/anchor_projection_render_manifest.tsv"
+
+git status --short > "${OUTDIR}/provenance/git_status_short.txt" || true
+sha256sum \
+  "${OUTDIR}"/README.md \
+  "${OUTDIR}"/tables/* \
+  "${OUTDIR}"/diagnostics/* \
+  "${OUTDIR}"/seurat/anchors/* \
+  "${OUTDIR}"/provenance/* \
+  "${OUTDIR}"/logs/* \
+  > "${OUTDIR}/provenance/sha256sums.txt"
+
+echo "Anchor asset file sizes:"
+find "${OUTDIR}" -type f -printf "%s %p\n" | sort -n | tail -80
+echo "Shi anchor projection asset job finished: $(date)"
