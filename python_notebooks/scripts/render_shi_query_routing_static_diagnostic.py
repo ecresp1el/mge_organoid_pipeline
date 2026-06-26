@@ -217,9 +217,19 @@ def target_positions(study_data: pd.DataFrame, target_order: list[str]) -> dict[
     ymin, ymax = float(y.min()), float(y.max())
     x_pad = max((xmax - xmin) * 0.08, 1.0)
     y_pad = max((ymax - ymin) * 0.20, 2.0)
-    xs = np.linspace(xmin + x_pad, xmax - x_pad, len(target_order))
-    target_y = ymax + y_pad
-    return {label: (float(xs[i]), target_y, 1.35) for i, label in enumerate(target_order)}
+    if len(target_order) <= 6:
+        xs = np.linspace(xmin + x_pad, xmax - x_pad, len(target_order))
+        return {label: (float(xs[i]), ymax + y_pad, 1.35) for i, label in enumerate(target_order)}
+
+    n_first_row = int(np.ceil(len(target_order) / 2))
+    out: dict[str, tuple[float, float, float]] = {}
+    for i, label in enumerate(target_order):
+        row = 0 if i < n_first_row else 1
+        within = i if row == 0 else i - n_first_row
+        n_in_row = n_first_row if row == 0 else len(target_order) - n_first_row
+        xs = np.linspace(xmin + x_pad, xmax - x_pad, n_in_row)
+        out[label] = (float(xs[within]), ymax + y_pad * (1.0 + 0.85 * row), 1.35)
+    return out
 
 
 def set_axes_equalish(ax, data: pd.DataFrame, target_pos: dict[str, tuple[float, float, float]]) -> None:
@@ -232,6 +242,15 @@ def set_axes_equalish(ax, data: pd.DataFrame, target_pos: dict[str, tuple[float,
     ax.set_xlim(xmin - 0.7, xmax + 0.7)
     ax.set_ylim(ymin - 0.7, ymax + 0.9)
     ax.set_zlim(-0.12, 1.55)
+
+
+def target_label_text(label: str) -> str:
+    replacements = {
+        "Excitatory IPC": "Excitatory\nIPC",
+        "Excitatory neuron": "Excitatory\nneuron",
+        "Thalamic neurons": "Thalamic\nneurons",
+    }
+    return replacements.get(label, label)
 
 
 def draw_panel(
@@ -286,7 +305,7 @@ def draw_panel(
 
     for label, (tx, ty, tz) in target_pos.items():
         ax.scatter([tx], [ty], [tz], s=85, c=colors.get(label, "#999999"), edgecolors="#111111", linewidths=0.45, depthshade=False)
-        ax.text(tx, ty, tz + 0.08, label.replace(" ", "\n"), fontsize=7.5, ha="center", va="bottom")
+        ax.text(tx, ty, tz + 0.08, target_label_text(label), fontsize=7.0, ha="center", va="bottom")
 
     for row in study_routes.itertuples(index=False):
         target = getattr(row, target_col)
@@ -350,7 +369,7 @@ def render_one(
     routes_all["plotted_route"] = routes_all["plotted_route_selected"].fillna(False).astype(bool)
     routes_all = routes_all.drop(columns=["plotted_route_selected"])
 
-    fig = plt.figure(figsize=(13.0, 7.1))
+    fig = plt.figure(figsize=(14.4, 7.8))
     fig.suptitle(title, fontsize=13, y=0.98)
     for idx, study_id in enumerate(STUDIES, start=1):
         ax = fig.add_subplot(1, 2, idx, projection="3d")
@@ -370,15 +389,16 @@ def render_one(
         for label in target_order
         if (data[target_col].astype(str) == label).any()
     ]
-    fig.legend(handles=handles, loc="lower center", ncol=min(5, len(handles)), frameon=False, fontsize=8, bbox_to_anchor=(0.5, 0.015))
+    fig.legend(handles=handles, loc="lower center", ncol=min(5, len(handles)), frameon=False, fontsize=8, bbox_to_anchor=(0.5, 0.035))
     fig.text(
         0.5,
-        0.055,
+        0.105,
         "Source points are recoded DIV30/DIV90 classes; target nodes are Shi TransferData winners. Line width = fraction of source class; opacity = mean prediction score.",
         ha="center",
         va="center",
         fontsize=8,
     )
+    fig.subplots_adjust(left=0.02, right=0.985, top=0.88, bottom=0.20, wspace=0.12)
     save_figure(fig, outdir, stem)
     plt.close(fig)
     return routes_all

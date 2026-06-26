@@ -1163,3 +1163,49 @@ Included:
   UMAP-grid outputs in the source run because the existing command renders all
   UMAP grids together.
 ```
+
+## Exploratory Validation Diagnostic: Shi Query Routing Static
+
+```text
+Status:
+  Exploratory diagnostic rendered; not a finalized publication figure.
+
+Purpose:
+  Visualize how DIV30 and DIV90 UMAP regions are being sorted by saved Shi
+  Seurat TransferData predictions without rerunning Seurat transfer.
+
+Output directory:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1/plots/validation/shi_query_projection_routing_static
+
+Script:
+  python_notebooks/scripts/render_shi_query_routing_static_diagnostic.py
+
+Slurm template:
+  slurm_templates/49c_render_shi_query_routing_static_diagnostic.sbatch.template
+
+Final Slurm job:
+  52371684
+
+Runtime:
+  00:00:47
+
+Max RSS:
+  2,824,996K
+
+Key outputs:
+  shi_query_projection_routing_predicted_stage_static.png/pdf/svg
+  shi_query_projection_routing_major_class_static.png/pdf/svg
+  shi_query_projection_routing_predicted_stage_routes.tsv
+  shi_query_projection_routing_major_class_routes.tsv
+
+Interpretation:
+  Query cells are plotted on their DIV30/DIV90 UMAP plane. Source nodes are
+  recoded DIV30/DIV90 class centroids. Shi target nodes are plotted on a raised
+  target plane. Route width represents fraction of the source class assigned to
+  the target, and route opacity represents mean prediction score.
+
+Important limitation:
+  This is not a true Seurat anchor/reference-cell projection. The v1 workflow
+  saved per-cell TransferData predictions and scores, not the Seurat anchor
+  object or top reference-cell matches.
+```
