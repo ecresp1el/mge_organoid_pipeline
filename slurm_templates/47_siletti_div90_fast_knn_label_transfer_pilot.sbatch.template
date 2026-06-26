@@ -52,6 +52,7 @@ SILETTI_TRANSFER_RUN_LABEL="${SILETTI_TRANSFER_RUN_LABEL:-siletti_div90_fast_knn
 SILETTI_TRANSFER_SCOPE="${SILETTI_TRANSFER_SCOPE:-mge_llc}"
 SILETTI_TRANSFER_LABEL_COLUMN="${SILETTI_TRANSFER_LABEL_COLUMN:-candidate_jia_group}"
 SILETTI_TRANSFER_EXCLUDE_LABEL="${SILETTI_TRANSFER_EXCLUDE_LABEL:-Excluded / not assigned to Jia-style 9 groups}"
+SILETTI_TRANSFER_EXCLUDE_LABELS="${SILETTI_TRANSFER_EXCLUDE_LABELS:-}"
 SILETTI_TRANSFER_MAX_REFERENCE_CELLS="${SILETTI_TRANSFER_MAX_REFERENCE_CELLS:-5000}"
 SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-3000}"
 SILETTI_TRANSFER_NFEATURES="${SILETTI_TRANSFER_NFEATURES:-2000}"
@@ -70,19 +71,30 @@ echo "Host: $(hostname)"
 echo "Scope: ${SILETTI_TRANSFER_SCOPE}"
 echo "Bridge dir: ${bridge_dir}"
 echo "Output dir: ${outdir}"
+echo "Label column: ${SILETTI_TRANSFER_LABEL_COLUMN}"
+echo "Exclude label: ${SILETTI_TRANSFER_EXCLUDE_LABEL}"
+echo "Exclude labels: ${SILETTI_TRANSFER_EXCLUDE_LABELS:-<unset>}"
 echo "Python: ${PYTHON}"
 
-"${PYTHON}" python_notebooks/scripts/siletti_div90_fast_knn_label_transfer.py \
-  --bridge-dir "${bridge_dir}" \
-  --outdir "${outdir}" \
-  --label-column "${SILETTI_TRANSFER_LABEL_COLUMN}" \
-  --exclude-label "${SILETTI_TRANSFER_EXCLUDE_LABEL}" \
-  --max-reference-cells "${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}" \
-  --max-query-cells "${SILETTI_TRANSFER_MAX_QUERY_CELLS}" \
-  --nfeatures "${SILETTI_TRANSFER_NFEATURES}" \
-  --n-components "${SILETTI_TRANSFER_N_COMPONENTS}" \
-  --k "${SILETTI_TRANSFER_K}" \
+args=(
+  --bridge-dir "${bridge_dir}"
+  --outdir "${outdir}"
+  --label-column "${SILETTI_TRANSFER_LABEL_COLUMN}"
+  --max-reference-cells "${SILETTI_TRANSFER_MAX_REFERENCE_CELLS}"
+  --max-query-cells "${SILETTI_TRANSFER_MAX_QUERY_CELLS}"
+  --nfeatures "${SILETTI_TRANSFER_NFEATURES}"
+  --n-components "${SILETTI_TRANSFER_N_COMPONENTS}"
+  --k "${SILETTI_TRANSFER_K}"
   --seed "${SILETTI_TRANSFER_SEED}"
+)
+
+if [[ -n "${SILETTI_TRANSFER_EXCLUDE_LABELS}" ]]; then
+  args+=(--exclude-labels "${SILETTI_TRANSFER_EXCLUDE_LABELS}")
+else
+  args+=(--exclude-label "${SILETTI_TRANSFER_EXCLUDE_LABEL}")
+fi
+
+"${PYTHON}" python_notebooks/scripts/siletti_div90_fast_knn_label_transfer.py "${args[@]}"
 
 echo "Generated files:"
 find "${outdir}" -maxdepth 4 -type f | sort

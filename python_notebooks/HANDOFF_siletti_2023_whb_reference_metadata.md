@@ -1048,6 +1048,137 @@ we inspect anchor counts, prediction score distributions, cholinergic behavior,
 and whether the mapping is biologically sensible for DIV90 classes.
 ```
 
+## Full Staged-Supercluster Reference Asset Rerun
+
+Date logged: 2026-06-26
+
+Reason:
+
+```text
+The earlier Siletti DIV90 Jia-style figure run is incomplete for final-figure
+use. It used the older `mge_llc` fast-kNN transfer output, which excluded CGE
+and did not include the later cholinergic-aware Splatter reference correction.
+Before moving to final figures, create a durable full-reference bridge asset so
+future Siletti label-transfer/plot variants do not need to reread/re-export the
+large CELLxGENE H5ADs unless the source H5ADs or DIV90 query set change.
+```
+
+Available staged H5AD superclusters for this rerun:
+
+```text
+MGE interneuron
+CGE interneuron
+LAMP5-LHX6 and Chandelier
+Splatter
+```
+
+Code changes made for this durable rerun:
+
+```text
+python_notebooks/scripts/export_siletti_div90_seurat_bridge.py
+  - added scope `mge_cge_llc_cholinergic`
+  - added scope `mge_cge_llc_splatter`
+  - generalized the Splatter cholinergic filter to any scope ending in
+    `_cholinergic`
+
+python_notebooks/scripts/siletti_div90_fast_knn_label_transfer.py
+  - added `--exclude-labels`, a `||`-separated multi-label exclusion option
+    for broad reference scopes that contain multiple non-biological/no-label
+    buckets
+
+slurm_templates/41_export_siletti_div90_seurat_bridge_array.sbatch.template
+  - array now includes the two new scopes
+
+slurm_templates/47_siletti_div90_fast_knn_label_transfer_pilot.sbatch.template
+  - can pass either the legacy single `SILETTI_TRANSFER_EXCLUDE_LABEL` or the
+    new multi-label `SILETTI_TRANSFER_EXCLUDE_LABELS`
+```
+
+Bridge asset submitted:
+
+```text
+job_id: 52393300_4
+job_name: siletti-bridge
+state at handoff update: RUNNING on gl3232
+run_label: siletti_div90_full_staged_supercluster_bridge_v1
+scope: mge_cge_llc_splatter
+superclusters: MGE interneuron + CGE interneuron + LAMP5-LHX6 and Chandelier + Splatter
+max_ref_cells_per_subcluster: 0
+max_ref_cells_total: 0
+query: existing DIV90 neuron-lineage query manifest
+job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/41_export_siletti_div90_full_staged_supercluster_bridge_v1.sbatch
+expected output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_full_staged_supercluster_bridge_v1/mge_cge_llc_splatter
+```
+
+This bridge is the asset to preserve. Reuse its `seurat_bridge/` MatrixMarket
+files and `tables/` metadata for future Siletti reruns. Do not rerun the H5AD
+bridge export unless one of these changes:
+
+```text
+source CELLxGENE H5ADs
+Siletti metadata/Jia-label mapping
+DIV90 query object or query-cell manifest
+shared-gene selection logic
+desired source supercluster scope
+```
+
+Dependent fast-kNN runs submitted from the same bridge:
+
+```text
+job_id: 52393320
+job_name: siletti-fullknn-jia
+state at handoff update: PENDING dependency after 52393300
+run_label: siletti_div90_fast_knn_full_staged_superclusters_candidate_jia_v1
+scope: mge_cge_llc_splatter
+label_column: candidate_jia_group
+excluded labels:
+  Excluded / not assigned to Jia-style 9 groups
+  unassigned_jia_group
+  unlabeled_or_na
+max_reference_cells: 0
+max_query_cells: 0
+nfeatures: 3000
+n_components: 50
+k: 50
+
+job_id: 52393321
+job_name: siletti-fullknn-mtg
+state at handoff update: PENDING dependency after 52393300
+run_label: siletti_div90_fast_knn_full_staged_superclusters_mtg_label_v1
+scope: mge_cge_llc_splatter
+label_column: transferred_mtg_label
+excluded labels:
+  unlabeled_or_na
+max_reference_cells: 0
+max_query_cells: 0
+nfeatures: 3000
+n_components: 50
+k: 50
+```
+
+Follow-up checks:
+
+```text
+squeue -j 52393300,52393320,52393321
+sacct -j 52393300,52393320,52393321 --format=JobID,JobName%35,State,ExitCode,Elapsed,MaxRSS,NodeList -P
+
+cat /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_full_staged_supercluster_bridge_v1/mge_cge_llc_splatter/tables/siletti_div90_seurat_bridge_config.json
+cat /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_full_staged_supercluster_bridge_v1/mge_cge_llc_splatter/tables/siletti_reference_label_counts.tsv
+
+cat /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_fast_knn_full_staged_superclusters_candidate_jia_v1/mge_cge_llc_splatter/svd50_k50_ref0_query0/fast_knn/siletti_div90__candidate_jia_group__fast_knn__svd50__k50_transfer_diagnostics.json
+cat /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_fast_knn_full_staged_superclusters_mtg_label_v1/mge_cge_llc_splatter/svd50_k50_ref0_query0/fast_knn/siletti_div90__transferred_mtg_label__fast_knn__svd50__k50_transfer_diagnostics.json
+```
+
+Interpretation guardrail:
+
+```text
+The full `mge_cge_llc_splatter` bridge intentionally keeps all Splatter cells
+because the goal is an archival broad staged-supercluster asset. For final
+Jia-style biology, compare this broad run against the targeted
+`mge_cge_llc_cholinergic` scope if all-Splatter neighbors dominate or obscure
+MGE/CGE/LLC interpretation.
+```
+
 ## Operational Notes
 
 This metadata audit is small enough for login-node inspection because it only

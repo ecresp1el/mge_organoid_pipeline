@@ -175,6 +175,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--outdir", required=True, type=Path)
     parser.add_argument("--label-column", default="candidate_jia_group", help="Reference metadata column to transfer onto DIV90 cells.")
     parser.add_argument("--exclude-label", default="Excluded / not assigned to Jia-style 9 groups", help="Reference label to remove before transfer; use NONE to keep all labels.")
+    parser.add_argument(
+        "--exclude-labels",
+        default=None,
+        help="Optional '||'-separated labels to remove before transfer. Overrides --exclude-label. Use NONE to keep all labels.",
+    )
     parser.add_argument("--max-reference-cells", type=int, default=0, help="Uniform random cap after label filtering; 0 means use all reference cells.")
     parser.add_argument("--max-query-cells", type=int, default=0, help="Uniform random cap for DIV90 query cells; 0 means use all query cells.")
     parser.add_argument("--nfeatures", type=int, default=3000, help="Number of high-variance shared genes used for SVD/KNN.")
@@ -182,6 +187,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--k", type=int, default=50, help="Number of adult reference neighbors voting on each DIV90 query cell.")
     parser.add_argument("--seed", type=int, default=0)
     return parser.parse_args()
+
+
+def excluded_labels(args: argparse.Namespace) -> list[str]:
+    raw = args.exclude_labels if args.exclude_labels is not None else args.exclude_label
+    if not raw or str(raw).upper() == "NONE":
+        return []
+    return [label.strip() for label in str(raw).split("||") if label.strip()]
 
 
 def main() -> None:
@@ -202,12 +214,18 @@ def main() -> None:
     if args.label_column not in meta_ref.columns:
         raise ValueError(f"Reference metadata missing label column: {args.label_column}")
     meta_ref[args.label_column] = meta_ref[args.label_column].fillna("unlabeled_or_na").astype(str)
-    if args.exclude_label and args.exclude_label.upper() != "NONE":
-        keep = meta_ref[args.label_column] != args.exclude_label
+    labels_to_exclude = excluded_labels(args)
+    if labels_to_exclude:
+        keep = ~meta_ref[args.label_column].isin(labels_to_exclude)
         before = x_ref.shape[0]
         x_ref = x_ref[keep.to_numpy(), :]
         meta_ref = meta_ref.loc[keep].reset_index(drop=True)
-        write_progress(progress_path, "filter_reference_label", "end", f"before={before}; after={x_ref.shape[0]}; excluded={args.exclude_label}")
+        write_progress(
+            progress_path,
+            "filter_reference_label",
+            "end",
+            f"before={before}; after={x_ref.shape[0]}; excluded={' || '.join(labels_to_exclude)}",
+        )
 
     x_ref, meta_ref = subset_rows(x_ref, meta_ref, args.max_reference_cells, args.seed)
     x_query, meta_query = subset_rows(x_query, meta_query, args.max_query_cells, args.seed + 1)
@@ -268,6 +286,7 @@ def main() -> None:
         "bridge_dir": str(args.bridge_dir),
         "label_column": args.label_column,
         "exclude_label": args.exclude_label,
+        "exclude_labels": labels_to_exclude,
         "n_reference_cells": int(x_ref.shape[0]),
         "n_query_cells": int(x_query.shape[0]),
         "n_features": int(nfeatures),

@@ -19,6 +19,8 @@ SCOPES = {
     "mge_llc": ("MGE interneuron", "LAMP5-LHX6 and Chandelier"),
     "mge_llc_cholinergic": ("MGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
     "mge_cge_llc": ("MGE interneuron", "CGE interneuron", "LAMP5-LHX6 and Chandelier"),
+    "mge_cge_llc_cholinergic": ("MGE interneuron", "CGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
+    "mge_cge_llc_splatter": ("MGE interneuron", "CGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
 }
 H5AD_BY_SUPERCLUSTER = {
     "MGE interneuron": "siletti_whb_mge_interneuron.h5ad",
@@ -126,7 +128,7 @@ def load_reference_metadata_and_indices(
             }
         )
 
-    if scope == "mge_llc_cholinergic":
+    if scope.endswith("_cholinergic"):
         is_splatter = meta["source_supercluster"].eq("Splatter")
         is_cholinergic_splatter = (
             is_splatter
@@ -285,9 +287,9 @@ def main() -> None:
     config = {
         "scope": args.scope,
         "superclusters": SCOPES[args.scope],
-        "cholinergic_splatter_cluster_id": CHOLINERGIC_SPLATTER_CLUSTER_ID if args.scope == "mge_llc_cholinergic" else None,
-        "cholinergic_splatter_subcluster_ids": sorted(CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS) if args.scope == "mge_llc_cholinergic" else None,
-        "cholinergic_jia_group": CHOLINERGIC_JIA_GROUP if args.scope == "mge_llc_cholinergic" else None,
+        "cholinergic_splatter_cluster_id": CHOLINERGIC_SPLATTER_CLUSTER_ID if args.scope.endswith("_cholinergic") else None,
+        "cholinergic_splatter_subcluster_ids": sorted(CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS) if args.scope.endswith("_cholinergic") else None,
+        "cholinergic_jia_group": CHOLINERGIC_JIA_GROUP if args.scope.endswith("_cholinergic") else None,
         "max_ref_cells_per_subcluster": args.max_ref_cells_per_subcluster,
         "max_ref_cells_total": args.max_ref_cells_total,
         "seed": args.seed,
