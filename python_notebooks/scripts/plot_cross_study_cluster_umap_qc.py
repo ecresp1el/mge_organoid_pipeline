@@ -22,6 +22,16 @@ DEFAULT_PROJECT_ROOT = Path("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_project
 DEFAULT_RUN_LABEL = "cross_study_marker_expression_v12"
 BASE_COLUMNS = ["cell_id", "study_id", "study_label", "sample", "cluster", "umap_1", "umap_2"]
 
+DIV30_PAPER_CLUSTER_MAP = {
+    "0": ("1", "Radial glia"),
+    "3": ("1", "Radial glia"),
+    "7": ("1", "Radial glia"),
+    "6": ("2", "Inhibitory progenitors"),
+    "1": ("3", "SST+ cIN"),
+    "4": ("4", "PV neuron precursor"),
+    "2": ("5", "MGE subpallial neurons"),
+}
+
 
 def parse_study_ids(raw: Iterable[str] | None) -> list[str]:
     values: list[str] = []
@@ -47,6 +57,29 @@ def per_study_table_path(project_root: Path, run_label: str, study_id: str) -> P
     return table_dir(project_root, run_label) / "per_study" / f"{study_id}_marker_expression.tsv.gz"
 
 
+def div90_mapping_path(project_root: Path) -> Path:
+    return (
+        project_root
+        / "results"
+        / "div90_umap_cluster_label_audit"
+        / "div90_umap_cluster_label_audit_v1"
+        / "tables"
+        / "div90_cluster_number_name_to_biology_mapping.tsv"
+    )
+
+
+def load_div90_mapping(project_root: Path) -> pd.DataFrame:
+    path = div90_mapping_path(project_root)
+    if not path.exists():
+        raise FileNotFoundError(f"Missing DIV90 mapping table: {path}")
+    mapping = pd.read_csv(path, sep="\t")
+    mapping["cluster"] = mapping["cluster_id_numeric"].astype(str)
+    mapping["mapped_cluster_id"] = mapping["cluster_id_numeric"].astype(str)
+    mapping["mapped_cluster_name"] = mapping["biology_name"].astype(str)
+    mapping["mapped_cluster_label"] = mapping["exact_metadata_name"].astype(str)
+    return mapping[["cluster", "mapped_cluster_id", "mapped_cluster_name", "mapped_cluster_label"]]
+
+
 def load_study_table(project_root: Path, run_label: str) -> pd.DataFrame:
     path = table_dir(project_root, run_label) / "cross_study_marker_expression_studies.tsv"
     studies = pd.read_csv(path, sep="\t")
@@ -56,9 +89,43 @@ def load_study_table(project_root: Path, run_label: str) -> pd.DataFrame:
     return studies
 
 
+def apply_mapped_cluster_labels(data: pd.DataFrame, study_id: str, div90_mapping: pd.DataFrame) -> pd.DataFrame:
+    out = data.copy()
+    out["raw_cluster"] = out["cluster"].astype(str)
+    out["mapped_cluster_id"] = out["raw_cluster"]
+    out["mapped_cluster_name"] = out["raw_cluster"]
+    out["mapped_cluster_label"] = out["raw_cluster"]
+    out["cluster_mapping_source"] = "raw_cluster"
+
+    if study_id == "varela_div30":
+        mapped = out["raw_cluster"].map(DIV30_PAPER_CLUSTER_MAP)
+        if mapped.isna().any():
+            missing = sorted(out.loc[mapped.isna(), "raw_cluster"].unique(), key=natural_sort_key)
+            raise ValueError(f"Unmapped DIV30 clusters in marker table: {missing}")
+        out["mapped_cluster_id"] = mapped.map(lambda value: value[0])
+        out["mapped_cluster_name"] = mapped.map(lambda value: value[1])
+        out["mapped_cluster_label"] = out["mapped_cluster_id"] + " - " + out["mapped_cluster_name"]
+        out["cluster_mapping_source"] = "div30_paper_cluster_annotation_mapping"
+    elif study_id == "varela_div90":
+        before = out.shape[0]
+        out = out.merge(div90_mapping, on="cluster", how="left", suffixes=("", "_div90"))
+        if out.shape[0] != before:
+            raise ValueError("DIV90 mapping merge changed row count.")
+        if out["mapped_cluster_label_div90"].isna().any():
+            missing = sorted(out.loc[out["mapped_cluster_label_div90"].isna(), "raw_cluster"].unique(), key=natural_sort_key)
+            raise ValueError(f"Unmapped DIV90 clusters in marker table: {missing}")
+        out["mapped_cluster_id"] = out["mapped_cluster_id_div90"]
+        out["mapped_cluster_name"] = out["mapped_cluster_name_div90"]
+        out["mapped_cluster_label"] = out["mapped_cluster_label_div90"]
+        out["cluster_mapping_source"] = str(div90_mapping_path(DEFAULT_PROJECT_ROOT))
+        out = out.drop(columns=[col for col in out.columns if col.endswith("_div90")])
+    return out
+
+
 def load_cluster_tables(project_root: Path, run_label: str, studies: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     frames = []
     manifest_rows = []
+    div90_mapping = load_div90_mapping(project_root)
     for _, row in studies.sort_values("study_order").iterrows():
         study_id = str(row["study_id"])
         path = per_study_table_path(project_root, run_label, study_id)
@@ -88,7 +155,9 @@ def load_cluster_tables(project_root: Path, run_label: str, studies: pd.DataFram
         data["umap_1"] = pd.to_numeric(data["umap_1"], errors="coerce")
         data["umap_2"] = pd.to_numeric(data["umap_2"], errors="coerce")
         data["study_order"] = row["study_order"]
+        data = apply_mapped_cluster_labels(data, study_id, div90_mapping)
         manifest["n_cells_loaded"] = int(data.shape[0])
+        manifest["mapping_source"] = str(data["cluster_mapping_source"].iloc[0])
         manifest_rows.append(manifest)
         frames.append(data)
     if not frames:
@@ -134,21 +203,21 @@ def apply_figure_filters(data: pd.DataFrame, exclude_study_ids: list[str]) -> tu
 
 def cluster_counts(data: pd.DataFrame, scope: str) -> pd.DataFrame:
     counts = (
-        data.groupby(["study_id", "study_label", "cluster"], sort=False)
+        data.groupby(["study_id", "study_label", "raw_cluster", "mapped_cluster_id", "mapped_cluster_name", "mapped_cluster_label", "cluster_mapping_source"], sort=False)
         .size()
         .reset_index(name="n_cells")
     )
     counts["scope"] = scope
     totals = counts.groupby(["study_id", "study_label"], sort=False)["n_cells"].transform("sum")
     counts["fraction_cells"] = counts["n_cells"] / totals
-    counts["cluster_sort_key"] = counts["cluster"].map(lambda x: repr(natural_sort_key(x)))
-    counts = counts.sort_values(["study_id", "cluster_sort_key"]).drop(columns=["cluster_sort_key"])
+    counts["cluster_sort_key"] = counts["mapped_cluster_id"].map(lambda x: repr(natural_sort_key(x)))
+    counts = counts.sort_values(["study_id", "cluster_sort_key", "raw_cluster"]).drop(columns=["cluster_sort_key"])
     return counts
 
 
 def sample_cluster_counts(data: pd.DataFrame, scope: str) -> pd.DataFrame:
     out = (
-        data.groupby(["study_id", "study_label", "sample", "cluster"], sort=False)
+        data.groupby(["study_id", "study_label", "sample", "raw_cluster", "mapped_cluster_id", "mapped_cluster_name", "mapped_cluster_label"], sort=False)
         .size()
         .reset_index(name="n_cells")
     )
@@ -159,7 +228,7 @@ def sample_cluster_counts(data: pd.DataFrame, scope: str) -> pd.DataFrame:
 def study_summary(data: pd.DataFrame, scope: str) -> pd.DataFrame:
     rows = []
     for (study_id, study_label), group in data.groupby(["study_id", "study_label"], sort=False):
-        clusters = sorted(group["cluster"].astype(str).unique(), key=natural_sort_key)
+        clusters = sorted(group["mapped_cluster_label"].astype(str).unique(), key=natural_sort_key)
         rows.append(
             {
                 "scope": scope,
@@ -168,6 +237,7 @@ def study_summary(data: pd.DataFrame, scope: str) -> pd.DataFrame:
                 "n_cells": int(group.shape[0]),
                 "n_clusters": len(clusters),
                 "cluster_labels": ";".join(clusters),
+                "raw_cluster_labels": ";".join(sorted(group["raw_cluster"].astype(str).unique(), key=natural_sort_key)),
                 "n_samples": int(group["sample"].nunique()),
                 "sample_values": ";".join(sorted(group["sample"].astype(str).unique())),
             }
@@ -187,7 +257,7 @@ def cluster_palette(labels: list[str]) -> dict[str, tuple[float, float, float, f
 
 def label_positions(group: pd.DataFrame) -> pd.DataFrame:
     rows = []
-    for cluster, subset in group.groupby("cluster", sort=False):
+    for cluster, subset in group.groupby("mapped_cluster_label", sort=False):
         rows.append(
             {
                 "cluster": cluster,
@@ -216,10 +286,10 @@ def plot_cluster_grid(data: pd.DataFrame, output_prefix: Path, title: str, max_l
     for ax, (study_id, study_label) in zip(axes.ravel(), study_keys):
         subset = data.loc[(data["study_id"] == study_id) & (data["study_label"] == study_label)].copy()
         subset = subset[np.isfinite(subset["umap_1"]) & np.isfinite(subset["umap_2"])]
-        clusters = sorted(subset["cluster"].astype(str).unique(), key=natural_sort_key)
+        clusters = sorted(subset["mapped_cluster_label"].astype(str).unique(), key=natural_sort_key)
         colors = cluster_palette(clusters)
         for cluster in clusters:
-            cluster_data = subset.loc[subset["cluster"] == cluster]
+            cluster_data = subset.loc[subset["mapped_cluster_label"] == cluster]
             ax.scatter(
                 cluster_data["umap_1"],
                 cluster_data["umap_2"],
@@ -234,7 +304,7 @@ def plot_cluster_grid(data: pd.DataFrame, output_prefix: Path, title: str, max_l
                 ax.text(
                     row["x"],
                     row["y"],
-                    str(row["cluster"]),
+                    str(row["cluster"]).split(" - ", 1)[0],
                     ha="center",
                     va="center",
                     fontsize=6.5,

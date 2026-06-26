@@ -369,6 +369,32 @@ analysis or Seurat/H5AD extraction was rerun.
     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12/cluster_qc
   - Figure-default QC applies the same study/filter logic as v12 plotting:
     exclude bershteyn_2025; Samarasinghe controls only.
+  - Updated cluster QC labels for this-study panels:
+    DIV30 uses collapsed paper/manual cluster classes.
+    DIV90 uses the audited cluster_number_name mapping table.
+```
+
+Mapped label sources:
+
+```text
+DIV30:
+  Source script: python_notebooks/scripts/map_div30_paper_cluster_annotations.py
+  Source handoff: python_notebooks/HANDOFF_div30_paper_clusters_urd.md
+  Mapping:
+    raw clusters 0,3,7 -> 1 - Radial glia
+    raw cluster 6     -> 2 - Inhibitory progenitors
+    raw cluster 1     -> 3 - SST+ cIN
+    raw cluster 4     -> 4 - PV neuron precursor
+    raw cluster 2     -> 5 - MGE subpallial neurons
+
+DIV90:
+  Source audit:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_umap_cluster_label_audit/div90_umap_cluster_label_audit_v1
+  Mapping table:
+    tables/div90_cluster_number_name_to_biology_mapping.tsv
+  Metadata columns confirmed in source obs:
+    cluster_id
+    cluster_number_name
 ```
 
 ### Validation
@@ -377,6 +403,8 @@ analysis or Seurat/H5AD extraction was rerun.
 Pending user visual review of candidate v12 plots.
 Cluster QC grid was visually spot-checked after render. The figure-default grid
 uses study table order and shows cluster IDs over each study's UMAP.
+Second QC render confirmed DIV30 collapsed to 5 mapped paper/manual classes and
+DIV90 joined to the 13 audited cluster_number_name labels.
 ```
 
 ### Final Figure Package
