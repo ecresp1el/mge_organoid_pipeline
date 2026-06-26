@@ -34,6 +34,7 @@ SILETTI_TRANSFER_MAX_QUERY_CELLS="${SILETTI_TRANSFER_MAX_QUERY_CELLS:-0}"
 
 SILETTI_FIGURE_LABEL_COLUMN="${SILETTI_FIGURE_LABEL_COLUMN:-candidate_jia_group}"
 SILETTI_FIGURE_EXCLUDE_LABEL="${SILETTI_FIGURE_EXCLUDE_LABEL:-Excluded / not assigned to Jia-style 9 groups}"
+SILETTI_FIGURE_EXCLUDE_LABELS="${SILETTI_FIGURE_EXCLUDE_LABELS:-}"
 SILETTI_FIGURE_SOURCE_CLASS_COL="${SILETTI_FIGURE_SOURCE_CLASS_COL:-div90_broad_class}"
 SILETTI_FIGURE_SAMPLE_COL="${SILETTI_FIGURE_SAMPLE_COL:-orig.ident}"
 SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED="${SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED:-0.0}"
@@ -61,6 +62,8 @@ echo "Bridge dir: ${bridge_dir}"
 echo "Transfer dir: ${transfer_dir}"
 echo "Output dir: ${outdir}"
 echo "Label column: ${SILETTI_FIGURE_LABEL_COLUMN}"
+echo "Exclude label: ${SILETTI_FIGURE_EXCLUDE_LABEL}"
+echo "Exclude labels: ${SILETTI_FIGURE_EXCLUDE_LABELS:-<unset>}"
 echo "Source class column: ${SILETTI_FIGURE_SOURCE_CLASS_COL}"
 echo "Sample column: ${SILETTI_FIGURE_SAMPLE_COL}"
 echo "Min score assigned threshold: ${SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED}"
@@ -72,19 +75,27 @@ echo "python: $("${CONDA_ENV_BIN}/python" --version)"
 
 "${CONDA_ENV_BIN}/python" -m py_compile python_notebooks/scripts/plot_siletti_div90_jia_figure.py
 
-"${CONDA_ENV_BIN}/python" python_notebooks/scripts/plot_siletti_div90_jia_figure.py \
-  --bridge-dir "${bridge_dir}" \
-  --transfer-dir "${transfer_dir}" \
-  --outdir "${outdir}" \
-  --label-column "${SILETTI_FIGURE_LABEL_COLUMN}" \
-  --exclude-label "${SILETTI_FIGURE_EXCLUDE_LABEL}" \
-  --source-class-col "${SILETTI_FIGURE_SOURCE_CLASS_COL}" \
-  --sample-col "${SILETTI_FIGURE_SAMPLE_COL}" \
-  --min-score-for-assigned "${SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED}" \
-  --nfeatures "${SILETTI_FIGURE_NFEATURES}" \
-  --n-components "${SILETTI_FIGURE_N_COMPONENTS}" \
-  --umap-mode "${SILETTI_FIGURE_UMAP_MODE}" \
+args=(
+  --bridge-dir "${bridge_dir}"
+  --transfer-dir "${transfer_dir}"
+  --outdir "${outdir}"
+  --label-column "${SILETTI_FIGURE_LABEL_COLUMN}"
+  --source-class-col "${SILETTI_FIGURE_SOURCE_CLASS_COL}"
+  --sample-col "${SILETTI_FIGURE_SAMPLE_COL}"
+  --min-score-for-assigned "${SILETTI_FIGURE_MIN_SCORE_FOR_ASSIGNED}"
+  --nfeatures "${SILETTI_FIGURE_NFEATURES}"
+  --n-components "${SILETTI_FIGURE_N_COMPONENTS}"
+  --umap-mode "${SILETTI_FIGURE_UMAP_MODE}"
   --seed "${SILETTI_FIGURE_SEED}"
+)
+
+if [[ -n "${SILETTI_FIGURE_EXCLUDE_LABELS}" ]]; then
+  args+=(--exclude-labels "${SILETTI_FIGURE_EXCLUDE_LABELS}")
+else
+  args+=(--exclude-label "${SILETTI_FIGURE_EXCLUDE_LABEL}")
+fi
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/plot_siletti_div90_jia_figure.py "${args[@]}"
 
 echo "Generated files:"
 find "${outdir}" -maxdepth 3 -type f | sort

@@ -146,7 +146,7 @@ def prepare_embedding(
     bridge_dir: Path,
     transfer_dir: Path,
     label_column: str,
-    exclude_label: str,
+    exclude_labels: list[str],
     nfeatures: int,
     n_components: int,
     seed: int,
@@ -160,8 +160,8 @@ def prepare_embedding(
     if label_column not in meta_ref.columns:
         raise ValueError(f"Reference metadata missing label column: {label_column}")
     meta_ref[label_column] = meta_ref[label_column].fillna("unlabeled_or_na").astype(str)
-    if exclude_label and exclude_label.upper() != "NONE":
-        keep_ref = meta_ref[label_column] != exclude_label
+    if exclude_labels:
+        keep_ref = ~meta_ref[label_column].isin(exclude_labels)
         x_ref = x_ref[keep_ref.to_numpy(), :]
         meta_ref = meta_ref.loc[keep_ref].reset_index(drop=True)
 
@@ -489,6 +489,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--outdir", type=Path, default=DEFAULT_OUTDIR)
     parser.add_argument("--label-column", default="candidate_jia_group")
     parser.add_argument("--exclude-label", default="Excluded / not assigned to Jia-style 9 groups")
+    parser.add_argument("--exclude-labels", default=None, help="Optional '||'-separated labels to remove from the reference UMAP.")
     parser.add_argument("--source-class-col", default="div90_broad_class")
     parser.add_argument("--sample-col", default="orig.ident")
     parser.add_argument("--min-score-for-assigned", type=float, default=0.0)
@@ -504,8 +505,16 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def excluded_labels(args: argparse.Namespace) -> list[str]:
+    raw = args.exclude_labels if args.exclude_labels is not None else args.exclude_label
+    if not raw or str(raw).upper() == "NONE":
+        return []
+    return [label.strip() for label in str(raw).split("||") if label.strip()]
+
+
 def main() -> None:
     args = parse_args()
+    labels_to_exclude = excluded_labels(args)
     plots_dir = args.outdir / "plots"
     tables_dir = args.outdir / "tables"
     reports_dir = args.outdir / "reports"
@@ -516,7 +525,7 @@ def main() -> None:
         args.bridge_dir,
         args.transfer_dir,
         args.label_column,
-        args.exclude_label,
+        labels_to_exclude,
         args.nfeatures,
         args.n_components,
         args.seed,
@@ -555,6 +564,7 @@ def main() -> None:
         "outdir": str(args.outdir),
         "label_column": args.label_column,
         "exclude_label": args.exclude_label,
+        "exclude_labels": labels_to_exclude,
         "source_class_col": args.source_class_col,
         "sample_col": args.sample_col,
         "min_score_for_assigned": args.min_score_for_assigned,
@@ -581,6 +591,7 @@ def main() -> None:
         f"UMAP mode: {args.umap_mode}.",
         "",
         f"Assigned-cell threshold: prediction.score.max >= {args.min_score_for_assigned}",
+        f"Reference labels excluded from UMAP: {', '.join(labels_to_exclude) if labels_to_exclude else 'none'}",
         "",
         "Generated tables record omitted/unassigned cells so the plots can omit them without losing accounting.",
     ]
