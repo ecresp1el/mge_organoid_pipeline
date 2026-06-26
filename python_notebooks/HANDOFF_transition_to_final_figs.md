@@ -248,7 +248,7 @@ Slurm execution standard:
 | --- | --- | --- | --- |
 | `fig_cross_study_marker_expression_v12` | Found, Log-audited, Modifying, Validated, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12` | First final folder created for cluster UMAP QC / DIV90 published recode outputs. Rerendered with editable Arial SVG text and 600 dpi export for rasterized UMAP layers. Other marker-expression multi-grids still pending formatting/finalization. |
 | `fig_cross_study_marker_expression_pv_precursors_on_off_target_v12` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate` | Plot-only rerender from v12 prepared marker tables. Added Bershteyn 2025, added PV ON-target LHX6/LHX8/NKX2.1, retained ERBB4, applied DIV90 vertical plotting-only UMAP orientation, removed DIV90 stressed clusters 6/7 from visualization only, drew expression values 0-1 as background gray with blue scale starting above 1, colorbars labeled from 0, exported PNG/PDF/SVG at 600 dpi through Slurm job 52370542 with editable Arial SVG text. |
-| `fig_cross_study_shi_label_transfer_v1_umap_score_grids` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1` | Plot-only rerender of Shi Seurat label-transfer UMAP score grids from saved v1 combined table. Updated score grids to fixed 0-1 grey-to-blue scaling, applied DIV90 visualization-only stressed-cluster 6/7 removal, applied DIV90 vertical plotting-only UMAP orientation, wrapped long all-label headers, exported requested PNG/PDF/SVG at 600 dpi through Slurm job 52371207 with editable Arial SVG text. |
+| `fig_cross_study_shi_label_transfer_v1_umap_score_grids` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1` | Plot-only rerender of Shi Seurat label-transfer UMAP score grids and matched sample-composition panels from saved v1 combined table. Updated score grids to fixed 0-1 grey-to-blue scaling, applied DIV90 visualization-only stressed-cluster 6/7 removal, applied DIV90 vertical plotting-only UMAP orientation, wrapped long all-label headers, exported requested PNG/PDF/SVG at 600 dpi through Slurm job 52371207 with editable Arial SVG text. Added sample-composition panels through Slurm job 52371355 using the same final denominator. |
 
 ## Figure: fig_cross_study_marker_expression_v12
 
@@ -1035,6 +1035,33 @@ Not rerun:
       ps.fonttype = 42
   - Added Slurm final render/package template:
       slurm_templates/49_render_cross_study_shi_label_transfer_final_umap_grids.sbatch.template
+  - 2026-06-26 sample-composition addition:
+      Added two matched all-study sample-composition panels to the same final
+      package:
+        all_studies_all_shi_major_labels_shi_predicted_age_sample_composition_stacked_bar
+        all_studies_all_shi_major_labels_shi_major_class_sample_composition_stacked_bar
+      These were recalculated from the v1 combined table rather than copied from
+      the old source-run PDFs.
+      Both use the same final visualization denominator as the UMAP score grids:
+        DIV90 current clusters 6/7 excluded as stressed cells
+        Samarasinghe controls only
+        finite plotting coordinates required
+        no downsampling
+        no score cutoff
+      Predicted-stage plot uses:
+        shi_seurat_full_predicted_shi_week_label
+      Major-class plot uses:
+        shi_seurat_full_predicted_shi_label
+      Slurm job:
+        52371355
+      Runtime:
+        00:00:32
+      Max RSS:
+        1,654,340K
+      Added code:
+        python_notebooks/scripts/render_cross_study_shi_sample_composition_final_panels.py
+      Added Slurm template:
+        slurm_templates/49b_render_cross_study_shi_sample_composition_final_panels.sbatch.template
 ```
 
 ### Validation
@@ -1068,6 +1095,21 @@ SVG text:
   - individual_gw_scores_grid.svg has 32 editable <text> elements.
   - Both SVGs contain font-family: 'Arial' text declarations.
   - No DejaVu/Nimbus/Arial glyph-path text definitions were found.
+
+Sample-composition validation:
+  - Predicted-stage PNG/PDF/SVG exist and are nonzero.
+  - Major-class PNG/PDF/SVG exist and are nonzero.
+  - Predicted-stage table:
+      tables/cross_study_shi_final_all_shi_major_labels_predicted_age_sample_composition.tsv
+  - Major-class table:
+      tables/cross_study_shi_final_all_shi_major_labels_major_class_sample_composition.tsv
+  - Filter summary:
+      tables/cross_study_shi_sample_composition_final_filter_summary.tsv
+  - DIV90 final denominator = 20,049.
+  - Samarasinghe final denominator = 26,935 controls only.
+  - Both sample-composition PNGs opened successfully.
+  - Predicted-stage SVG has 71 editable Arial <text> elements and no glyph-path text.
+  - Major-class SVG has 76 editable Arial <text> elements and no glyph-path text.
 ```
 
 ### Final Figure Package
@@ -1086,10 +1128,17 @@ Included:
   tables/cross_study_shi_umap_internal_plot_filter_summary.tsv
   tables/cross_study_shi_seurat_label_transfer_readiness.tsv
   tables/cross_study_shi_transfer_diagnostics_summary.tsv
+  tables/cross_study_shi_final_all_shi_major_labels_predicted_age_sample_composition.tsv
+  tables/cross_study_shi_final_all_shi_major_labels_major_class_sample_composition.tsv
+  tables/cross_study_shi_sample_composition_final_filter_summary.tsv
+  tables/cross_study_shi_final_sample_composition_manifest.tsv
   logs/shi-final-umaps-52371207.out
   logs/shi-final-umaps-52371207.err
+  logs/shi-final-samples-52371355.out
+  logs/shi-final-samples-52371355.err
   provenance/render_manifest.tsv
   provenance/code_diff.patch
+  provenance/sample_composition_code_diff.patch
   provenance/git_status_short.txt
   provenance/sha256sums.txt
 ```

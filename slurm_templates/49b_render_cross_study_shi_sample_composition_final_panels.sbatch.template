@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Plot-only final render for cross-study Shi sample-composition panels.
+
+#SBATCH --job-name=shi-final-samples
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=48G
+#SBATCH --time=01:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-final-samples-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-final-samples-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+CROSS_STUDY_SHI_RUN_LABEL="${CROSS_STUDY_SHI_RUN_LABEL:-cross_study_shi_seurat_label_transfer_v1}"
+FINAL_DIR="${FINAL_DIR:-${PROJECT_ROOT}/final_figures/fig_cross_study_shi_label_transfer_v1_umap_score_grids_candidate}"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export CROSS_STUDY_SHI_RUN_LABEL
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+echo "Shi final sample-composition job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${CROSS_STUDY_SHI_RUN_LABEL}"
+echo "Final dir: ${FINAL_DIR}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/render_cross_study_shi_sample_composition_final_panels.py \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${CROSS_STUDY_SHI_RUN_LABEL}" \
+  --final-dir "${FINAL_DIR}"
+
+for stem in \
+  all_studies_all_shi_major_labels_shi_predicted_age_sample_composition_stacked_bar \
+  all_studies_all_shi_major_labels_shi_major_class_sample_composition_stacked_bar
+do
+  for ext in png pdf svg
+  do
+    path="${FINAL_DIR}/figures/${ext}/${stem}.${ext}"
+    if [[ ! -s "${path}" ]]; then
+      echo "Missing expected output: ${path}" >&2
+      exit 1
+    fi
+  done
+done
+
+mkdir -p "${FINAL_DIR}/code" "${FINAL_DIR}/logs" "${FINAL_DIR}/provenance"
+cp -p python_notebooks/scripts/render_cross_study_shi_sample_composition_final_panels.py "${FINAL_DIR}/code/"
+cp -p "${BASH_SOURCE[0]}" "${FINAL_DIR}/provenance/"
+
+{
+  echo "sample_composition_rendered_at	$(date --iso-8601=seconds)"
+  echo "sample_composition_slurm_job_id	${SLURM_JOB_ID:-NA}"
+  echo "repo_root	${REPO_ROOT}"
+  echo "project_root	${PROJECT_ROOT}"
+  echo "run_label	${CROSS_STUDY_SHI_RUN_LABEL}"
+  echo "source_combined_table	${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/${CROSS_STUDY_SHI_RUN_LABEL}/tables/cross_study_shi_seurat_label_transfer_obs.tsv.gz"
+  echo "final_dir	${FINAL_DIR}"
+  echo "command	python_notebooks/scripts/render_cross_study_shi_sample_composition_final_panels.py --project-root ${PROJECT_ROOT} --run-label ${CROSS_STUDY_SHI_RUN_LABEL} --final-dir ${FINAL_DIR}"
+  echo "dpi	600"
+  echo "denominator	All cells with a whole-Shi major-label winner after final visualization filters"
+  echo "age_plot_classifier	whole-Shi predicted week label: shi_seurat_full_predicted_shi_week_label"
+  echo "major_class_plot_classifier	whole-Shi predicted major label: shi_seurat_full_predicted_shi_label"
+  echo "div90_visualization_filter	exclude current clusters 6 and 7 as stressed cells"
+  echo "samarasinghe_visualization_filter	controls only"
+  echo "svg_text_policy	editable text; matplotlib svg.fonttype none; Arial/Nimbus Sans fallback"
+} >> "${FINAL_DIR}/provenance/render_manifest.tsv"
+
+git status --short > "${FINAL_DIR}/provenance/git_status_short.txt"
+git diff -- python_notebooks/scripts/render_cross_study_shi_sample_composition_final_panels.py \
+  slurm_templates/49b_render_cross_study_shi_sample_composition_final_panels.sbatch.template \
+  python_notebooks/src/mge_organoid_python/cross_study_shi_prediction_plots.py \
+  python_notebooks/HANDOFF_transition_to_final_figs.md \
+  > "${FINAL_DIR}/provenance/sample_composition_code_diff.patch" || true
+
+cp -p "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-final-samples-${SLURM_JOB_ID}.out" "${FINAL_DIR}/logs/" 2>/dev/null || true
+cp -p "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-final-samples-${SLURM_JOB_ID}.err" "${FINAL_DIR}/logs/" 2>/dev/null || true
+
+find "${FINAL_DIR}" -name .DS_Store -delete
+sha256sum \
+  "${FINAL_DIR}"/README.md \
+  "${FINAL_DIR}"/figures/png/*.png \
+  "${FINAL_DIR}"/figures/pdf/*.pdf \
+  "${FINAL_DIR}"/figures/svg/*.svg \
+  "${FINAL_DIR}"/tables/*.tsv \
+  "${FINAL_DIR}"/code/* \
+  "${FINAL_DIR}"/logs/* \
+  "${FINAL_DIR}"/provenance/render_manifest.tsv \
+  "${FINAL_DIR}"/provenance/*.sbatch* \
+  > "${FINAL_DIR}/provenance/sha256sums.txt"
+
+echo "Final package sample-composition file sizes:"
+find "${FINAL_DIR}" -type f -name '*sample_composition*' -printf "%s %p\n" | sort -n
+echo "Shi final sample-composition job finished: $(date)"
