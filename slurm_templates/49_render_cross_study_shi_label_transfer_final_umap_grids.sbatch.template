@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# Plot-only final render for selected cross-study Shi Seurat label-transfer UMAP grids.
+
+#SBATCH --job-name=shi-final-umaps
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=64G
+#SBATCH --time=02:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-final-umaps-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-final-umaps-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+CROSS_STUDY_SHI_RUN_LABEL="${CROSS_STUDY_SHI_RUN_LABEL:-cross_study_shi_seurat_label_transfer_v1}"
+FINAL_DIR="${FINAL_DIR:-${PROJECT_ROOT}/final_figures/fig_cross_study_shi_label_transfer_v1_umap_score_grids_candidate}"
+
+RUN_DIR="${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/${CROSS_STUDY_SHI_RUN_LABEL}"
+SOURCE_PLOT_DIR="${RUN_DIR}/plots/umap_grids"
+SOURCE_TABLE_DIR="${RUN_DIR}/tables"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export CROSS_STUDY_SHI_RUN_LABEL
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+echo "Shi final UMAP plot-only job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${CROSS_STUDY_SHI_RUN_LABEL}"
+echo "Run dir: ${RUN_DIR}"
+echo "Final dir: ${FINAL_DIR}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/run_cross_study_shi_prediction_plots.py \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${CROSS_STUDY_SHI_RUN_LABEL}" \
+  plot-umap
+
+mkdir -p \
+  "${FINAL_DIR}/figures/png" \
+  "${FINAL_DIR}/figures/pdf" \
+  "${FINAL_DIR}/figures/svg" \
+  "${FINAL_DIR}/tables" \
+  "${FINAL_DIR}/logs" \
+  "${FINAL_DIR}/code" \
+  "${FINAL_DIR}/provenance"
+
+for stem in \
+  cross_study_umap_shi_seurat_full_individual_gw_scores_grid \
+  cross_study_umap_shi_seurat_full_all_label_scores_grid
+do
+  for ext in png pdf svg
+  do
+    src="${SOURCE_PLOT_DIR}/${stem}.${ext}"
+    if [[ ! -s "${src}" ]]; then
+      echo "Missing expected output: ${src}" >&2
+      exit 1
+    fi
+    cp -p "${src}" "${FINAL_DIR}/figures/${ext}/${stem}.${ext}"
+  done
+done
+
+cp -p "${SOURCE_TABLE_DIR}/cross_study_shi_umap_plot_manifest.tsv" "${FINAL_DIR}/tables/"
+cp -p "${SOURCE_TABLE_DIR}/cross_study_shi_umap_internal_plot_filter_summary.tsv" "${FINAL_DIR}/tables/"
+cp -p "${SOURCE_TABLE_DIR}/cross_study_shi_seurat_label_transfer_readiness.tsv" "${FINAL_DIR}/tables/" 2>/dev/null || true
+cp -p "${SOURCE_TABLE_DIR}/cross_study_shi_transfer_diagnostics_summary.tsv" "${FINAL_DIR}/tables/" 2>/dev/null || true
+
+cp -p python_notebooks/src/mge_organoid_python/cross_study_shi_prediction_plots.py "${FINAL_DIR}/code/"
+cp -p python_notebooks/scripts/run_cross_study_shi_prediction_plots.py "${FINAL_DIR}/code/"
+cp -p "${BASH_SOURCE[0]}" "${FINAL_DIR}/provenance/"
+
+{
+  echo "rendered_at	$(date --iso-8601=seconds)"
+  echo "slurm_job_id	${SLURM_JOB_ID:-NA}"
+  echo "repo_root	${REPO_ROOT}"
+  echo "project_root	${PROJECT_ROOT}"
+  echo "run_label	${CROSS_STUDY_SHI_RUN_LABEL}"
+  echo "source_run_dir	${RUN_DIR}"
+  echo "final_dir	${FINAL_DIR}"
+  echo "command	python_notebooks/scripts/run_cross_study_shi_prediction_plots.py --project-root ${PROJECT_ROOT} --run-label ${CROSS_STUDY_SHI_RUN_LABEL} plot-umap"
+  echo "dpi	600"
+  echo "score_color_scale	0_to_1_fixed_grey_to_blue"
+  echo "background_grey	#d0d0d0"
+  echo "div90_visualization_filter	exclude current clusters 6 and 7 as stressed cells"
+  echo "div90_plot_coordinate_transform	UMAP1_plot = umap_1; UMAP2_plot = -1 * umap_2"
+  echo "svg_text_policy	editable text; matplotlib svg.fonttype none; Arial/Nimbus Sans fallback"
+} > "${FINAL_DIR}/provenance/render_manifest.tsv"
+
+git status --short > "${FINAL_DIR}/provenance/git_status_short.txt"
+git diff -- python_notebooks/src/mge_organoid_python/cross_study_shi_prediction_plots.py \
+  python_notebooks/scripts/run_cross_study_shi_prediction_plots.py \
+  slurm_templates/49_render_cross_study_shi_label_transfer_final_umap_grids.sbatch.template \
+  > "${FINAL_DIR}/provenance/code_diff.patch" || true
+
+sha256sum \
+  "${FINAL_DIR}"/figures/png/*.png \
+  "${FINAL_DIR}"/figures/pdf/*.pdf \
+  "${FINAL_DIR}"/figures/svg/*.svg \
+  "${FINAL_DIR}"/tables/*.tsv \
+  "${FINAL_DIR}"/code/* \
+  "${FINAL_DIR}"/provenance/render_manifest.tsv \
+  > "${FINAL_DIR}/provenance/sha256sums.txt"
+
+cp -p "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-final-umaps-${SLURM_JOB_ID}.out" "${FINAL_DIR}/logs/" 2>/dev/null || true
+cp -p "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-final-umaps-${SLURM_JOB_ID}.err" "${FINAL_DIR}/logs/" 2>/dev/null || true
+
+echo "Final package file sizes:"
+find "${FINAL_DIR}" -type f -printf "%s %p\n" | sort -n
+echo "Shi final UMAP plot-only job finished: $(date)"

@@ -56,6 +56,19 @@ from .shi_prediction_schema import (
 
 RUN_LABEL_DEFAULT = "cross_study_shi_seurat_label_transfer_v2_ge_only_age"
 RESULTS_DIRNAME = "cross_study_shi_seurat_label_transfer"
+BACKGROUND_GREY = "#d0d0d0"
+SCORE_BLUE = "#0000ff"
+FIGURE_EXPORT_DPI = 600
+
+plt.rcParams.update(
+    {
+        "font.family": "Arial",
+        "font.sans-serif": ["Arial", "Nimbus Sans", "Liberation Sans", "DejaVu Sans"],
+        "svg.fonttype": "none",
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+    }
+)
 
 STUDY_ORDER = [
     "varela_div30",
@@ -123,7 +136,8 @@ LABEL_SCORE_MAP = {
     "Endothelial": "shi_seurat_full_prediction_score_Endothelial",
 }
 
-WHITE_BLUE_CMAP = LinearSegmentedColormap.from_list("whiteBlue", ["#ffffff", "#0000ff"])
+GREY_BLUE_CMAP = LinearSegmentedColormap.from_list("greyBlue", [BACKGROUND_GREY, SCORE_BLUE])
+WHITE_BLUE_CMAP = GREY_BLUE_CMAP
 GW_COLOR_MAP = {
     "GW09": "#440154",
     "GW12": "#31688e",
@@ -813,6 +827,14 @@ def apply_internal_umap_plot_filters(data: pd.DataFrame) -> tuple[pd.DataFrame, 
             )
             continue
         kept = group
+        if str(study_id) == "varela_div90":
+            cluster_values = kept["cluster"].astype(str)
+            stressed_mask = cluster_values.isin({"6", "7", "6.0", "7.0"})
+            kept = kept.loc[~stressed_mask].copy()
+            if kept.empty:
+                raise ValueError("DIV90 stressed-cell UMAP plot filter removed all cells.")
+            plot_filter = "exclude_div90_stressed_clusters_6_7"
+            plot_filter_label = "Stressed cells removed"
         if str(study_id) == "samarasinghe_2021":
             sample_values = kept["sample"].astype(str)
             control_mask = sample_values.str.contains("Ctrl", case=False, na=False)
@@ -1011,14 +1033,36 @@ def _prep_axes(ax: plt.Axes) -> None:
         spine.set_visible(False)
 
 
+def format_feature_title(label: object) -> str:
+    text = str(label)
+    replacements = {
+        "Excitatory IPC": "Excitatory\nIPC",
+        "Excitatory neuron": "Excitatory\nneuron",
+        "Thalamic neurons": "Thalamic\nneurons",
+    }
+    return replacements.get(text, text)
+
+
+def add_plot_coordinates(data: pd.DataFrame) -> pd.DataFrame:
+    """Add plotting-only coordinates while preserving original UMAP columns."""
+    out = data.copy()
+    out["UMAP1_plot"] = pd.to_numeric(out["umap_1"], errors="coerce")
+    out["UMAP2_plot"] = pd.to_numeric(out["umap_2"], errors="coerce")
+    div90_mask = out["study_id"].astype(str) == "varela_div90"
+    out.loc[div90_mask, "UMAP2_plot"] = -1.0 * out.loc[div90_mask, "UMAP2_plot"]
+    return out
+
+
 def _study_subsets(data: pd.DataFrame) -> tuple[list[str], dict[str, pd.DataFrame], dict[str, int]]:
     ids = ordered_study_ids(data)
     subsets = {}
     counts = {}
     for study_id in ids:
         subset = data.loc[data["study_id"].astype(str) == study_id].copy()
-        finite = np.isfinite(pd.to_numeric(subset["umap_1"], errors="coerce")) & np.isfinite(
-            pd.to_numeric(subset["umap_2"], errors="coerce")
+        if "UMAP1_plot" not in subset.columns or "UMAP2_plot" not in subset.columns:
+            subset = add_plot_coordinates(subset)
+        finite = np.isfinite(pd.to_numeric(subset["UMAP1_plot"], errors="coerce")) & np.isfinite(
+            pd.to_numeric(subset["UMAP2_plot"], errors="coerce")
         )
         subset = subset.loc[finite].copy()
         subsets[study_id] = subset
@@ -1039,14 +1083,14 @@ def save_figure(fig: plt.Figure, output_path: str | Path, *, also_pdf: bool = Tr
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     paths = [out]
-    fig.savefig(out, dpi=300, bbox_inches="tight")
+    fig.savefig(out, dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
     if also_pdf:
         pdf = out.with_suffix(".pdf")
-        fig.savefig(pdf, bbox_inches="tight")
+        fig.savefig(pdf, dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
         paths.append(pdf)
     if also_svg:
         svg = out.with_suffix(".svg")
-        fig.savefig(svg, bbox_inches="tight")
+        fig.savefig(svg, dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
         paths.append(svg)
     plt.close(fig)
     return paths
@@ -1077,9 +1121,9 @@ def plot_categorical_umap_grid(
     for row_idx, study_id in enumerate(study_ids):
         ax = axes[row_idx, 0]
         subset = subsets[study_id]
-        x = pd.to_numeric(subset["umap_1"], errors="coerce").to_numpy()
-        y = pd.to_numeric(subset["umap_2"], errors="coerce").to_numpy()
-        ax.scatter(x, y, s=background_point_size, c="#d7d7d7", linewidths=0, rasterized=True)
+        x = pd.to_numeric(subset["UMAP1_plot"], errors="coerce").to_numpy()
+        y = pd.to_numeric(subset["UMAP2_plot"], errors="coerce").to_numpy()
+        ax.scatter(x, y, s=background_point_size, c=BACKGROUND_GREY, linewidths=0, rasterized=True)
         values = subset[category_col].astype(str)
         value_colors = [color_map.get(value, "#333333") for value in values]
         if len(value_colors) > 0:
@@ -1113,7 +1157,7 @@ def plot_continuous_umap_grid(
     study_ids, subsets, counts = _study_subsets(data)
     n_rows = len(study_ids)
     n_cols = len(features)
-    fig_width = max(0.82 * n_cols + 1.85, 5.8)
+    fig_width = max(1.0 * n_cols + 1.85, 5.8)
     fig_height = max(1.05 * n_rows + 1.05, 4.0)
     fig, axes = plt.subplots(
         n_rows,
@@ -1125,27 +1169,27 @@ def plot_continuous_umap_grid(
     rows = []
     for row_idx, study_id in enumerate(study_ids):
         subset = subsets[study_id]
-        x = pd.to_numeric(subset["umap_1"], errors="coerce").to_numpy()
-        y = pd.to_numeric(subset["umap_2"], errors="coerce").to_numpy()
+        x = pd.to_numeric(subset["UMAP1_plot"], errors="coerce").to_numpy()
+        y = pd.to_numeric(subset["UMAP2_plot"], errors="coerce").to_numpy()
         for col_idx, (col, label, vmin, vmax, cmap) in enumerate(features):
             ax = axes[row_idx, col_idx]
             values = pd.to_numeric(subset[col], errors="coerce").to_numpy(dtype=float)
             finite = np.isfinite(values)
-            ax.scatter(x, y, s=background_point_size, c="#d7d7d7", linewidths=0, rasterized=True)
+            ax.scatter(x, y, s=background_point_size, c=BACKGROUND_GREY, linewidths=0, rasterized=True)
             if finite.any():
                 ax.scatter(
                     x[finite],
                     y[finite],
                     s=point_size,
                     c=np.clip(values[finite], vmin, vmax),
-                    cmap=WHITE_BLUE_CMAP if str(cmap) in {"whiteBlue", "magma"} else cmap,
+                    cmap=GREY_BLUE_CMAP if str(cmap) in {"whiteBlue", "greyBlue", "magma"} else cmap,
                     norm=Normalize(vmin=vmin, vmax=vmax),
                     linewidths=0,
                     rasterized=True,
                 )
             _prep_axes(ax)
             if row_idx == 0:
-                ax.set_title(label, fontsize=8)
+                ax.set_title(format_feature_title(label), fontsize=8, linespacing=0.92)
             rows.append(
                 {
                     "study_id": study_id,
@@ -1172,14 +1216,14 @@ def plot_continuous_umap_grid(
         width = (pos.x1 - pos.x0) * 0.60
         x0 = pos.x0 + ((pos.x1 - pos.x0) - width) / 2
         cax = fig.add_axes([x0, cbar_y, width, 0.008])
-        sm = ScalarMappable(norm=Normalize(vmin=vmin, vmax=vmax), cmap=WHITE_BLUE_CMAP if str(cmap) in {"whiteBlue", "magma"} else cmap)
+        sm = ScalarMappable(norm=Normalize(vmin=vmin, vmax=vmax), cmap=GREY_BLUE_CMAP if str(cmap) in {"whiteBlue", "greyBlue", "magma"} else cmap)
         sm.set_array([])
         cbar = fig.colorbar(sm, cax=cax, orientation="horizontal")
         cbar.ax.tick_params(labelsize=4.8, length=1.2, pad=0.8)
         cbar.set_ticks([vmin, vmax])
         cbar.set_ticklabels([f"{vmin:g}", f"{vmax:g}"])
         cbar.outline.set_linewidth(0.4)
-    save_figure(fig, output_path, also_pdf=True, also_svg=False)
+    save_figure(fig, output_path, also_pdf=True, also_svg=True)
     return pd.DataFrame(rows)
 
 
@@ -1204,11 +1248,11 @@ def plot_gw_umap_grid(data: pd.DataFrame, output_path: str | Path) -> pd.DataFra
     rows = []
     for row_idx, study_id in enumerate(study_ids):
         subset = subsets[study_id]
-        x = pd.to_numeric(subset["umap_1"], errors="coerce").to_numpy()
-        y = pd.to_numeric(subset["umap_2"], errors="coerce").to_numpy()
+        x = pd.to_numeric(subset["UMAP1_plot"], errors="coerce").to_numpy()
+        y = pd.to_numeric(subset["UMAP2_plot"], errors="coerce").to_numpy()
         for col_idx, (col, label, kind) in enumerate(features):
             ax = axes[row_idx, col_idx]
-            ax.scatter(x, y, s=0.15, c="#d7d7d7", linewidths=0, rasterized=True)
+            ax.scatter(x, y, s=0.15, c=BACKGROUND_GREY, linewidths=0, rasterized=True)
             if kind == "categorical_week":
                 values = subset[col].astype(str)
                 value_colors = [week_colors.get(value, "#333333") for value in values]
@@ -1356,6 +1400,7 @@ def make_umap_grids(
     max_cells_per_study: int | None = None,
 ) -> pd.DataFrame:
     filtered_data, plot_filter_summary = apply_internal_umap_plot_filters(data)
+    filtered_data = add_plot_coordinates(filtered_data)
     plot_filter_summary.to_csv(paths.table_dir / "cross_study_shi_umap_internal_plot_filter_summary.tsv", sep="\t", index=False)
     plot_data, downsample = downsample_by_study(filtered_data, max_cells_per_study)
     if not downsample.empty:
