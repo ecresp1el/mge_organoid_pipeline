@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Static diagnostic render: DIV30/DIV90 query UMAP regions routed to Shi predictions.
+
+#SBATCH --job-name=shi-routing-static
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=32G
+#SBATCH --time=00:45:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-routing-static-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-routing-static-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+CROSS_STUDY_SHI_RUN_LABEL="${CROSS_STUDY_SHI_RUN_LABEL:-cross_study_shi_seurat_label_transfer_v1}"
+OUTDIR="${OUTDIR:-${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/${CROSS_STUDY_SHI_RUN_LABEL}/plots/validation/shi_query_projection_routing_static}"
+
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export CROSS_STUDY_SHI_RUN_LABEL
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+echo "Shi query routing static diagnostic started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "Run label: ${CROSS_STUDY_SHI_RUN_LABEL}"
+echo "Output dir: ${OUTDIR}"
+echo "python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/render_shi_query_routing_static_diagnostic.py \
+  --project-root "${PROJECT_ROOT}" \
+  --run-label "${CROSS_STUDY_SHI_RUN_LABEL}" \
+  --outdir "${OUTDIR}"
+
+for stem in \
+  shi_query_projection_routing_predicted_stage_static \
+  shi_query_projection_routing_major_class_static
+do
+  for ext in png pdf svg
+  do
+    path="${OUTDIR}/${stem}.${ext}"
+    if [[ ! -s "${path}" ]]; then
+      echo "Missing expected output: ${path}" >&2
+      exit 1
+    fi
+  done
+done
+
+cp -p python_notebooks/scripts/render_shi_query_routing_static_diagnostic.py "${OUTDIR}/"
+cp -p "${BASH_SOURCE[0]}" "${OUTDIR}/"
+cp -p "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-routing-static-${SLURM_JOB_ID}.out" "${OUTDIR}/" 2>/dev/null || true
+cp -p "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-routing-static-${SLURM_JOB_ID}.err" "${OUTDIR}/" 2>/dev/null || true
+
+{
+  echo "rendered_at	$(date --iso-8601=seconds)"
+  echo "slurm_job_id	${SLURM_JOB_ID:-NA}"
+  echo "repo_root	${REPO_ROOT}"
+  echo "project_root	${PROJECT_ROOT}"
+  echo "run_label	${CROSS_STUDY_SHI_RUN_LABEL}"
+  echo "source_table	${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/${CROSS_STUDY_SHI_RUN_LABEL}/tables/cross_study_shi_seurat_label_transfer_obs.tsv.gz"
+  echo "output_dir	${OUTDIR}"
+  echo "diagnostic	Static routing from DIV30/DIV90 UMAP class centroids to Shi TransferData predicted target nodes"
+  echo "filters	DIV90 current clusters 6/7 removed; DIV90 plotting-only UMAP2 flip applied"
+  echo "route_width	Fraction of source class assigned to target"
+  echo "route_opacity	Mean prediction score for source-target route"
+  echo "note	Not a true Seurat anchor/reference-cell line plot; uses saved per-cell predictions and scores"
+} > "${OUTDIR}/shi_query_projection_routing_static_provenance.tsv"
+
+sha256sum "${OUTDIR}"/* > "${OUTDIR}/sha256sums.txt"
+
+echo "Output files:"
+find "${OUTDIR}" -maxdepth 1 -type f -printf "%s %p\n" | sort -n
+echo "Shi query routing static diagnostic finished: $(date)"
