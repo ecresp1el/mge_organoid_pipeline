@@ -392,6 +392,17 @@ analysis or Seurat/H5AD extraction was rerun.
   - DIV90 current clusters 6 and 7 are excluded from published-style outputs as
     Stressed Cells. The Stressed Cells label is allowed only in the recode audit
     table, not in published-style UMAP legends or sample composition plots.
+  - DIV90 published-style visualizations now remove excluded cells only at
+    plotting time. Audit/provenance tables retain the excluded current cluster
+    rows and reasons.
+  - Added plotting-only published orientation coordinates for the DIV90 Fig. D
+    UMAP. Original umap_1/umap_2 values are unchanged. The transform is:
+      UMAP1_published = umap_1
+      UMAP2_published = -1 * umap_2
+  - Applied UMAP formatting pass:
+    all UMAP scatter plots use the same larger point size, UMAP axes are fully
+    hidden, multi-study QC panels are arranged in a single row, and panel titles
+    report cluster count and cell count.
 ```
 
 Mapped label sources:
@@ -477,6 +488,19 @@ DIV90 published Fig. D outputs validated after rerender:
   - UMAP and sample-composition PNGs were visually spot-checked.
   - Final published-style legend/bar plot contains exactly the 10 published
     Fig. D classes.
+DIV90 published Fig. D orientation validation:
+  - Plotting-only coordinates are UMAP1_published = umap_1 and
+    UMAP2_published = -1 * umap_2.
+  - Vertical-only flip requested after visual review; this is a plotting-only
+    transform and does not modify original UMAP embeddings.
+  - Visualization SVGs and published-style composition/count TSVs have no
+    "Stressed" or "EXCLUDED" matches.
+UMAP formatting validation:
+  - Multi-study figure-default QC plot regenerated as one row.
+  - Multi-study all-prepared QC plot regenerated as one row.
+  - DIV90 published Fig. D UMAP title reports "10 clusters, n=20,049".
+  - UMAP scatter point size is shared across the cross-study grids and DIV90
+    published UMAP.
 ```
 
 ### Final Figure Package

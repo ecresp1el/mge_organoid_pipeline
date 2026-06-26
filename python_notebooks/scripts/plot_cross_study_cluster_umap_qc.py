@@ -21,6 +21,7 @@ import pandas as pd
 DEFAULT_PROJECT_ROOT = Path("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder")
 DEFAULT_RUN_LABEL = "cross_study_marker_expression_v12"
 BASE_COLUMNS = ["cell_id", "study_id", "study_label", "sample", "cluster", "umap_1", "umap_2"]
+UMAP_POINT_SIZE = 1.6
 
 DIV30_PAPER_CLUSTER_MAP = {
     "0": ("1", "Radial glia"),
@@ -263,6 +264,13 @@ def apply_figure_filters(data: pd.DataFrame, exclude_study_ids: list[str]) -> tu
     return pd.concat(parts, ignore_index=True), pd.DataFrame(summaries)
 
 
+def visualization_data(data: pd.DataFrame) -> pd.DataFrame:
+    """Remove cells flagged out of published-style plotting while preserving tables."""
+    if "published_keep" not in data.columns:
+        return data.copy()
+    return data.loc[data["published_keep"].astype(bool)].copy()
+
+
 def cluster_counts(data: pd.DataFrame, scope: str) -> pd.DataFrame:
     counts = (
         data.groupby(
@@ -353,14 +361,18 @@ def cluster_palette(labels: list[str]) -> dict[str, tuple[float, float, float, f
 
 
 def label_positions(group: pd.DataFrame) -> pd.DataFrame:
+    return label_positions_for_coordinates(group, "umap_1", "umap_2")
+
+
+def label_positions_for_coordinates(group: pd.DataFrame, x_col: str, y_col: str) -> pd.DataFrame:
     rows = []
     for cluster, subset in group.groupby("published_cluster_label", sort=False, observed=True):
         rows.append(
             {
                 "cluster": cluster,
                 "cluster_id": str(subset["published_cluster_id"].iloc[0]),
-                "x": float(np.nanmedian(subset["umap_1"].to_numpy(dtype=float))),
-                "y": float(np.nanmedian(subset["umap_2"].to_numpy(dtype=float))),
+                "x": float(np.nanmedian(subset[x_col].to_numpy(dtype=float))),
+                "y": float(np.nanmedian(subset[y_col].to_numpy(dtype=float))),
                 "n_cells": int(subset.shape[0]),
             }
         )
@@ -375,9 +387,9 @@ def plot_cluster_grid(data: pd.DataFrame, output_prefix: Path, title: str, max_l
     )
     study_keys = list(study_order[["study_id", "study_label"]].itertuples(index=False, name=None))
     n = len(study_keys)
-    ncols = min(3, n)
-    nrows = int(np.ceil(n / ncols))
-    fig, axes = plt.subplots(nrows, ncols, figsize=(5.0 * ncols, 4.4 * nrows), squeeze=False)
+    ncols = n
+    nrows = 1
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4.6 * ncols, 4.4), squeeze=False)
     for ax in axes.ravel()[n:]:
         ax.axis("off")
 
@@ -391,7 +403,7 @@ def plot_cluster_grid(data: pd.DataFrame, output_prefix: Path, title: str, max_l
             ax.scatter(
                 cluster_data["umap_1"],
                 cluster_data["umap_2"],
-                s=0.35,
+                s=UMAP_POINT_SIZE,
                 c=[colors[cluster]],
                 linewidths=0,
                 rasterized=True,
@@ -411,11 +423,8 @@ def plot_cluster_grid(data: pd.DataFrame, output_prefix: Path, title: str, max_l
                     bbox={"boxstyle": "round,pad=0.12", "facecolor": "white", "edgecolor": "black", "linewidth": 0.25, "alpha": 0.78},
                 )
         ax.set_title(f"{study_label}\n{len(clusters)} clusters, n={subset.shape[0]:,}", fontsize=10)
-        ax.set_xticks([])
-        ax.set_yticks([])
         ax.set_aspect("equal", adjustable="box")
-        for spine in ax.spines.values():
-            spine.set_visible(False)
+        ax.set_axis_off()
         legend_handles = [Line2D([0], [0], marker="o", color="none", markerfacecolor=colors[c], markersize=4, label=c) for c in clusters[:32]]
         if legend_handles:
             ax.legend(
@@ -447,6 +456,17 @@ def div90_published_data(data: pd.DataFrame) -> pd.DataFrame:
         categories=DIV90_PUBLISHED_ORDER,
         ordered=True,
     )
+    return div90
+
+
+def div90_published_plot_data(data: pd.DataFrame) -> pd.DataFrame:
+    div90 = div90_published_data(data)
+    div90 = div90[np.isfinite(div90["umap_1"]) & np.isfinite(div90["umap_2"])].copy()
+    if div90.empty:
+        raise ValueError("No finite DIV90 UMAP coordinates remain after published recode keep filter.")
+    # Plot-only orientation transform; original umap_1/umap_2 remain unchanged.
+    div90["UMAP1_published"] = div90["umap_1"]
+    div90["UMAP2_published"] = -1.0 * div90["umap_2"]
     return div90
 
 
@@ -502,14 +522,22 @@ def write_div90_published_recode_tables(data: pd.DataFrame, outdir: Path) -> Non
 
 
 def plot_div90_published_umap(data: pd.DataFrame, output_prefix: Path) -> None:
-    div90 = div90_published_data(data)
+    div90 = div90_published_plot_data(data)
     labels = [label for label in DIV90_PUBLISHED_ORDER if label in set(div90["published_cluster_label"].astype(str))]
     colors = cluster_palette(labels)
     fig, ax = plt.subplots(figsize=(7.4, 5.8))
     for label in labels:
         subset = div90.loc[div90["published_cluster_label"].astype(str) == label]
-        ax.scatter(subset["umap_1"], subset["umap_2"], s=0.5, c=[colors[label]], linewidths=0, rasterized=True, label=label)
-    positions = label_positions(div90)
+        ax.scatter(
+            subset["UMAP1_published"],
+            subset["UMAP2_published"],
+            s=UMAP_POINT_SIZE,
+            c=[colors[label]],
+            linewidths=0,
+            rasterized=True,
+            label=label,
+        )
+    positions = label_positions_for_coordinates(div90, "UMAP1_published", "UMAP2_published")
     for _, row in positions.iterrows():
         ax.text(
             row["x"],
@@ -522,12 +550,9 @@ def plot_div90_published_umap(data: pd.DataFrame, output_prefix: Path) -> None:
             color="black",
             bbox={"boxstyle": "round,pad=0.12", "facecolor": "white", "edgecolor": "black", "linewidth": 0.25, "alpha": 0.82},
         )
-    ax.set_title(f"DIV90 published Fig. D classes\nn={div90.shape[0]:,}", fontsize=11)
-    ax.set_xticks([])
-    ax.set_yticks([])
+    ax.set_title(f"DIV90 published Fig. D classes\n{len(labels)} clusters, n={div90.shape[0]:,}", fontsize=11)
     ax.set_aspect("equal", adjustable="box")
-    for spine in ax.spines.values():
-        spine.set_visible(False)
+    ax.set_axis_off()
     handles = [Line2D([0], [0], marker="o", color="none", markerfacecolor=colors[label], markersize=5, label=label) for label in labels]
     ax.legend(handles=handles, title="Published class", loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False, fontsize=7, title_fontsize=8)
     fig.tight_layout()
@@ -619,7 +644,7 @@ def main() -> None:
         "Cross-study cluster UMAP QC - v12 figure-default studies",
     )
     plot_cluster_grid(
-        data,
+        visualization_data(data),
         outdir / "cross_study_marker_expression_v12_cluster_umap_qc_all_prepared_cells",
         "Cross-study cluster UMAP QC - all prepared marker tables",
     )
