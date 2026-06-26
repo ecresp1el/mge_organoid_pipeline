@@ -22,6 +22,14 @@ DEFAULT_RUN_DIR = (
     / "cross_study_shi_seurat_label_transfer"
     / "cross_study_shi_seurat_anchor_projection_v1"
 )
+DEFAULT_PREDICTION_TABLE = (
+    PROJECT_ROOT
+    / "results"
+    / "cross_study_shi_seurat_label_transfer"
+    / "cross_study_shi_seurat_label_transfer_v1"
+    / "tables"
+    / "cross_study_shi_seurat_label_transfer_obs.tsv.gz"
+)
 DEFAULT_STUDIES = ("varela_div30", "varela_div90")
 BACKGROUND_GREY = "#d0d0d0"
 QUERY_ANCHOR = "#222222"
@@ -43,15 +51,29 @@ MAJOR_COLORS = {
 }
 
 GW_COLORS = {
-    "GW09": "#253494",
-    "GW10": "#2c7fb8",
-    "GW12": "#41b6c4",
-    "GW14": "#7fcdbb",
-    "GW16": "#c7e9b4",
-    "GW18": "#ffffcc",
-    "GW21": "#fed976",
-    "GW25": "#fd8d3c",
-    "GW28": "#e31a1c",
+    "GW09": "#231611",
+    "GW12": "#3F1C6A",
+    "GW13": "#A02E6B",
+    "GW16": "#EB5840",
+    "GW18": "#FCC031",
+}
+
+LABEL_TEXT_OFFSETS = {
+    "MGE": (-0.04, 0.00),
+    "CGE": (-0.05, -0.05),
+    "LGE": (0.02, -0.08),
+    "progenitor": (0.02, 0.08),
+    "Excitatory IPC": (0.13, 0.03),
+    "Excitatory neuron": (0.14, -0.05),
+    "Thalamic neurons": (0.12, 0.08),
+    "OPC": (0.04, 0.11),
+    "Microglia": (0.00, 0.20),
+    "Endothelial": (0.02, 0.28),
+    "GW09": (-0.06, -0.02),
+    "GW12": (0.06, 0.04),
+    "GW13": (0.10, -0.02),
+    "GW16": (0.08, 0.10),
+    "GW18": (0.00, 0.14),
 }
 
 
@@ -103,12 +125,39 @@ def normalize_reference_ids(links: pd.DataFrame, ref_ids: set[str]) -> pd.DataFr
     return links
 
 
-def load_study(run_dir: Path, study_id: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_prediction_table(path: Path) -> pd.DataFrame:
+    cols = [
+        "cell_id",
+        "study_id",
+        "shi_seurat_full_predicted_shi_label",
+        "shi_seurat_full_predicted_shi_week_label",
+        "shi_seurat_full_prediction_score",
+        "shi_seurat_full_week_prediction_score",
+    ]
+    return pd.read_csv(path, sep="\t", usecols=cols, dtype={"cell_id": str, "study_id": str}, low_memory=False)
+
+
+def attach_query_predictions(query: pd.DataFrame, predictions: pd.DataFrame, study_id: str) -> pd.DataFrame:
+    pred = predictions.loc[predictions["study_id"].astype(str) == study_id].copy()
+    pred = pred.drop_duplicates(subset=["cell_id"])
+    keep_cols = [
+        "cell_id",
+        "shi_seurat_full_predicted_shi_label",
+        "shi_seurat_full_predicted_shi_week_label",
+        "shi_seurat_full_prediction_score",
+        "shi_seurat_full_week_prediction_score",
+    ]
+    return query.merge(pred[keep_cols], on="cell_id", how="left")
+
+
+def load_study(run_dir: Path, study_id: str, predictions: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     study_dir = run_dir / study_id
     tables = study_dir / "tables"
     links = read_tsv(tables / f"{study_id}_shi_full_anchor_pairs.tsv.gz")
     query = read_tsv(tables / f"{study_id}_query_coordinates_for_anchor_plot.tsv.gz")
     reference = read_tsv(tables / f"{study_id}_shi_reference_coordinates_for_anchor_plot.tsv.gz")
+    query["cell_id"] = query["cell_id"].astype(str)
+    reference["cell_id"] = reference["cell_id"].astype(str)
 
     if "plot_include" in links.columns:
         links = links.loc[normalize_bool(links["plot_include"])].copy()
@@ -119,6 +168,7 @@ def load_study(run_dir: Path, study_id: str) -> tuple[pd.DataFrame, pd.DataFrame
         query = query.copy()
         query["coord_2"] = -1.0 * query["coord_2"].astype(float)
 
+    query = attach_query_predictions(query, predictions, study_id)
     links = normalize_reference_ids(links, set(reference["cell_id"].astype(str)))
     return links, query, reference
 
@@ -152,6 +202,8 @@ def diagnostics_for(study_id: str, links: pd.DataFrame, query: pd.DataFrame, ref
         "n_query_cells_plotted_no_downsampling": len(query),
         "n_reference_cells_plotted_no_downsampling": len(reference),
         "n_anchor_links_after_link_flag_filter": len(links),
+        "n_query_cells_with_wta_major_label": int(query["shi_seurat_full_predicted_shi_label"].notna().sum()),
+        "n_query_cells_with_wta_gw_label": int(query["shi_seurat_full_predicted_shi_week_label"].notna().sum()),
         "n_reference_ids_exact_match_before_suffix_fix": int(original.isin(ref_ids).sum()),
         "n_reference_ids_match_after_suffix_fix": int(stripped.isin(ref_ids).sum()),
         "n_query_ids_match_coordinates": int(links["query_cell_id"].astype(str).isin(query_ids).sum()),
@@ -172,12 +224,40 @@ def colors_for(values: pd.Series, mode: str) -> tuple[list[str], dict[str, str]]
     return colors, used
 
 
+def label_col_for_mode(mode: str, source: str) -> str:
+    if source == "query":
+        return "shi_seurat_full_predicted_shi_label" if mode == "major_class" else "shi_seurat_full_predicted_shi_week_label"
+    return "shi_label" if mode == "major_class" else "shi_week_label"
+
+
 def cluster_colors(values: pd.Series) -> tuple[list[str], dict[str, tuple[float, float, float, float]]]:
     labels = values.fillna("NA").astype(str)
     unique_labels = sorted(labels.unique(), key=lambda x: (not x.lstrip("-").isdigit(), int(x) if x.lstrip("-").isdigit() else x))
     cmap = mpl.colormaps[CLUSTER_CMAP]
     palette = {label: cmap(i % cmap.N) for i, label in enumerate(unique_labels)}
     return [palette[v] for v in labels], palette
+
+
+def add_category_centroid_labels(ax: plt.Axes, df: pd.DataFrame, category_col: str, fontsize: float = 6.8) -> None:
+    if category_col not in df.columns:
+        return
+    tmp = df[["x_plot", "y_plot", category_col]].copy()
+    tmp[category_col] = tmp[category_col].fillna("unlabeled").astype(str)
+    for label, group in tmp.groupby(category_col, sort=False):
+        if not label or label.lower() in {"nan", "unlabeled"} or group.empty:
+            continue
+        dx, dy = LABEL_TEXT_OFFSETS.get(label, (0.0, 0.0))
+        ax.text(
+            float(group["x_plot"].median()) + dx,
+            float(group["y_plot"].median()) + dy,
+            label,
+            ha="center",
+            va="center",
+            fontsize=fontsize,
+            color="black",
+            zorder=7,
+            bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.78, "pad": 0.7},
+        )
 
 
 def add_cluster_centroid_labels(ax: plt.Axes, df: pd.DataFrame) -> None:
@@ -218,15 +298,17 @@ def draw_reference_subpanel(
     ref_plot["x_plot"] = ref_xy[:, 0] + 0.7
     ref_plot["y_plot"] = ref_xy[:, 1]
 
-    query_colors, _ = cluster_colors(query_plot.get("query_cluster", pd.Series(index=query_plot.index, dtype=object)))
-    label_col = "shi_label" if mode == "major_class" else "shi_week_label"
-    ref_colors, legend_colors = colors_for(ref_plot.get(label_col, pd.Series(index=ref_plot.index, dtype=object)), mode)
+    query_label_col = label_col_for_mode(mode, "query")
+    ref_label_col = label_col_for_mode(mode, "reference")
+    query_colors, _ = colors_for(query_plot.get(query_label_col, pd.Series(index=query_plot.index, dtype=object)), mode)
+    ref_colors, legend_colors = colors_for(ref_plot.get(ref_label_col, pd.Series(index=ref_plot.index, dtype=object)), mode)
 
     ax.scatter(query_plot["x_plot"], query_plot["y_plot"], s=2.2, c=query_colors, linewidths=0, rasterized=True, zorder=2)
     ax.scatter(ref_plot["x_plot"], ref_plot["y_plot"], s=2.2, c=ref_colors, linewidths=0, rasterized=True, zorder=2)
     add_cluster_centroid_labels(ax, query_plot)
+    add_category_centroid_labels(ax, ref_plot, ref_label_col, fontsize=6.6 if mode == "major_class" else 7.0)
 
-    ax.text(-0.7, 0.68, f"{title} query clusters", ha="center", va="bottom", fontsize=8.5)
+    ax.text(-0.7, 0.68, f"{title} WTA labels + clusters", ha="center", va="bottom", fontsize=8.5)
     ax.text(
         0.7,
         0.68,
@@ -268,9 +350,11 @@ def draw_study_panel(
     line_df = line_df.rename(columns={"x_plot": "reference_x_plot", "y_plot": "reference_y_plot"})
     line_df = line_df.dropna(subset=["query_x_plot", "query_y_plot", "reference_x_plot", "reference_y_plot"])
 
-    label_col = "shi_label" if mode == "major_class" else "shi_week_label"
-    ref_colors, legend_colors = colors_for(ref_plot.get(label_col, pd.Series(index=ref_plot.index, dtype=object)), mode)
-    line_values = line_df.get(label_col, pd.Series(index=line_df.index, dtype=object))
+    query_label_col = label_col_for_mode(mode, "query")
+    ref_label_col = label_col_for_mode(mode, "reference")
+    query_colors, _ = colors_for(query_plot.get(query_label_col, pd.Series(index=query_plot.index, dtype=object)), mode)
+    ref_colors, legend_colors = colors_for(ref_plot.get(ref_label_col, pd.Series(index=ref_plot.index, dtype=object)), mode)
+    line_values = line_df.get(ref_label_col, pd.Series(index=line_df.index, dtype=object))
     line_colors, _ = colors_for(line_values, mode)
     scores = pd.to_numeric(line_df.get("score", 0.5), errors="coerce").fillna(0.5).to_numpy()
     widths = 0.15 + 1.6 * np.clip(scores, 0, 1)
@@ -286,14 +370,15 @@ def draw_study_panel(
 
     if len(segments):
         ax.add_collection(LineCollection(segments, colors=rgba, linewidths=widths, zorder=1))
-    ax.scatter(query_plot["x_plot"], query_plot["y_plot"], s=2.0, c=BACKGROUND_GREY, linewidths=0, rasterized=True, zorder=2)
-    ax.scatter(ref_plot["x_plot"], ref_plot["y_plot"], s=2.0, c=BACKGROUND_GREY, linewidths=0, rasterized=True, zorder=2)
+    ax.scatter(query_plot["x_plot"], query_plot["y_plot"], s=2.0, c=query_colors, alpha=0.45, linewidths=0, rasterized=True, zorder=2)
+    ax.scatter(ref_plot["x_plot"], ref_plot["y_plot"], s=2.0, c=ref_colors, alpha=0.45, linewidths=0, rasterized=True, zorder=2)
 
     anchor_query = query_plot.loc[query_plot["cell_id"].isin(set(line_df["query_cell_id"]))]
     anchor_ref = ref_plot.loc[ref_plot["cell_id"].isin(set(line_df["reference_cell_id_plot"]))]
-    anchor_ref_colors, _ = colors_for(anchor_ref.get(label_col, pd.Series(index=anchor_ref.index, dtype=object)), mode)
-    ax.scatter(anchor_query["x_plot"], anchor_query["y_plot"], s=8.0, c=QUERY_ANCHOR, linewidths=0, zorder=4)
-    ax.scatter(anchor_ref["x_plot"], anchor_ref["y_plot"], s=10.0, c=anchor_ref_colors, linewidths=0, zorder=5)
+    anchor_query_colors, _ = colors_for(anchor_query.get(query_label_col, pd.Series(index=anchor_query.index, dtype=object)), mode)
+    anchor_ref_colors, _ = colors_for(anchor_ref.get(ref_label_col, pd.Series(index=anchor_ref.index, dtype=object)), mode)
+    ax.scatter(anchor_query["x_plot"], anchor_query["y_plot"], s=10.0, c=anchor_query_colors, edgecolors="#111111", linewidths=0.15, zorder=4)
+    ax.scatter(anchor_ref["x_plot"], anchor_ref["y_plot"], s=10.0, c=anchor_ref_colors, edgecolors="#111111", linewidths=0.12, zorder=5)
 
     title_box = {"facecolor": "white", "edgecolor": "none", "alpha": 0.82, "pad": 1.5}
     ax.text(-0.7, 0.70, f"{title} query UMAP", ha="center", va="bottom", fontsize=9, zorder=10, bbox=title_box)
@@ -320,11 +405,12 @@ def save_figure(fig: plt.Figure, out_prefix: Path) -> None:
         fig.savefig(out_prefix.with_suffix(f".{ext}"), dpi=EXPORT_DPI, bbox_inches="tight")
 
 
-def render(run_dir: Path, out_dir: Path, studies: list[str]) -> pd.DataFrame:
+def render(run_dir: Path, out_dir: Path, studies: list[str], prediction_table: Path) -> pd.DataFrame:
+    predictions = load_prediction_table(prediction_table)
     all_data = {}
     diagnostics = []
     for study_id in studies:
-        links, query, reference = load_study(run_dir, study_id)
+        links, query, reference = load_study(run_dir, study_id, predictions)
         merged = join_links(links, query, reference)
         diagnostics.append(diagnostics_for(study_id, links, query, reference, merged))
         all_data[study_id] = (links, query, reference, merged)
@@ -336,11 +422,11 @@ def render(run_dir: Path, out_dir: Path, studies: list[str]) -> pd.DataFrame:
     for mode in ("major_class", "gw_stage"):
         height_ratios = []
         for _ in studies:
-            height_ratios.extend([3.5, 1.65])
+            height_ratios.extend([3.35, 2.05])
         fig, axes = plt.subplots(
             len(studies) * 2,
             1,
-            figsize=(9.2, 5.35 * len(studies)),
+            figsize=(9.2, 5.85 * len(studies)),
             constrained_layout=True,
             gridspec_kw={"height_ratios": height_ratios},
         )
@@ -362,7 +448,7 @@ def render(run_dir: Path, out_dir: Path, studies: list[str]) -> pd.DataFrame:
         ]
         handles.insert(
             0,
-            mpl.lines.Line2D([0], [0], marker="o", color="none", markerfacecolor=QUERY_ANCHOR, markersize=5, label="query anchor cell"),
+            mpl.lines.Line2D([0], [0], marker="o", color="#111111", markerfacecolor="white", markersize=5, label="anchor-linked cell"),
         )
         fig.legend(
             handles=handles,
@@ -379,9 +465,9 @@ def render(run_dir: Path, out_dir: Path, studies: list[str]) -> pd.DataFrame:
             fig, axes = plt.subplots(
                 2,
                 1,
-                figsize=(9.2, 5.35),
+                figsize=(9.2, 5.85),
                 constrained_layout=True,
-                gridspec_kw={"height_ratios": [3.5, 1.65]},
+                gridspec_kw={"height_ratios": [3.35, 2.05]},
             )
             _, query, reference, merged = all_data[study_id]
             legend_colors = draw_study_panel(axes[0], study_id, query, reference, merged, mode, title_map.get(study_id, study_id))
@@ -392,7 +478,7 @@ def render(run_dir: Path, out_dir: Path, studies: list[str]) -> pd.DataFrame:
             ]
             handles.insert(
                 0,
-                mpl.lines.Line2D([0], [0], marker="o", color="none", markerfacecolor=QUERY_ANCHOR, markersize=5, label="query anchor cell"),
+                mpl.lines.Line2D([0], [0], marker="o", color="#111111", markerfacecolor="white", markersize=5, label="anchor-linked cell"),
             )
             fig.legend(
                 handles=handles,
@@ -408,7 +494,7 @@ def render(run_dir: Path, out_dir: Path, studies: list[str]) -> pd.DataFrame:
     return diag
 
 
-def write_readme(out_dir: Path, run_dir: Path, diag: pd.DataFrame) -> None:
+def write_readme(out_dir: Path, run_dir: Path, prediction_table: Path, diag: pd.DataFrame) -> None:
     diag_text = diag.to_csv(sep="\t", index=False)
     lines = [
         "# Shi True Anchor Projection Plots",
@@ -418,12 +504,16 @@ def write_readme(out_dir: Path, run_dir: Path, diag: pd.DataFrame) -> None:
         "Each panel shows the query UMAP next to the corresponding Shi et al. reference UMAP.",
         "Lines connect all saved true Seurat anchor links from query cells to Shi reference cells after the visualization filters.",
         "Line width and opacity scale with the Seurat anchor score. DIV90 uses the same visualization-only stressed-cell removal and vertical UMAP flip used in finalized Shi plots.",
-        "Each study also has a lower reference subpanel: the query UMAP is colored by query cluster, and the Shi UMAP is colored by the plotted Shi label mode.",
+        "Query UMAPs are colored by the saved winner-take-all Seurat TransferData prediction labels: major class for the major-class view and GW/stage for the GW view.",
+        "Shi reference UMAPs and anchor-link colors use the same palette as the query winner-take-all labels for the selected view.",
+        "Each study also has a lower reference subpanel: the query UMAP is colored by winner-take-all label with query cluster numbers overlaid, and the Shi UMAP is colored and directly labeled by the plotted Shi label mode.",
         "UMAP backgrounds and reference subpanels use all cells present in the saved coordinate tables; no point downsampling is applied.",
+        "The term filter in the diagnostics refers to visualization-only coordinate/cluster exclusions, not winner-take-all label assignment.",
         "",
         "The reference-cell ID suffix `_reference` was removed only for plotting joins, because the saved anchor table carries suffixed Shi IDs while the Shi coordinate table stores unsuffixed cell IDs.",
         "",
         f"Input asset directory: `{run_dir}`",
+        f"Winner-take-all prediction table: `{prediction_table}`",
         "",
         "Diagnostics:",
         "",
@@ -461,6 +551,7 @@ def write_checksums(out_dir: Path) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", type=Path, default=DEFAULT_RUN_DIR)
+    parser.add_argument("--prediction-table", type=Path, default=DEFAULT_PREDICTION_TABLE)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_RUN_DIR / "true_anchor_projection_plots")
     parser.add_argument("--studies", nargs="+", default=list(DEFAULT_STUDIES))
     return parser.parse_args()
@@ -471,8 +562,8 @@ def main() -> None:
     configure_matplotlib()
     for subdir in ("figures", "tables", "provenance"):
         (args.out_dir / subdir).mkdir(parents=True, exist_ok=True)
-    diag = render(args.run_dir, args.out_dir, args.studies)
-    write_readme(args.out_dir, args.run_dir, diag)
+    diag = render(args.run_dir, args.out_dir, args.studies, args.prediction_table)
+    write_readme(args.out_dir, args.run_dir, args.prediction_table, diag)
     copy_provenance(args.out_dir)
     write_checksums(args.out_dir)
     print(diag.to_csv(sep="\t", index=False))

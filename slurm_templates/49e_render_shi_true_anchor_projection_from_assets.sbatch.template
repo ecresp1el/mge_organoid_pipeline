@@ -18,6 +18,7 @@ REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipel
 PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
 CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
 RUN_DIR="${RUN_DIR:-${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_anchor_projection_v1}"
+PREDICTION_TABLE="${PREDICTION_TABLE:-${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1/tables/cross_study_shi_seurat_label_transfer_obs.tsv.gz}"
 OUT_DIR="${OUT_DIR:-${RUN_DIR}/true_anchor_projection_plots}"
 
 mkdir -p "${PROJECT_ROOT}/logs" "${OUT_DIR}"/{logs,provenance}
@@ -30,6 +31,7 @@ echo "Shi true anchor plot-only job started: $(date)"
 echo "Host: $(hostname)"
 echo "Repo root: ${REPO_ROOT}"
 echo "Run dir: ${RUN_DIR}"
+echo "Winner-take-all prediction table: ${PREDICTION_TABLE}"
 echo "Out dir: ${OUT_DIR}"
 echo "Python: $("${CONDA_ENV_BIN}/python" --version 2>&1)"
 
@@ -37,6 +39,7 @@ echo "Python: $("${CONDA_ENV_BIN}/python" --version 2>&1)"
 
 "${CONDA_ENV_BIN}/python" python_notebooks/scripts/render_shi_true_anchor_projection_from_assets.py \
   --run-dir "${RUN_DIR}" \
+  --prediction-table "${PREDICTION_TABLE}" \
   --out-dir "${OUT_DIR}" \
   --studies varela_div30 varela_div90
 
@@ -66,9 +69,11 @@ cp -p "${BASH_SOURCE[0]}" "${OUT_DIR}/provenance/" 2>/dev/null || true
   echo "repo_root	${REPO_ROOT}"
   echo "project_root	${PROJECT_ROOT}"
   echo "run_dir	${RUN_DIR}"
+  echo "winner_take_all_prediction_table	${PREDICTION_TABLE}"
   echo "output_dir	${OUT_DIR}"
   echo "purpose	render true Seurat anchor links with each query UMAP beside corresponding Shi et al. reference UMAP"
   echo "reran_find_transfer_anchors	false"
+  echo "query_umap_coloring	winner-take-all Seurat TransferData labels from saved v1 prediction table"
   echo "plot_only_suffix_fix	reference_cell_id _reference suffix stripped only for coordinate-table joins"
 } > "${OUT_DIR}/provenance/true_anchor_projection_plot_manifest.tsv"
 
