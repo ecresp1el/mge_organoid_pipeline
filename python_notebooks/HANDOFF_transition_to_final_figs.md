@@ -1644,10 +1644,18 @@ cell. The first all-supercluster pass uses `source_supercluster`, not
 Current true all-supercluster job chain:
 
 ```text
-52396197  siletti-fetch-all    RUNNING at handoff note time
+52396197  siletti-fetch-all    RUNNING at 2026-06-26 12:42 EDT on gl3343
 52396203  siletti-all-bridge   PENDING after fetch
 52396227  siletti-all-knn      PENDING after bridge
 52396231  siletti-all-plot     PENDING after kNN
+```
+
+Download status at 2026-06-26 12:42 EDT:
+
+```text
+30 / 31 complete Siletti WHB supercluster H5ADs are staged.
+The remaining file is actively downloading as:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/source_cellxgene_superclusters/h5ad/siletti_whb_upper_layer_intratelencephalic.h5ad.tmp
 ```
 
 Expected all-supercluster plot output:
@@ -1663,4 +1671,26 @@ figure_B_all_supercluster_reference_div90_overlay.png/pdf
 figure_B_div90_predicted_siletti_superclusters.png/pdf
 figure_C_div90_class_to_siletti_supercluster_river.png/pdf
 figure_D_sample_predicted_siletti_supercluster_proportions.png/pdf
+```
+
+Assignment/methods summary:
+
+```text
+This run transfers `source_supercluster`, not `candidate_jia_group`.
+The reference is the all-31-supercluster Siletti/CELLxGENE WHB set, downsampled
+at bridge export to max 100 cells per Siletti subcluster and max 60,000 total
+adult reference cells. DIV90 query cells are uncapped.
+
+The assignment is not Seurat anchors. It is the repo fast-kNN path:
+shared unique genes -> library-size normalize to 10,000 counts/cell -> log1p ->
+top 3,000 variable genes -> TruncatedSVD with 50 components -> cosine kNN with
+k = 50 -> normalized cosine-similarity weighted vote -> highest-weight
+`source_supercluster` becomes `predicted.id`.
+```
+
+Detailed methods/input/output record:
+
+```text
+python_notebooks/HANDOFF_siletti_2023_whb_reference_metadata.md
+section: All-Supercluster Assignment Workflow Details
 ```

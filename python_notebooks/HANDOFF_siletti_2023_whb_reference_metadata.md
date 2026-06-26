@@ -1281,7 +1281,10 @@ Submitted all-supercluster job chain:
 Fetch/stage all 31 supercluster H5ADs:
   job_id: 52396197
   job_name: siletti-fetch-all
-  state at handoff update: RUNNING on gl3343
+  state at 2026-06-26 12:42 EDT: RUNNING on gl3343
+  staged files at 2026-06-26 12:42 EDT: 30 / 31 complete H5ADs
+  active final download at 2026-06-26 12:42 EDT:
+    siletti_whb_upper_layer_intratelencephalic.h5ad.tmp
   target superclusters: all 31 CELLxGENE datasets whose title starts with
     `Supercluster:`
   job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/39_fetch_siletti_all_superclusters_h5ads_v1.sbatch
@@ -1322,12 +1325,166 @@ All-supercluster plots:
     plots/figure_D_sample_predicted_siletti_supercluster_proportions.png/pdf
 ```
 
+## All-Supercluster Assignment Workflow Details
+
+Date logged: 2026-06-26
+
+This section is the methods-level record for how DIV90 cells are being assigned
+to Siletti labels in the true all-supercluster run. It is meant to be sufficient
+for bioinformatics drafting without opening the scripts.
+
+Workflow scripts:
+
+```text
+python_notebooks/scripts/export_siletti_div90_seurat_bridge.py
+python_notebooks/scripts/siletti_div90_fast_knn_label_transfer.py
+python_notebooks/scripts/plot_siletti_div90_all_supercluster_figure.py
+```
+
+Adult Siletti reference input:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/source_cellxgene_superclusters/h5ad
+```
+
+For the all-supercluster run, the bridge scope is `all_superclusters`, which is
+the complete set of 31 WHB superclusters listed in the `Supercluster Summary`
+section above. Each reference cell receives a `source_supercluster` value from
+the H5AD it came from. This is the transferred label for the all-supercluster
+plots.
+
+DIV90 query input:
+
+```text
+DIV90 AnnData:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div90.h5ad
+
+DIV90 neuron-lineage cell manifest:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_neuron_prep_v1/tables/div90_siletti_query_neuron_cells.tsv
+```
+
+Bridge export:
+
+```text
+run_label: siletti_div90_all_supercluster_plot_bridge_v1
+scope: all_superclusters
+max_ref_cells_per_subcluster: 100
+max_ref_cells_total: 60000
+seed: 0
+query cells: uncapped DIV90 neuron-lineage query, expected 16,206 cells
+```
+
+The bridge exporter reads all 31 Siletti supercluster H5ADs, keeps unique
+reference genes from `var["Gene"]`, intersects them with unique DIV90 genes, and
+writes matched sparse count matrices. MatrixMarket files are written as genes x
+cells, with matching `*_genes.tsv`, `*_barcodes.tsv`, and `*_metadata.tsv.gz`.
+The fast-kNN script reads these files and transposes them to cells x genes.
+
+Bridge outputs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_plot_bridge_v1/all_superclusters/seurat_bridge/reference_counts.mtx
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_plot_bridge_v1/all_superclusters/seurat_bridge/reference_metadata.tsv.gz
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_plot_bridge_v1/all_superclusters/seurat_bridge/query_counts.mtx
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_plot_bridge_v1/all_superclusters/seurat_bridge/query_metadata.tsv.gz
+```
+
+Assignment method:
+
+```text
+method: fast_knn_svd_cosine
+label_column: source_supercluster
+excluded labels: NONE
+nfeatures: 3000
+n_components: 50
+k: 50
+max_reference_cells: 0 after bridge export
+max_query_cells: 0 after bridge export
+seed: 0
+```
+
+This is not Seurat anchors and not Seurat `TransferData`. It is a transparent
+SVD/cosine k-nearest-neighbor assignment:
+
+```text
+1. Read reference and query sparse count matrices from the bridge directory.
+2. Confirm reference and query gene order match.
+3. Keep all reference labels because `source_supercluster` exists for every
+   adult reference cell.
+4. Library-size normalize each cell to 10,000 counts and apply log1p.
+5. Select the top 3,000 variable genes across the stacked normalized
+   reference-plus-query matrix.
+6. Fit TruncatedSVD on the adult reference matrix using 50 components.
+7. Project DIV90 query cells into the same SVD space.
+8. L2-normalize reference and query SVD coordinates.
+9. For each DIV90 cell, find 50 adult reference nearest neighbors by cosine
+   distance using brute-force sklearn NearestNeighbors.
+10. Convert cosine distance to positive similarity weight with:
+      weight = max(1 - distance, 0)
+11. Normalize neighbor weights within each DIV90 cell.
+12. Sum normalized weights by Siletti `source_supercluster`.
+13. Assign `predicted.id` to the supercluster with the highest summed weight.
+14. Record `prediction.score.max` as that winning summed weight.
+```
+
+Primary transfer output:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_fast_knn_all_supercluster_source_supercluster_v1/all_superclusters/svd50_k50_ref0_query0
+```
+
+Expected transfer tables:
+
+```text
+fast_knn/siletti_div90__source_supercluster__fast_knn__svd50__k50_predictions.tsv.gz
+fast_knn/siletti_div90__source_supercluster__fast_knn__svd50__k50_prediction_scores.tsv.gz
+fast_knn/siletti_div90__source_supercluster__fast_knn__svd50__k50_transfer_diagnostics.json
+fast_knn/selected_transfer_features.tsv
+fast_knn/run_progress.tsv
+tables/siletti_div90__source_supercluster__fast_knn__svd50__k50_query_obs_with_predictions.tsv.gz
+tables/siletti_div90__source_supercluster__fast_knn__svd50__k50_cluster_label_counts.tsv
+```
+
+Plotting/asset output:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v1/plots
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v1/tables
+```
+
+Expected saved plotting assets:
+
+```text
+plots/figure_B_all_supercluster_reference_div90_overlay.png/pdf
+plots/figure_B_div90_predicted_siletti_superclusters.png/pdf
+plots/figure_C_div90_class_to_siletti_supercluster_river.png/pdf
+plots/figure_D_sample_predicted_siletti_supercluster_proportions.png/pdf
+tables/figure_C_div90_class_to_siletti_supercluster_edges.tsv
+tables/figure_D_sample_predicted_siletti_supercluster_proportions.tsv
+tables/div90_query_cells_with_all_siletti_supercluster_assignments.tsv.gz
+tables/siletti_reference_cells_with_all_supercluster_umap.tsv.gz
+tables/plot_config.json
+```
+
+Draft methods wording:
+
+```text
+Adult Siletti reference and DIV90 query count matrices were restricted to shared
+unique genes, library-size normalized to 10,000 counts per cell, log1p
+transformed, and embedded with TruncatedSVD using the top 3,000 variable shared
+genes. DIV90 cells were assigned adult reference labels by cosine
+k-nearest-neighbor voting in the SVD space using k = 50 neighbors. Neighbor
+votes were weighted by normalized cosine similarity, and the label with the
+highest summed weight was reported as the predicted Siletti supercluster.
+```
+
 Follow-up checks:
 
 ```text
 squeue -j 52396197,52396203,52396227,52396231
 sacct -j 52396197,52396203,52396227,52396231 --format=JobID,JobName%35,State,ExitCode,Elapsed,MaxRSS,NodeList -P
 tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-fetch-all-52396197.out
+find /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/source_cellxgene_superclusters/h5ad -maxdepth 1 -name 'siletti_whb_*.h5ad' -printf '%f\n' | sort | wc -l
 ```
 
 ## Operational Notes
