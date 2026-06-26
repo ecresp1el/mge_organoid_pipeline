@@ -323,6 +323,18 @@ cluster_qc/div90_published_fig_d_sample_composition.pdf
 cluster_qc/div90_published_fig_d_sample_composition.svg
 ```
 
+Cross-study source/GEO/sample provenance table:
+
+```text
+cluster_qc/cross_study_marker_expression_v12_geo_sample_provenance.tsv
+```
+
+This table records each configured study's external accession/source, whether it
+was used in the v12 figure-default UMAP QC plot, loaded/plotted cell counts,
+sample IDs loaded/plotted, and any v12 subsetting/filtering decisions. DIV30 and
+DIV90 intentionally leave GEO accession fields blank because they are this-study
+internal datasets.
+
 ### Log Audit
 
 Log audit:
@@ -403,6 +415,9 @@ analysis or Seurat/H5AD extraction was rerun.
     all UMAP scatter plots use the same larger point size, UMAP axes are fully
     hidden, multi-study QC panels are arranged in a single row, and panel titles
     report cluster count and cell count.
+  - Added source/GEO/sample provenance table for all configured v12 cross-study
+    UMAP QC studies:
+    cluster_qc/cross_study_marker_expression_v12_geo_sample_provenance.tsv
 ```
 
 Mapped label sources:
