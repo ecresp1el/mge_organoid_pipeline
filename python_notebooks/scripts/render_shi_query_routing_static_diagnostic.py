@@ -342,7 +342,7 @@ def render_one(
     seed: int,
 ) -> pd.DataFrame:
     routes_all = route_table(data, target_col=target_col, score_col=score_col, target_order=target_order)
-    routes_plot = selected_routes(routes_all, min_route_fraction=min_route_fraction, top_n=top_routes_per_source)
+    routes_plot = selected_routes(routes_all, min_fraction=min_route_fraction, top_n=top_routes_per_source)
     routes_all["plotted_route"] = False
     key_cols = ["study_id", "source_group_id", target_col]
     plot_keys = routes_plot[key_cols].drop_duplicates()
