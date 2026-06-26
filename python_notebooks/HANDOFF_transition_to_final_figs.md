@@ -1617,3 +1617,50 @@ Awaiting user direction on formatting changes: dimensions, labels, panel
 composition, color scales, fonts, export formats, and whether to keep the three
 plots separate or assemble them into a multi-panel figure.
 ```
+
+## Pending Reference Figure: Siletti All-Supercluster Transfer
+
+Status: pending; do not package as final yet.
+
+Primary handoff:
+
+```text
+python_notebooks/HANDOFF_siletti_2023_whb_reference_metadata.md
+```
+
+Important correction:
+
+```text
+The completed/available `mge_cge_llc_splatter` Siletti runs are not all Siletti
+WHB superclusters. They include only four staged H5AD superclusters:
+MGE interneuron, CGE interneuron, LAMP5-LHX6 and Chandelier, and Splatter.
+
+The true all-supercluster run must use all 31 Siletti/CELLxGENE WHB
+supercluster H5ADs and transfer a label that exists for every adult reference
+cell. The first all-supercluster pass uses `source_supercluster`, not
+`candidate_jia_group`.
+```
+
+Current true all-supercluster job chain:
+
+```text
+52396197  siletti-fetch-all    RUNNING at handoff note time
+52396203  siletti-all-bridge   PENDING after fetch
+52396227  siletti-all-knn      PENDING after bridge
+52396231  siletti-all-plot     PENDING after kNN
+```
+
+Expected all-supercluster plot output:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v1/plots
+```
+
+Expected plot files:
+
+```text
+figure_B_all_supercluster_reference_div90_overlay.png/pdf
+figure_B_div90_predicted_siletti_superclusters.png/pdf
+figure_C_div90_class_to_siletti_supercluster_river.png/pdf
+figure_D_sample_predicted_siletti_supercluster_proportions.png/pdf
+```
