@@ -1239,6 +1239,97 @@ Downsampled Jia-style plot render:
   job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/48_siletti_plot_progress_downsample_jia_style_figure_v1.sbatch
 ```
 
+## True All-Supercluster DIV90 Transfer Plots
+
+Date logged: 2026-06-26
+
+Correction:
+
+```text
+The `mge_cge_llc_splatter` runs above are broad Jia/Siletti staging runs, but
+they are not all Siletti WHB superclusters. They include only the four H5ADs
+that were staged at the time: MGE interneuron, CGE interneuron, LAMP5-LHX6 and
+Chandelier, and Splatter.
+
+The user requested analogous plots using all Siletti WHB superclusters. That
+requires staging all 31 CELLxGENE supercluster H5ADs and transferring a label
+that exists for every reference cell. The first all-supercluster pass therefore
+uses `source_supercluster`, not `candidate_jia_group`.
+```
+
+Code changes for this corrected all-supercluster path:
+
+```text
+python_notebooks/scripts/export_siletti_div90_seurat_bridge.py
+  - added `ALL_SUPERCLUSTERS` with the 31 WHB superclusters
+  - added bridge scope `all_superclusters`
+  - added generic H5AD filename resolution using the same safe-token convention
+    as `fetch_siletti_cellxgene_supercluster_h5ads.py`
+
+slurm_templates/41_export_siletti_div90_seurat_bridge_array.sbatch.template
+  - added `all_superclusters` as array task 0
+
+python_notebooks/scripts/plot_siletti_div90_all_supercluster_figure.py
+  - new plotter for all-supercluster transfer results
+  - renders adult-reference UMAP overlay, DIV90 predicted-supercluster UMAP,
+    DIV90-class-to-Siletti-supercluster river plot, and sample composition plot
+```
+
+Submitted all-supercluster job chain:
+
+```text
+Fetch/stage all 31 supercluster H5ADs:
+  job_id: 52396197
+  job_name: siletti-fetch-all
+  state at handoff update: RUNNING on gl3343
+  target superclusters: all 31 CELLxGENE datasets whose title starts with
+    `Supercluster:`
+  job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/39_fetch_siletti_all_superclusters_h5ads_v1.sbatch
+
+All-supercluster downsampled bridge:
+  job_id: 52396203_0
+  job_name: siletti-all-bridge
+  dependency: afterok:52396197
+  run_label: siletti_div90_all_supercluster_plot_bridge_v1
+  scope: all_superclusters
+  max_ref_cells_per_subcluster: 100
+  max_ref_cells_total: 60000
+  expected output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_plot_bridge_v1/all_superclusters
+
+All-supercluster fast-kNN transfer:
+  job_id: 52396227
+  job_name: siletti-all-knn
+  dependency: afterok:52396203
+  run_label: siletti_div90_fast_knn_all_supercluster_source_supercluster_v1
+  scope: all_superclusters
+  label_column: source_supercluster
+  excluded labels: NONE
+  max_reference_cells: 0
+  max_query_cells: 0
+  nfeatures: 3000
+  n_components: 50
+  k: 50
+
+All-supercluster plots:
+  job_id: 52396231
+  job_name: siletti-all-plot
+  dependency: afterok:52396227
+  output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v1
+  expected plots:
+    plots/figure_B_all_supercluster_reference_div90_overlay.png/pdf
+    plots/figure_B_div90_predicted_siletti_superclusters.png/pdf
+    plots/figure_C_div90_class_to_siletti_supercluster_river.png/pdf
+    plots/figure_D_sample_predicted_siletti_supercluster_proportions.png/pdf
+```
+
+Follow-up checks:
+
+```text
+squeue -j 52396197,52396203,52396227,52396231
+sacct -j 52396197,52396203,52396227,52396231 --format=JobID,JobName%35,State,ExitCode,Elapsed,MaxRSS,NodeList -P
+tail -n 80 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/siletti-fetch-all-52396197.out
+```
+
 ## Operational Notes
 
 This metadata audit is small enough for login-node inspection because it only

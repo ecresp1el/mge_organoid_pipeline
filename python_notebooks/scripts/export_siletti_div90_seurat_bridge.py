@@ -15,7 +15,41 @@ from scipy import io, sparse
 
 
 PROJECT_ROOT_DEFAULT = "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder"
+ALL_SUPERCLUSTERS = (
+    "Upper-layer intratelencephalic",
+    "Deep-layer intratelencephalic",
+    "Deep-layer near-projecting",
+    "Deep-layer corticothalamic and 6b",
+    "MGE interneuron",
+    "CGE interneuron",
+    "LAMP5-LHX6 and Chandelier",
+    "Miscellaneous",
+    "Hippocampal CA1-3",
+    "Hippocampal CA4",
+    "Hippocampal dentate gyrus",
+    "Amygdala excitatory",
+    "Medium spiny neuron",
+    "Eccentric medium spiny neuron",
+    "Splatter",
+    "Mammillary body",
+    "Thalamic excitatory",
+    "Midbrain-derived inhibitory",
+    "Upper rhombic lip",
+    "Cerebellar inhibitory",
+    "Lower rhombic lip",
+    "Oligodendrocyte",
+    "Committed oligodendrocyte precursor",
+    "Oligodendrocyte precursor",
+    "Astrocyte",
+    "Ependymal",
+    "Microglia",
+    "Vascular",
+    "Bergmann glia",
+    "Fibroblast",
+    "Choroid plexus",
+)
 SCOPES = {
+    "all_superclusters": ALL_SUPERCLUSTERS,
     "mge_llc": ("MGE interneuron", "LAMP5-LHX6 and Chandelier"),
     "mge_llc_cholinergic": ("MGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
     "mge_cge_llc": ("MGE interneuron", "CGE interneuron", "LAMP5-LHX6 and Chandelier"),
@@ -47,6 +81,10 @@ def parse_args() -> argparse.Namespace:
 
 def safe_token(value: str) -> str:
     return "".join(ch if ch.isalnum() else "_" for ch in str(value)).strip("_").lower()
+
+
+def h5ad_filename(supercluster: str) -> str:
+    return H5AD_BY_SUPERCLUSTER.get(supercluster, f"siletti_whb_{safe_token(supercluster)}.h5ad")
 
 
 def unique_gene_index(var: pd.DataFrame, preferred_col: str) -> tuple[pd.Index, pd.DataFrame]:
@@ -94,7 +132,7 @@ def load_reference_metadata_and_indices(
     metadata_rows = []
     global_offset = 0
     for supercluster in SCOPES[scope]:
-        path = source_dir / H5AD_BY_SUPERCLUSTER[supercluster]
+        path = source_dir / h5ad_filename(supercluster)
         if not path.exists():
             raise FileNotFoundError(path)
         a = ad.read_h5ad(path, backed="r")
