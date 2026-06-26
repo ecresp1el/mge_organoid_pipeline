@@ -46,13 +46,13 @@ GW_COLORS = {
 
 BERSHTEYN_2023_SAMPLE_INFO = {
     "D0": ("DIV0 hESC", 0.0, 0.0),
-    "D14": ("DIV14 MGE progenitor", 14.0, 0.0),
-    "MB460": ("DIV42 EOP L1 U (MB460)", 42.0, 1.1),
-    "MB461": ("DIV42 EOP L1 S (MB461)", 42.0, 1.2),
-    "MB279": ("DIV42 EOP L2 U (MB279)", 42.0, 2.1),
-    "MB280": ("DIV42 EOP L2 S (MB280)", 42.0, 2.2),
-    "MB527": ("DIV42 EOP L3 U (MB527)", 42.0, 3.1),
-    "MB528": ("DIV42 EOP L3 S (MB528)", 42.0, 3.2),
+    "D14": ("DIV14 NPC", 14.0, 0.0),
+    "MB460": ("DIV42 EOP L1 U", 42.0, 1.1),
+    "MB461": ("DIV42 EOP L1 S", 42.0, 1.2),
+    "MB279": ("DIV42 EOP L2 U", 42.0, 2.1),
+    "MB280": ("DIV42 EOP L2 S", 42.0, 2.2),
+    "MB527": ("DIV42 EOP L3 U", 42.0, 3.1),
+    "MB528": ("DIV42 EOP L3 S", 42.0, 3.2),
     "MS35mock": ("DIV42 EOP B4 U (MS35mock)", 42.0, 4.0),
     "MS35r41": ("DIV42 EOP B5 U (MS35r41)", 42.0, 5.0),
     "mockv2dw": ("DIV42 EOP B6 U (mockv2dw)", 42.0, 6.0),
@@ -178,7 +178,9 @@ def add_sample_metadata(data: pd.DataFrame) -> pd.DataFrame:
     sample_meta["sample_age_order"] = [record[1] for record in sample_records]
     sample_meta["sample_order_within_study"] = [record[2] for record in sample_records]
     sample_meta["sample_plot_id"] = sample_meta["study_id"].astype(str) + "::" + sample_meta["sample"].astype(str)
-    return out.merge(sample_meta, on=["study_id", "sample", "sample_label"], how="left", validate="many_to_one")
+    annotated = out.merge(sample_meta, on=["study_id", "sample", "sample_label"], how="left", validate="many_to_one")
+    annotated["sample_label"] = annotated["sample_display_label"]
+    return annotated
 
 
 def sample_fraction_table(

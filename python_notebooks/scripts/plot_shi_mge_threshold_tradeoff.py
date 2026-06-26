@@ -126,17 +126,17 @@ GW_COLORS = {
 }
 
 BERSHTEYN_2023_SAMPLE_INFO = {
-    # GSE208672 plus study design notes: D0 hESCs, D14 MGE progenitors,
+    # GSE208672 plus study design notes: D0 hESCs, D14 NPCs,
     # and week-6 End-of-Process cells (6 * 7 = DIV42). S/U denotes sorted
     # or unsorted, respectively.
     "D0": ("DIV0 hESC", 0.0, 0.0),
-    "D14": ("DIV14 MGE progenitor", 14.0, 0.0),
-    "MB460": ("DIV42 EOP L1 U (MB460)", 42.0, 1.1),
-    "MB461": ("DIV42 EOP L1 S (MB461)", 42.0, 1.2),
-    "MB279": ("DIV42 EOP L2 U (MB279)", 42.0, 2.1),
-    "MB280": ("DIV42 EOP L2 S (MB280)", 42.0, 2.2),
-    "MB527": ("DIV42 EOP L3 U (MB527)", 42.0, 3.1),
-    "MB528": ("DIV42 EOP L3 S (MB528)", 42.0, 3.2),
+    "D14": ("DIV14 NPC", 14.0, 0.0),
+    "MB460": ("DIV42 EOP L1 U", 42.0, 1.1),
+    "MB461": ("DIV42 EOP L1 S", 42.0, 1.2),
+    "MB279": ("DIV42 EOP L2 U", 42.0, 2.1),
+    "MB280": ("DIV42 EOP L2 S", 42.0, 2.2),
+    "MB527": ("DIV42 EOP L3 U", 42.0, 3.1),
+    "MB528": ("DIV42 EOP L3 S", 42.0, 3.2),
     "MS35mock": ("DIV42 EOP B4 U (MS35mock)", 42.0, 4.0),
     "MS35r41": ("DIV42 EOP B5 U (MS35r41)", 42.0, 5.0),
     "mockv2dw": ("DIV42 EOP B6 U (mockv2dw)", 42.0, 6.0),
