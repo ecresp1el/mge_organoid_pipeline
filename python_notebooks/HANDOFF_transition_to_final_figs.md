@@ -1243,7 +1243,8 @@ Current implementation started:
 Current status:
   - Script has been written.
   - Slurm template has been written.
-  - Slurm job has been submitted and is pending.
+  - Combined Slurm job 52371983 was submitted, started, and was cancelled by
+    user request because the user prefers separate DIV30 and DIV90 jobs.
   - No anchor assets have been generated yet as of the last check.
   - Local/login-node R inspection failed/OOMed with exit 137 when trying to
     read large RDS objects, so this must be run on Slurm.
@@ -1266,20 +1267,30 @@ Planned scope:
   - Do not overwrite the finalized v1 prediction tables or final_figures.
 
 Planned saved assets:
-  seurat/anchors/varela_div30_shi_full_transfer_anchors.rds
-  seurat/anchors/varela_div90_shi_full_transfer_anchors.rds
-  tables/varela_div30_shi_full_anchor_pairs.tsv.gz
-  tables/varela_div90_shi_full_anchor_pairs.tsv.gz
-  tables/varela_div30_shi_full_top_anchor_per_query.tsv.gz
-  tables/varela_div90_shi_full_top_anchor_per_query.tsv.gz
-  tables/*_shi_reference_coordinates_for_anchor_plot.tsv.gz
-  tables/*_query_coordinates_for_anchor_plot.tsv.gz
-  plots/*_shi_full_anchor_projection_static.png/pdf/svg
-  diagnostics/shi_anchor_projection_diagnostics.tsv
-  README.md
+  For separate per-study output directories:
+    <run_label>/varela_div30/
+    <run_label>/varela_div90/
+  Each directory should contain:
+    seurat/anchors/<study>_shi_full_transfer_anchors.rds
+    tables/<study>_shi_full_anchor_pairs.tsv.gz
+    tables/<study>_shi_full_top_anchor_per_query.tsv.gz
+    tables/<study>_shi_reference_coordinates_for_anchor_plot.tsv.gz
+    tables/<study>_query_coordinates_for_anchor_plot.tsv.gz
+    plots/<study>_shi_full_anchor_projection_static.png/pdf/svg
+    diagnostics/shi_anchor_projection_diagnostics.tsv
+    README.md
 
 Important behavior:
   - Full anchor objects/tables should include all query cells.
+  - One whole-Shi Seurat TransferAnchorSet is generated per query study.
+  - That single anchor object is shared for both:
+      Shi major cell-type interpretation
+      Shi GW/stage interpretation
+  - The exported anchor-pair table must clearly include both:
+      reference_shi_label
+      reference_shi_week_label
+    This is the explicit bridge allowing the same anchors to be viewed by cell
+    type or by GW/stage.
   - DIV90 static plots should exclude current query clusters 6/7 for visual
     consistency with finalized figures, but this visualization filter should
     not remove cells from saved anchor objects/full anchor-pair tables.
@@ -1294,10 +1305,17 @@ Next steps tomorrow:
      It uses the Seurat-capable module pattern from existing Seurat jobs:
        module load Bioinformatics
        module load r-seurat/5.1.0-R-4.4.1-c3m7yfq
-  3. Check Slurm job:
+  3. Check the replacement separate Slurm jobs after submission.
+     Cancelled combined job:
        52371983
-     Last known state:
-       RUNNING on gl3018, elapsed 00:00:39 at last poll
+     Cancelled state:
+       CANCELLED at 00:05:19
+     Replacement separate jobs:
+       DIV30: 52372021, RUNNING on gl3018 at last poll
+       DIV90: 52372022, RUNNING on gl3205 at last poll
+     Replacement output directories:
+       /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_anchor_projection_v1/varela_div30
+       /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_anchor_projection_v1/varela_div90
   4. Watch logs, timing, memory.
   5. Validate outputs:
        anchor RDS files exist and are nonzero

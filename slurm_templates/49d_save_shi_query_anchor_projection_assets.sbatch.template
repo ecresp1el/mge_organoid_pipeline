@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Save true Seurat anchor/projection assets for DIV30/DIV90 against Shi 2019.
+# Save true Seurat anchor/projection assets for one query study against Shi 2019.
 
 #SBATCH --job-name=shi-anchor-assets
 #SBATCH --account=parent0
@@ -21,11 +21,12 @@ module load "${SEURAT5_MODULE}"
 REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
 PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
 SHI_ANCHOR_PROJECTION_RUN_LABEL="${SHI_ANCHOR_PROJECTION_RUN_LABEL:-cross_study_shi_seurat_anchor_projection_v1}"
+SHI_ANCHOR_STUDY_ID="${SHI_ANCHOR_STUDY_ID:-varela_div30}"
 SHI_REFERENCE_RDS="${SHI_REFERENCE_RDS:-${PROJECT_ROOT}/results/shi_2019_paper_qc/shi_2019_seurat.rds}"
 SHI_REFERENCE_LABELS_TSV="${SHI_REFERENCE_LABELS_TSV:-${PROJECT_ROOT}/results/shi_reference_div30_seurat_label_transfer/shi_reference_div30_seurat_label_transfer_v1/seurat/shi_reference_labels_for_seurat.tsv}"
 SHI_ANCHOR_DIMS="${SHI_ANCHOR_DIMS:-50}"
 SHI_ANCHOR_MIN_SHARED_FEATURES="${SHI_ANCHOR_MIN_SHARED_FEATURES:-500}"
-OUTDIR="${OUTDIR:-${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/${SHI_ANCHOR_PROJECTION_RUN_LABEL}}"
+OUTDIR="${OUTDIR:-${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/${SHI_ANCHOR_PROJECTION_RUN_LABEL}/${SHI_ANCHOR_STUDY_ID}}"
 
 mkdir -p "${PROJECT_ROOT}/logs" "${OUTDIR}"/{logs,provenance}
 cd "${REPO_ROOT}"
@@ -40,6 +41,7 @@ echo "Host: $(hostname)"
 echo "Repo root: ${REPO_ROOT}"
 echo "Project/data root: ${PROJECT_ROOT}"
 echo "Run label: ${SHI_ANCHOR_PROJECTION_RUN_LABEL}"
+echo "Study: ${SHI_ANCHOR_STUDY_ID}"
 echo "Output dir: ${OUTDIR}"
 echo "Seurat module: ${SEURAT5_MODULE}"
 echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
@@ -53,25 +55,22 @@ Rscript scripts/14_save_shi_query_anchor_projection_assets.R \
   --reference "${SHI_REFERENCE_RDS}" \
   --reference-labels-tsv "${SHI_REFERENCE_LABELS_TSV}" \
   --helper-script scripts/13_run_cross_study_shi_seurat_label_transfer.R \
-  --study-id "varela_div30,varela_div90" \
+  --study-id "${SHI_ANCHOR_STUDY_ID}" \
   --dims "${SHI_ANCHOR_DIMS}" \
   --min-shared-features "${SHI_ANCHOR_MIN_SHARED_FEATURES}" \
   --save-anchor-rds true
 
-for study in varela_div30 varela_div90
+for path in \
+  "${OUTDIR}/seurat/anchors/${SHI_ANCHOR_STUDY_ID}_shi_full_transfer_anchors.rds" \
+  "${OUTDIR}/tables/${SHI_ANCHOR_STUDY_ID}_shi_full_anchor_pairs.tsv.gz" \
+  "${OUTDIR}/tables/${SHI_ANCHOR_STUDY_ID}_shi_full_top_anchor_per_query.tsv.gz" \
+  "${OUTDIR}/tables/${SHI_ANCHOR_STUDY_ID}_shi_reference_coordinates_for_anchor_plot.tsv.gz" \
+  "${OUTDIR}/tables/${SHI_ANCHOR_STUDY_ID}_query_coordinates_for_anchor_plot.tsv.gz"
 do
-  for path in \
-    "${OUTDIR}/seurat/anchors/${study}_shi_full_transfer_anchors.rds" \
-    "${OUTDIR}/tables/${study}_shi_full_anchor_pairs.tsv.gz" \
-    "${OUTDIR}/tables/${study}_shi_full_top_anchor_per_query.tsv.gz" \
-    "${OUTDIR}/tables/${study}_shi_reference_coordinates_for_anchor_plot.tsv.gz" \
-    "${OUTDIR}/tables/${study}_query_coordinates_for_anchor_plot.tsv.gz"
-  do
-    if [[ ! -s "${path}" ]]; then
-      echo "Missing expected output: ${path}" >&2
-      exit 1
-    fi
-  done
+  if [[ ! -s "${path}" ]]; then
+    echo "Missing expected output: ${path}" >&2
+    exit 1
+  fi
 done
 
 cp -p scripts/14_save_shi_query_anchor_projection_assets.R "${OUTDIR}/provenance/"
@@ -88,9 +87,10 @@ cp -p "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-anchor
   echo "reference_rds	${SHI_REFERENCE_RDS}"
   echo "reference_labels_tsv	${SHI_REFERENCE_LABELS_TSV}"
   echo "output_dir	${OUTDIR}"
-  echo "studies	varela_div30,varela_div90"
+  echo "study	${SHI_ANCHOR_STUDY_ID}"
   echo "dims	1:${SHI_ANCHOR_DIMS}"
   echo "purpose	save true Seurat TransferAnchorSet objects and query-reference anchor-pair tables"
+  echo "anchor_semantics	one shared whole-Shi TransferAnchorSet per study; reference cells carry both reference_shi_label and reference_shi_week_label in exported anchor-pair tables"
   echo "does_not_overwrite	finalized v1 prediction tables or final_figures"
 } > "${OUTDIR}/provenance/anchor_projection_render_manifest.tsv"
 
