@@ -379,6 +379,15 @@ def label_positions_for_coordinates(group: pd.DataFrame, x_col: str, y_col: str)
     return pd.DataFrame(rows)
 
 
+def add_plot_coordinates(subset: pd.DataFrame, study_id: str) -> pd.DataFrame:
+    out = subset.copy()
+    out["UMAP1_plot"] = out["umap_1"]
+    out["UMAP2_plot"] = out["umap_2"]
+    if study_id == "varela_div90":
+        out["UMAP2_plot"] = -1.0 * out["umap_2"]
+    return out
+
+
 def plot_cluster_grid(data: pd.DataFrame, output_prefix: Path, title: str, max_label_clusters: int = 80) -> None:
     study_order = (
         data[["study_order", "study_id", "study_label"]]
@@ -396,19 +405,20 @@ def plot_cluster_grid(data: pd.DataFrame, output_prefix: Path, title: str, max_l
     for ax, (study_id, study_label) in zip(axes.ravel(), study_keys):
         subset = data.loc[(data["study_id"] == study_id) & (data["study_label"] == study_label)].copy()
         subset = subset[np.isfinite(subset["umap_1"]) & np.isfinite(subset["umap_2"])]
+        subset = add_plot_coordinates(subset, study_id)
         clusters = sorted(subset["published_cluster_label"].astype(str).unique(), key=natural_sort_key)
         colors = cluster_palette(clusters)
         for cluster in clusters:
             cluster_data = subset.loc[subset["published_cluster_label"] == cluster]
             ax.scatter(
-                cluster_data["umap_1"],
-                cluster_data["umap_2"],
+                cluster_data["UMAP1_plot"],
+                cluster_data["UMAP2_plot"],
                 s=UMAP_POINT_SIZE,
                 c=[colors[cluster]],
                 linewidths=0,
                 rasterized=True,
             )
-        positions = label_positions(subset)
+        positions = label_positions_for_coordinates(subset, "UMAP1_plot", "UMAP2_plot")
         if positions.shape[0] <= max_label_clusters:
             for _, row in positions.iterrows():
                 ax.text(
