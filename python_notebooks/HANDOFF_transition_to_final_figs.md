@@ -1620,7 +1620,7 @@ plots separate or assemble them into a multi-panel figure.
 
 ## Pending Reference Figure: Siletti All-Supercluster Transfer
 
-Status: pending; do not package as final yet.
+Status: generated but rejected/diagnostic; do not package as final.
 
 Primary handoff:
 
@@ -1644,33 +1644,111 @@ cell. The first all-supercluster pass uses `source_supercluster`, not
 Current true all-supercluster job chain:
 
 ```text
-52396197  siletti-fetch-all    RUNNING at 2026-06-26 12:42 EDT on gl3343
-52396203  siletti-all-bridge   PENDING after fetch
-52396227  siletti-all-knn      PENDING after bridge
-52396231  siletti-all-plot     PENDING after kNN
+52396197  siletti-fetch-all    COMPLETED  00:20:36  max RSS 37247344K  gl3343
+52396203  siletti-all-bridge   COMPLETED  00:04:32  max RSS 17670324K  gl3253
+52396227  siletti-all-knn      COMPLETED  00:00:55  max RSS 7514800K   gl3470
+52396231  siletti-all-plot     COMPLETED  00:03:09  max RSS 4406628K   gl3470
 ```
 
-Download status at 2026-06-26 12:42 EDT:
+Download status:
 
 ```text
-30 / 31 complete Siletti WHB supercluster H5ADs are staged.
-The remaining file is actively downloading as:
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/source_cellxgene_superclusters/h5ad/siletti_whb_upper_layer_intratelencephalic.h5ad.tmp
+31 / 31 complete Siletti WHB supercluster H5ADs are staged.
 ```
 
-Expected all-supercluster plot output:
+Completed all-supercluster plot output:
 
 ```text
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v1/plots
 ```
 
-Expected plot files:
+Completed plot files:
 
 ```text
 figure_B_all_supercluster_reference_div90_overlay.png/pdf
 figure_B_div90_predicted_siletti_superclusters.png/pdf
 figure_C_div90_class_to_siletti_supercluster_river.png/pdf
 figure_D_sample_predicted_siletti_supercluster_proportions.png/pdf
+```
+
+Completed plotting tables/assets:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v1/tables/div90_query_cells_with_all_siletti_supercluster_assignments.tsv.gz
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v1/tables/siletti_reference_cells_with_all_supercluster_umap.tsv.gz
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v1/tables/figure_C_div90_class_to_siletti_supercluster_edges.tsv
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v1/tables/figure_D_sample_predicted_siletti_supercluster_proportions.tsv
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v1/tables/plot_config.json
+```
+
+Validation note:
+
+```text
+The four PNGs and four PDFs are nonzero and were written at 2026-06-26
+12:53 EDT. PNG dimensions are:
+  figure_B_all_supercluster_reference_div90_overlay.png: 3185 x 2096
+  figure_B_div90_predicted_siletti_superclusters.png: 2894 x 2096
+  figure_C_div90_class_to_siletti_supercluster_river.png: 3571 x 1817
+  figure_D_sample_predicted_siletti_supercluster_proportions.png: 2635 x 1753
+```
+
+Post-generation issue:
+
+```text
+Do not use these candidate outputs for final figures.
+
+The first plot output showed `Unassigned` because of a plotter merge bug:
+predictions were merged using the barcode-like `cell_id` column from the
+query-obs prediction table instead of `seurat_cell_id`. The merge bug was fixed
+in:
+  python_notebooks/scripts/plot_siletti_div90_all_supercluster_figure.py
+
+A plot-only rerun was submitted as:
+  52398318  siletti-all-plot-fix
+
+However, the underlying kNN assignment is itself degenerate, not merely a plot
+bug. The completed kNN table assigns all 16,206 DIV90 cells to:
+  Upper-layer intratelencephalic
+
+By DIV90 broad class:
+  MGE Striatal/GP Fated: 3,601 -> Upper-layer intratelencephalic
+  SST+, NPY +, Cortical Fated: 3,548 -> Upper-layer intratelencephalic
+  CRABP1+/PV Precursors: 3,503 -> Upper-layer intratelencephalic
+  PV precursors/Migrating cells/Cortical-fated: 2,283 -> Upper-layer intratelencephalic
+  LHX8+ vMGE GABergic Striatal/GP fated 1: 1,924 -> Upper-layer intratelencephalic
+  LHX8+ vMGE GABergic Striatal/GP fated 2: 922 -> Upper-layer intratelencephalic
+  PV Precursors: 425 -> Upper-layer intratelencephalic
+
+This should be treated as a failed all-supercluster diagnostic, not a final
+biological result.
+```
+
+Root cause and corrected rerun:
+
+```text
+Root cause:
+  The bridge exporter reused the first H5AD's gene-column index for every H5AD
+  in a multi-H5AD scope. The 31 Siletti/CELLxGENE supercluster H5ADs have the
+  same gene set but different `var["Gene"]` order. In the all-supercluster run,
+  the first H5AD was Upper-layer intratelencephalic, so other supercluster
+  reference blocks were gene-column scrambled and the kNN collapsed to the
+  first supercluster.
+
+Fix:
+  python_notebooks/scripts/export_siletti_div90_seurat_bridge.py now builds
+  per-H5AD gene indices and intersects unique genes across all selected
+  reference H5ADs and DIV90 query.
+
+Corrected v2 chain:
+  52398418_0  siletti-all-bridge-v2  PENDING/RUNNING after submission
+  52398421    siletti-all-knn-v2     PENDING after bridge
+  52398423    siletti-all-plot-v2    PENDING after kNN
+
+Corrected v2 expected plot output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v2/plots
+
+Canceled obsolete v1 plot-only fix:
+  52398318
 ```
 
 Assignment/methods summary:

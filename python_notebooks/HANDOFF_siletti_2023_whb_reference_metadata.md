@@ -1281,10 +1281,11 @@ Submitted all-supercluster job chain:
 Fetch/stage all 31 supercluster H5ADs:
   job_id: 52396197
   job_name: siletti-fetch-all
-  state at 2026-06-26 12:42 EDT: RUNNING on gl3343
-  staged files at 2026-06-26 12:42 EDT: 30 / 31 complete H5ADs
-  active final download at 2026-06-26 12:42 EDT:
-    siletti_whb_upper_layer_intratelencephalic.h5ad.tmp
+  final state: COMPLETED
+  elapsed: 00:20:36
+  max RSS: 37247344K
+  node: gl3343
+  staged files: 31 / 31 complete H5ADs
   target superclusters: all 31 CELLxGENE datasets whose title starts with
     `Supercluster:`
   job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/39_fetch_siletti_all_superclusters_h5ads_v1.sbatch
@@ -1297,6 +1298,10 @@ All-supercluster downsampled bridge:
   scope: all_superclusters
   max_ref_cells_per_subcluster: 100
   max_ref_cells_total: 60000
+  final state: COMPLETED
+  elapsed: 00:04:32
+  max RSS: 17670324K
+  node: gl3253
   expected output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_plot_bridge_v1/all_superclusters
 
 All-supercluster fast-kNN transfer:
@@ -1312,13 +1317,21 @@ All-supercluster fast-kNN transfer:
   nfeatures: 3000
   n_components: 50
   k: 50
+  final state: COMPLETED
+  elapsed: 00:00:55
+  max RSS: 7514800K
+  node: gl3470
 
 All-supercluster plots:
   job_id: 52396231
   job_name: siletti-all-plot
   dependency: afterok:52396227
+  final state: COMPLETED
+  elapsed: 00:03:09
+  max RSS: 4406628K
+  node: gl3470
   output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v1
-  expected plots:
+  completed plots:
     plots/figure_B_all_supercluster_reference_div90_overlay.png/pdf
     plots/figure_B_div90_predicted_siletti_superclusters.png/pdf
     plots/figure_C_div90_class_to_siletti_supercluster_river.png/pdf
@@ -1464,6 +1477,126 @@ tables/figure_D_sample_predicted_siletti_supercluster_proportions.tsv
 tables/div90_query_cells_with_all_siletti_supercluster_assignments.tsv.gz
 tables/siletti_reference_cells_with_all_supercluster_umap.tsv.gz
 tables/plot_config.json
+```
+
+Completion validation:
+
+```text
+All four plot PNG/PDF pairs were written on 2026-06-26 at 12:53 EDT.
+PNG dimensions:
+  figure_B_all_supercluster_reference_div90_overlay.png: 3185 x 2096
+  figure_B_div90_predicted_siletti_superclusters.png: 2894 x 2096
+  figure_C_div90_class_to_siletti_supercluster_river.png: 3571 x 1817
+  figure_D_sample_predicted_siletti_supercluster_proportions.png: 2635 x 1753
+```
+
+Post-completion issue found:
+
+```text
+Do not use the first all-supercluster plot outputs as final biological figures.
+
+Issue 1: plotting merge bug.
+  The all-supercluster plotter read the query-obs prediction table but merged
+  predictions back onto the UMAP table using the barcode-like `cell_id` column
+  instead of `seurat_cell_id`. This made the plotted/output assignment table say
+  `Unassigned` even though the kNN prediction table contained labels.
+
+  Fixed in:
+    python_notebooks/scripts/plot_siletti_div90_all_supercluster_figure.py
+
+  Plot-only rerun submitted:
+    job_id: 52398318
+    job_name: siletti-all-plot-fix
+    state at issue note: PENDING
+
+Issue 2: degenerate all-supercluster kNN assignment.
+  The actual fast-kNN result is not unassigned, but it is biologically
+  suspicious/degenerate: all 16,206 DIV90 query cells were assigned to
+  `Upper-layer intratelencephalic`.
+
+  Current assignment counts:
+    Upper-layer intratelencephalic: 16,206 / 16,206 DIV90 cells
+
+  By DIV90 broad class:
+    MGE Striatal/GP Fated: 3,601 -> Upper-layer intratelencephalic
+    SST+, NPY +, Cortical Fated: 3,548 -> Upper-layer intratelencephalic
+    CRABP1+/PV Precursors: 3,503 -> Upper-layer intratelencephalic
+    PV precursors/Migrating cells/Cortical-fated: 2,283 -> Upper-layer intratelencephalic
+    LHX8+ vMGE GABergic Striatal/GP fated 1: 1,924 -> Upper-layer intratelencephalic
+    LHX8+ vMGE GABergic Striatal/GP fated 2: 922 -> Upper-layer intratelencephalic
+    PV Precursors: 425 -> Upper-layer intratelencephalic
+
+  Score check:
+    16,123 / 16,206 cells had Upper-layer score in [0.999, 1.001].
+    Only 42 cells had any non-upper score > 0.1; Bergmann glia was the only
+    runner-up label in those cases.
+
+Interpretation:
+  The original all-supercluster output is useful as a failed diagnostic and as
+  proof that all 31 H5ADs/bridge assets can be staged, but not as a final figure.
+  Next analysis should diagnose why all-supercluster SVD/cosine kNN collapses
+  to the first/excitatory supercluster and should not package these plots as
+  final biological evidence.
+```
+
+Root cause identified:
+
+```text
+The bridge exporter had a multi-H5AD gene-indexing bug.
+
+Bug:
+  `export_siletti_div90_seurat_bridge.py` built a gene-to-column index from
+  only the first H5AD in the selected scope, then reused that same column index
+  for every other H5AD. The 31 CELLxGENE supercluster H5ADs contain the same
+  gene set but not the same `var["Gene"]` order.
+
+Consequence:
+  In the all-supercluster scope, the first H5AD is
+  `Upper-layer intratelencephalic`, so only the upper-layer reference block was
+  gene-aligned correctly. The other 30 reference blocks were column-scrambled.
+  This explains why the kNN collapsed all DIV90 query cells to the first
+  supercluster.
+
+Why earlier focused runs could still look MGE-like:
+  The earlier focused scopes started with the MGE H5AD and transferred
+  MGE/Jia-style labels from a biologically restricted reference. That avoided
+  the specific all-supercluster collapse to upper-layer, but the same
+  cross-H5AD gene-order bug means any multi-H5AD bridge made before this fix
+  should be treated cautiously and rerun before final use.
+
+Fix:
+  `export_siletti_div90_seurat_bridge.py` now builds a separate per-H5AD
+  gene-to-column index and intersects unique genes across all selected reference
+  H5ADs plus the DIV90 query. It also adds `source_supercluster` to the bridge
+  label-count audit.
+```
+
+Corrected all-supercluster v2 rerun:
+
+```text
+Corrected bridge:
+  job_id: 52398418_0
+  job_name: siletti-all-bridge-v2
+  run_label: siletti_div90_all_supercluster_plot_bridge_v2
+  scope: all_superclusters
+  output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_plot_bridge_v2/all_superclusters
+
+Corrected fast-kNN:
+  job_id: 52398421
+  job_name: siletti-all-knn-v2
+  dependency: afterok:52398418
+  run_label: siletti_div90_fast_knn_all_supercluster_source_supercluster_v2
+  label_column: source_supercluster
+  excluded labels: NONE
+
+Corrected plots:
+  job_id: 52398423
+  job_name: siletti-all-plot-v2
+  dependency: afterok:52398421
+  output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_all_supercluster_source_supercluster_plots_v2
+
+Canceled obsolete v1 plot-fix job:
+  job_id: 52398318
 ```
 
 Draft methods wording:

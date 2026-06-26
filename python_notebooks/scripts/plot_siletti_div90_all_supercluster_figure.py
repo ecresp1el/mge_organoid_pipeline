@@ -42,13 +42,20 @@ def color_map(labels: list[str]) -> dict[str, str]:
 def attach_predictions(query_umap: pd.DataFrame, transfer_dir: Path) -> pd.DataFrame:
     obs_path = find_one("tables/*_query_obs_with_predictions.tsv.gz", transfer_dir)
     pred = read_tsv_gz(obs_path)
+    needed = ["seurat_cell_id", "predicted.id", "prediction.score.max"]
+    missing = [col for col in needed if col not in pred.columns]
+    if missing:
+        raise ValueError(f"Prediction obs table missing columns: {missing}")
     merged = query_umap.merge(
-        pred[["cell_id", "predicted.id", "prediction.score.max"]],
-        left_on="seurat_cell_id",
-        right_on="cell_id",
+        pred[["seurat_cell_id", "predicted.id", "prediction.score.max"]],
+        on="seurat_cell_id",
         how="left",
+        validate="one_to_one",
     )
     merged["predicted.id"] = merged["predicted.id"].fillna("Unassigned").astype(str)
+    n_unassigned = int(merged["predicted.id"].eq("Unassigned").sum())
+    if n_unassigned:
+        raise RuntimeError(f"{n_unassigned} query cells did not receive predictions after merge.")
     merged["assignment_status"] = np.where(merged["predicted.id"].eq("Unassigned"), "unassigned", "assigned")
     return merged
 

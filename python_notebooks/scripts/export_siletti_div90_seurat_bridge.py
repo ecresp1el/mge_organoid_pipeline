@@ -92,8 +92,28 @@ def unique_gene_index(var: pd.DataFrame, preferred_col: str) -> tuple[pd.Index, 
     valid = genes.notna() & genes.ne("") & genes.ne("nan")
     counts = genes[valid].value_counts()
     unique = valid & genes.map(counts).fillna(0).eq(1)
-    dropped = pd.DataFrame({"gene": genes, "kept_unique": unique.to_numpy()})
+    dropped = pd.DataFrame({"gene": genes, "kept_unique": unique.to_numpy(), "var_index": np.arange(var.shape[0])})
     return pd.Index(genes[unique]), dropped
+
+
+def reference_gene_indices(adatas: list[ad.AnnData]) -> tuple[pd.Index, dict[str, dict[str, int]], pd.DataFrame]:
+    """Build per-H5AD gene indices and the common unique reference gene set."""
+    unique_sets: list[set[str]] = []
+    gene_to_idx_by_source: dict[str, dict[str, int]] = {}
+    audit_frames = []
+    for a in adatas:
+        source_path = str(Path(a.filename).resolve())
+        unique_genes, audit = unique_gene_index(a.var.copy(), "Gene")
+        unique_sets.append(set(unique_genes.astype(str)))
+        gene_to_idx_by_source[source_path] = {
+            str(gene): int(idx)
+            for idx, gene in enumerate(a.var["Gene"].astype(str))
+            if str(gene) in unique_sets[-1]
+        }
+        audit.insert(0, "source_h5ad", source_path)
+        audit_frames.append(audit)
+    common_genes = pd.Index(sorted(set.intersection(*unique_sets)))
+    return common_genes, gene_to_idx_by_source, pd.concat(audit_frames, ignore_index=True)
 
 
 def read_jia_mapping(project_root: Path) -> pd.DataFrame:
@@ -217,13 +237,19 @@ def load_reference_metadata_and_indices(
     return adatas, selected_meta, pd.DataFrame(scope_audit)
 
 
-def collect_reference_matrix(adatas: list[ad.AnnData], meta: pd.DataFrame, genes: list[str], ref_gene_to_idx: dict[str, int]) -> sparse.csr_matrix:
+def collect_reference_matrix(
+    adatas: list[ad.AnnData],
+    meta: pd.DataFrame,
+    genes: list[str],
+    ref_gene_to_idx_by_source: dict[str, dict[str, int]],
+) -> sparse.csr_matrix:
     blocks = []
     for a in adatas:
         source_path = str(Path(a.filename).resolve())
         rows = meta.loc[meta["source_h5ad"].map(lambda x: str(Path(x).resolve())).eq(source_path), "source_row_index"].to_numpy(dtype=int)
         if rows.size == 0:
             continue
+        ref_gene_to_idx = ref_gene_to_idx_by_source[source_path]
         col_idx = np.array([ref_gene_to_idx[g] for g in genes], dtype=int)
         mat = a.X[rows, :][:, col_idx]
         if not sparse.issparse(mat):
@@ -272,8 +298,7 @@ def main() -> None:
         args.max_ref_cells_total,
         args.seed,
     )
-    ref_var = ref_adatas[0].var.copy()
-    ref_genes, ref_gene_audit = unique_gene_index(ref_var, "Gene")
+    ref_genes, ref_gene_to_idx_by_source, ref_gene_audit = reference_gene_indices(ref_adatas)
 
     query = ad.read_h5ad(query_h5ad)
     query_gene_series = pd.Series(query.var_names.astype(str), index=query.var_names.astype(str))
@@ -283,7 +308,6 @@ def main() -> None:
     if len(shared_genes) < 500:
         raise RuntimeError(f"Only {len(shared_genes)} shared unique genes; refusing export.")
 
-    ref_gene_to_idx = {str(gene): int(idx) for idx, gene in enumerate(ref_var["Gene"].astype(str)) if str(gene) in shared_genes}
     query_gene_to_idx = {str(gene): int(idx) for idx, gene in enumerate(query.var_names.astype(str)) if str(gene) in shared_genes}
 
     query_cells = pd.read_csv(query_cells_path, sep="\t")
@@ -294,7 +318,7 @@ def main() -> None:
 
     ref_meta = ref_meta.reset_index(drop=True)
     ref_meta["seurat_cell_id"] = [f"SILETTI_{args.scope}_{i:06d}" for i in range(ref_meta.shape[0])]
-    ref_mat = collect_reference_matrix(ref_adatas, ref_meta, shared_genes, ref_gene_to_idx)
+    ref_mat = collect_reference_matrix(ref_adatas, ref_meta, shared_genes, ref_gene_to_idx_by_source)
     for a in ref_adatas:
         a.file.close()
 
@@ -317,7 +341,7 @@ def main() -> None:
     scope_audit.to_csv(table_dir / "siletti_reference_scope_and_subsampling_audit.tsv", sep="\t", index=False)
 
     label_counts = []
-    for col in ["siletti_supercluster_label", "cell_type", "siletti_cluster_label", "siletti_subcluster_label", "transferred_mtg_label", "candidate_jia_group", "best_fetal_pair"]:
+    for col in ["source_supercluster", "siletti_supercluster_label", "cell_type", "siletti_cluster_label", "siletti_subcluster_label", "transferred_mtg_label", "candidate_jia_group", "best_fetal_pair"]:
         vc = ref_meta[col].astype(str).value_counts()
         label_counts.extend({"label_column": col, "label": label, "n_reference_cells": int(n)} for label, n in vc.items())
     pd.DataFrame(label_counts).to_csv(table_dir / "siletti_reference_label_counts.tsv", sep="\t", index=False)
