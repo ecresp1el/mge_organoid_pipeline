@@ -1209,3 +1209,103 @@ Important limitation:
   saved per-cell TransferData predictions and scores, not the Seurat anchor
   object or top reference-cell matches.
 ```
+
+## Pause Point: True Shi Anchor Projection Assets
+
+```text
+Date:
+  2026-06-26
+
+User request:
+  User wants the true Seurat anchor/reference-cell projection assets, not only
+  the score-routing diagnostic. Specifically, rerun only what is needed to save
+  the missing anchors/projection links for DIV30 and DIV90 against Shi et al.
+
+Important clarification:
+  The finalized figures DO have saved plot-ready assets:
+    - Shi final UMAP grids/sample composition use saved v1 prediction tables.
+    - Marker-expression figures use saved per-study marker-expression tables.
+  The missing asset is narrower:
+    - Seurat TransferAnchorSet / true query-to-Shi-reference-cell anchor links
+      were not saved by the original v1 Shi workflow.
+
+Why rerun is needed:
+  scripts/13_run_cross_study_shi_seurat_label_transfer.R creates:
+    anchors <- Seurat::FindTransferAnchors(...)
+  then uses those anchors for TransferData and writes prediction-score TSVs.
+  It does not save anchors. At the end of run_transfer_one(), it removes:
+    rm(query, anchors, ge_anchors, ...)
+
+Current implementation started:
+  Added targeted helper script:
+    scripts/14_save_shi_query_anchor_projection_assets.R
+
+Current status:
+  - Script has been written but not yet Slurm-submitted.
+  - No anchor assets have been generated yet.
+  - No Slurm template for this new anchor-asset job has been added yet.
+  - Local/login-node R inspection failed/OOMed with exit 137 when trying to
+    read large RDS objects, so this must be run on Slurm.
+
+Intended output run label:
+  cross_study_shi_seurat_anchor_projection_v1
+
+Intended output directory:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_anchor_projection_v1
+
+Planned scope:
+  - Only studies:
+      varela_div30
+      varela_div90
+  - Whole-Shi FindTransferAnchors matching script 13 logic.
+  - Save true anchor objects and tables.
+  - Do not overwrite the finalized v1 prediction tables or final_figures.
+
+Planned saved assets:
+  seurat/anchors/varela_div30_shi_full_transfer_anchors.rds
+  seurat/anchors/varela_div90_shi_full_transfer_anchors.rds
+  tables/varela_div30_shi_full_anchor_pairs.tsv.gz
+  tables/varela_div90_shi_full_anchor_pairs.tsv.gz
+  tables/varela_div30_shi_full_top_anchor_per_query.tsv.gz
+  tables/varela_div90_shi_full_top_anchor_per_query.tsv.gz
+  tables/*_shi_reference_coordinates_for_anchor_plot.tsv.gz
+  tables/*_query_coordinates_for_anchor_plot.tsv.gz
+  plots/*_shi_full_anchor_projection_static.png/pdf/svg
+  diagnostics/shi_anchor_projection_diagnostics.tsv
+  README.md
+
+Important behavior:
+  - Full anchor objects/tables should include all query cells.
+  - DIV90 static plots should exclude current query clusters 6/7 for visual
+    consistency with finalized figures, but this visualization filter should
+    not remove cells from saved anchor objects/full anchor-pair tables.
+  - This output is distinct from the score-routing diagnostic:
+      score-routing = saved TransferData predictions/scores
+      true projection = saved Seurat anchor links/reference-cell matches
+
+Next steps tomorrow:
+  1. Read/review scripts/14_save_shi_query_anchor_projection_assets.R.
+  2. Create a Slurm template, likely:
+       slurm_templates/49d_save_shi_query_anchor_projection_assets.sbatch.template
+     using the Seurat-capable env/module pattern from existing Seurat jobs.
+     The conda Rscript exists at:
+       /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/Rscript
+     Existing Seurat array templates also use:
+       module load Bioinformatics
+       module load r-seurat/5.1.0-R-4.4.1-c3m7yfq
+  3. Run an R parse check in the chosen Slurm environment if possible.
+  4. Submit via Slurm, not locally.
+  5. Watch logs, timing, memory.
+  6. Validate outputs:
+       anchor RDS files exist and are nonzero
+       anchor-pair TSVs exist and have cell1/cell2/query/reference IDs
+       diagnostics report n_anchors and unique query/reference anchor cells
+       static PNG/PDF/SVG render
+       README/provenance/checksums are present
+  7. Then decide whether to make a polished publication-style anchor plot from
+     those true assets.
+
+Git/worktree note at pause:
+  Untracked:
+    scripts/14_save_shi_query_anchor_projection_assets.R
+```
