@@ -32,6 +32,35 @@ DIV30_PAPER_CLUSTER_MAP = {
     "2": ("5", "MGE subpallial neurons"),
 }
 
+DIV90_PUBLISHED_RECODE = {
+    "0": {"id": "3", "label": "MGE Striatal/GP fated", "keep": True, "exclude_reason": ""},
+    "1": {"id": "1", "label": "SST+, NPY+ Cortical fated", "keep": True, "exclude_reason": ""},
+    "2": {"id": "2", "label": "CRABP1+/PV Precursors", "keep": True, "exclude_reason": ""},
+    "3": {"id": "7", "label": "PV Precursors/Migrating cells/Cortical fated", "keep": True, "exclude_reason": ""},
+    "4": {"id": "8", "label": "Pre-Astrocytes/Astrocytes", "keep": True, "exclude_reason": ""},
+    "5": {"id": "4", "label": "LHX8+ vMGE GABAergic Striatal/GP fated 1", "keep": True, "exclude_reason": ""},
+    "6": {"id": "", "label": "", "keep": False, "exclude_reason": "Stressed Cells"},
+    "7": {"id": "", "label": "", "keep": False, "exclude_reason": "Stressed Cells"},
+    "8": {"id": "5", "label": "LHX8+ vMGE GABAergic Striatal/GP fated 2", "keep": True, "exclude_reason": ""},
+    "9": {"id": "10", "label": "Pre-OPCs/OPCs", "keep": True, "exclude_reason": ""},
+    "10": {"id": "8", "label": "Pre-Astrocytes/Astrocytes", "keep": True, "exclude_reason": ""},
+    "11": {"id": "6", "label": "PV Precursors", "keep": True, "exclude_reason": ""},
+    "12": {"id": "9", "label": "Dividing cells", "keep": True, "exclude_reason": ""},
+}
+
+DIV90_PUBLISHED_ORDER = [
+    "1. SST+, NPY+ Cortical fated",
+    "2. CRABP1+/PV Precursors",
+    "3. MGE Striatal/GP fated",
+    "4. LHX8+ vMGE GABAergic Striatal/GP fated 1",
+    "5. LHX8+ vMGE GABAergic Striatal/GP fated 2",
+    "6. PV Precursors",
+    "7. PV Precursors/Migrating cells/Cortical fated",
+    "8. Pre-Astrocytes/Astrocytes",
+    "9. Dividing cells",
+    "10. Pre-OPCs/OPCs",
+]
+
 
 def parse_study_ids(raw: Iterable[str] | None) -> list[str]:
     values: list[str] = []
@@ -89,13 +118,19 @@ def load_study_table(project_root: Path, run_label: str) -> pd.DataFrame:
     return studies
 
 
-def apply_mapped_cluster_labels(data: pd.DataFrame, study_id: str, div90_mapping: pd.DataFrame) -> pd.DataFrame:
+def apply_mapped_cluster_labels(data: pd.DataFrame, study_id: str, project_root: Path, div90_mapping: pd.DataFrame) -> pd.DataFrame:
     out = data.copy()
     out["raw_cluster"] = out["cluster"].astype(str)
     out["mapped_cluster_id"] = out["raw_cluster"]
     out["mapped_cluster_name"] = out["raw_cluster"]
     out["mapped_cluster_label"] = out["raw_cluster"]
     out["cluster_mapping_source"] = "raw_cluster"
+    out["published_cluster_id"] = out["mapped_cluster_id"]
+    out["published_cluster_name"] = out["mapped_cluster_name"]
+    out["published_cluster_label"] = out["mapped_cluster_label"]
+    out["published_keep"] = True
+    out["published_exclude_reason"] = ""
+    out["published_recode_source"] = "same_as_mapped_cluster"
 
     if study_id == "varela_div30":
         mapped = out["raw_cluster"].map(DIV30_PAPER_CLUSTER_MAP)
@@ -106,6 +141,10 @@ def apply_mapped_cluster_labels(data: pd.DataFrame, study_id: str, div90_mapping
         out["mapped_cluster_name"] = mapped.map(lambda value: value[1])
         out["mapped_cluster_label"] = out["mapped_cluster_id"] + " - " + out["mapped_cluster_name"]
         out["cluster_mapping_source"] = "div30_paper_cluster_annotation_mapping"
+        out["published_cluster_id"] = out["mapped_cluster_id"]
+        out["published_cluster_name"] = out["mapped_cluster_name"]
+        out["published_cluster_label"] = out["mapped_cluster_label"]
+        out["published_recode_source"] = "div30_paper_cluster_annotation_mapping"
     elif study_id == "varela_div90":
         before = out.shape[0]
         out = out.merge(div90_mapping, on="cluster", how="left", suffixes=("", "_div90"))
@@ -117,8 +156,22 @@ def apply_mapped_cluster_labels(data: pd.DataFrame, study_id: str, div90_mapping
         out["mapped_cluster_id"] = out["mapped_cluster_id_div90"]
         out["mapped_cluster_name"] = out["mapped_cluster_name_div90"]
         out["mapped_cluster_label"] = out["mapped_cluster_label_div90"]
-        out["cluster_mapping_source"] = str(div90_mapping_path(DEFAULT_PROJECT_ROOT))
+        out["cluster_mapping_source"] = str(div90_mapping_path(project_root))
         out = out.drop(columns=[col for col in out.columns if col.endswith("_div90")])
+        recoded = out["raw_cluster"].map(DIV90_PUBLISHED_RECODE)
+        if recoded.isna().any():
+            missing = sorted(out.loc[recoded.isna(), "raw_cluster"].unique(), key=natural_sort_key)
+            raise ValueError(f"Unmapped DIV90 published recode clusters in marker table: {missing}")
+        out["published_cluster_id"] = recoded.map(lambda value: value["id"])
+        out["published_cluster_name"] = recoded.map(lambda value: value["label"])
+        out["published_keep"] = recoded.map(lambda value: bool(value["keep"]))
+        out["published_exclude_reason"] = recoded.map(lambda value: value["exclude_reason"])
+        out["published_cluster_label"] = np.where(
+            out["published_keep"],
+            out["published_cluster_id"].astype(str) + ". " + out["published_cluster_name"].astype(str),
+            "EXCLUDED - " + out["published_exclude_reason"].astype(str),
+        )
+        out["published_recode_source"] = "div90_published_fig_d_10_class_recode"
     return out
 
 
@@ -155,9 +208,10 @@ def load_cluster_tables(project_root: Path, run_label: str, studies: pd.DataFram
         data["umap_1"] = pd.to_numeric(data["umap_1"], errors="coerce")
         data["umap_2"] = pd.to_numeric(data["umap_2"], errors="coerce")
         data["study_order"] = row["study_order"]
-        data = apply_mapped_cluster_labels(data, study_id, div90_mapping)
+        data = apply_mapped_cluster_labels(data, study_id, project_root, div90_mapping)
         manifest["n_cells_loaded"] = int(data.shape[0])
         manifest["mapping_source"] = str(data["cluster_mapping_source"].iloc[0])
+        manifest["published_recode_source"] = str(data["published_recode_source"].iloc[0])
         manifest_rows.append(manifest)
         frames.append(data)
     if not frames:
@@ -182,6 +236,14 @@ def apply_figure_filters(data: pd.DataFrame, exclude_study_ids: list[str]) -> tu
             rule = "samarasinghe_2021_controls_only"
             filter_label = "Controls only"
             kept = group.loc[group["sample"].astype(str).str.contains("Ctrl", case=False, na=False)].copy()
+        if not kept.empty and "published_keep" in kept.columns:
+            before_published_filter = kept.shape[0]
+            kept = kept.loc[kept["published_keep"].astype(bool)].copy()
+            if kept.shape[0] < before_published_filter:
+                removed_reasons = sorted(group.loc[~group["published_keep"].astype(bool), "published_exclude_reason"].dropna().astype(str).unique())
+                rule = f"{rule};published_recode_keep_filter" if rule != "none" else "published_recode_keep_filter"
+                reason_text = ",".join(reason for reason in removed_reasons if reason)
+                filter_label = f"{filter_label}; Published recode excludes {reason_text}".strip("; ")
         summaries.append(
             {
                 "study_id": study_id,
@@ -203,7 +265,24 @@ def apply_figure_filters(data: pd.DataFrame, exclude_study_ids: list[str]) -> tu
 
 def cluster_counts(data: pd.DataFrame, scope: str) -> pd.DataFrame:
     counts = (
-        data.groupby(["study_id", "study_label", "raw_cluster", "mapped_cluster_id", "mapped_cluster_name", "mapped_cluster_label", "cluster_mapping_source"], sort=False)
+        data.groupby(
+            [
+                "study_id",
+                "study_label",
+                "raw_cluster",
+                "mapped_cluster_id",
+                "mapped_cluster_name",
+                "mapped_cluster_label",
+                "cluster_mapping_source",
+                "published_cluster_id",
+                "published_cluster_name",
+                "published_cluster_label",
+                "published_keep",
+                "published_exclude_reason",
+                "published_recode_source",
+            ],
+            sort=False,
+        )
         .size()
         .reset_index(name="n_cells")
     )
@@ -217,7 +296,23 @@ def cluster_counts(data: pd.DataFrame, scope: str) -> pd.DataFrame:
 
 def sample_cluster_counts(data: pd.DataFrame, scope: str) -> pd.DataFrame:
     out = (
-        data.groupby(["study_id", "study_label", "sample", "raw_cluster", "mapped_cluster_id", "mapped_cluster_name", "mapped_cluster_label"], sort=False)
+        data.groupby(
+            [
+                "study_id",
+                "study_label",
+                "sample",
+                "raw_cluster",
+                "mapped_cluster_id",
+                "mapped_cluster_name",
+                "mapped_cluster_label",
+                "published_cluster_id",
+                "published_cluster_name",
+                "published_cluster_label",
+                "published_keep",
+                "published_exclude_reason",
+            ],
+            sort=False,
+        )
         .size()
         .reset_index(name="n_cells")
     )
@@ -228,7 +323,7 @@ def sample_cluster_counts(data: pd.DataFrame, scope: str) -> pd.DataFrame:
 def study_summary(data: pd.DataFrame, scope: str) -> pd.DataFrame:
     rows = []
     for (study_id, study_label), group in data.groupby(["study_id", "study_label"], sort=False):
-        clusters = sorted(group["mapped_cluster_label"].astype(str).unique(), key=natural_sort_key)
+        clusters = sorted(group["published_cluster_label"].astype(str).unique(), key=natural_sort_key)
         rows.append(
             {
                 "scope": scope,
@@ -238,6 +333,8 @@ def study_summary(data: pd.DataFrame, scope: str) -> pd.DataFrame:
                 "n_clusters": len(clusters),
                 "cluster_labels": ";".join(clusters),
                 "raw_cluster_labels": ";".join(sorted(group["raw_cluster"].astype(str).unique(), key=natural_sort_key)),
+                "excluded_raw_cluster_labels": ";".join(sorted(group.loc[~group["published_keep"].astype(bool), "raw_cluster"].astype(str).unique(), key=natural_sort_key)),
+                "excluded_reasons": ";".join(sorted(reason for reason in group["published_exclude_reason"].dropna().astype(str).unique() if reason)),
                 "n_samples": int(group["sample"].nunique()),
                 "sample_values": ";".join(sorted(group["sample"].astype(str).unique())),
             }
@@ -257,10 +354,11 @@ def cluster_palette(labels: list[str]) -> dict[str, tuple[float, float, float, f
 
 def label_positions(group: pd.DataFrame) -> pd.DataFrame:
     rows = []
-    for cluster, subset in group.groupby("mapped_cluster_label", sort=False):
+    for cluster, subset in group.groupby("published_cluster_label", sort=False, observed=True):
         rows.append(
             {
                 "cluster": cluster,
+                "cluster_id": str(subset["published_cluster_id"].iloc[0]),
                 "x": float(np.nanmedian(subset["umap_1"].to_numpy(dtype=float))),
                 "y": float(np.nanmedian(subset["umap_2"].to_numpy(dtype=float))),
                 "n_cells": int(subset.shape[0]),
@@ -286,10 +384,10 @@ def plot_cluster_grid(data: pd.DataFrame, output_prefix: Path, title: str, max_l
     for ax, (study_id, study_label) in zip(axes.ravel(), study_keys):
         subset = data.loc[(data["study_id"] == study_id) & (data["study_label"] == study_label)].copy()
         subset = subset[np.isfinite(subset["umap_1"]) & np.isfinite(subset["umap_2"])]
-        clusters = sorted(subset["mapped_cluster_label"].astype(str).unique(), key=natural_sort_key)
+        clusters = sorted(subset["published_cluster_label"].astype(str).unique(), key=natural_sort_key)
         colors = cluster_palette(clusters)
         for cluster in clusters:
-            cluster_data = subset.loc[subset["mapped_cluster_label"] == cluster]
+            cluster_data = subset.loc[subset["published_cluster_label"] == cluster]
             ax.scatter(
                 cluster_data["umap_1"],
                 cluster_data["umap_2"],
@@ -304,7 +402,7 @@ def plot_cluster_grid(data: pd.DataFrame, output_prefix: Path, title: str, max_l
                 ax.text(
                     row["x"],
                     row["y"],
-                    str(row["cluster"]).split(" - ", 1)[0],
+                    str(row["cluster_id"]),
                     ha="center",
                     va="center",
                     fontsize=6.5,
@@ -340,6 +438,137 @@ def plot_cluster_grid(data: pd.DataFrame, output_prefix: Path, title: str, max_l
     plt.close(fig)
 
 
+def div90_published_data(data: pd.DataFrame) -> pd.DataFrame:
+    div90 = data.loc[(data["study_id"] == "varela_div90") & data["published_keep"].astype(bool)].copy()
+    if div90.empty:
+        raise ValueError("No DIV90 cells remain after published recode keep filter.")
+    div90["published_cluster_label"] = pd.Categorical(
+        div90["published_cluster_label"],
+        categories=DIV90_PUBLISHED_ORDER,
+        ordered=True,
+    )
+    return div90
+
+
+def write_div90_published_recode_tables(data: pd.DataFrame, outdir: Path) -> None:
+    div90_all = data.loc[data["study_id"] == "varela_div90"].copy()
+    recode = (
+        div90_all[
+            [
+                "raw_cluster",
+                "mapped_cluster_label",
+                "published_cluster_id",
+                "published_cluster_name",
+                "published_cluster_label",
+                "published_keep",
+                "published_exclude_reason",
+                "published_recode_source",
+            ]
+        ]
+        .drop_duplicates()
+        .sort_values(["raw_cluster"], key=lambda col: col.map(lambda value: natural_sort_key(value) if col.name == "raw_cluster" else value))
+    )
+    recode.to_csv(outdir / "div90_published_fig_d_10_class_recode.tsv", sep="\t", index=False)
+
+    div90 = div90_published_data(data)
+    counts = (
+        div90.groupby(["published_cluster_id", "published_cluster_name", "published_cluster_label"], observed=True)
+        .size()
+        .reset_index(name="n_cells")
+    )
+    counts["fraction_cells"] = counts["n_cells"] / counts["n_cells"].sum()
+    counts["published_cluster_label"] = pd.Categorical(
+        counts["published_cluster_label"],
+        categories=DIV90_PUBLISHED_ORDER,
+        ordered=True,
+    )
+    counts = counts.sort_values("published_cluster_label")
+    counts.to_csv(outdir / "div90_published_fig_d_cluster_counts.tsv", sep="\t", index=False)
+
+    sample_counts = (
+        div90.groupby(["sample", "published_cluster_id", "published_cluster_name", "published_cluster_label"], observed=True)
+        .size()
+        .reset_index(name="n_cells")
+    )
+    sample_totals = sample_counts.groupby("sample")["n_cells"].transform("sum")
+    sample_counts["fraction_cells"] = sample_counts["n_cells"] / sample_totals
+    sample_counts["published_cluster_label"] = pd.Categorical(
+        sample_counts["published_cluster_label"],
+        categories=DIV90_PUBLISHED_ORDER,
+        ordered=True,
+    )
+    sample_counts = sample_counts.sort_values(["sample", "published_cluster_label"])
+    sample_counts.to_csv(outdir / "div90_published_fig_d_sample_composition.tsv", sep="\t", index=False)
+
+
+def plot_div90_published_umap(data: pd.DataFrame, output_prefix: Path) -> None:
+    div90 = div90_published_data(data)
+    labels = [label for label in DIV90_PUBLISHED_ORDER if label in set(div90["published_cluster_label"].astype(str))]
+    colors = cluster_palette(labels)
+    fig, ax = plt.subplots(figsize=(7.4, 5.8))
+    for label in labels:
+        subset = div90.loc[div90["published_cluster_label"].astype(str) == label]
+        ax.scatter(subset["umap_1"], subset["umap_2"], s=0.5, c=[colors[label]], linewidths=0, rasterized=True, label=label)
+    positions = label_positions(div90)
+    for _, row in positions.iterrows():
+        ax.text(
+            row["x"],
+            row["y"],
+            str(row["cluster_id"]),
+            ha="center",
+            va="center",
+            fontsize=7,
+            fontweight="bold",
+            color="black",
+            bbox={"boxstyle": "round,pad=0.12", "facecolor": "white", "edgecolor": "black", "linewidth": 0.25, "alpha": 0.82},
+        )
+    ax.set_title(f"DIV90 published Fig. D classes\nn={div90.shape[0]:,}", fontsize=11)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_aspect("equal", adjustable="box")
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    handles = [Line2D([0], [0], marker="o", color="none", markerfacecolor=colors[label], markersize=5, label=label) for label in labels]
+    ax.legend(handles=handles, title="Published class", loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False, fontsize=7, title_fontsize=8)
+    fig.tight_layout()
+    fig.savefig(output_prefix.with_suffix(".png"), dpi=450, bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".pdf"), bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".svg"), bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_div90_sample_composition(data: pd.DataFrame, output_prefix: Path) -> None:
+    div90 = div90_published_data(data)
+    labels = [label for label in DIV90_PUBLISHED_ORDER if label in set(div90["published_cluster_label"].astype(str))]
+    colors = cluster_palette(labels)
+    counts = (
+        div90.groupby(["sample", "published_cluster_label"], observed=True)
+        .size()
+        .reset_index(name="n_cells")
+    )
+    pivot = counts.pivot_table(index="sample", columns="published_cluster_label", values="n_cells", fill_value=0, observed=True)
+    pivot = pivot.reindex(columns=labels, fill_value=0)
+    fractions = pivot.div(pivot.sum(axis=1), axis=0)
+    fig, ax = plt.subplots(figsize=(8.2, 4.8))
+    bottom = np.zeros(fractions.shape[0])
+    x = np.arange(fractions.shape[0])
+    for label in labels:
+        values = fractions[label].to_numpy(dtype=float)
+        ax.bar(x, values, bottom=bottom, color=colors[label], width=0.78, label=label)
+        bottom += values
+    ax.set_xticks(x)
+    ax.set_xticklabels(fractions.index.astype(str), rotation=35, ha="right", fontsize=8)
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("Fraction of cells")
+    ax.set_title("DIV90 sample composition by published Fig. D class", fontsize=11)
+    ax.legend(title="Published class", loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False, fontsize=7, title_fontsize=8)
+    fig.tight_layout()
+    fig.savefig(output_prefix.with_suffix(".png"), dpi=450, bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".pdf"), bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".svg"), bbox_inches="tight")
+    plt.close(fig)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", type=Path, default=DEFAULT_PROJECT_ROOT)
@@ -356,6 +585,7 @@ def main() -> None:
     studies = load_study_table(args.project_root, args.run_label)
     data, source_manifest = load_cluster_tables(args.project_root, args.run_label, studies)
     source_manifest.to_csv(outdir / "cluster_umap_qc_source_manifest.tsv", sep="\t", index=False)
+    write_div90_published_recode_tables(data, outdir)
 
     exclude_ids = parse_study_ids(args.exclude_study_id)
     figure_data, filter_summary = apply_figure_filters(data, exclude_ids)
@@ -392,6 +622,14 @@ def main() -> None:
         data,
         outdir / "cross_study_marker_expression_v12_cluster_umap_qc_all_prepared_cells",
         "Cross-study cluster UMAP QC - all prepared marker tables",
+    )
+    plot_div90_published_umap(
+        data,
+        outdir / "div90_published_fig_d_10_class_umap",
+    )
+    plot_div90_sample_composition(
+        data,
+        outdir / "div90_published_fig_d_sample_composition",
     )
     print(f"Wrote cluster QC outputs to: {outdir}", flush=True)
 

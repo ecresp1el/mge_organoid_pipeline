@@ -193,7 +193,7 @@ SVG: generated whenever Matplotlib/ggplot output supports it cleanly.
 
 | Figure ID | Status | Candidate Path | Notes |
 | --- | --- | --- | --- |
-| `fig_cross_study_marker_expression_v12` | Found, Log-audited | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12` | Multi-study ON/OFF-target and PV precursor marker-expression UMAP grids. Formatting changes pending. |
+| `fig_cross_study_marker_expression_v12` | Found, Log-audited, Modifying | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12` | Multi-study ON/OFF-target and PV precursor marker-expression UMAP grids. DIV90 published Fig. D recode QC added. |
 
 ## Figure: fig_cross_study_marker_expression_v12
 
@@ -204,7 +204,7 @@ Found: yes
 Log-audited: yes
 Confirmed: pending user visual review
 Modified: no
-Validated: no
+Validated: partial; DIV90 published Fig. D recode outputs validated
 Finalized: no
 ```
 
@@ -309,6 +309,20 @@ cluster_qc/cross_study_marker_expression_v12_cluster_umap_qc_all_prepared_cells.
 cluster_qc/cross_study_marker_expression_v12_cluster_umap_qc_all_prepared_cells.svg
 ```
 
+DIV90 published Fig. D recode assets:
+
+```text
+cluster_qc/div90_published_fig_d_10_class_recode.tsv
+cluster_qc/div90_published_fig_d_cluster_counts.tsv
+cluster_qc/div90_published_fig_d_sample_composition.tsv
+cluster_qc/div90_published_fig_d_10_class_umap.png
+cluster_qc/div90_published_fig_d_10_class_umap.pdf
+cluster_qc/div90_published_fig_d_10_class_umap.svg
+cluster_qc/div90_published_fig_d_sample_composition.png
+cluster_qc/div90_published_fig_d_sample_composition.pdf
+cluster_qc/div90_published_fig_d_sample_composition.svg
+```
+
 ### Log Audit
 
 Log audit:
@@ -371,7 +385,13 @@ analysis or Seurat/H5AD extraction was rerun.
     exclude bershteyn_2025; Samarasinghe controls only.
   - Updated cluster QC labels for this-study panels:
     DIV30 uses collapsed paper/manual cluster classes.
-    DIV90 uses the audited cluster_number_name mapping table.
+    DIV90 first joins the audited current/raw cluster_number_name mapping table.
+  - Added DIV90 published Fig. D recode layer on top of current/raw cluster IDs.
+    Raw/current DIV90 cluster IDs are provenance only and must not be treated as
+    the published 10-class annotation.
+  - DIV90 current clusters 6 and 7 are excluded from published-style outputs as
+    Stressed Cells. The Stressed Cells label is allowed only in the recode audit
+    table, not in published-style UMAP legends or sample composition plots.
 ```
 
 Mapped label sources:
@@ -395,6 +415,50 @@ DIV90:
   Metadata columns confirmed in source obs:
     cluster_id
     cluster_number_name
+  Current/raw cluster labels:
+    0  - MGE Striatal/GP Fated
+    1  - SST+, NPY +, Cortical Fated
+    2  - CRABP1+/PV Precursors
+    3  - PV precursors/Migrating cells/Cortical-fated
+    4  - Pre-Astrocytes/Astrocytes 1
+    5  - LHX8+ vMGE GABergic Striatal/GP fated 1
+    6  - Stressed Cells
+    7  - Stressed Cells
+    8  - LHX8+ vMGE GABergic Striatal/GP fated 2
+    9  - Pre-OPCs/OPCs
+    10 - Pre-Astrocytes/Astrocytes 2
+    11 - PV Precursors
+    12 - Dividing cells
+```
+
+DIV90 published Fig. D recode:
+
+```text
+Current raw cluster 0  -> 3. MGE Striatal/GP fated
+Current raw cluster 1  -> 1. SST+, NPY+ Cortical fated
+Current raw cluster 2  -> 2. CRABP1+/PV Precursors
+Current raw cluster 3  -> 7. PV Precursors/Migrating cells/Cortical fated
+Current raw cluster 4  -> 8. Pre-Astrocytes/Astrocytes
+Current raw cluster 5  -> 4. LHX8+ vMGE GABAergic Striatal/GP fated 1
+Current raw cluster 6  -> excluded; Stressed Cells
+Current raw cluster 7  -> excluded; Stressed Cells
+Current raw cluster 8  -> 5. LHX8+ vMGE GABAergic Striatal/GP fated 2
+Current raw cluster 9  -> 10. Pre-OPCs/OPCs
+Current raw cluster 10 -> 8. Pre-Astrocytes/Astrocytes
+Current raw cluster 11 -> 6. PV Precursors
+Current raw cluster 12 -> 9. Dividing cells
+
+Published order:
+  1. SST+, NPY+ Cortical fated
+  2. CRABP1+/PV Precursors
+  3. MGE Striatal/GP fated
+  4. LHX8+ vMGE GABAergic Striatal/GP fated 1
+  5. LHX8+ vMGE GABAergic Striatal/GP fated 2
+  6. PV Precursors
+  7. PV Precursors/Migrating cells/Cortical fated
+  8. Pre-Astrocytes/Astrocytes
+  9. Dividing cells
+  10. Pre-OPCs/OPCs
 ```
 
 ### Validation
@@ -405,6 +469,14 @@ Cluster QC grid was visually spot-checked after render. The figure-default grid
 uses study table order and shows cluster IDs over each study's UMAP.
 Second QC render confirmed DIV30 collapsed to 5 mapped paper/manual classes and
 DIV90 joined to the 13 audited cluster_number_name labels.
+DIV90 published Fig. D outputs validated after rerender:
+  - 22,338 DIV90 cells before published recode keep filter.
+  - 20,049 DIV90 cells after excluding current clusters 6 and 7.
+  - 2,289 cells removed as Stressed Cells.
+  - Published output TSV/SVG files have no "Stressed" or "EXCLUDED" matches.
+  - UMAP and sample-composition PNGs were visually spot-checked.
+  - Final published-style legend/bar plot contains exactly the 10 published
+    Fig. D classes.
 ```
 
 ### Final Figure Package
