@@ -1179,6 +1179,66 @@ Jia-style biology, compare this broad run against the targeted
 MGE/CGE/LLC interpretation.
 ```
 
+Update after submission:
+
+```text
+Full archival bridge completed:
+  job_id: 52393300_4
+  state: COMPLETED
+  elapsed: 00:12:19
+  max_rss: 85,869,300K
+  output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_full_staged_supercluster_bridge_v1/mge_cge_llc_splatter
+
+Full fast-kNN jobs started:
+  job_id: 52393320
+  job_name: siletti-fullknn-jia
+  run_label: siletti_div90_fast_knn_full_staged_superclusters_candidate_jia_v1
+
+  job_id: 52393321
+  job_name: siletti-fullknn-mtg
+  run_label: siletti_div90_fast_knn_full_staged_superclusters_mtg_label_v1
+
+Full Jia-style plot render submitted behind full Jia fast-kNN:
+  job_id: 52395391
+  job_name: siletti-full-jia-fig
+  dependency: afterok:52393320
+  run_label: siletti_div90_jia_style_figure_full_staged_superclusters_v1
+  job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/48_siletti_full_staged_jia_style_figure_v1.sbatch
+```
+
+Downsampled plot-progress branch:
+
+```text
+Purpose:
+  Keep a faster plotting branch available while full reference transfer/plotting
+  runs. This uses the same broad `mge_cge_llc_splatter` scope, but exports at
+  most 100 cells per Siletti subcluster and at most 60,000 total adult reference
+  cells. Query cells remain uncapped.
+
+Downsampled bridge:
+  job_id: 52395346_4
+  job_name: siletti-bridge-ds
+  run_label: siletti_div90_plot_progress_downsample_bridge_v1
+  scope: mge_cge_llc_splatter
+  max_ref_cells_per_subcluster: 100
+  max_ref_cells_total: 60000
+  job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/41_export_siletti_div90_plot_progress_downsample_bridge_v1.sbatch
+  expected output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_plot_progress_downsample_bridge_v1/mge_cge_llc_splatter
+
+Downsampled Jia fast-kNN:
+  job_id: 52395347
+  job_name: siletti-ds-knn-jia
+  dependency: afterok:52395346
+  run_label: siletti_div90_fast_knn_plot_progress_downsample_candidate_jia_v1
+
+Downsampled Jia-style plot render:
+  job_id: 52395348
+  job_name: siletti-ds-jia-fig
+  dependency: afterok:52395347
+  run_label: siletti_div90_jia_style_figure_plot_progress_downsample_v1
+  job file: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/48_siletti_plot_progress_downsample_jia_style_figure_v1.sbatch
+```
+
 ## Operational Notes
 
 This metadata audit is small enough for login-node inspection because it only
