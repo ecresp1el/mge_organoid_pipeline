@@ -249,6 +249,7 @@ Slurm execution standard:
 | `fig_cross_study_marker_expression_v12` | Found, Log-audited, Modifying, Validated, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12` | First final folder created for cluster UMAP QC / DIV90 published recode outputs. Rerendered with editable Arial SVG text and 600 dpi export for rasterized UMAP layers. Other marker-expression multi-grids still pending formatting/finalization. |
 | `fig_cross_study_marker_expression_pv_precursors_on_off_target_v12` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate` | Plot-only rerender from v12 prepared marker tables. Added Bershteyn 2025, added PV ON-target LHX6/LHX8/NKX2.1, retained ERBB4, applied DIV90 vertical plotting-only UMAP orientation, removed DIV90 stressed clusters 6/7 from visualization only, drew expression values 0-1 as background gray with blue scale starting above 1, colorbars labeled from 0, exported PNG/PDF/SVG at 600 dpi through Slurm job 52370542 with editable Arial SVG text. |
 | `fig_cross_study_shi_label_transfer_v1_umap_score_grids` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1` | Plot-only rerender of Shi Seurat label-transfer UMAP score grids and matched sample-composition panels from saved v1 combined table. Updated score grids to fixed 0-1 grey-to-blue scaling, applied DIV90 visualization-only stressed-cluster 6/7 removal, applied DIV90 vertical plotting-only UMAP orientation, wrapped long all-label headers, exported requested PNG/PDF/SVG at 600 dpi through Slurm job 52371207 with editable Arial SVG text. Added sample-composition panels through Slurm job 52371553 using the same final denominator and Bershteyn 2023 shorthand sample labels. |
+| `fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate` | Found, Confirmed, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1` | New candidate package created for the DIV90 Jia all-cell URD marker-validation, UMAP pseudotime, and cluster-number-name tree pseudotime panels. Current assets were copied into `final_figures`; formatting should proceed by plot-only re-render from existing assets, not by recomputing URD pseudotime, the lineage tree, or marker validation. |
 
 ## Figure: fig_cross_study_marker_expression_v12
 
@@ -1245,12 +1246,42 @@ Current status:
   - Slurm template has been written.
   - Combined Slurm job 52371983 was submitted, started, and was cancelled by
     user request because the user prefers separate DIV30 and DIV90 jobs.
-  - No anchor assets have been generated yet as of the last check.
+  - Replacement separate Slurm jobs completed successfully:
+      DIV30: job 52372021, COMPLETED, 00:14:29, MaxRSS 99904956K
+      DIV90: job 52372022, COMPLETED, 00:07:07, MaxRSS 37740076K
+  - True Seurat anchor assets were generated for both DIV30 and DIV90:
+      anchor RDS files saved
+      anchor-pair TSVs saved
+      top-anchor-per-query TSVs saved
+      query/reference coordinate TSVs saved
+      diagnostics, README, provenance, logs, and checksums saved
+  - Static anchor line plots did not render for either study. Diagnostics report
+    static_plot_rendered = FALSE. Logs indicate no sampled line links survived
+    the coordinate merge. This is a plotting/ID-merge issue to inspect from
+    the saved TSV/RDS assets; it does not mean the anchor computation failed.
+  - Follow-up plot-only renderer was added and run successfully from saved
+    assets only:
+      python_notebooks/scripts/render_shi_true_anchor_projection_from_assets.py
+      slurm_templates/49e_render_shi_true_anchor_projection_from_assets.sbatch.template
+    Final plot-only Slurm job:
+      52389891, COMPLETED, 00:00:52, MaxRSS 1069688K, ExitCode 0:0
+    Output directory:
+      /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_anchor_projection_v1/true_anchor_projection_plots
+    This renderer fixes the plotting-only reference ID mismatch by stripping
+    the anchor-table suffix "_reference" before joining to the Shi coordinate
+    table. It does not rerun FindTransferAnchors.
+    Current formatted figure adds lower reference subpanels under each
+    projection panel:
+      query UMAP colored by query cluster, with cluster numbers at centroids
+      Shi reference UMAP colored by Shi major class or GW/stage
+    Current renderer uses full saved anchor-pair tables for lines, not the
+    top-anchor-only table, and plots all cells from saved coordinate tables
+    without point downsampling.
   - Local/login-node R inspection failed/OOMed with exit 137 when trying to
-    read large RDS objects, so this must be run on Slurm.
+    read large RDS objects, so any heavy R/Seurat inspection should use Slurm.
   - A first submission with 200G memory was rejected by Slurm because the node
-    configuration was unavailable; the accepted submission uses 160G, matching
-    the existing Shi transfer array memory request.
+    configuration was unavailable; the accepted separate submissions used 160G,
+    matching the existing Shi transfer array memory request.
 
 Intended output run label:
   cross_study_shi_seurat_anchor_projection_v1
@@ -1298,33 +1329,93 @@ Important behavior:
       score-routing = saved TransferData predictions/scores
       true projection = saved Seurat anchor links/reference-cell matches
 
-Next steps tomorrow:
-  1. Read/review scripts/14_save_shi_query_anchor_projection_assets.R.
-  2. Review Slurm template:
-       slurm_templates/49d_save_shi_query_anchor_projection_assets.sbatch.template
-     It uses the Seurat-capable module pattern from existing Seurat jobs:
-       module load Bioinformatics
-       module load r-seurat/5.1.0-R-4.4.1-c3m7yfq
-  3. Check the replacement separate Slurm jobs after submission.
-     Cancelled combined job:
-       52371983
-     Cancelled state:
-       CANCELLED at 00:05:19
-     Replacement separate jobs:
-       DIV30: 52372021, RUNNING on gl3018 at last poll
-       DIV90: 52372022, RUNNING on gl3205 at last poll
-     Replacement output directories:
-       /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_anchor_projection_v1/varela_div30
-       /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_anchor_projection_v1/varela_div90
-  4. Watch logs, timing, memory.
-  5. Validate outputs:
-       anchor RDS files exist and are nonzero
-       anchor-pair TSVs exist and have cell1/cell2/query/reference IDs
-       diagnostics report n_anchors and unique query/reference anchor cells
-       static PNG/PDF/SVG render
-       README/provenance/checksums are present
-  6. Then decide whether to make a polished publication-style anchor plot from
-     those true assets.
+Completed Slurm details:
+  Cancelled combined job:
+    52371983
+  Cancelled state:
+    CANCELLED at 00:05:19
+  Replacement separate jobs:
+    DIV30: 52372021, COMPLETED, 00:14:29, MaxRSS 99904956K, ExitCode 0:0
+    DIV90: 52372022, COMPLETED, 00:07:07, MaxRSS 37740076K, ExitCode 0:0
+  Output directories:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_anchor_projection_v1/varela_div30
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_anchor_projection_v1/varela_div90
+
+Completed diagnostics:
+  DIV30:
+    n_query_cells = 90631
+    n_reference_cells = 38831
+    n_shared_features = 14354
+    dims = 1:50
+    n_anchors = 665
+    n_unique_query_anchor_cells = 492
+    n_unique_reference_anchor_cells = 219
+    anchor_rds_saved = TRUE
+    static_plot_rendered = FALSE
+  DIV90:
+    n_query_cells = 22338
+    n_reference_cells = 38831
+    n_shared_features = 14354
+    dims = 1:50
+    n_anchors = 1096
+    n_unique_query_anchor_cells = 694
+    n_unique_reference_anchor_cells = 424
+    div90_plot_filter = static_plot_excludes_query_clusters_6_7
+    anchor_rds_saved = TRUE
+    static_plot_rendered = FALSE
+
+Completed true-anchor plot-only diagnostics:
+  Source:
+    saved full anchor-pair tables and saved query/reference coordinate tables from
+    cross_study_shi_seurat_anchor_projection_v1
+  Output:
+    true_anchor_projection_plots/figures
+  DIV30:
+    n_query_cells_plotted_no_downsampling = 90631
+    n_reference_cells_plotted_no_downsampling = 38831
+    n_anchor_links_after_link_flag_filter = 665
+    n_reference_ids_exact_match_before_suffix_fix = 0
+    n_reference_ids_match_after_suffix_fix = 665
+    n_query_ids_match_coordinates = 665
+    n_links_after_coordinate_merge = 665
+    n_anchor_links_removed_by_coordinate_visual_filter = 0
+    n_unique_query_anchor_cells_after_merge = 492
+    n_unique_reference_anchor_cells_after_merge = 219
+  DIV90:
+    n_query_cells_plotted_no_downsampling = 20049
+    n_reference_cells_plotted_no_downsampling = 38831
+    n_anchor_links_after_link_flag_filter = 1096
+    n_reference_ids_exact_match_before_suffix_fix = 0
+    n_reference_ids_match_after_suffix_fix = 1096
+    n_query_ids_match_coordinates = 939
+    n_links_after_coordinate_merge = 939
+    n_anchor_links_removed_by_coordinate_visual_filter = 157
+    n_unique_query_anchor_cells_after_merge = 576
+    n_unique_reference_anchor_cells_after_merge = 353
+  Figures written for both PNG/PDF/SVG:
+    div30_div90_shi_true_anchor_projection_major_class_side_by_side_grid
+    div30_div90_shi_true_anchor_projection_gw_stage_side_by_side_grid
+    varela_div30_shi_true_anchor_projection_major_class_side_by_side
+    varela_div30_shi_true_anchor_projection_gw_stage_side_by_side
+    varela_div90_shi_true_anchor_projection_major_class_side_by_side
+    varela_div90_shi_true_anchor_projection_gw_stage_side_by_side
+  SVG validation:
+    Text remains editable as <text>.
+    SVG font styles contain Arial and no DejaVu fallback text styles.
+  Visual logic:
+    Each panel places query UMAP next to corresponding Shi et al. reference UMAP.
+    Lines connect all saved true Seurat anchor links that survive plotting
+    coordinate/visual filters.
+    A lower subpanel under each projection panel shows:
+      query clusters
+      Shi major classes or Shi GW/stage labels
+    DIV90 query uses visualization-only stressed-cell exclusion and vertical
+    flip, matching finalized Shi UMAP logic.
+
+Current next step:
+  Review the rendered PNG/PDF/SVG in true_anchor_projection_plots/figures. If
+  aesthetics need more tuning, rerun only the plot-only script/template; do not
+  rerun FindTransferAnchors unless the anchor assets themselves are questioned.
 
 Git/worktree note at pause:
   Modified/tracked:
@@ -1332,4 +1423,162 @@ Git/worktree note at pause:
     scripts/14_save_shi_query_anchor_projection_assets.R
   Untracked/new:
     slurm_templates/49d_save_shi_query_anchor_projection_assets.sbatch.template
+```
+
+## Figure: fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate
+
+### Status
+
+```text
+Found: yes
+Confirmed: yes; user selected these three current DIV90 URD assets
+Log-audited: pending
+Modified: no
+Validated: package-start validation only; source files exist and are nonzero
+Finalized: no; candidate folder created for formatting/replotting
+```
+
+### Candidate Paths
+
+Source run root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1
+```
+
+User-facing mounted-path alias:
+
+```text
+/Volumes/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1
+```
+
+Candidate plots:
+
+```text
+jia_fig_s11_style_marker_validation_v1/plots/jia_fig_s11_style_urd_marker_validation.png
+lineage_decision_report/plots/umap_pseudotime.png
+lineage_tree_cluster_number_name_v1/plots/urd_tree_pseudotime.png
+```
+
+### Source Code and Handoffs
+
+Relevant source scripts/templates copied into the candidate package:
+
+```text
+scripts/15_div30_urd_lineage_decision_report.R
+scripts/17_div30_urd_finalize_lineage_tree_report.R
+scripts/25_div30_urd_jia_fig_s11_marker_validation.R
+slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template
+slurm_templates/36_refresh_urd_posthoc_plots.sbatch.template
+```
+
+Relevant source handoff:
+
+```text
+python_notebooks/HANDOFF_div90_jia_lineage_urd_plan.md
+```
+
+### Prepared Assets
+
+Initial final-figure candidate folder:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate
+```
+
+Frozen current assets copied into the package:
+
+```text
+figures/png/current_jia_fig_s11_style_urd_marker_validation.png
+figures/png/current_umap_pseudotime.png
+figures/png/current_urd_tree_pseudotime_cluster_number_name.png
+figures/pdf/current_jia_fig_s11_style_urd_marker_validation.pdf
+```
+
+Copied plotting/provenance tables:
+
+```text
+tables/jia_fig_s11_marker_order.tsv
+tables/jia_fig_s11_marker_expression_summary.tsv
+tables/pseudotime_ordering_by_annotation.tsv
+tables/root_annotation_composition.tsv
+tables/cluster_number_name_tree_status.tsv
+tables/cluster_number_name_tree_tip_composition.tsv
+```
+
+Package provenance:
+
+```text
+README.md
+provenance/source_paths.tsv
+provenance/file_manifest.txt
+provenance/sha256_manifest.txt
+provenance/git_commit.txt
+provenance/git_status_short.txt
+provenance/HANDOFF_div90_jia_lineage_urd_plan.md
+provenance/HANDOFF_transition_to_final_figs_at_package_start.md
+logs/render_status.txt
+```
+
+### Log Audit
+
+```text
+Pending. The package currently records copied source assets only.
+No new Slurm or local render was launched for this package on 2026-06-26.
+```
+
+### Rerun Decision
+
+```text
+Do not recompute upstream URD analysis for formatting.
+
+For this figure set, do not recompute:
+  - URD pseudotime
+  - lineage tree construction
+  - marker-validation expression summaries
+
+Formatting should proceed by plot-only re-render from the existing production
+run assets and copied plotting tables. If script edits are needed, make them in
+a dedicated final/reformat script and record the command/logs in this package.
+```
+
+### Modification Log
+
+```text
+2026-06-26:
+  - User selected the current marker-validation, UMAP pseudotime, and
+    cluster-number-name tree pseudotime assets for final-figure reformatting.
+  - Confirmed the /nfs/turbo source files exist and are nonzero.
+  - Created the candidate final-figure folder.
+  - Copied current PNG/PDF assets, key tables, source scripts/templates, and
+    provenance into the package.
+  - Recorded explicitly that formatting should begin from current assets and
+    should not rerun upstream URD computation.
+```
+
+### Validation
+
+```text
+Package-start validation:
+  current_jia_fig_s11_style_urd_marker_validation.png: copied, nonzero
+  current_umap_pseudotime.png: copied, nonzero
+  current_urd_tree_pseudotime_cluster_number_name.png: copied, nonzero
+  current_jia_fig_s11_style_urd_marker_validation.pdf: copied, nonzero
+
+Visual formatting review pending user direction.
+```
+
+### Final Figure Package
+
+```text
+Started, not finalized:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate
+```
+
+### Open Questions
+
+```text
+Awaiting user direction on formatting changes: dimensions, labels, panel
+composition, color scales, fonts, export formats, and whether to keep the three
+plots separate or assemble them into a multi-panel figure.
 ```

@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# Render true Shi anchor projection plots from saved anchor assets only.
+
+#SBATCH --job-name=shi-anchor-plot
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=32G
+#SBATCH --time=01:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-anchor-plot-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-anchor-plot-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+RUN_DIR="${RUN_DIR:-${PROJECT_ROOT}/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_anchor_projection_v1}"
+OUT_DIR="${OUT_DIR:-${RUN_DIR}/true_anchor_projection_plots}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${OUT_DIR}"/{logs,provenance}
+cd "${REPO_ROOT}"
+
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+echo "Shi true anchor plot-only job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Run dir: ${RUN_DIR}"
+echo "Out dir: ${OUT_DIR}"
+echo "Python: $("${CONDA_ENV_BIN}/python" --version 2>&1)"
+
+"${CONDA_ENV_BIN}/python" -m py_compile python_notebooks/scripts/render_shi_true_anchor_projection_from_assets.py
+
+"${CONDA_ENV_BIN}/python" python_notebooks/scripts/render_shi_true_anchor_projection_from_assets.py \
+  --run-dir "${RUN_DIR}" \
+  --out-dir "${OUT_DIR}" \
+  --studies varela_div30 varela_div90
+
+for path in \
+  "${OUT_DIR}/figures/div30_div90_shi_true_anchor_projection_major_class_side_by_side_grid.png" \
+  "${OUT_DIR}/figures/div30_div90_shi_true_anchor_projection_major_class_side_by_side_grid.pdf" \
+  "${OUT_DIR}/figures/div30_div90_shi_true_anchor_projection_major_class_side_by_side_grid.svg" \
+  "${OUT_DIR}/figures/div30_div90_shi_true_anchor_projection_gw_stage_side_by_side_grid.png" \
+  "${OUT_DIR}/figures/div30_div90_shi_true_anchor_projection_gw_stage_side_by_side_grid.pdf" \
+  "${OUT_DIR}/figures/div30_div90_shi_true_anchor_projection_gw_stage_side_by_side_grid.svg" \
+  "${OUT_DIR}/tables/shi_true_anchor_projection_render_diagnostics.tsv" \
+  "${OUT_DIR}/README.md"
+do
+  if [[ ! -s "${path}" ]]; then
+    echo "Missing expected output: ${path}" >&2
+    exit 1
+  fi
+done
+
+cp -p "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-anchor-plot-${SLURM_JOB_ID}.out" "${OUT_DIR}/logs/" 2>/dev/null || true
+cp -p "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/shi-anchor-plot-${SLURM_JOB_ID}.err" "${OUT_DIR}/logs/" 2>/dev/null || true
+cp -p "${BASH_SOURCE[0]}" "${OUT_DIR}/provenance/" 2>/dev/null || true
+
+{
+  echo "rendered_at	$(date --iso-8601=seconds)"
+  echo "slurm_job_id	${SLURM_JOB_ID:-NA}"
+  echo "repo_root	${REPO_ROOT}"
+  echo "project_root	${PROJECT_ROOT}"
+  echo "run_dir	${RUN_DIR}"
+  echo "output_dir	${OUT_DIR}"
+  echo "purpose	render true Seurat anchor links with each query UMAP beside corresponding Shi et al. reference UMAP"
+  echo "reran_find_transfer_anchors	false"
+  echo "plot_only_suffix_fix	reference_cell_id _reference suffix stripped only for coordinate-table joins"
+} > "${OUT_DIR}/provenance/true_anchor_projection_plot_manifest.tsv"
+
+sha256sum \
+  "${OUT_DIR}"/README.md \
+  "${OUT_DIR}"/figures/* \
+  "${OUT_DIR}"/tables/* \
+  "${OUT_DIR}"/provenance/* \
+  "${OUT_DIR}"/logs/* \
+  > "${OUT_DIR}/provenance/sha256sums.txt"
+
+echo "Output files:"
+find "${OUT_DIR}" -type f -printf "%s %p\n" | sort -n | tail -80
+echo "Shi true anchor plot-only job finished: $(date)"
