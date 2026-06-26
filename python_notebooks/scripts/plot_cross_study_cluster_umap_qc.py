@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 import re
 from typing import Iterable
@@ -11,6 +12,16 @@ from typing import Iterable
 import matplotlib
 
 matplotlib.use("Agg")
+matplotlib.rcParams.update(
+    {
+        "font.family": "Arial",
+        "font.sans-serif": ["Arial", "Nimbus Sans", "Liberation Sans", "DejaVu Sans"],
+        "svg.fonttype": "none",
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+    }
+)
+logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
@@ -22,6 +33,7 @@ DEFAULT_PROJECT_ROOT = Path("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_project
 DEFAULT_RUN_LABEL = "cross_study_marker_expression_v12"
 BASE_COLUMNS = ["cell_id", "study_id", "study_label", "sample", "cluster", "umap_1", "umap_2"]
 UMAP_POINT_SIZE = 1.6
+FIGURE_EXPORT_DPI = 600
 
 DIV30_PAPER_CLUSTER_MAP = {
     "0": ("1", "Radial glia"),
@@ -451,9 +463,9 @@ def plot_cluster_grid(data: pd.DataFrame, output_prefix: Path, title: str, max_l
     fig.suptitle(title, fontsize=14)
     fig.tight_layout(rect=(0, 0, 1, 0.965), w_pad=2.5, h_pad=1.2)
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_prefix.with_suffix(".png"), dpi=450, bbox_inches="tight")
-    fig.savefig(output_prefix.with_suffix(".pdf"), bbox_inches="tight")
-    fig.savefig(output_prefix.with_suffix(".svg"), bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".png"), dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".pdf"), dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".svg"), dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -566,9 +578,9 @@ def plot_div90_published_umap(data: pd.DataFrame, output_prefix: Path) -> None:
     handles = [Line2D([0], [0], marker="o", color="none", markerfacecolor=colors[label], markersize=5, label=label) for label in labels]
     ax.legend(handles=handles, title="Published class", loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False, fontsize=7, title_fontsize=8)
     fig.tight_layout()
-    fig.savefig(output_prefix.with_suffix(".png"), dpi=450, bbox_inches="tight")
-    fig.savefig(output_prefix.with_suffix(".pdf"), bbox_inches="tight")
-    fig.savefig(output_prefix.with_suffix(".svg"), bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".png"), dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".pdf"), dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".svg"), dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -598,9 +610,9 @@ def plot_div90_sample_composition(data: pd.DataFrame, output_prefix: Path) -> No
     ax.set_title("DIV90 sample composition by published Fig. D class", fontsize=11)
     ax.legend(title="Published class", loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False, fontsize=7, title_fontsize=8)
     fig.tight_layout()
-    fig.savefig(output_prefix.with_suffix(".png"), dpi=450, bbox_inches="tight")
-    fig.savefig(output_prefix.with_suffix(".pdf"), bbox_inches="tight")
-    fig.savefig(output_prefix.with_suffix(".svg"), bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".png"), dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".pdf"), dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
+    fig.savefig(output_prefix.with_suffix(".svg"), dpi=FIGURE_EXPORT_DPI, bbox_inches="tight")
     plt.close(fig)
 
 

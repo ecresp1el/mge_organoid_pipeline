@@ -189,11 +189,65 @@ PDF: vector when possible; otherwise high-quality embedded raster.
 SVG: generated whenever Matplotlib/ggplot output supports it cleanly.
 ```
 
+Publication export standards for this final-figure series:
+
+```text
+Text/editability:
+  - SVG text must remain editable in Illustrator.
+  - Matplotlib SVG export must use:
+      svg.fonttype = none
+      font.family = Arial
+      font.sans-serif = Arial first, then available fallbacks
+  - PDF export should use TrueType text when possible:
+      pdf.fonttype = 42
+      ps.fonttype = 42
+  - Great Lakes may not have Microsoft Arial installed locally. This can emit
+    findfont warnings, but the SVG must still be checked directly for editable
+    <text> elements with Arial font-family declarations and no DejaVu glyph-path
+    text definitions.
+
+DPI/resolution:
+  - Record DPI separately for PNG, PDF, and SVG because rasterized UMAP point
+    layers embedded inside PDF/SVG depend on savefig dpi.
+  - Keep DPI consistent within a figure package whenever the render can
+    complete safely.
+  - For cluster/QC UMAP outputs, 600 dpi export has completed successfully and
+    should remain the current target.
+  - For very large marker-expression grids, do not attempt high-DPI final
+    renders interactively. Use Slurm and copy outputs into final_figures only
+    after logs confirm the job completed and all PNG/PDF/SVG files are nonzero.
+
+Slurm execution standard:
+  - Follow the project's existing Slurm-template logic instead of inventing a
+    new activation pattern.
+  - Prefer copying/editing the closest existing template under
+    slurm_templates/ into PROJECT_ROOT/jobs/ and submitting that file.
+  - Use the established path variables:
+      REPO_ROOT=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+      PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+      CONDA_ENV_BIN=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin
+  - In Python Slurm jobs, use:
+      export PATH="${CONDA_ENV_BIN}:${PATH}"
+      export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+      cd "${REPO_ROOT}"
+      "${CONDA_ENV_BIN}/python" ...
+    This matches the existing project templates such as
+    25_cross_study_marker_expression_plot_only.sbatch.template,
+    17b_execute_seurat_anndata_umap_inventory_merge.sbatch.template, and
+    50_siletti_div90_harmony_integration_sensitivity.sbatch.template.
+  - Log to PROJECT_ROOT/logs with Slurm %x/%j or equivalent job IDs.
+  - Record the exact sbatch file, sbatch command, job ID, stdout/stderr log
+    paths, runtime, memory request, and whether the job exited cleanly.
+  - Do not sync final outputs from a Slurm render until all required PNG/PDF/SVG
+    files exist, are nonzero, and the log shows successful completion.
+```
+
 ## Current Figure Tracker
 
 | Figure ID | Status | Candidate Path | Notes |
 | --- | --- | --- | --- |
-| `fig_cross_study_marker_expression_v12` | Found, Log-audited, Modifying | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12` | Multi-study ON/OFF-target and PV precursor marker-expression UMAP grids. DIV90 published Fig. D recode QC added. |
+| `fig_cross_study_marker_expression_v12` | Found, Log-audited, Modifying, Validated, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12` | First final folder created for cluster UMAP QC / DIV90 published recode outputs. Rerendered with editable Arial SVG text and 600 dpi export for rasterized UMAP layers. Other marker-expression multi-grids still pending formatting/finalization. |
+| `fig_cross_study_marker_expression_pv_precursors_on_off_target_v12` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate` | Plot-only rerender from v12 prepared marker tables. Added Bershteyn 2025, added PV ON-target LHX6/LHX8/NKX2.1, retained ERBB4, applied DIV90 vertical plotting-only UMAP orientation, removed DIV90 stressed clusters 6/7 from visualization only, drew expression values 0-1 as background gray with blue scale starting above 1, colorbars labeled from 0, exported PNG/PDF/SVG at 600 dpi through Slurm job 52370542 with editable Arial SVG text. |
 
 ## Figure: fig_cross_study_marker_expression_v12
 
@@ -204,8 +258,8 @@ Found: yes
 Log-audited: yes
 Confirmed: pending user visual review
 Modified: no
-Validated: partial; DIV90 published Fig. D recode outputs validated
-Finalized: no
+Validated: partial; cluster UMAP QC and DIV90 published Fig. D recode outputs validated
+Finalized: partial; first final folder created for cluster UMAP QC / DIV90 published recode outputs
 ```
 
 ### Candidate Paths
@@ -411,6 +465,9 @@ analysis or Seurat/H5AD extraction was rerun.
     UMAP. Original umap_1/umap_2 values are unchanged. The transform is:
       UMAP1_published = umap_1
       UMAP2_published = -1 * umap_2
+    The same vertical plotting-only DIV90 transform is now applied to the DIV90
+    panel inside the cross-study UMAP QC grids as well as the standalone DIV90
+    published Fig. D UMAP.
   - Applied UMAP formatting pass:
     all UMAP scatter plots use the same larger point size, UMAP axes are fully
     hidden, multi-study QC panels are arranged in a single row, and panel titles
@@ -418,6 +475,22 @@ analysis or Seurat/H5AD extraction was rerun.
   - Added source/GEO/sample provenance table for all configured v12 cross-study
     UMAP QC studies:
     cluster_qc/cross_study_marker_expression_v12_geo_sample_provenance.tsv
+  - Created first structured final figure package:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_marker_expression_v12
+    This package currently freezes the cluster UMAP QC grids, DIV90 published
+    recode UMAP/composition outputs, tables, logs, code, and provenance. The
+    original marker-expression multi-grid panels remain open for formatting and
+    later final packaging.
+  - Rerendered the first final package outputs with publication-editable SVG
+    text:
+      font.family = Arial
+      svg.fonttype = none
+      pdf.fonttype = 42
+    All four packaged SVGs now contain editable <text> elements with Arial
+    declarations and no DejaVu glyph-path text definitions.
+  - Rerendered the first final package outputs with consistent 600 dpi export
+    for PNG/PDF/SVG save calls. This matters because UMAP points are rasterized
+    inside PDF/SVG; savefig dpi controls the embedded raster resolution.
 ```
 
 Mapped label sources:
@@ -513,23 +586,257 @@ DIV90 published Fig. D orientation validation:
 UMAP formatting validation:
   - Multi-study figure-default QC plot regenerated as one row.
   - Multi-study all-prepared QC plot regenerated as one row.
+  - DIV90 panel in both multi-study QC grids uses the same vertical
+    plotting-only flip as the standalone DIV90 published Fig. D UMAP.
   - DIV90 published Fig. D UMAP title reports "10 clusters, n=20,049".
   - UMAP scatter point size is shared across the cross-study grids and DIV90
     published UMAP.
+Editable SVG validation:
+  - cross_study_marker_expression_v12_cluster_umap_qc_figure_default.svg:
+    editable text present, Arial declarations present, no DejaVu glyph paths.
+  - cross_study_marker_expression_v12_cluster_umap_qc_all_prepared_cells.svg:
+    editable text present, Arial declarations present, no DejaVu glyph paths.
+  - div90_published_fig_d_10_class_umap.svg:
+    editable text present, Arial declarations present, no DejaVu glyph paths.
+  - div90_published_fig_d_sample_composition.svg:
+    editable text present, Arial declarations present, no DejaVu glyph paths.
+Resolution validation:
+  - First final package was rerendered and recopied at 600 dpi for all four
+    figure families:
+      cross_study_marker_expression_v12_cluster_umap_qc_figure_default
+      cross_study_marker_expression_v12_cluster_umap_qc_all_prepared_cells
+      div90_published_fig_d_10_class_umap
+      div90_published_fig_d_sample_composition
+  - Packaged SVG files are larger after 600 dpi rerender, consistent with
+    higher-resolution embedded raster UMAP layers.
 ```
 
 ### Final Figure Package
 
 ```text
-Not created yet.
-Target root:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_marker_expression_v12
+
+Created: 2026-06-25
+Status: initial final package created for cluster UMAP QC / DIV90 published Fig.
+D recode outputs. This is the first final_figures folder and should be used as
+the template for subsequent multi-grid plot finalization.
+
+Included structure:
+  README.md
+  code/
+  figures/png/
+  figures/pdf/
+  figures/svg/
+  tables/
+  logs/
+  provenance/
+
+Included figure families:
+  cross_study_marker_expression_v12_cluster_umap_qc_figure_default
+  cross_study_marker_expression_v12_cluster_umap_qc_all_prepared_cells
+  div90_published_fig_d_10_class_umap
+  div90_published_fig_d_sample_composition
+
+Included provenance:
+  code copies for QC and original v12 marker-expression workflow
+  v12 source study config
+  GEO/sample provenance table
+  copied v12 Slurm logs
+  final render command note
+  git commit/status snapshot
+  file manifest
+  sha256 manifest
 ```
 
 ### Open Questions
 
 ```text
 Which exact panels should be finalized?
-What formatting changes are needed before final render?
-Should SVG export be added to the plotting function for this figure family?
+What formatting changes are needed for the original marker-expression multi-grid
+panels before final render?
+Should SVG export be added to the original marker-expression plotting function
+for this figure family?
+```
+
+## Figure: fig_cross_study_marker_expression_pv_precursors_on_off_target_v12
+
+### Status
+
+```text
+Found: yes
+Log-audited: yes; source v12 workflow logs were previously checked and this
+  update used the already prepared v12 marker-expression tables.
+Confirmed: pending user visual review
+Modified: yes
+Validated: partial; output manifest and PNG visual spot-check completed
+Finalized: candidate package created
+```
+
+### Candidate Paths
+
+Original source plot:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12/plots/cross_study_marker_expression_pv_precursors_on_off_target.pdf
+```
+
+Modified candidate run:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate
+```
+
+Final-figure candidate package:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_marker_expression_pv_precursors_on_off_target_v12_candidate
+```
+
+Target outputs:
+
+```text
+figures/png/cross_study_marker_expression_pv_precursors_on_off_target.png
+figures/pdf/cross_study_marker_expression_pv_precursors_on_off_target.pdf
+figures/svg/cross_study_marker_expression_pv_precursors_on_off_target.svg
+```
+
+### Modification Log
+
+```text
+2026-06-25:
+  - Copied existing v12 prepared marker-expression tables into an isolated
+    candidate run folder. No expression extraction, UMAP recomputation,
+    reclustering, or annotation updates were run.
+  - Added Bershteyn et al. 2025 to the plotted study set by running the plot
+    command without the previous Bershteyn 2025 study exclusion.
+  - Updated the PV precursor ON-target gene list:
+      MAFB, MEF2C, ERBB4, LHX6, LHX8, NKX2-1, ETV1, CRABP1, TAC1, ST18, PVALB
+    ERBB4 was already present and was retained. NKX2-1 is displayed as NKX2.1.
+  - Added plotting-only coordinates for marker-expression grids:
+      UMAP1_plot = umap_1
+      UMAP2_plot = umap_2 for all studies except DIV90
+      DIV90 UMAP2_plot = -1 * umap_2
+    Original umap_1/umap_2 columns are unchanged.
+  - Added DIV90 visualization-only stressed-cell filter for marker-expression
+    grids, matching the earlier published-style DIV90 logic:
+      current clusters 6 and 7 removed from plotted DIV90 row
+      22,338 cells before filter
+      20,049 cells after filter
+      2,289 cells removed
+    Source marker-expression tables and original cluster annotations are not
+    modified.
+  - Changed the marker-expression colormap and thresholding so expression
+    values from 0 through 1 remain background gray (#d0d0d0). The blue overlay
+    and color scale start above expression value 1.
+  - Corrected marker-expression colorbar labeling:
+      colorbar begins at 0
+      values from 0 through 1 are drawn as the background gray floor
+      blue overlay starts above expression value 1
+      right tick is each gene's q99 positive-expression upper limit
+  - Updated Matplotlib export settings for publication editing:
+      font.family = Arial
+      svg.fonttype = none
+      pdf.fonttype = 42
+    Great Lakes does not have Microsoft Arial installed locally, so render logs
+    may show findfont warnings. SVG output is still written with editable
+    <text> elements styled as Arial for Illustrator.
+  - Added SVG export to the marker-expression plotting function.
+  - Initial plot-only command used for earlier candidate versions:
+      PYTHONPATH=python_notebooks/src /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python python_notebooks/scripts/run_cross_study_marker_expression.py --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label cross_study_marker_expression_v12_pv_precursors_final_candidate plot
+  - Refreshed lightweight setup metadata tables after plotting so
+    cross_study_marker_expression_gene_panels.tsv and
+    cross_study_marker_expression_genes.tsv match the expanded PV precursor
+    gene panel.
+  - Runtime was a few minutes; SVG/PDF writing was the slowest step.
+  - 2026-06-25 high-DPI update attempt:
+      Interactive 600 dpi marker-expression rerender was killed.
+      Interactive targeted 600 dpi and 450 dpi rerenders were also killed.
+      Do not continue high-DPI marker-expression final renders interactively.
+      Submit through Slurm with sufficient memory/time, following the existing
+      project Slurm environment logic: CONDA_ENV_BIN points to
+      /home/elcrespo/miniconda3/envs/mge-organoid-python/bin, PYTHONPATH includes
+      REPO_ROOT/python_notebooks/src, and the command runs from REPO_ROOT.
+      Sync outputs only after PNG/PDF/SVG are all nonzero and logs show a clean
+      exit.
+      A failed interactive attempt left partial files in the candidate run
+      plots directory; check and replace source outputs before packaging.
+  - 2026-06-25 Slurm final render completed successfully:
+      Job ID: 52370542
+      Submitted sbatch:
+        /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/render_pv_precursor_final_panel_600dpi.sbatch
+      Logs:
+        /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/pv-final-panel-pv-final-panel-52370542.out
+        /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/pv-final-panel-pv-final-panel-52370542.err
+      Requested resources:
+        4 CPUs, 180G memory, 3 hours, standard partition, account parent0
+      DPI:
+        PNG = 600
+        PDF = 600
+        SVG = 600
+      Slurm script validated PNG/PDF/SVG were nonzero before copying into
+      final_figures.
+```
+
+### Validation
+
+```text
+Manifest check:
+  - Target panel genes:
+    MAFB, MEF2C, ERBB4, LHX6, LHX8, NKX2-1, ETV1, CRABP1, TAC1, ST18, PVALB,
+    SP8, EBF1, NKX2-2, RAX, HMX3, DBH
+  - Target panel studies:
+    This Study DIV30, This Study DIV90, Siebert 2026, Walsh 2025,
+    Bershteyn 2025, Bershteyn 2023, Samarasinghe 2021
+  - Excluded study IDs: none
+  - Target outputs exist as PNG, PDF, and SVG.
+  - DIV90 filter summary confirms 22,338 cells before filter, 20,049 after
+    filter, and 2,289 current-cluster 6/7 stressed cells removed.
+
+Visual spot-check:
+  - PNG opened successfully.
+  - Bershteyn et al. 2025 appears as a new row.
+  - DIV90 row uses the vertical-only plotting orientation.
+  - DIV90 row label reports "Stressed cells removed" and n = 20,049.
+  - Values from 0 through 1 are gray; blue expression overlay starts above 1.
+  - Colorbars now start at 0 while retaining the 0-1 gray floor.
+  - Packaged SVG has editable <text> elements, font-family Arial declarations,
+    and no DejaVu glyph-path text definitions.
+  - Gene header displays NKX2.1.
+  - High-DPI final render completed via Slurm at 600 dpi for PNG/PDF/SVG.
+  - Slurm output log records nonzero output validation:
+      PNG 7.8M
+      PDF 7.3M
+      SVG 11M
+```
+
+### Final Figure Package
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_marker_expression_pv_precursors_on_off_target_v12_candidate
+
+Created: 2026-06-25
+Status: candidate package created; awaiting user visual approval before calling
+it final.
+
+Included structure:
+  README.md
+  code/
+  figures/png/
+  figures/pdf/
+  figures/svg/
+  tables/
+  logs/
+  provenance/
+
+Included provenance:
+  copied plotting code and CLI wrapper
+  targeted final-panel render script
+  submitted 600 dpi Slurm script
+  plot-only Slurm template
+  plot manifest and audit tables
+  Slurm stdout/stderr logs
+  final render command note
+  git commit/status snapshot
+  file manifest
+  sha256 manifest
 ```

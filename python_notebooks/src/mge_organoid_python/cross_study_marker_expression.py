@@ -9,7 +9,10 @@ Seurat objects.
 from __future__ import annotations
 
 import argparse
+import gc
 import gzip
+import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -18,6 +21,16 @@ from typing import Iterable, Mapping, Sequence
 import matplotlib
 
 matplotlib.use("Agg")
+matplotlib.rcParams.update(
+    {
+        "font.family": "Arial",
+        "font.sans-serif": ["Arial", "Nimbus Sans", "Liberation Sans", "DejaVu Sans"],
+        "svg.fonttype": "none",
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+    }
+)
+logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
@@ -80,7 +93,19 @@ CORE_ON_TARGET_GENES = [
 ]
 
 CORE_OFF_TARGET_GENES = ["SP8", "PAX6", "NEUROD2", "ISL1", "ACHE", "NKX6-2", "MKI67"]
-PV_PRECURSOR_ON_TARGET_GENES = ["MAFB", "MEF2C", "ERBB4", "ETV1", "CRABP1", "TAC1", "ST18", "PVALB"]
+PV_PRECURSOR_ON_TARGET_GENES = [
+    "MAFB",
+    "MEF2C",
+    "ERBB4",
+    "LHX6",
+    "LHX8",
+    "NKX2-1",
+    "ETV1",
+    "CRABP1",
+    "TAC1",
+    "ST18",
+    "PVALB",
+]
 PV_PRECURSOR_OFF_TARGET_GENES = ["SP8", "EBF1", "NKX2-2", "RAX", "HMX3", "DBH"]
 
 CORE_MARKER_PANEL = MarkerGenePanel(
@@ -112,10 +137,28 @@ GENE_ALIASES = {
     "NKX6-2": ["NKX6-2", "NKX6.2"],
 }
 GENE_DISPLAY_LABELS = {
+    "NKX2-1": "NKX2.1",
     "NKX2-2": "NKX2.2",
 }
 
-WHITE_BLUE_CMAP = LinearSegmentedColormap.from_list("whiteBlue", ["#ffffff", "#0000ff"])
+BACKGROUND_POINT_COLOR = "#d0d0d0"
+EXPRESSION_COLOR_FLOOR = 1.0
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "")
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer, got {raw!r}") from exc
+
+
+PNG_EXPORT_DPI = _env_int("CROSS_STUDY_MARKER_PNG_DPI", 450)
+SVG_EXPORT_DPI = _env_int("CROSS_STUDY_MARKER_SVG_DPI", 450)
+PDF_EXPORT_DPI = _env_int("CROSS_STUDY_MARKER_PDF_DPI", 300)
+WHITE_BLUE_CMAP = LinearSegmentedColormap.from_list("grayBlue", [BACKGROUND_POINT_COLOR, "#0000ff"])
 
 BASE_COLUMNS = [
     "cell_id",
@@ -325,11 +368,34 @@ def gene_display_label(gene: str) -> str:
     return GENE_DISPLAY_LABELS.get(gene, gene)
 
 
+def add_marker_plot_coordinates(data: pd.DataFrame) -> pd.DataFrame:
+    """Add plotting-only UMAP coordinates without modifying the source embedding."""
+    out = data.copy()
+    out["UMAP1_plot"] = pd.to_numeric(out["umap_1"], errors="coerce")
+    out["UMAP2_plot"] = pd.to_numeric(out["umap_2"], errors="coerce")
+    div90 = out["study_id"].astype(str).eq("varela_div90")
+    out.loc[div90, "UMAP2_plot"] = -1.0 * out.loc[div90, "UMAP2_plot"]
+    return out
+
+
 def expression_colormap(cmap: str):
     """Return the marker-expression colormap used by plots/colorbars."""
     if cmap in {"whiteBlue", "white_blue", "seurat_whiteBlue"}:
         return WHITE_BLUE_CMAP
     return plt.get_cmap(cmap)
+
+
+def expression_floor_colormap(color_vmax: float):
+    """Return a per-gene colormap with 0-to-floor gray and above-floor blue."""
+    floor_fraction = float(np.clip(EXPRESSION_COLOR_FLOOR / max(color_vmax, EXPRESSION_COLOR_FLOOR + 1e-6), 0.0, 1.0))
+    return LinearSegmentedColormap.from_list(
+        "grayFloorBlue",
+        [
+            (0.0, BACKGROUND_POINT_COLOR),
+            (floor_fraction, BACKGROUND_POINT_COLOR),
+            (1.0, "#0000ff"),
+        ],
+    )
 
 
 def marker_gene_table(genes: Sequence[str] = ALL_MARKER_GENES) -> pd.DataFrame:
@@ -882,7 +948,7 @@ def expression_limits(
     data: pd.DataFrame,
     genes: Sequence[str],
     quantile: float = 0.99,
-    minimum: float = 1e-6,
+    minimum: float = EXPRESSION_COLOR_FLOOR,
 ) -> dict[str, float]:
     """Return per-gene upper limits for marker-expression color scales."""
     limits = {}
@@ -921,7 +987,7 @@ def expression_group_limits(
     data: pd.DataFrame,
     scale_groups: Sequence[tuple[str, Sequence[str]]],
     quantile: float = 0.99,
-    minimum: float = 1e-6,
+    minimum: float = EXPRESSION_COLOR_FLOOR,
 ) -> dict[str, float]:
     """Return one upper expression limit per marker group."""
     limits = {}
@@ -987,10 +1053,12 @@ def _apply_internal_umap_plot_filters(data: pd.DataFrame) -> tuple[pd.DataFrame,
     summaries = []
     filtered_parts = []
     for study_id, group in data.groupby("study_id", sort=False):
-        rule = "none"
+        rules: list[str] = []
+        labels: list[str] = []
         kept = group
         if study_id == "samarasinghe_2021":
-            rule = "samarasinghe_2021_controls_only"
+            rules.append("samarasinghe_2021_controls_only")
+            labels.append("Controls only")
             control = group["sample"].astype(str).str.contains("Ctrl", case=False, na=False)
             kept = group.loc[control].copy()
             if kept.empty:
@@ -998,12 +1066,20 @@ def _apply_internal_umap_plot_filters(data: pd.DataFrame) -> tuple[pd.DataFrame,
             non_control_samples = sorted(kept.loc[~kept["sample"].astype(str).str.contains("Ctrl", case=False, na=False), "sample"].unique())
             if non_control_samples:
                 raise ValueError("Samarasinghe control-only UMAP filter retained non-control samples: " + ", ".join(non_control_samples))
+        if study_id == "varela_div90":
+            rules.append("varela_div90_exclude_current_clusters_6_7_stressed_cells")
+            labels.append("Stressed cells removed")
+            current_cluster = pd.to_numeric(kept["cluster"], errors="coerce")
+            kept = kept.loc[~current_cluster.isin([6, 7])].copy()
+            if kept.empty:
+                raise ValueError("DIV90 stressed-cell plot filter removed all cells.")
+        rule = "+".join(rules) if rules else "none"
         summaries.append(
             {
                 "study_id": study_id,
                 "study_label": str(group["study_label"].iloc[0]),
                 "plot_filter": rule,
-                "plot_filter_label": "Controls only" if rule == "samarasinghe_2021_controls_only" else "",
+                "plot_filter_label": "; ".join(labels),
                 "n_cells_before_plot_filter": int(group.shape[0]),
                 "n_cells_after_plot_filter": int(kept.shape[0]),
                 "n_cells_removed_by_plot_filter": int(group.shape[0] - kept.shape[0]),
@@ -1049,6 +1125,8 @@ def marker_expression_distribution_audit_table(
             finite = np.isfinite(values)
             finite_values = values[finite]
             positive_values = finite_values[finite_values > 0]
+            color_floor_values = finite_values[finite_values <= EXPRESSION_COLOR_FLOOR]
+            colored_values = finite_values[finite_values > EXPRESSION_COLOR_FLOOR]
             vmax = vmax_by_gene[gene]
             above_scale = finite_values > vmax
             positive_above_scale = positive_values > vmax
@@ -1071,6 +1149,11 @@ def marker_expression_distribution_audit_table(
                     "n_nonfinite_expression_values": int((~finite).sum()),
                     "n_positive_cells": int(positive_values.size),
                     "pct_positive_cells": float(positive_values.size / finite_values.size * 100.0) if finite_values.size else np.nan,
+                    "expression_color_floor": EXPRESSION_COLOR_FLOOR,
+                    "n_cells_at_or_below_color_floor": int(color_floor_values.size),
+                    "pct_cells_at_or_below_color_floor": float(color_floor_values.size / finite_values.size * 100.0) if finite_values.size else np.nan,
+                    "n_cells_colored_above_floor": int(colored_values.size),
+                    "pct_cells_colored_above_floor": float(colored_values.size / finite_values.size * 100.0) if finite_values.size else np.nan,
                     "expr_min": float(np.min(finite_values)) if finite_values.size else np.nan,
                     "expr_q25": _finite_quantile(finite_values, 0.25),
                     "expr_q50": _finite_quantile(finite_values, 0.50),
@@ -1088,6 +1171,8 @@ def marker_expression_distribution_audit_table(
                     "color_map": cmap,
                     "color_scale_basis": "per_gene_across_all_plotted_studies",
                     "color_scale_min": 0.0,
+                    "color_scale_min_rule": f"colorbar begins at 0; values from 0 to {EXPRESSION_COLOR_FLOOR:g} drawn as background gray",
+                    "color_scale_blue_start": EXPRESSION_COLOR_FLOOR,
                     "color_scale_max": vmax,
                     "color_scale_max_rule": f"q{vmax_quantile:g}_positive_expression",
                     "color_values_are_raw_expression": True,
@@ -1120,6 +1205,7 @@ def plot_marker_umap_grid(
     """Plot a study-by-gene UMAP grid from standardized marker tables."""
     genes = list(genes)
     data, filter_summary = _apply_internal_umap_plot_filters(data)
+    data = add_marker_plot_coordinates(data)
     filter_by_study = filter_summary.set_index("study_label").to_dict(orient="index")
     plot_data = downsample_by_study(data, max_cells_per_study, random_state=random_state)
     study_labels = _ordered_study_labels(plot_data, specs)
@@ -1154,8 +1240,8 @@ def plot_marker_umap_grid(
 
     for study_label in study_labels:
         subset = plot_data.loc[plot_data["study_label"].astype(str) == study_label].copy()
-        x = subset["umap_1"].to_numpy(dtype=float)
-        y = subset["umap_2"].to_numpy(dtype=float)
+        x = subset["UMAP1_plot"].to_numpy(dtype=float)
+        y = subset["UMAP2_plot"].to_numpy(dtype=float)
         finite = np.isfinite(x) & np.isfinite(y)
         subset = subset.loc[finite].copy()
         study_subsets[study_label] = subset
@@ -1163,27 +1249,27 @@ def plot_marker_umap_grid(
 
     for row_idx, study_label in enumerate(study_labels):
         subset = study_subsets[study_label]
-        x = subset["umap_1"].to_numpy(dtype=float)
-        y = subset["umap_2"].to_numpy(dtype=float)
+        x = subset["UMAP1_plot"].to_numpy(dtype=float)
+        y = subset["UMAP2_plot"].to_numpy(dtype=float)
         for col_idx, gene in enumerate(genes):
             ax = axes[row_idx, col_idx]
             vmax = vmax_by_gene[gene]
-            # Color range is in the original expression units: 0 to the gene's
-            # positive-expression q99. Values above q99 keep their original data
-            # value but draw at the top color so outliers do not stretch the bar.
-            norm = Normalize(vmin=0.0, vmax=vmax, clip=True)
+            # Values at or below the floor stay background gray; the blue scale
+            # starts above the floor and clips at the gene's positive-expression q99.
+            color_vmax = max(vmax, EXPRESSION_COLOR_FLOOR + 1e-6)
+            norm = Normalize(vmin=0.0, vmax=color_vmax, clip=True)
+            floor_cmap = expression_floor_colormap(color_vmax)
             expr = pd.to_numeric(subset[gene], errors="coerce").to_numpy(dtype=float)
-            x = subset["umap_1"].to_numpy(dtype=float)
-            y = subset["umap_2"].to_numpy(dtype=float)
-            ax.scatter(x, y, s=background_point_size, c="#d0d0d0", linewidths=0, rasterized=True)
+            ax.scatter(x, y, s=background_point_size, c=BACKGROUND_POINT_COLOR, linewidths=0, rasterized=True)
             positive = np.isfinite(expr) & (expr > 0)
-            if positive.any():
+            colored = np.isfinite(expr) & (expr > EXPRESSION_COLOR_FLOOR)
+            if colored.any():
                 ax.scatter(
-                    x[positive],
-                    y[positive],
+                    x[colored],
+                    y[colored],
                     s=point_size,
-                    c=expr[positive],
-                    cmap=cmap_obj,
+                    c=expr[colored],
+                    cmap=floor_cmap,
                     norm=norm,
                     linewidths=0,
                     rasterized=True,
@@ -1202,6 +1288,8 @@ def plot_marker_umap_grid(
                     "scale_group": gene,
                     "scale_basis": "per_gene",
                     "color_scale_min": 0.0,
+                    "color_scale_min_rule": f"colorbar begins at 0; values from 0 to {EXPRESSION_COLOR_FLOOR:g} drawn as background gray",
+                    "color_scale_blue_start": EXPRESSION_COLOR_FLOOR,
                     "color_scale_max": vmax,
                     "color_scale_max_rule": f"q{vmax_quantile:g}_positive_expression",
                     "color_values_are_raw_expression": True,
@@ -1215,6 +1303,7 @@ def plot_marker_umap_grid(
                     "sample_values_after_plot_filter": filter_by_study[study_label]["sample_values_after_plot_filter"],
                     "n_cells_plotted": study_counts[study_label],
                     "n_positive_cells": int(positive.sum()),
+                    "n_cells_colored_above_floor": int(colored.sum()),
                     "vmax": vmax,
                     "vmax_quantile": vmax_quantile,
                 }
@@ -1262,11 +1351,13 @@ def plot_marker_umap_grid(
         x0 = position.x0 + ((position.x1 - position.x0) - width) / 2
         cax = fig.add_axes([x0, cbar_y, width, 0.008])
         vmax = vmax_by_gene[gene]
-        sm = ScalarMappable(norm=Normalize(vmin=0.0, vmax=vmax, clip=True), cmap=cmap_obj)
+        color_vmax = max(vmax, EXPRESSION_COLOR_FLOOR + 1e-6)
+        floor_cmap = expression_floor_colormap(color_vmax)
+        sm = ScalarMappable(norm=Normalize(vmin=0.0, vmax=color_vmax, clip=True), cmap=floor_cmap)
         sm.set_array([])
         cbar = fig.colorbar(sm, cax=cax, orientation="horizontal")
         cbar.ax.tick_params(labelsize=4.8, length=1.2, pad=0.8)
-        cbar.set_ticks([0.0, vmax])
+        cbar.set_ticks([0.0, color_vmax])
         cbar.set_ticklabels(["0", f"{vmax:.2g}"])
         cbar.outline.set_linewidth(0.4)
 
@@ -1281,9 +1372,14 @@ def plot_marker_umap_grid(
 
     out = Path(output_path).expanduser()
     out.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out, dpi=300, bbox_inches="tight")
+    fig.savefig(out, dpi=PNG_EXPORT_DPI, bbox_inches="tight")
+    gc.collect()
+    if out.suffix.lower() != ".svg":
+        fig.savefig(out.with_suffix(".svg"), dpi=SVG_EXPORT_DPI, bbox_inches="tight")
+        gc.collect()
     if out.suffix.lower() != ".pdf":
-        fig.savefig(out.with_suffix(".pdf"), bbox_inches="tight")
+        fig.savefig(out.with_suffix(".pdf"), dpi=PDF_EXPORT_DPI, bbox_inches="tight")
+        gc.collect()
     plt.close(fig)
     return pd.DataFrame(manifest_rows)
 
