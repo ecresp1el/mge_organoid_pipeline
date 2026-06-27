@@ -64,6 +64,15 @@ FINE_SUBTYPE_ORDER = [
     "Subpallial Eccentric medium spiny neuron",
 ]
 OTHER_SELECTED_REFERENCE = "Other selected reference"
+DIV90_LEFT_ORDER_BY_PALLIAL_PROP = [
+    "PV Precursors",
+    "CRABP1+/PV Precursors",
+    "SST+, NPY +, Cortical Fated",
+    "PV precursors/Migrating cells/Cortical-fated",
+    "LHX8+ vMGE GABergic Striatal/GP fated 1",
+    "MGE Striatal/GP Fated",
+    "LHX8+ vMGE GABergic Striatal/GP fated 2",
+]
 
 PALETTE.update(
     {
@@ -172,6 +181,57 @@ def complete_order(order: list[str] | None, labels: pd.Series) -> list[str] | No
     return list(order) + extras
 
 
+def filter_edges_for_plot(edges: pd.DataFrame, min_cells: int) -> pd.DataFrame:
+    if min_cells <= 1:
+        return edges.copy()
+    return edges.loc[edges["n_cells"].astype(float) >= float(min_cells)].copy()
+
+
+def complete_left_order(edges: pd.DataFrame, left_order: list[str]) -> list[str]:
+    seen = set(left_order)
+    extras = (
+        edges.loc[~edges["div90_class"].astype(str).isin(seen)]
+        .groupby("div90_class")["n_cells"]
+        .sum()
+        .sort_values(ascending=False)
+        .index.astype(str)
+        .tolist()
+    )
+    return list(left_order) + extras
+
+
+def write_filter_audit(
+    edges_by_level: dict[str, tuple[pd.DataFrame, pd.DataFrame]],
+    tables_dir: Path,
+    min_cells: int,
+) -> None:
+    rows = []
+    for level, (full_edges, plotted_edges) in edges_by_level.items():
+        full_total = int(full_edges["n_cells"].sum())
+        plotted_total = int(plotted_edges["n_cells"].sum())
+        rows.append(
+            {
+                "level": level,
+                "min_plotted_edge_cells": int(min_cells),
+                "full_edges": int(full_edges.shape[0]),
+                "plotted_edges": int(plotted_edges.shape[0]),
+                "filtered_edges": int(full_edges.shape[0] - plotted_edges.shape[0]),
+                "full_n_cells": full_total,
+                "plotted_n_cells": plotted_total,
+                "filtered_n_cells": int(full_total - plotted_total),
+            }
+        )
+        filtered = full_edges.loc[full_edges["n_cells"].astype(float) < float(min_cells)].copy()
+        if not filtered.empty:
+            filtered.insert(0, "level", level)
+            filtered.to_csv(
+                tables_dir / f"river_{level}_filtered_edges_lt{min_cells}.tsv",
+                sep="\t",
+                index=False,
+            )
+    pd.DataFrame(rows).to_csv(tables_dir / "river_plot_edge_filter_audit.tsv", sep="\t", index=False)
+
+
 def label_group(label: str) -> str:
     label = str(label)
     if label.startswith(("Pallial/cortical", "Cortical")):
@@ -188,22 +248,30 @@ def write_one(
     out_prefix: Path,
     source_col: str,
     right_order: list[str] | None,
+    left_order: list[str],
     right_title: str,
     plot_title: str,
-) -> pd.DataFrame:
+    min_edge_cells: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     edges = make_edges(obs, source_col)
-    edges.to_csv(out_prefix.with_suffix(".tsv"), sep="\t", index=False)
-    right_order = complete_order(right_order, edges["adult_subtype"])
+    plot_edges = filter_edges_for_plot(edges, min_edge_cells)
+    if plot_edges.empty:
+        raise ValueError(f"No river edges remain after applying min_edge_cells={min_edge_cells}.")
+    edges.to_csv(out_prefix.with_suffix(".full.tsv"), sep="\t", index=False)
+    plot_edges.to_csv(out_prefix.with_suffix(".tsv"), sep="\t", index=False)
+    right_order = complete_order(right_order, plot_edges["adult_subtype"])
+    plot_left_order = complete_left_order(plot_edges, left_order)
     draw_river(
-        edges,
+        plot_edges,
         out_prefix,
         right_order=right_order,
+        left_order=plot_left_order,
         right_title=right_title,
         plot_title=plot_title,
         right_group_getter=label_group,
         include_zero_right=False,
     )
-    return edges
+    return edges, plot_edges
 
 
 def draw_combined_rivers(
@@ -211,6 +279,7 @@ def draw_combined_rivers(
     subtype_edges: pd.DataFrame,
     fine_edges: pd.DataFrame,
     out_prefix: Path,
+    left_order: list[str],
 ) -> None:
     panels = [
         (
@@ -235,10 +304,12 @@ def draw_combined_rivers(
     fig, axes = plt.subplots(1, 3, figsize=(37, 13), constrained_layout=False)
     for ax, (edges, order, right_title, plot_title) in zip(axes, panels):
         order = complete_order(order, edges["adult_subtype"])
+        plot_left_order = complete_left_order(edges, left_order)
         draw_river(
             edges,
             None,
             right_order=order,
+            left_order=plot_left_order,
             right_title=right_title,
             plot_title=plot_title,
             right_group_getter=label_group,
@@ -538,6 +609,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bridge-dir", required=True, type=Path)
     parser.add_argument("--outdir", required=True, type=Path)
     parser.add_argument("--source-class-col", default="div90_broad_class")
+    parser.add_argument(
+        "--min-river-edge-cells",
+        type=int,
+        default=10,
+        help="Only draw river edges with at least this many cells; full edge tables are still written.",
+    )
     return parser.parse_args()
 
 
@@ -560,42 +637,75 @@ def main() -> None:
         subtype_obs = read_transfer_obs(args.subtype_transfer_dir)
         fine_obs = read_transfer_obs(args.fine_transfer_dir) if args.fine_transfer_dir is not None else None
 
-    pallial_edges = write_one(
+    if args.min_river_edge_cells < 1:
+        raise ValueError("--min-river-edge-cells must be >= 1")
+
+    pallial_edges, pallial_plot_edges = write_one(
         pallial_obs,
         plots_dir / "river_div90_class_to_adult_pallial_subpallial_bin",
         args.source_class_col,
         PALLIAL_ORDER,
+        DIV90_LEFT_ORDER_BY_PALLIAL_PROP,
         "Adult Siletti ROI bin",
         "DIV90 classes mapped to adult Siletti pallial/subpallial ROI bin",
+        args.min_river_edge_cells,
     )
-    subtype_edges = write_one(
+    subtype_edges, subtype_plot_edges = write_one(
         subtype_obs,
         plots_dir / "river_div90_class_to_adult_major_interneuron_subtypes",
         args.source_class_col,
         MAJOR_SUBTYPE_ORDER,
+        DIV90_LEFT_ORDER_BY_PALLIAL_PROP,
         "Adult Siletti major subtype",
         "DIV90 classes mapped to adult Siletti major subtypes",
+        args.min_river_edge_cells,
     )
     fine_edges = None
+    fine_plot_edges = None
     if fine_obs is not None:
-        fine_edges = write_one(
+        fine_edges, fine_plot_edges = write_one(
             fine_obs,
             plots_dir / "river_div90_class_to_adult_final_fine_subtypes",
             args.source_class_col,
             FINE_SUBTYPE_ORDER,
+            DIV90_LEFT_ORDER_BY_PALLIAL_PROP,
             "Adult Siletti fine subtype",
             "DIV90 classes mapped to adult Siletti fine final subtypes",
+            args.min_river_edge_cells,
         )
         draw_combined_rivers(
-            pallial_edges,
-            subtype_edges,
-            fine_edges,
+            pallial_plot_edges,
+            subtype_plot_edges,
+            fine_plot_edges,
             plots_dir / "river_div90_class_to_adult_combined_1x3_pallial_major_fine",
+            DIV90_LEFT_ORDER_BY_PALLIAL_PROP,
         )
     pallial_edges.to_csv(tables_dir / "river_div90_class_to_adult_pallial_subpallial_bin_edges.tsv", sep="\t", index=False)
     subtype_edges.to_csv(tables_dir / "river_div90_class_to_adult_major_interneuron_subtypes_edges.tsv", sep="\t", index=False)
+    pallial_plot_edges.to_csv(
+        tables_dir / f"river_div90_class_to_adult_pallial_subpallial_bin_plotted_edges_min{args.min_river_edge_cells}.tsv",
+        sep="\t",
+        index=False,
+    )
+    subtype_plot_edges.to_csv(
+        tables_dir / f"river_div90_class_to_adult_major_interneuron_subtypes_plotted_edges_min{args.min_river_edge_cells}.tsv",
+        sep="\t",
+        index=False,
+    )
     if fine_edges is not None:
         fine_edges.to_csv(tables_dir / "river_div90_class_to_adult_final_fine_subtypes_edges.tsv", sep="\t", index=False)
+        fine_plot_edges.to_csv(
+            tables_dir / f"river_div90_class_to_adult_final_fine_subtypes_plotted_edges_min{args.min_river_edge_cells}.tsv",
+            sep="\t",
+            index=False,
+        )
+    edge_sets = {
+        "pallial_subpallial": (pallial_edges, pallial_plot_edges),
+        "major_subtype": (subtype_edges, subtype_plot_edges),
+    }
+    if fine_edges is not None:
+        edge_sets["final_fine_subtype"] = (fine_edges, fine_plot_edges)
+    write_filter_audit(edge_sets, tables_dir, args.min_river_edge_cells)
 
     pallial_obs.to_csv(tables_dir / "div90_query_with_pallial_subpallial_assignments.tsv.gz", sep="\t", index=False, compression="gzip")
     subtype_obs.to_csv(tables_dir / "div90_query_with_major_interneuron_subtype_assignments.tsv.gz", sep="\t", index=False, compression="gzip")
@@ -611,6 +721,9 @@ def main() -> None:
         "fine_transfer_dir": str(args.fine_transfer_dir) if args.fine_transfer_dir is not None else None,
         "outdir": str(args.outdir),
         "source_class_col": args.source_class_col,
+        "left_order_rule": "fixed DIV90 class order by descending Pallial/cortical fraction from the v4 pallial/subpallial assignment",
+        "left_order": DIV90_LEFT_ORDER_BY_PALLIAL_PROP,
+        "min_river_edge_cells": int(args.min_river_edge_cells),
         "plots": [
             "river_div90_class_to_adult_pallial_subpallial_bin.png/pdf",
             "river_div90_class_to_adult_major_interneuron_subtypes.png/pdf",
@@ -653,6 +766,13 @@ def main() -> None:
         "DIV90 assignments are recorded in "
         "`tables/audit_reference_labels_with_zero_query_assignments.tsv` rather "
         "than drawn as zero-count river targets.\n\n"
+        f"River plotting filter: edges with fewer than {args.min_river_edge_cells} "
+        "DIV90 cells are not drawn, and river rectangles are recomputed from the "
+        "filtered edge table so sub-10-cell populations do not leave visible "
+        "boxes or spacing artifacts. Full unfiltered edge tables and filtered-edge "
+        "audit tables are retained under `tables/`.\n\n"
+        "Left-side DIV90 class order is fixed across all river plots by descending "
+        "Pallial/cortical fraction in the v4 pallial/subpallial assignment.\n\n"
         "Main river plots:\n\n"
         "- `plots/river_div90_class_to_adult_pallial_subpallial_bin.png`\n"
         "- `plots/river_div90_class_to_adult_major_interneuron_subtypes.png`\n"
