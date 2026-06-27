@@ -251,7 +251,7 @@ Slurm execution standard:
 | `fig_cross_study_shi_label_transfer_v1_umap_score_grids` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1` | Plot-only rerender of Shi Seurat label-transfer UMAP score grids and matched sample-composition panels from saved v1 combined table. Updated score grids to fixed 0-1 grey-to-blue scaling, applied DIV90 visualization-only stressed-cluster 6/7 removal, applied DIV90 vertical plotting-only UMAP orientation, wrapped long all-label headers, exported requested PNG/PDF/SVG at 600 dpi through Slurm job 52371207 with editable Arial SVG text. Added sample-composition panels through Slurm job 52371553 using the same final denominator and Bershteyn 2023 shorthand sample labels. |
 | `maturation_scores` | Slurm-rendered, Validated package | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/maturation_scores/maturation_scores_v1` | Unified DIV30/DIV90 Jia RGC1/RGC2/IPC Scanpy `score_genes` UMAP overlays plus derived `IPC - mean(RGC1,RGC2)` maturation index. Final package is `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/maturation_scores`; Slurm job 52441418 completed 2026-06-27 with PNG/PDF/SVG plus score and audit tables. |
 | `fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate` | Found, Confirmed, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1` | New candidate package created for the DIV90 Jia all-cell URD marker-validation, UMAP pseudotime, and cluster-number-name tree pseudotime panels. Current assets were copied into `final_figures`; formatting should proceed by plot-only re-render from existing assets, not by recomputing URD pseudotime, the lineage tree, or marker validation. |
-| `fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v6_no_cge_min10_ordered` | Generated, Validated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_msn_emsn_chat_river_plots_v6_no_cge_min10_ordered` | Current preferred Siletti river candidate. v6 removes CGE before bridge export and before unified fast-kNN transfer, keeps MGE, LAMP5-LHX6/chandelier, MSN, eccentric MSN, and Splatter-CHAT, filters plotted river edges with fewer than 10 DIV90 cells, recomputes rectangles/ribbons from the filtered edge tables so tiny populations do not leave boxes, and fixes the left DIV90 cluster order by descending Pallial/cortical fraction. Copied into `final_figures` as a clearly marked candidate package; not final-approved yet. |
+| `fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v7_no_cge_fullref_min10_ordered` | Generated, Validated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_msn_emsn_chat_river_plots_v7_no_cge_fullref_min10_ordered` | Current preferred Siletti river candidate. v7 removes CGE before bridge export and before unified fast-kNN transfer, keeps MGE, LAMP5-LHX6/chandelier, MSN, eccentric MSN, and Splatter-CHAT, uses all eligible adult reference cells with no reference caps, filters plotted river edges with fewer than 10 DIV90 cells, recomputes rectangles/ribbons from the filtered edge tables so tiny populations do not leave boxes, and fixes the left DIV90 cluster order by descending Pallial/cortical fraction. Copied into `final_figures` as a clearly marked candidate package; not final-approved yet. |
 
 ## Figure: maturation_scores
 
@@ -1966,18 +1966,20 @@ Audit conclusion:
   matrix-corruption problem; it is a label-space/reference-composition problem.
 ```
 
-## Figure: fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v6_no_cge_min10_ordered
+## Figure: fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v7_no_cge_fullref_min10_ordered
 
 ### Status
 
 ```text
-Generated v6 final-candidate river plots from one unified leaf-label transfer.
+Generated v7 final-candidate river plots from one unified leaf-label transfer.
 CGE is excluded completely from the adult reference before bridge export and
-before fast-kNN transfer; it is not merely hidden from the plots.
+before fast-kNN transfer; it is not merely hidden from the plots. v7 uses the
+full eligible no-CGE adult reference with no per-subcluster or total reference
+caps.
 Pallial/subpallial and major labels are derived from that same prediction, so
 the three river levels use one nested assignment logic. Vertical Pallial/cortical
 vs Subpallial grouping bars, a combined 1x3 panel, and visual accounting audits
-are included. v6 filters plotted river edges with fewer than 10 DIV90 cells and
+are included. v7 filters plotted river edges with fewer than 10 DIV90 cells and
 uses one fixed left-side DIV90 class order across all river plots. A
 final_figures candidate package has been created, but this is not
 final-approved yet; visual review and final wording remain pending.
@@ -1987,10 +1989,10 @@ final-approved yet; visual review and final wording remain pending.
 
 ```text
 Final-candidate output:
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_msn_emsn_chat_river_plots_v6_no_cge_min10_ordered
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_msn_emsn_chat_river_plots_v7_no_cge_fullref_min10_ordered
 
 Final-figures candidate package:
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v6_no_cge_min10_ordered_candidate
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v7_no_cge_fullref_min10_ordered_candidate
 
 Expected plots:
 plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
@@ -2455,9 +2457,9 @@ Validation:
 
 ```text
 Status:
-  Generated, visually spot-checked, and copied into final_figures as the current
-  preferred candidate package. Not final-approved yet; visual review and final
-  wording remain pending.
+  Generated and visually spot-checked. Superseded by v7, which uses the same
+  no-CGE reference scope but exports all eligible adult reference cells with no
+  per-subcluster or total reference caps.
 
 Output:
   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_msn_emsn_chat_river_plots_v6_no_cge_min10_ordered
@@ -2500,6 +2502,64 @@ Validation:
   Visual spot-check confirms CGE-derived target labels are absent.
 ```
 
+### V7 No-CGE Full-Reference Min-10 Ordered Update
+
+```text
+Status:
+  Generated, visually spot-checked, and copied into final_figures as the current
+  preferred candidate package. Not final-approved yet; visual review and final
+  wording remain pending.
+
+Output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_msn_emsn_chat_river_plots_v7_no_cge_fullref_min10_ordered
+
+Final-figures candidate package:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v7_no_cge_fullref_min10_ordered_candidate
+
+Computation:
+  CGE was removed from the bridge scope before transfer.
+  Reference export used no caps:
+    --max-ref-cells-per-subcluster 0
+    --max-ref-cells-total 0
+
+Reference scope:
+  MGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Medium spiny neuron
+  Eccentric medium spiny neuron
+  Splatter restricted to subpallial cholinergic/CHAT-like rows only
+
+Reference after export:
+  reference_cells_total: 460,654
+  MGE interneuron: 222,434
+  Medium spiny neuron: 152,189
+  LAMP5-LHX6 and Chandelier: 45,118
+  Eccentric medium spiny neuron: 40,144
+  Splatter CHAT/cholinergic subset: 769
+
+Transfer:
+  reference_cells_used_after_excluding_other_selected_reference: 442,772
+  div90_query_cells: 16,206
+  nfeatures: 3,000
+  n_components: 50
+  k: 50
+
+Jobs:
+  52441664  siletti-final-bridge-v7-nocge-fullref    COMPLETED  00:08:59  max RSS 85337848K
+  52441665  siletti-final-transfer-v7-nocge-fullref  COMPLETED  00:12:31  max RSS 88038276K
+  52441666  siletti-final-rivers-v7-nocge-fullref    COMPLETED  00:00:44  max RSS 1517432K
+
+Filter audit:
+  pallial_subpallial: 1 edge filtered, 16,205 / 16,206 cells plotted
+  major_subtype: 11 edges filtered, 16,169 / 16,206 cells plotted
+  final_fine_subtype: 18 edges filtered, 16,147 / 16,206 cells plotted
+
+Validation:
+  Main PNG/PDF files are present and nonzero.
+  Combined 1x3 PNG dimensions: 11794 x 3559.
+  Visual spot-check confirms CGE-derived target labels are absent.
+```
+
 ### Final Figure Package
 
 ```text
@@ -2509,7 +2569,7 @@ Status:
   approved.
 
 Package:
-  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v6_no_cge_min10_ordered_candidate
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v7_no_cge_fullref_min10_ordered_candidate
 
 Contents:
   README.md

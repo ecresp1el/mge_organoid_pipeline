@@ -2027,10 +2027,10 @@ Purpose:
   assignment logic.
 
 Preferred output:
-  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_msn_emsn_chat_river_plots_v6_no_cge_min10_ordered
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_msn_emsn_chat_river_plots_v7_no_cge_fullref_min10_ordered
 
 Final-figures candidate package:
-  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v6_no_cge_min10_ordered_candidate
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v7_no_cge_fullref_min10_ordered_candidate
   Status: packaged for final-figure development, not final-approved.
 
 Bridge columns:
@@ -2099,6 +2099,43 @@ V6 no-CGE update:
     pallial_subpallial: 1 edge filtered, 16,205 / 16,206 cells plotted
     major_subtype: 11 edges filtered, 16,163 / 16,206 cells plotted
     final_fine_subtype: 17 edges filtered, 16,144 / 16,206 cells plotted
+
+V7 no-CGE full-reference update:
+  Date logged: 2026-06-27
+  Output:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_msn_emsn_chat_river_plots_v7_no_cge_fullref_min10_ordered
+  Package:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_msn_emsn_chat_rivers_v7_no_cge_fullref_min10_ordered_candidate
+  Computation:
+    CGE removed before bridge export and before unified fast-kNN transfer.
+    Reference export used no per-subcluster or total reference caps.
+  Reference scope:
+    MGE interneuron
+    LAMP5-LHX6 and Chandelier
+    Medium spiny neuron
+    Eccentric medium spiny neuron
+    Splatter restricted to subpallial cholinergic/CHAT-like rows only
+  Reference after export:
+    reference_cells_total: 460,654
+    MGE interneuron: 222,434
+    Medium spiny neuron: 152,189
+    LAMP5-LHX6 and Chandelier: 45,118
+    Eccentric medium spiny neuron: 40,144
+    Splatter CHAT/cholinergic subset: 769
+  Transfer:
+    reference_cells_used_after_excluding_other_selected_reference: 442,772
+    div90_query_cells: 16,206
+    nfeatures: 3,000
+    n_components: 50
+    k: 50
+  Jobs:
+    52441664  bridge no-CGE full reference      COMPLETED  00:08:59  max RSS 85337848K
+    52441665  unified transfer no-CGE full ref  COMPLETED  00:12:31  max RSS 88038276K
+    52441666  river plots no-CGE full ref       COMPLETED  00:00:44  max RSS 1517432K
+  Filter audit:
+    pallial_subpallial: 1 edge filtered, 16,205 / 16,206 cells plotted
+    major_subtype: 11 edges filtered, 16,169 / 16,206 cells plotted
+    final_fine_subtype: 18 edges filtered, 16,147 / 16,206 cells plotted
 
 Current v5 main river plots:
   plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
