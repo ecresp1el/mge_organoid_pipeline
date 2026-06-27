@@ -206,6 +206,44 @@ def final_fine_subtype(meta: pd.DataFrame) -> pd.Series:
     return label
 
 
+def unified_leaf_subtype(meta: pd.DataFrame) -> pd.Series:
+    fine = final_fine_subtype(meta)
+    major = major_interneuron_subtype_roi(meta)
+    leaf = fine.copy()
+    fallback = leaf.eq(OTHER_SELECTED_REFERENCE) & ~major.eq(OTHER_SELECTED_REFERENCE)
+    leaf.loc[fallback] = major.loc[fallback]
+    return leaf
+
+
+def unified_major_from_leaf(leaf: pd.Series) -> pd.Series:
+    leaf = leaf.astype(str)
+    major = pd.Series(OTHER_SELECTED_REFERENCE, index=leaf.index, dtype=object)
+    rules = [
+        (leaf.eq("Cortical PV+ basket neurons"), "Pallial/cortical Pvalb"),
+        (leaf.eq("Cortical PV+ Chandelier neurons"), "Pallial/cortical Chandelier"),
+        (leaf.isin(["Cortical SST+ LRP neurons", "Cortical SST+ Mt neurons", "Cortical SST+ nMt neurons"]), "Pallial/cortical Sst"),
+        (leaf.eq("Subpallial PV+ neurons"), "Subpallial Pvalb"),
+        (leaf.isin(["Subpallial SST+ LRP neurons", "Subpallial SST+ neurons"]), "Subpallial Sst"),
+        (leaf.eq(CHOLINERGIC_JIA_GROUP), "Subpallial Cholinergic neurons"),
+        (leaf.eq("Pallial/cortical Medium spiny neuron"), "Pallial/cortical Medium spiny neuron"),
+        (leaf.eq("Subpallial Medium spiny neuron"), "Subpallial Medium spiny neuron"),
+        (leaf.eq("Subpallial Eccentric medium spiny neuron"), "Subpallial Eccentric medium spiny neuron"),
+    ]
+    for mask, value in rules:
+        major.loc[mask] = value
+    already_major = leaf.str.startswith(("Pallial/cortical ", "Subpallial ")) & major.eq(OTHER_SELECTED_REFERENCE)
+    major.loc[already_major] = leaf.loc[already_major]
+    return major
+
+
+def unified_bin_from_leaf(leaf: pd.Series) -> pd.Series:
+    leaf = leaf.astype(str)
+    label = pd.Series("Other", index=leaf.index, dtype=object)
+    label.loc[leaf.str.startswith(("Cortical ", "Pallial/cortical "))] = "Pallial/cortical"
+    label.loc[leaf.str.startswith("Subpallial ")] = "Subpallial"
+    return label
+
+
 def load_reference_metadata_and_indices(
     project_root: Path,
     source_dir: Path,
@@ -247,6 +285,9 @@ def load_reference_metadata_and_indices(
     meta["major_interneuron_subtype"] = major_interneuron_subtype(meta)
     meta["major_interneuron_subtype_roi"] = major_interneuron_subtype_roi(meta)
     meta["final_fine_subtype"] = final_fine_subtype(meta)
+    meta["unified_leaf_subtype"] = unified_leaf_subtype(meta)
+    meta["unified_major_subtype_roi"] = unified_major_from_leaf(meta["unified_leaf_subtype"])
+    meta["unified_pallial_subpallial_bin"] = unified_bin_from_leaf(meta["unified_leaf_subtype"])
 
     scope_audit = []
     for supercluster, sub in meta.groupby("source_supercluster", sort=False):
@@ -421,6 +462,9 @@ def main() -> None:
         "major_interneuron_subtype",
         "major_interneuron_subtype_roi",
         "final_fine_subtype",
+        "unified_leaf_subtype",
+        "unified_major_subtype_roi",
+        "unified_pallial_subpallial_bin",
         "siletti_supercluster_label",
         "cell_type",
         "siletti_cluster_label",

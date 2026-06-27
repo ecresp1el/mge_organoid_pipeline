@@ -47,10 +47,19 @@ FINE_SUBTYPE_ORDER = [
     "Cortical SST+ Mt neurons",
     "Cortical SST+ nMt neurons",
     "Pallial/cortical Medium spiny neuron",
+    "Pallial/cortical Vip",
+    "Pallial/cortical Lamp5",
+    "Pallial/cortical Sncg",
+    "Pallial/cortical Pax6",
+    "Pallial/cortical Lamp5 Lhx6",
     "Subpallial PV+ neurons",
     "Subpallial SST+ LRP neurons",
     "Subpallial SST+ neurons",
     "Subpallial Cholinergic neurons",
+    "Subpallial Vip",
+    "Subpallial Lamp5",
+    "Subpallial Lamp5 Lhx6",
+    "Subpallial Chandelier",
     "Subpallial Medium spiny neuron",
     "Subpallial Eccentric medium spiny neuron",
 ]
@@ -113,6 +122,38 @@ def read_bridge_reference(bridge_dir: Path) -> pd.DataFrame:
     return read_tsv_gz(path)
 
 
+def make_label_maps(ref: pd.DataFrame) -> tuple[dict[str, str], dict[str, str]]:
+    required = ["unified_leaf_subtype", "unified_major_subtype_roi", "unified_pallial_subpallial_bin"]
+    missing = [col for col in required if col not in ref.columns]
+    if missing:
+        raise ValueError(f"Reference metadata missing unified label columns: {missing}")
+    maps = (
+        ref.loc[~ref["unified_leaf_subtype"].eq(OTHER_SELECTED_REFERENCE), required]
+        .drop_duplicates()
+        .copy()
+    )
+    conflicts = maps.groupby("unified_leaf_subtype")[["unified_major_subtype_roi", "unified_pallial_subpallial_bin"]].nunique()
+    conflicts = conflicts.loc[(conflicts > 1).any(axis=1)]
+    if not conflicts.empty:
+        raise ValueError(f"Unified leaf labels map to multiple parents: {conflicts.index.tolist()}")
+    maps = maps.drop_duplicates("unified_leaf_subtype")
+    leaf_to_major = dict(zip(maps["unified_leaf_subtype"].astype(str), maps["unified_major_subtype_roi"].astype(str)))
+    leaf_to_bin = dict(zip(maps["unified_leaf_subtype"].astype(str), maps["unified_pallial_subpallial_bin"].astype(str)))
+    return leaf_to_major, leaf_to_bin
+
+
+def derive_obs_from_unified(unified_obs: pd.DataFrame, ref: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    leaf_to_major, leaf_to_bin = make_label_maps(ref)
+    fine_obs = unified_obs.copy()
+    subtype_obs = unified_obs.copy()
+    pallial_obs = unified_obs.copy()
+    subtype_obs["predicted.id"] = subtype_obs["predicted.id"].astype(str).map(leaf_to_major).fillna("Other")
+    pallial_obs["predicted.id"] = pallial_obs["predicted.id"].astype(str).map(leaf_to_bin).fillna("Other")
+    if subtype_obs["predicted.id"].eq("Other").any() or pallial_obs["predicted.id"].eq("Other").any():
+        raise ValueError("Unified transfer produced labels that could not be mapped to major/bin parents.")
+    return pallial_obs, subtype_obs, fine_obs
+
+
 def make_edges(obs: pd.DataFrame, source_col: str = "div90_broad_class") -> pd.DataFrame:
     edges = (
         obs.groupby([source_col, "predicted.id"], dropna=False)
@@ -160,7 +201,7 @@ def write_one(
         right_title=right_title,
         plot_title=plot_title,
         right_group_getter=label_group,
-        include_zero_right=right_order is not None,
+        include_zero_right=False,
     )
     return edges
 
@@ -201,7 +242,7 @@ def draw_combined_rivers(
             right_title=right_title,
             plot_title=plot_title,
             right_group_getter=label_group,
-            include_zero_right=True,
+            include_zero_right=False,
             ax=ax,
         )
     fig.subplots_adjust(left=0.04, right=0.985, top=0.9, bottom=0.04, wspace=0.55)
@@ -281,7 +322,14 @@ def write_audit_assets(
     source_col: str,
     fine_obs: pd.DataFrame | None = None,
 ) -> None:
-    major_col = "major_interneuron_subtype_roi" if "major_interneuron_subtype_roi" in ref.columns else "major_interneuron_subtype"
+    major_col = (
+        "unified_major_subtype_roi"
+        if "unified_major_subtype_roi" in ref.columns
+        else "major_interneuron_subtype_roi"
+        if "major_interneuron_subtype_roi" in ref.columns
+        else "major_interneuron_subtype"
+    )
+    fine_col = "unified_leaf_subtype" if "unified_leaf_subtype" in ref.columns else "final_fine_subtype"
     ref_super_bin = (
         ref.groupby(["source_supercluster", "roi_pallial_subpallial_bin"], dropna=False)
         .size()
@@ -301,16 +349,18 @@ def write_audit_assets(
     )
     ref_fine_bin = None
     ref_fine_total = None
-    if "final_fine_subtype" in ref.columns:
+    if fine_col in ref.columns:
         ref_fine_bin = (
-            ref.groupby(["final_fine_subtype", "roi_pallial_subpallial_bin"], dropna=False)
+            ref.groupby([fine_col, "roi_pallial_subpallial_bin"], dropna=False)
             .size()
             .reset_index(name="n_reference_cells")
+            .rename(columns={fine_col: "final_fine_subtype"})
         )
         ref_fine_total = (
-            ref.groupby("final_fine_subtype", dropna=False)
+            ref.groupby(fine_col, dropna=False)
             .size()
             .reset_index(name="n_reference_cells")
+            .rename(columns={fine_col: "final_fine_subtype"})
         )
     query_pallial = (
         pallial_obs.groupby([source_col, "predicted.id"], dropna=False)
@@ -345,13 +395,13 @@ def write_audit_assets(
             },
             {
                 "metric": "reference_cells_used_for_final_fine_subtype_transfer",
-                "n_cells": int(ref.loc[~ref["final_fine_subtype"].eq(OTHER_SELECTED_REFERENCE)].shape[0])
-                if "final_fine_subtype" in ref.columns
+                "n_cells": int(ref.loc[~ref[fine_col].eq(OTHER_SELECTED_REFERENCE)].shape[0])
+                if fine_col in ref.columns
                 else 0,
             },
             {
                 "metric": "reference_cells_excluded_from_final_fine_subtype_transfer_other_selected_reference",
-                "n_cells": int(ref["final_fine_subtype"].eq(OTHER_SELECTED_REFERENCE).sum()) if "final_fine_subtype" in ref.columns else 0,
+                "n_cells": int(ref[fine_col].eq(OTHER_SELECTED_REFERENCE).sum()) if fine_col in ref.columns else 0,
             },
             {"metric": "div90_cells_pallial_transfer", "n_cells": int(pallial_obs.shape[0])},
             {"metric": "div90_cells_major_subtype_transfer", "n_cells": int(subtype_obs.shape[0])},
@@ -378,6 +428,38 @@ def write_audit_assets(
         ref_fine_total.to_csv(tables_dir / "audit_reference_final_fine_subtype_totals.tsv", sep="\t", index=False)
     if query_fine is not None:
         query_fine.to_csv(tables_dir / "audit_div90_class_to_final_fine_subtype_counts.tsv", sep="\t", index=False)
+    zero_rows = []
+    ref_label_specs = [
+        (
+            "pallial_subpallial",
+            "unified_pallial_subpallial_bin" if "unified_pallial_subpallial_bin" in ref.columns else "roi_pallial_subpallial_bin",
+            query_pallial,
+            "adult_pallial_subpallial_bin",
+        ),
+        (
+            "major_subtype",
+            "unified_major_subtype_roi" if "unified_major_subtype_roi" in ref.columns else "major_interneuron_subtype",
+            query_subtype,
+            "adult_major_interneuron_subtype",
+        ),
+    ]
+    if query_fine is not None:
+        ref_label_specs.append(
+            (
+                "fine_subtype",
+                "unified_leaf_subtype" if "unified_leaf_subtype" in ref.columns else "final_fine_subtype",
+                query_fine,
+                "adult_final_fine_subtype",
+            )
+        )
+    for level, ref_col, query_counts, query_col in ref_label_specs:
+        ref_labels = ref[ref_col].astype(str)
+        ref_counts = ref.loc[~ref_labels.isin({OTHER_SELECTED_REFERENCE, "Other"}), ref_col].astype(str).value_counts()
+        assigned_counts = query_counts.groupby(query_col)["n_query_cells"].sum()
+        for label, n_ref in ref_counts.items():
+            if int(assigned_counts.get(label, 0)) == 0:
+                zero_rows.append({"level": level, "label": label, "n_reference_cells": int(n_ref), "n_query_cells": 0})
+    pd.DataFrame(zero_rows).to_csv(tables_dir / "audit_reference_labels_with_zero_query_assignments.tsv", sep="\t", index=False)
     totals.to_csv(tables_dir / "audit_accounting_totals.tsv", sep="\t", index=False)
 
     write_stacked_bar(
@@ -449,8 +531,9 @@ def write_audit_assets(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pallial-transfer-dir", required=True, type=Path)
-    parser.add_argument("--subtype-transfer-dir", required=True, type=Path)
+    parser.add_argument("--unified-transfer-dir", type=Path, default=None)
+    parser.add_argument("--pallial-transfer-dir", type=Path, default=None)
+    parser.add_argument("--subtype-transfer-dir", type=Path, default=None)
     parser.add_argument("--fine-transfer-dir", type=Path, default=None)
     parser.add_argument("--bridge-dir", required=True, type=Path)
     parser.add_argument("--outdir", required=True, type=Path)
@@ -466,10 +549,16 @@ def main() -> None:
     for directory in [plots_dir, tables_dir, reports_dir]:
         directory.mkdir(parents=True, exist_ok=True)
 
-    pallial_obs = read_transfer_obs(args.pallial_transfer_dir)
-    subtype_obs = read_transfer_obs(args.subtype_transfer_dir)
-    fine_obs = read_transfer_obs(args.fine_transfer_dir) if args.fine_transfer_dir is not None else None
     ref = read_bridge_reference(args.bridge_dir)
+    if args.unified_transfer_dir is not None:
+        unified_obs = read_transfer_obs(args.unified_transfer_dir)
+        pallial_obs, subtype_obs, fine_obs = derive_obs_from_unified(unified_obs, ref)
+    else:
+        if args.pallial_transfer_dir is None or args.subtype_transfer_dir is None:
+            raise ValueError("Provide --unified-transfer-dir or both --pallial-transfer-dir and --subtype-transfer-dir.")
+        pallial_obs = read_transfer_obs(args.pallial_transfer_dir)
+        subtype_obs = read_transfer_obs(args.subtype_transfer_dir)
+        fine_obs = read_transfer_obs(args.fine_transfer_dir) if args.fine_transfer_dir is not None else None
 
     pallial_edges = write_one(
         pallial_obs,
@@ -516,6 +605,7 @@ def main() -> None:
 
     config = {
         "bridge_dir": str(args.bridge_dir),
+        "unified_transfer_dir": str(args.unified_transfer_dir) if args.unified_transfer_dir is not None else None,
         "pallial_transfer_dir": str(args.pallial_transfer_dir),
         "subtype_transfer_dir": str(args.subtype_transfer_dir),
         "fine_transfer_dir": str(args.fine_transfer_dir) if args.fine_transfer_dir is not None else None,
@@ -559,9 +649,10 @@ def main() -> None:
         "cholinergic, pallial/cortical MSN, subpallial MSN, and subpallial "
         "eccentric MSN. `Other selected reference` is retained for reference "
         "accounting and excluded from the fine-subtype transfer. Cortical PV+ "
-        "Chandelier neurons are present in the adult reference; a zero label in "
-        "the river means no DIV90 cells were assigned to that class in this "
-        "transfer.\n\n"
+        "Chandelier neurons are present in the adult reference; labels with zero "
+        "DIV90 assignments are recorded in "
+        "`tables/audit_reference_labels_with_zero_query_assignments.tsv` rather "
+        "than drawn as zero-count river targets.\n\n"
         "Main river plots:\n\n"
         "- `plots/river_div90_class_to_adult_pallial_subpallial_bin.png`\n"
         "- `plots/river_div90_class_to_adult_major_interneuron_subtypes.png`\n"

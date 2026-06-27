@@ -250,6 +250,7 @@ Slurm execution standard:
 | `fig_cross_study_marker_expression_pv_precursors_on_off_target_v12` | Updated, Slurm-rendered, Validated package | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate` | 2026-06-27 revision groups PV ON-target MGE genes first as NKX2.1/LHX6/LHX8/ERBB4 with a top `MGE` span, replaces ST18 with ZEB2, removes HMX3, and refreshed marker extraction because ZEB2 was absent from the prepared v12 tables. Exported PNG/PDF/SVG at 600 dpi through Slurm job 52439584. |
 | `fig_cross_study_shi_label_transfer_v1_umap_score_grids` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1` | Plot-only rerender of Shi Seurat label-transfer UMAP score grids and matched sample-composition panels from saved v1 combined table. Updated score grids to fixed 0-1 grey-to-blue scaling, applied DIV90 visualization-only stressed-cluster 6/7 removal, applied DIV90 vertical plotting-only UMAP orientation, wrapped long all-label headers, exported requested PNG/PDF/SVG at 600 dpi through Slurm job 52371207 with editable Arial SVG text. Added sample-composition panels through Slurm job 52371553 using the same final denominator and Bershteyn 2023 shorthand sample labels. |
 | `fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate` | Found, Confirmed, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1` | New candidate package created for the DIV90 Jia all-cell URD marker-validation, UMAP pseudotime, and cluster-number-name tree pseudotime panels. Current assets were copied into `final_figures`; formatting should proceed by plot-only re-render from existing assets, not by recomputing URD pseudotime, the lineage tree, or marker validation. |
+| `fig_siletti_div90_restricted_ge_msn_chat_rivers_v4_unified` | Generated, Validated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v4_unified` | Unified v4 Siletti river candidate copied into `final_figures` as a clearly marked candidate package. It includes the four main river plots, audit plots/tables, code, Slurm logs, and provenance. This is not final-approved yet; visual review and final wording remain pending. |
 
 ## Figure: fig_cross_study_marker_expression_v12
 
@@ -1831,22 +1832,27 @@ Audit conclusion:
   matrix-corruption problem; it is a label-space/reference-composition problem.
 ```
 
-## Figure: fig_siletti_div90_restricted_ge_msn_chat_rivers_v3
+## Figure: fig_siletti_div90_restricted_ge_msn_chat_rivers_v4_unified
 
 ### Status
 
 ```text
-Generated v3 final-candidate river plots with aligned rectangle/ribbon geometry,
-fine-subtype transfer, split major subtype ROI labels, vertical
-Pallial/cortical vs Subpallial grouping bars, a combined 1x3 panel, and visual
-accounting audits; ready for visual review.
+Generated v4 final-candidate river plots from one unified leaf-label transfer.
+Pallial/subpallial and major labels are derived from that same prediction, so
+the three river levels use one nested assignment logic. Vertical Pallial/cortical
+vs Subpallial grouping bars, a combined 1x3 panel, and visual accounting audits
+are included. A final_figures candidate package has been created, but this is
+not final-approved yet; visual review and final wording remain pending.
 ```
 
 ### Candidate Paths
 
 ```text
 Final-candidate output:
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v3
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v4_unified
+
+Final-figures candidate package:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v4_unified_candidate
 
 Expected plots:
 plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
@@ -1864,13 +1870,16 @@ plots/audit_div90_class_to_pallial_subpallial_counts.png/pdf
 plots/audit_div90_class_to_major_subtype_counts.png/pdf
 plots/audit_div90_class_to_final_fine_subtype_counts.png/pdf
 plots/audit_transfer_score_distributions.png/pdf
+tables/audit_reference_labels_with_zero_query_assignments.tsv
 ```
 
 ### Source Code and Handoffs
 
 ```text
 python_notebooks/scripts/export_siletti_div90_seurat_bridge.py
+python_notebooks/scripts/siletti_div90_fast_knn_label_transfer.py
 python_notebooks/scripts/plot_siletti_div90_final_restricted_rivers.py
+python_notebooks/scripts/plot_siletti_div90_jia_figure.py
 python_notebooks/HANDOFF_siletti_2023_whb_reference_metadata.md
 ```
 
@@ -2139,10 +2148,152 @@ DIV90 assignments to those chandelier labels in v3 are 0. They are shown as
 zero-count target labels in the river plots, not as nonzero flows.
 ```
 
+### V4 Unified Transfer Update
+
+```text
+Status:
+  Generated, validated, and copied into final_figures as the current preferred
+  candidate package. Not final-approved yet; visual review and final wording
+  remain pending.
+
+Output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v4_unified
+
+Final-figures candidate package:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v4_unified_candidate
+
+Main plots:
+  plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
+  plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
+  plots/river_div90_class_to_adult_final_fine_subtypes.png/pdf
+  plots/river_div90_class_to_adult_combined_1x3_pallial_major_fine.png/pdf
+
+Logic:
+  Transfer is performed once using `unified_leaf_subtype`.
+  `unified_major_subtype_roi` and `unified_pallial_subpallial_bin` are derived
+  from that same predicted leaf label for plotting.
+  Zero-count reference labels are not drawn in the assignment rivers; they are
+  tracked in `tables/audit_reference_labels_with_zero_query_assignments.tsv`.
+
+Jobs:
+  52440422  siletti-final-bridge-v4-unified    COMPLETED  00:02:23  max RSS 17672732K  gl3014
+  52440423  siletti-final-unified-transfer-v4  COMPLETED  00:01:47  max RSS 12666716K  gl3009
+  52440424  siletti-final-rivers-v4-unified    COMPLETED  00:00:29  max RSS 1073464K   gl3434
+```
+
+V4 accounting totals:
+
+```text
+reference_cells_total: 60,000
+reference_cells_used_for_subtype_transfer: 51,580
+reference_cells_excluded_from_subtype_transfer_other_selected_reference: 8,420
+reference_cells_used_for_final_fine_subtype_transfer: 51,580
+reference_cells_excluded_from_final_fine_subtype_transfer_other_selected_reference: 8,420
+div90_cells_pallial_transfer: 16,206
+div90_cells_major_subtype_transfer: 16,206
+div90_cells_final_fine_subtype_transfer: 16,206
+river_pallial_edges_total: 16,206
+river_major_subtype_edges_total: 16,206
+river_final_fine_subtype_edges_total: 16,206
+```
+
+V4 derived counts:
+
+```text
+Pallial/subpallial:
+  Subpallial: 10,295
+  Pallial/cortical: 5,911
+
+Major:
+  Subpallial Medium spiny neuron: 5,547
+  Subpallial Eccentric medium spiny neuron: 3,906
+  Pallial/cortical Vip: 2,460
+  Pallial/cortical Pvalb: 1,954
+  Pallial/cortical Lamp5 Lhx6: 1,226
+  Subpallial Sst: 394
+  Subpallial Cholinergic neurons: 367
+  Pallial/cortical Sst: 266
+  Subpallial Vip: 81
+  Pallial/cortical Pax6: 5
+
+Fine/leaf:
+  Subpallial Medium spiny neuron: 5,547
+  Subpallial Eccentric medium spiny neuron: 3,906
+  Pallial/cortical Vip: 2,460
+  Cortical PV+ basket neurons: 1,954
+  Pallial/cortical Lamp5 Lhx6: 1,226
+  Subpallial SST+ neurons: 394
+  Subpallial Cholinergic neurons: 367
+  Cortical SST+ Mt neurons: 160
+  Cortical SST+ LRP neurons: 86
+  Subpallial Vip: 81
+  Cortical SST+ nMt neurons: 20
+  Pallial/cortical Pax6: 5
+```
+
+PV chandelier isolated audit:
+
+```text
+Adult reference contains Cortical PV+ Chandelier neurons, but the unified v4
+transfer assigns 0 DIV90 cells to that label.
+
+Audit job 52440381 restricted the fine reference choices to:
+  Cortical PV+ basket neurons
+  Cortical PV+ Chandelier neurons
+  Subpallial PV+ neurons
+
+Result:
+  Cortical PV+ basket neurons: 16,206
+  Cortical PV+ Chandelier neurons: 0
+  Subpallial PV+ neurons: 0
+
+Soft-score/non-winner audit:
+  tables/audit_chandelier_soft_score_summary.tsv
+  tables/audit_chandelier_soft_score_by_div90_class.tsv
+  tables/audit_chandelier_soft_score_candidate_cells.tsv
+
+  In the unified v4 transfer, Cortical PV+ Chandelier is never rank 1.
+  Only 3 DIV90 cells have any nonzero Cortical PV+ Chandelier score, all in
+  CRABP1+/PV Precursors. This is a tiny chandelier-neighbor signal, not a
+  robust alternate chandelier assignment.
+```
+
+### Final Figure Package
+
+```text
+Status:
+  Packaged candidate only. This folder is for final-figure development and
+  provenance capture; it does not mean the Siletti river figure is final
+  approved.
+
+Package:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v4_unified_candidate
+
+Contents:
+  README.md
+  figures/png/river_div90_class_to_adult_pallial_subpallial_bin.png
+  figures/png/river_div90_class_to_adult_major_interneuron_subtypes.png
+  figures/png/river_div90_class_to_adult_final_fine_subtypes.png
+  figures/png/river_div90_class_to_adult_combined_1x3_pallial_major_fine.png
+  figures/pdf/ matching PDF files
+  figures/png/audit/ and figures/pdf/audit/ visual accounting checks
+  tables/ all river edge, assignment, accounting, zero-label, and chandelier
+    audit tables from the v4 output
+  code/ exact scripts copied for the candidate package
+  logs/ Slurm logs for bridge, unified transfer, river rendering, and PV-only
+    chandelier audit
+  provenance/ git commit, git status, relevant uncommitted diff, source README,
+    file manifest, and sha256 manifest
+
+Note:
+  No SVG files were generated for this candidate. The package keeps an empty
+  figures/svg/ directory to match the final_figures standard layout.
+```
+
 ### Open Questions
 
 ```text
-Visual review pending before final packaging.
+Visual review pending before final approval.
 
 Interpretation caveat to review visually:
   Pallial/subpallial is an adult primary-ROI bin, not a developmental origin
@@ -2174,3 +2325,78 @@ Detailed methods/input/output record:
 python_notebooks/HANDOFF_siletti_2023_whb_reference_metadata.md
 section: All-Supercluster Assignment Workflow Details
 ```
+
+## 2026-06-27 DIV90 URD Marker/Pseudotime Tree Final-Figure Package Update
+
+Final-figure package:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate
+
+User-facing alias:
+/Volumes/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate
+```
+
+Source run:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1
+```
+
+Plot-only update completed and submitted as Slurm job `52440501`
+(`div90_urd_6marker`), which completed successfully with exit code `0:0`
+on `gl3411` in 19 seconds. This did not recompute URD pseudotime, random
+walks, or the lineage tree; it rerendered marker overlays from the saved
+tree object:
+
+```text
+lineage_tree_jia_endpoint_tips_v1/div30_urd_lineage_tree_object.rds
+```
+
+Current marker panel order:
+
+```text
+Hes1 | Nkx2.1 | Lhx6 | Lhx8 | Crabp1 | Kcnc1
+```
+
+Matrix features used:
+
+```text
+HES1 | NKX2-1 | LHX6 | LHX8 | CRABP1 | KCNC1
+```
+
+`Nkx2.1` is the display label for feature `NKX2-1`. The earlier requested
+`Stmn5` panel was removed from the current packaged figure because `STMN5`
+was not present in the saved expression matrix.
+
+Current packaged figures:
+
+```text
+figures/png/current_jia_fig_s11_style_urd_marker_validation.png
+figures/pdf/current_jia_fig_s11_style_urd_marker_validation.pdf
+figures/png/current_div90_urd_marker_overlays_hes1_nkx21_lhx6_lhx8_crabp1_kcnc1.png
+figures/pdf/current_div90_urd_marker_overlays_hes1_nkx21_lhx6_lhx8_crabp1_kcnc1.pdf
+figures/png/current_urd_tree_cluster_number_name.png
+figures/png/current_urd_tree_cluster_number_name_grid.png
+figures/png/current_urd_tree_pseudotime.png
+figures/png/current_urd_tree_pseudotime_cluster_number_name.png
+figures/png/current_umap_pseudotime.png
+figures/png/current_pseudotime_overlay_umap.png
+```
+
+Package metadata/provenance refreshed:
+
+```text
+README.md
+logs/render_status.txt
+tables/jia_fig_s11_marker_order.tsv
+tables/jia_fig_s11_marker_expression_summary.tsv
+provenance/source_paths.tsv
+provenance/file_manifest.txt
+provenance/sha256_manifest.txt
+code/25_div30_urd_jia_fig_s11_marker_validation.R
+```
+
+The marker renderer now supports optional `--genes`, `--gene-labels`, and
+`--panel-title` arguments while preserving the original Jia Fig. S11 default
+panel when those arguments are omitted.

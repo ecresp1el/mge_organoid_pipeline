@@ -30,6 +30,9 @@ parse_args <- function(args) {
   out <- list(
     `tree-rds` = NULL,
     outdir = NULL,
+    genes = "",
+    `gene-labels` = "",
+    `panel-title` = "",
     `point-size` = "0.28",
     help = FALSE
   )
@@ -95,8 +98,34 @@ marker_spec <- function() {
     display_order = c(seq_len(4), seq_len(5)),
     category = c("VZ RGC", "SVZ RGC", "IPC", "Newborn neuron", "LHX8 lineage", "NR2F1 lineage", "EPHA5 lineage", "MEF2C lineage", "CRABP1 lineage"),
     gene = c("HES1", "CACNA1E", "DLX2", "DCX", "LHX8", "NR2F1", "EPHA5", "MEF2C", "CRABP1"),
+    display_label = c("HES1", "CACNA1E", "DLX2", "DCX", "LHX8", "NR2F1", "EPHA5", "MEF2C", "CRABP1"),
     lineage_pair = c(NA, NA, NA, NA, "LHX8/ISL1", "NR2F1/NR2F2", "EPHA5/MEF2C", "LHX6/NFIA", "CRABP1/ANGPT2"),
     terminal_identity = c(NA, NA, NA, NA, "Subpallial cholinergic interneuron", "Subpallial GABAergic interneuron", "Cortical GABAergic interneuron", "Cortical interneuron lineage", "Subpallial GABAergic interneuron"),
+    stringsAsFactors = FALSE
+  )
+}
+
+split_csv <- function(x) {
+  if (!nzchar(x)) return(character())
+  trimws(strsplit(x, ",", fixed = TRUE)[[1]])
+}
+
+custom_marker_spec <- function(genes, labels = character()) {
+  genes <- split_csv(genes)
+  if (length(genes) == 0) return(NULL)
+  labels <- split_csv(labels)
+  if (length(labels) == 0) labels <- genes
+  if (length(labels) != length(genes)) {
+    stop("--gene-labels must contain the same number of comma-separated values as --genes", call. = FALSE)
+  }
+  data.frame(
+    panel = rep("custom_marker_panel", length(genes)),
+    display_order = seq_along(genes),
+    category = labels,
+    gene = genes,
+    display_label = labels,
+    lineage_pair = NA_character_,
+    terminal_identity = NA_character_,
     stringsAsFactors = FALSE
   )
 }
@@ -113,6 +142,7 @@ build_marker_table <- function(expr, cells, spec) {
       lineage_pair = spec$lineage_pair[[i]],
       terminal_identity = spec$terminal_identity[[i]],
       gene = gene,
+      display_label = spec$display_label[[i]],
       cell = cells,
       expression_logupx = values,
       gene_present = present,
@@ -124,6 +154,8 @@ build_marker_table <- function(expr, cells, spec) {
 
 marker_summary <- function(marker_df) {
   rows <- lapply(split(marker_df, marker_df$gene), function(df) {
+    values <- df$expression_logupx
+    has_values <- any(!is.na(values))
     data.frame(
       panel = df$panel[[1]],
       display_order = df$display_order[[1]],
@@ -131,12 +163,13 @@ marker_summary <- function(marker_df) {
       lineage_pair = df$lineage_pair[[1]],
       terminal_identity = df$terminal_identity[[1]],
       gene = df$gene[[1]],
+      display_label = df$display_label[[1]],
       gene_present = df$gene_present[[1]],
       n_cells = nrow(df),
-      pct_expressed = mean(df$expression_logupx > 0, na.rm = TRUE),
-      mean_logupx = mean(df$expression_logupx, na.rm = TRUE),
-      median_logupx = median(df$expression_logupx, na.rm = TRUE),
-      max_logupx = max(df$expression_logupx, na.rm = TRUE),
+      pct_expressed = if (has_values) mean(values > 0, na.rm = TRUE) else NA_real_,
+      mean_logupx = if (has_values) mean(values, na.rm = TRUE) else NA_real_,
+      median_logupx = if (has_values) median(values, na.rm = TRUE) else NA_real_,
+      max_logupx = if (has_values) max(values, na.rm = TRUE) else NA_real_,
       stringsAsFactors = FALSE
     )
   })
@@ -156,7 +189,8 @@ tree_marker_plot <- function(layout, cells, marker_df, gene, panel_title, point_
   y_pad <- diff(y_limits) * 0.04
   x_limits <- x_limits + c(-x_pad, x_pad)
   y_limits <- y_limits + c(-y_pad, y_pad)
-  max_expr <- max(plot_df$expression_logupx, na.rm = TRUE)
+  finite_expr <- plot_df$expression_logupx[!is.na(plot_df$expression_logupx)]
+  max_expr <- if (length(finite_expr) > 0) max(finite_expr) else NA_real_
   if (!is.finite(max_expr) || max_expr <= 0) max_expr <- 1
 
   p <- ggplot() +
@@ -170,7 +204,7 @@ tree_marker_plot <- function(layout, cells, marker_df, gene, panel_title, point_
       plot.subtitle = element_text(hjust = 0.5, size = 7),
       legend.position = if (show_legend) "right" else "none"
     ) +
-    labs(title = gene, subtitle = panel_title)
+    labs(title = df$display_label[[1]], subtitle = panel_title)
   if (!isTRUE(df$gene_present[[1]])) {
     p <- p + annotate("text", x = mean(x_limits), y = mean(y_limits), label = "missing", size = 4, color = "grey20")
   }
@@ -179,7 +213,9 @@ tree_marker_plot <- function(layout, cells, marker_df, gene, panel_title, point_
 
 panel_plots <- function(layout, cells, marker_df, spec, point_size) {
   lapply(seq_len(nrow(spec)), function(i) {
-    subtitle <- if (spec$panel[[i]] == "A_developmental_progression") {
+    subtitle <- if (spec$panel[[i]] == "custom_marker_panel") {
+      ""
+    } else if (spec$panel[[i]] == "A_developmental_progression") {
       spec$category[[i]]
     } else {
       paste(spec$lineage_pair[[i]], spec$terminal_identity[[i]], sep = "\n")
@@ -194,6 +230,7 @@ safe_gene_filename <- function(gene) {
 
 print_usage <- function() {
   cat("Usage: Rscript scripts/25_div30_urd_jia_fig_s11_marker_validation.R --tree-rds <tree.rds> --outdir <dir>\n")
+  cat("Optional: --genes HES1,NKX2-1,LHX6 --gene-labels Hes1,Nkx2.1,Lhx6 --panel-title <title>\n")
 }
 
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
@@ -219,7 +256,9 @@ urd <- readRDS(cfg$tree_rds)
 expr <- repair_logupx_dimnames(urd)
 layout <- as.data.frame(urd@tree$tree.layout, stringsAsFactors = FALSE)
 cells <- as.data.frame(urd@tree$cell.layout, stringsAsFactors = FALSE)
-spec <- marker_spec()
+custom_spec <- custom_marker_spec(opt$genes, opt$`gene-labels`)
+spec <- if (is.null(custom_spec)) marker_spec() else custom_spec
+panel_title <- if (nzchar(opt$`panel-title`)) opt$`panel-title` else "Jia Fig. S11-style URD marker validation"
 
 marker_df <- build_marker_table(expr, cells$cell, spec)
 summary_df <- marker_summary(marker_df)
@@ -234,31 +273,44 @@ if (length(missing_genes) > 0) {
   log_msg("All requested Jia Fig. S11 markers are present.")
 }
 
-panel_a_spec <- spec[spec$panel == "A_developmental_progression", , drop = FALSE]
-panel_b_spec <- spec[spec$panel == "B_inhibitory_lineages", , drop = FALSE]
-panel_a <- cowplot::plot_grid(plotlist = panel_plots(layout, cells, marker_df, panel_a_spec, cfg$point_size), nrow = 1, labels = NULL)
-panel_b <- cowplot::plot_grid(plotlist = panel_plots(layout, cells, marker_df, panel_b_spec, cfg$point_size), nrow = 1, labels = NULL)
-panel_a_labeled <- cowplot::plot_grid(
-  cowplot::ggdraw() + cowplot::draw_label("A. Developmental progression markers: VZ RGC -> SVZ RGC -> IPC -> newborn neuron", x = 0, hjust = 0, fontface = "bold", size = 11),
-  panel_a,
-  ncol = 1,
-  rel_heights = c(0.08, 1)
-)
-panel_b_labeled <- cowplot::plot_grid(
-  cowplot::ggdraw() + cowplot::draw_label("B. Jia inhibitory neuron lineage markers: VZ-RGC -> SVZ-RGC -> Neurogenesis -> lineage branches", x = 0, hjust = 0, fontface = "bold", size = 11),
-  panel_b,
-  ncol = 1,
-  rel_heights = c(0.08, 1)
-)
-combined <- cowplot::plot_grid(panel_a_labeled, panel_b_labeled, ncol = 1, rel_heights = c(1, 1))
+if ("custom_marker_panel" %in% spec$panel) {
+  custom_panel <- cowplot::plot_grid(plotlist = panel_plots(layout, cells, marker_df, spec, cfg$point_size), nrow = 1, labels = NULL)
+  combined <- cowplot::plot_grid(
+    cowplot::ggdraw() + cowplot::draw_label(panel_title, x = 0, hjust = 0, fontface = "bold", size = 11),
+    custom_panel,
+    ncol = 1,
+    rel_heights = c(0.08, 1)
+  )
+  save_plot_pair(combined, file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.png"), file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.pdf"), width = 24, height = 4.8)
+} else {
+  panel_a_spec <- spec[spec$panel == "A_developmental_progression", , drop = FALSE]
+  panel_b_spec <- spec[spec$panel == "B_inhibitory_lineages", , drop = FALSE]
+  panel_a <- cowplot::plot_grid(plotlist = panel_plots(layout, cells, marker_df, panel_a_spec, cfg$point_size), nrow = 1, labels = NULL)
+  panel_b <- cowplot::plot_grid(plotlist = panel_plots(layout, cells, marker_df, panel_b_spec, cfg$point_size), nrow = 1, labels = NULL)
+  panel_a_labeled <- cowplot::plot_grid(
+    cowplot::ggdraw() + cowplot::draw_label("A. Developmental progression markers: VZ RGC -> SVZ RGC -> IPC -> newborn neuron", x = 0, hjust = 0, fontface = "bold", size = 11),
+    panel_a,
+    ncol = 1,
+    rel_heights = c(0.08, 1)
+  )
+  panel_b_labeled <- cowplot::plot_grid(
+    cowplot::ggdraw() + cowplot::draw_label("B. Jia inhibitory neuron lineage markers: VZ-RGC -> SVZ-RGC -> Neurogenesis -> lineage branches", x = 0, hjust = 0, fontface = "bold", size = 11),
+    panel_b,
+    ncol = 1,
+    rel_heights = c(0.08, 1)
+  )
+  combined <- cowplot::plot_grid(panel_a_labeled, panel_b_labeled, ncol = 1, rel_heights = c(1, 1))
 
-save_plot_pair(panel_a_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.pdf"), width = 16, height = 4.2)
-save_plot_pair(panel_b_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.pdf"), width = 20, height = 4.2)
-save_plot_pair(combined, file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.png"), file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.pdf"), width = 20, height = 8.8)
+  save_plot_pair(panel_a_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.pdf"), width = 16, height = 4.2)
+  save_plot_pair(panel_b_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.pdf"), width = 20, height = 4.2)
+  save_plot_pair(combined, file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.png"), file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.pdf"), width = 20, height = 8.8)
+}
 
 for (i in seq_len(nrow(spec))) {
   gene <- spec$gene[[i]]
-  subtitle <- if (spec$panel[[i]] == "A_developmental_progression") {
+  subtitle <- if (spec$panel[[i]] == "custom_marker_panel") {
+    ""
+  } else if (spec$panel[[i]] == "A_developmental_progression") {
     spec$category[[i]]
   } else {
     paste(spec$lineage_pair[[i]], spec$terminal_identity[[i]], sep = "\n")
@@ -284,30 +336,16 @@ report <- c(
   "- No lineage program averages.",
   "- No marker substitutions.",
   "",
-  "## Panel A",
+  "## Marker Panel",
   "",
-  "`HES1 | CACNA1E | DLX2 | DCX`",
-  "",
-  "Interpretation order: `VZ RGC -> SVZ RGC -> IPC -> newborn neuron`",
-  "",
-  "## Panel B",
-  "",
-  "`LHX8 | NR2F1 | EPHA5 | MEF2C | CRABP1`",
-  "",
-  "Lineage labels:",
-  "",
-  "- `LHX8/ISL1`: subpallial cholinergic interneuron",
-  "- `NR2F1/NR2F2`: subpallial GABAergic interneuron",
-  "- `EPHA5/MEF2C`: cortical GABAergic interneuron",
-  "- `LHX6/NFIA`: cortical interneuron lineage",
-  "- `CRABP1/ANGPT2`: subpallial GABAergic interneuron",
+  paste0("`", paste(spec$display_label, collapse = " | "), "`"),
   "",
   "## Outputs",
   "",
   "- `plots/jia_fig_s11_style_urd_marker_validation.png`",
   "- `plots/jia_fig_s11_style_urd_marker_validation.pdf`",
-  "- `plots/jia_fig_s11_panel_a_developmental_markers.png`",
-  "- `plots/jia_fig_s11_panel_b_lineage_markers.png`",
+  if ("custom_marker_panel" %in% spec$panel) character() else "- `plots/jia_fig_s11_panel_a_developmental_markers.png`",
+  if ("custom_marker_panel" %in% spec$panel) character() else "- `plots/jia_fig_s11_panel_b_lineage_markers.png`",
   "- `plots/jia_fig_s11_marker_tree_overlay_<GENE>.png` and `.pdf` for each individual marker, with visible logUPX colorbars",
   "- `tables/jia_fig_s11_marker_order.tsv`",
   "- `tables/jia_fig_s11_marker_expression_summary.tsv`",

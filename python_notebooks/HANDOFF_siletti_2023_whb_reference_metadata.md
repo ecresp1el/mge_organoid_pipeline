@@ -2015,6 +2015,109 @@ PV chandelier status:
   zero-count target labels rather than nonzero flows.
 ```
 
+V4 unified transfer update:
+
+```text
+Date logged: 2026-06-27
+
+Purpose:
+  Replace the separate pallial/major/fine transfers with one unified leaf-label
+  transfer. Pallial/subpallial and major labels are derived from the same
+  predicted `unified_leaf_subtype`, so all three river levels use one nested
+  assignment logic.
+
+Preferred output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v4_unified
+
+Final-figures candidate package:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v4_unified_candidate
+  Status: packaged for final-figure development, not final-approved.
+
+Bridge columns:
+  unified_leaf_subtype
+  unified_major_subtype_roi
+  unified_pallial_subpallial_bin
+
+V4 jobs:
+  52440422  siletti-final-bridge-v4-unified    COMPLETED  00:02:23  max RSS 17672732K  gl3014
+  52440423  siletti-final-unified-transfer-v4  COMPLETED  00:01:47  max RSS 12666716K  gl3009
+  52440424  siletti-final-rivers-v4-unified    COMPLETED  00:00:29  max RSS 1073464K   gl3434
+
+V4 plots:
+  plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
+  plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
+  plots/river_div90_class_to_adult_final_fine_subtypes.png/pdf
+  plots/river_div90_class_to_adult_combined_1x3_pallial_major_fine.png/pdf
+
+Zero-count labels:
+  Zero-count target labels are not drawn in the assignment rivers. They are
+  tracked in:
+    tables/audit_reference_labels_with_zero_query_assignments.tsv
+
+V4 accounting totals:
+  reference_cells_total: 60,000
+  reference_cells_used_for_subtype_transfer: 51,580
+  reference_cells_excluded_from_subtype_transfer_other_selected_reference: 8,420
+  reference_cells_used_for_final_fine_subtype_transfer: 51,580
+  reference_cells_excluded_from_final_fine_subtype_transfer_other_selected_reference: 8,420
+  div90_cells_pallial_transfer: 16,206
+  div90_cells_major_subtype_transfer: 16,206
+  div90_cells_final_fine_subtype_transfer: 16,206
+  river_pallial_edges_total: 16,206
+  river_major_subtype_edges_total: 16,206
+  river_final_fine_subtype_edges_total: 16,206
+
+V4 derived pallial/subpallial counts:
+  Subpallial: 10,295
+  Pallial/cortical: 5,911
+
+V4 derived major counts:
+  Subpallial Medium spiny neuron: 5,547
+  Subpallial Eccentric medium spiny neuron: 3,906
+  Pallial/cortical Vip: 2,460
+  Pallial/cortical Pvalb: 1,954
+  Pallial/cortical Lamp5 Lhx6: 1,226
+  Subpallial Sst: 394
+  Subpallial Cholinergic neurons: 367
+  Pallial/cortical Sst: 266
+  Subpallial Vip: 81
+  Pallial/cortical Pax6: 5
+
+V4 unified leaf counts:
+  Subpallial Medium spiny neuron: 5,547
+  Subpallial Eccentric medium spiny neuron: 3,906
+  Pallial/cortical Vip: 2,460
+  Cortical PV+ basket neurons: 1,954
+  Pallial/cortical Lamp5 Lhx6: 1,226
+  Subpallial SST+ neurons: 394
+  Subpallial Cholinergic neurons: 367
+  Cortical SST+ Mt neurons: 160
+  Cortical SST+ LRP neurons: 86
+  Subpallial Vip: 81
+  Cortical SST+ nMt neurons: 20
+  Pallial/cortical Pax6: 5
+
+PV chandelier isolated audit:
+  Full unified/fine transfer assigns 0 DIV90 cells to Cortical PV+ Chandelier
+  neurons.
+  PV-only audit job 52440381 restricted the reference choices to:
+    Cortical PV+ basket neurons
+    Cortical PV+ Chandelier neurons
+    Subpallial PV+ neurons
+  Result: all 16,206 DIV90 cells chose Cortical PV+ basket neurons; 0 chose
+  Cortical PV+ Chandelier neurons.
+
+Soft-score/non-winner audit:
+  Tables:
+    tables/audit_chandelier_soft_score_summary.tsv
+    tables/audit_chandelier_soft_score_by_div90_class.tsv
+    tables/audit_chandelier_soft_score_candidate_cells.tsv
+  In the unified v4 transfer, Cortical PV+ Chandelier is never rank 1.
+  Only 3 DIV90 cells have any nonzero Cortical PV+ Chandelier score, all in
+  CRABP1+/PV Precursors. This supports a very small chandelier-neighbor signal,
+  not a robust alternate chandelier assignment.
+```
+
 Important interpretation caveat exposed by the audit:
 
 ```text
