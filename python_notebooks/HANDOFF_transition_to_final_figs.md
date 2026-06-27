@@ -2757,6 +2757,14 @@ Included adult Siletti reference classes:
   LAMP5-LHX6 and Chandelier
   Splatter restricted to subpallial cholinergic/CHAT-like rows only
 
+Splatter cholinergic/CHAT-like definition:
+  Siletti Splatter cluster 400 subclusters 1634, 1635, 1636, 1637, 1638,
+  1640, 1641, and 1642. In the Linnarsson/Siletti workbook these rows are
+  class NEUR and neurotransmitter `NT-CHOL NT-VGLUT3`, with top enriched genes
+  including SLC5A7, CHAT, LHX8, and ISL1. They are not annotated as GABAergic
+  in the Siletti neurotransmitter field, and they were not selected by
+  NKX2-1/NKX2.1 expression.
+
 Excluded before bridge export and transfer:
   CGE interneuron
   Medium spiny neuron

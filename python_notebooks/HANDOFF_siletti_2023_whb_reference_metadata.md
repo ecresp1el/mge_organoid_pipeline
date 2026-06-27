@@ -2185,6 +2185,15 @@ Final v8 computational workflow:
     222,434 MGE interneuron
     45,118 LAMP5-LHX6 and Chandelier
     769 Splatter CHAT/cholinergic subset
+  Splatter CHAT/cholinergic subset definition:
+    cluster 400 subclusters 1634, 1635, 1636, 1637, 1638, 1640, 1641, and
+    1642. In the Linnarsson/Siletti workbook these subclusters are annotated
+    as class NEUR and neurotransmitter `NT-CHOL NT-VGLUT3`, with top enriched
+    genes including SLC5A7, CHAT, LHX8, and ISL1. They are therefore treated
+    here as adult subpallial cholinergic/VGLUT3 reference neurons, not as
+    GABAergic neurons. They were not selected by NKX2-1/NKX2.1 expression, and
+    NKX2-1 was not among the top enriched genes listed for these selected
+    subclusters in the workbook annotation checked here.
   Reference cells used for transfer:
     250,439 after excluding `Other selected reference`
   DIV90 query cells:
