@@ -11,6 +11,7 @@ from mge_organoid_python.cross_study_marker_expression import (
     PDF_EXPORT_DPI,
     PNG_EXPORT_DPI,
     PV_PRECURSOR_MARKER_PANEL,
+    PV_PRECURSOR_TOP_GENE_SPANS,
     SVG_EXPORT_DPI,
     default_cross_study_marker_specs,
     load_marker_expression_tables,
@@ -43,6 +44,7 @@ def main() -> None:
         title="Cross-study PV Precursors/OFF-target marker expression",
         on_genes_for_divider=PV_PRECURSOR_MARKER_PANEL.on_genes,
         gene_group_labels=PV_PRECURSOR_MARKER_PANEL.gene_group_labels(),
+        top_gene_spans=PV_PRECURSOR_TOP_GENE_SPANS,
     )
     manifest.insert(0, "plot_token", "pv_precursors_on_off_target")
     manifest.insert(1, "plot_path", str(output_path))

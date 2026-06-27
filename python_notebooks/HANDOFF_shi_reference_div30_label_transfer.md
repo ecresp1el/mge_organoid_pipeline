@@ -1289,9 +1289,10 @@ Current marker panels:
 - Core OFF-target genes:
   `SP8`, `PAX6`, `NEUROD2`, `ISL1`, `ACHE`, `NKX6-2`, `MKI67`.
 - PV Precursors genes:
-  `MAFB`, `MEF2C`, `ERBB4`, `ETV1`, `CRABP1`, `TAC1`, `ST18`, `PVALB`.
+  `NKX2-1`, `LHX6`, `LHX8`, `ERBB4`, `MAFB`, `MEF2C`, `ETV1`,
+  `CRABP1`, `TAC1`, `ZEB2`, `PVALB`.
 - PV Precursors paired OFF-target genes:
-  `SP8`, `EBF1`, `NKX2-2`, `RAX`, `HMX3`, `DBH`.
+  `SP8`, `EBF1`, `NKX2-2`, `RAX`, `DBH`.
 - The marker panels are defined in
   `python_notebooks/src/mge_organoid_python/cross_study_marker_expression.py`
   as named `MarkerGenePanel` objects. They are also exported to
@@ -1324,6 +1325,9 @@ Layout logic:
   `tables/cross_study_marker_expression_internal_plot_filter_summary.tsv`.
 - Each combined panel draws a vertical divider between that panel's ON/PV
   precursor genes and its paired OFF-target genes.
+- The PV precursor panel also draws a top horizontal span labeled `MGE` over
+  the first four ON-target columns, displayed left-to-right as `NKX2.1`,
+  `LHX6`, `LHX8`, and `ERBB4`.
 - Each gene column has its own colorbar. That color scale is shared across all
   study rows for that gene, so comparisons are fair within a gene across
   studies. Do **not** interpret color intensity as directly comparable between
@@ -1350,6 +1354,12 @@ Layout logic:
   paired OFF-target panel, and sets the PV panel order to:
   `MAFB`, `MEF2C`, `ERBB4`, `ETV1`, `CRABP1`, `TAC1`, `ST18`, `PVALB` /
   `SP8`, `EBF1`, `NKX2-2`, `RAX`, `HMX3`, `DBH`.
+- The 2026-06-27 final-figure update keeps the same plotting logic but updates
+  the PV precursor final panel to group the MGE genes first as `NKX2-1`,
+  `LHX6`, `LHX8`, `ERBB4`, replace `ST18` with `ZEB2`, and remove `HMX3` from
+  the paired OFF-target genes. Because `ZEB2` was not present in the prepared
+  v12 per-study marker tables, this update requires rerunning marker extraction
+  before the plot-only final render.
 - A v12 plot-only rerender keeps the same marker tables/data but shortens the
   bottom per-gene colorbars to 60% of each column width while keeping them
   aligned in one row. The expression overlay uses the table/cell order directly;

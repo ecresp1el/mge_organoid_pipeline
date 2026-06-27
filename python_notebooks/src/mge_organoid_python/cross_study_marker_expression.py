@@ -94,19 +94,20 @@ CORE_ON_TARGET_GENES = [
 
 CORE_OFF_TARGET_GENES = ["SP8", "PAX6", "NEUROD2", "ISL1", "ACHE", "NKX6-2", "MKI67"]
 PV_PRECURSOR_ON_TARGET_GENES = [
-    "MAFB",
-    "MEF2C",
-    "ERBB4",
+    "NKX2-1",
     "LHX6",
     "LHX8",
-    "NKX2-1",
+    "ERBB4",
+    "MAFB",
+    "MEF2C",
     "ETV1",
     "CRABP1",
     "TAC1",
-    "ST18",
+    "ZEB2",
     "PVALB",
 ]
-PV_PRECURSOR_OFF_TARGET_GENES = ["SP8", "EBF1", "NKX2-2", "RAX", "HMX3", "DBH"]
+PV_PRECURSOR_OFF_TARGET_GENES = ["SP8", "EBF1", "NKX2-2", "RAX", "DBH"]
+PV_PRECURSOR_TOP_GENE_SPANS = [("MGE", ("NKX2-1", "LHX6", "LHX8", "ERBB4"))]
 
 CORE_MARKER_PANEL = MarkerGenePanel(
     panel_id="core",
@@ -1195,6 +1196,7 @@ def plot_marker_umap_grid(
     title: str = "Cross-study marker expression",
     on_genes_for_divider: Sequence[str] | None = None,
     gene_group_labels: Mapping[str, str] | None = None,
+    top_gene_spans: Sequence[tuple[str, Sequence[str]]] | None = None,
     max_cells_per_study: int | None = None,
     random_state: int = 0,
     point_size: float = 0.36,
@@ -1309,7 +1311,8 @@ def plot_marker_umap_grid(
                 }
             )
     fig.suptitle(title, fontsize=12, y=0.995)
-    fig.tight_layout(rect=(0.145, 0.15, 0.995, 0.965), w_pad=0.05, h_pad=0.08)
+    layout_top = 0.945 if top_gene_spans else 0.965
+    fig.tight_layout(rect=(0.145, 0.15, 0.995, layout_top), w_pad=0.05, h_pad=0.08)
     fig.canvas.draw()
 
     for row_idx, study_label in enumerate(study_labels):
@@ -1325,6 +1328,33 @@ def plot_marker_umap_grid(
             ha="right",
             va="center",
             fontsize=8,
+        )
+
+    for span_label, span_genes in top_gene_spans or []:
+        span_cols = [gene_to_col[gene] for gene in span_genes if gene in gene_to_col]
+        if len(span_cols) != len(span_genes):
+            continue
+        left_position = axes[0, min(span_cols)].get_position()
+        right_position = axes[0, max(span_cols)].get_position()
+        y_top = max(axes[0, col].get_position().y1 for col in span_cols)
+        y_line = min(0.970, y_top + 0.034)
+        fig.add_artist(
+            plt.Line2D(
+                [left_position.x0, right_position.x1],
+                [y_line, y_line],
+                transform=fig.transFigure,
+                color="#1f1f1f",
+                linewidth=1.2,
+            )
+        )
+        fig.text(
+            (left_position.x0 + right_position.x1) / 2,
+            min(0.986, y_line + 0.010),
+            span_label,
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            fontweight="bold",
         )
 
     if divider_after_col is not None and divider_after_col + 1 < n_cols:
@@ -1467,6 +1497,7 @@ def plot_default_marker_grids(
             title=title,
             on_genes_for_divider=panel.on_genes,
             gene_group_labels=panel.gene_group_labels(),
+            top_gene_spans=PV_PRECURSOR_TOP_GENE_SPANS if panel.panel_id == "pv_precursors" else None,
             max_cells_per_study=max_cells_per_study,
             cmap=cmap,
         )

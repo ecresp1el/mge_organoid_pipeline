@@ -55,6 +55,14 @@ SCOPES = {
     "mge_cge_llc": ("MGE interneuron", "CGE interneuron", "LAMP5-LHX6 and Chandelier"),
     "mge_cge_llc_cholinergic": ("MGE interneuron", "CGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
     "mge_cge_llc_splatter": ("MGE interneuron", "CGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
+    "mge_cge_llc_msn_emsn_cholinergic": (
+        "MGE interneuron",
+        "CGE interneuron",
+        "LAMP5-LHX6 and Chandelier",
+        "Medium spiny neuron",
+        "Eccentric medium spiny neuron",
+        "Splatter",
+    ),
 }
 H5AD_BY_SUPERCLUSTER = {
     "MGE interneuron": "siletti_whb_mge_interneuron.h5ad",
@@ -65,6 +73,20 @@ H5AD_BY_SUPERCLUSTER = {
 CHOLINERGIC_SPLATTER_CLUSTER_ID = "400"
 CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS = {"1634", "1635", "1636", "1637", "1638", "1640", "1641", "1642"}
 CHOLINERGIC_JIA_GROUP = "Subpallial Cholinergic neurons"
+PALLIAL_ROI_GROUPS = {"CerebralCortex", "Hippocampus"}
+INTERNEURON_MTG_LABELS = {"Pvalb", "Sst", "Vip", "Lamp5", "Sncg", "Pax6", "Lamp5 Lhx6", "Chandelier"}
+JIA_FINE_SUBTYPE_LABELS = {
+    "Cortical PV+ basket neurons",
+    "Cortical PV+ Chandelier neurons",
+    "Cortical SST+ LRP neurons",
+    "Cortical SST+ nMt neurons",
+    "Cortical SST+ Mt neurons",
+    "Subpallial SST+ LRP neurons",
+    "Subpallial SST+ neurons",
+    "Subpallial PV+ neurons",
+    CHOLINERGIC_JIA_GROUP,
+}
+OTHER_SELECTED_REFERENCE = "Other selected reference"
 
 
 def parse_args() -> argparse.Namespace:
@@ -129,13 +151,59 @@ def read_jia_mapping(project_root: Path) -> pd.DataFrame:
         "subcluster_id",
         "Supercluster",
         "Transferred MTG Label (Transferred from cluster level)",
+        "primary_roi_group",
+        "primary_roi",
+        "anatomy_bin",
         "candidate_jia_group",
         "jia_side",
-        "anatomy_bin",
         "best_fetal_pair",
         "best_fetal_pair_score",
     ]
     return mapping[keep_cols].drop_duplicates()
+
+
+def ctx_hippocampus_vs_rest_bin(primary_roi_group: pd.Series) -> pd.Series:
+    return np.where(primary_roi_group.astype(str).isin(PALLIAL_ROI_GROUPS), "Pallial/cortical", "Subpallial")
+
+
+def major_interneuron_subtype(meta: pd.DataFrame) -> pd.Series:
+    label = pd.Series(OTHER_SELECTED_REFERENCE, index=meta.index, dtype=object)
+    mtg = meta["transferred_mtg_label"].fillna("unlabeled_or_na").astype(str)
+    source = meta["source_supercluster"].astype(str)
+    candidate = meta["candidate_jia_group"].astype(str)
+
+    label.loc[mtg.isin(INTERNEURON_MTG_LABELS)] = mtg.loc[mtg.isin(INTERNEURON_MTG_LABELS)]
+    label.loc[source.eq("Medium spiny neuron")] = "Medium spiny neuron"
+    label.loc[source.eq("Eccentric medium spiny neuron")] = "Eccentric medium spiny neuron"
+    label.loc[candidate.eq(CHOLINERGIC_JIA_GROUP)] = "Subpallial Cholinergic neurons"
+    return label
+
+
+def major_interneuron_subtype_roi(meta: pd.DataFrame) -> pd.Series:
+    label = major_interneuron_subtype(meta)
+    roi_bin = meta["roi_pallial_subpallial_bin"].astype(str)
+    split = ~label.eq(OTHER_SELECTED_REFERENCE)
+    already_split = label.astype(str).str.startswith(("Pallial/cortical", "Subpallial"))
+    label.loc[split & ~already_split] = roi_bin.loc[split & ~already_split] + " " + label.loc[split & ~already_split].astype(str)
+    return label
+
+
+def final_fine_subtype(meta: pd.DataFrame) -> pd.Series:
+    label = pd.Series(OTHER_SELECTED_REFERENCE, index=meta.index, dtype=object)
+    source = meta["source_supercluster"].astype(str)
+    candidate = meta["candidate_jia_group"].astype(str)
+    roi_bin = meta["roi_pallial_subpallial_bin"].astype(str)
+
+    is_jia_fine = candidate.isin(JIA_FINE_SUBTYPE_LABELS)
+    label.loc[is_jia_fine] = candidate.loc[is_jia_fine]
+
+    is_msn = source.eq("Medium spiny neuron")
+    is_emsn = source.eq("Eccentric medium spiny neuron")
+    label.loc[is_msn] = roi_bin.loc[is_msn] + " Medium spiny neuron"
+    label.loc[is_emsn] = roi_bin.loc[is_emsn] + " Eccentric medium spiny neuron"
+
+    label.loc[candidate.eq(CHOLINERGIC_JIA_GROUP)] = CHOLINERGIC_JIA_GROUP
+    return label
 
 
 def load_reference_metadata_and_indices(
@@ -174,6 +242,11 @@ def load_reference_metadata_and_indices(
     meta["transferred_mtg_label"] = meta["Transferred MTG Label (Transferred from cluster level)"].fillna("unlabeled_or_na").astype(str)
     meta["candidate_jia_group"] = meta["candidate_jia_group"].fillna("unassigned_jia_group").astype(str)
     meta["best_fetal_pair"] = meta["best_fetal_pair"].fillna("No fetal marker-pair hit").astype(str)
+    meta["roi_pallial_subpallial_bin"] = ctx_hippocampus_vs_rest_bin(meta["primary_roi_group"])
+    meta["source_supercluster_roi_bin"] = meta["source_supercluster"].astype(str) + " | " + meta["roi_pallial_subpallial_bin"].astype(str)
+    meta["major_interneuron_subtype"] = major_interneuron_subtype(meta)
+    meta["major_interneuron_subtype_roi"] = major_interneuron_subtype_roi(meta)
+    meta["final_fine_subtype"] = final_fine_subtype(meta)
 
     scope_audit = []
     for supercluster, sub in meta.groupby("source_supercluster", sort=False):
@@ -341,7 +414,21 @@ def main() -> None:
     scope_audit.to_csv(table_dir / "siletti_reference_scope_and_subsampling_audit.tsv", sep="\t", index=False)
 
     label_counts = []
-    for col in ["source_supercluster", "siletti_supercluster_label", "cell_type", "siletti_cluster_label", "siletti_subcluster_label", "transferred_mtg_label", "candidate_jia_group", "best_fetal_pair"]:
+    for col in [
+        "source_supercluster",
+        "roi_pallial_subpallial_bin",
+        "source_supercluster_roi_bin",
+        "major_interneuron_subtype",
+        "major_interneuron_subtype_roi",
+        "final_fine_subtype",
+        "siletti_supercluster_label",
+        "cell_type",
+        "siletti_cluster_label",
+        "siletti_subcluster_label",
+        "transferred_mtg_label",
+        "candidate_jia_group",
+        "best_fetal_pair",
+    ]:
         vc = ref_meta[col].astype(str).value_counts()
         label_counts.extend({"label_column": col, "label": label, "n_reference_cells": int(n)} for label, n in vc.items())
     pd.DataFrame(label_counts).to_csv(table_dir / "siletti_reference_label_counts.tsv", sep="\t", index=False)
@@ -352,6 +439,7 @@ def main() -> None:
         "cholinergic_splatter_cluster_id": CHOLINERGIC_SPLATTER_CLUSTER_ID if args.scope.endswith("_cholinergic") else None,
         "cholinergic_splatter_subcluster_ids": sorted(CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS) if args.scope.endswith("_cholinergic") else None,
         "cholinergic_jia_group": CHOLINERGIC_JIA_GROUP if args.scope.endswith("_cholinergic") else None,
+        "roi_pallial_subpallial_rule": "CerebralCortex or Hippocampus -> Pallial/cortical; all other primary_roi_group values -> Subpallial",
         "max_ref_cells_per_subcluster": args.max_ref_cells_per_subcluster,
         "max_ref_cells_total": args.max_ref_cells_total,
         "seed": args.seed,

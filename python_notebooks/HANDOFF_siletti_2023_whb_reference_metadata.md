@@ -1670,6 +1670,362 @@ while the all-supercluster source-supercluster transfer behaved badly:
      than persistent matrix corruption.
 ```
 
+## Final-Candidate Restricted GE/MSN/CHAT Reference
+
+Date logged: 2026-06-27
+
+Purpose:
+
+```text
+Build the biologically targeted reference requested for final-figure candidate
+river plots, instead of using raw all-31 Siletti source-supercluster labels.
+```
+
+Reference scope:
+
+```text
+scope name: mge_cge_llc_msn_emsn_cholinergic
+
+Included Siletti superclusters:
+  MGE interneuron
+  CGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Medium spiny neuron
+  Eccentric medium spiny neuron
+  Splatter restricted to subpallial cholinergic/CHAT-like rows only
+```
+
+Splatter/CHAT restriction:
+
+```text
+The scope uses the existing project Splatter cholinergic filter:
+  source_supercluster == Splatter
+  cluster_id == 400
+  subcluster_id in 1634, 1635, 1636, 1637, 1638, 1640, 1641, 1642
+  candidate_jia_group == Subpallial Cholinergic neurons
+
+The candidate-Jia cholinergic call requires subpallial anatomy, NT-CHOL, and
+CHAT or SLC5A7 among top enriched genes in the Jia/Siletti workbook mapping.
+```
+
+Pallial/subpallial rule for this final-candidate run:
+
+```text
+CerebralCortex or Hippocampus primary ROI group -> Pallial/cortical
+All other primary ROI groups -> Subpallial
+```
+
+New saved bridge metadata columns:
+
+```text
+roi_pallial_subpallial_bin
+  Pallial/cortical vs Subpallial using the rule above.
+
+source_supercluster_roi_bin
+  source_supercluster + roi_pallial_subpallial_bin.
+
+major_interneuron_subtype
+  Transferred MTG labels for major interneuron classes:
+    Pvalb, Sst, Vip, Lamp5, Sncg, Pax6, Lamp5 Lhx6, Chandelier
+  plus:
+    Medium spiny neuron
+    Eccentric medium spiny neuron
+    Subpallial Cholinergic neurons
+```
+
+Code:
+
+```text
+python_notebooks/scripts/export_siletti_div90_seurat_bridge.py
+python_notebooks/scripts/plot_siletti_div90_final_restricted_rivers.py
+```
+
+Submitted final-candidate run chain:
+
+```text
+Bridge:
+  job_id: 52439510
+  job_name: siletti-final-restricted-bridge
+  run_label: siletti_div90_final_candidate_restricted_ge_msn_chat_bridge_v1
+  scope: mge_cge_llc_msn_emsn_cholinergic
+  final state: COMPLETED
+  elapsed: 00:02:29
+  max RSS: 17571972K
+  node: gl3018
+  output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_final_candidate_restricted_ge_msn_chat_bridge_v1/mge_cge_llc_msn_emsn_cholinergic
+
+Pallial/subpallial transfer:
+  job_id: 52439512
+  job_name: siletti-final-pallsub-transfer
+  final state: COMPLETED
+  elapsed: 00:01:37
+  max RSS: 13764068K
+  node: gl3018
+  dependency: afterok:52439510
+  label_column: roi_pallial_subpallial_bin
+  run_label: siletti_div90_final_candidate_restricted_ge_msn_chat_pallial_subpallial_transfer_v1
+
+Major subtype transfer:
+  job_id: 52439514
+  job_name: siletti-final-subtype-transfer
+  final state: COMPLETED
+  elapsed: 00:01:34
+  max RSS: 12580828K
+  node: gl3047
+  dependency: afterok:52439510
+  label_column: major_interneuron_subtype
+  excluded labels: Other selected reference
+  run_label: siletti_div90_final_candidate_restricted_ge_msn_chat_major_subtype_transfer_v1
+
+Final-candidate river plots:
+  job_id: 52439515
+  job_name: siletti-final-rivers
+  final state: COMPLETED
+  elapsed: 00:00:18
+  max RSS: 650588K
+  node: gl3300
+  dependency: afterok:52439512:52439514
+  output: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v1
+```
+
+Expected river plot files:
+
+```text
+plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
+plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
+tables/river_div90_class_to_adult_pallial_subpallial_bin_edges.tsv
+tables/river_div90_class_to_adult_major_interneuron_subtypes_edges.tsv
+tables/div90_query_with_pallial_subpallial_assignments.tsv.gz
+tables/div90_query_with_major_interneuron_subtype_assignments.tsv.gz
+```
+
+Visual audit files added to the same final-candidate output folder:
+
+```text
+plots/audit_reference_supercluster_by_pallial_subpallial_bin.png/pdf
+plots/audit_reference_major_subtype_by_pallial_subpallial_bin.png/pdf
+plots/audit_reference_major_subtype_totals_including_excluded.png/pdf
+plots/audit_div90_class_to_pallial_subpallial_counts.png/pdf
+plots/audit_div90_class_to_major_subtype_counts.png/pdf
+plots/audit_transfer_score_distributions.png/pdf
+
+tables/audit_accounting_totals.tsv
+tables/audit_reference_source_supercluster_by_pallial_subpallial_bin.tsv
+tables/audit_reference_major_subtype_by_pallial_subpallial_bin.tsv
+tables/audit_reference_major_subtype_totals.tsv
+tables/audit_div90_class_to_pallial_subpallial_counts.tsv
+tables/audit_div90_class_to_major_subtype_counts.tsv
+```
+
+Audit purpose:
+
+```text
+These audit files are part of the output, not a separate scratch check. They
+were added because the pallial/subpallial and major-subtype calls use nested
+logic:
+
+1. reference cells are first restricted to the GE/MSN/CHAT scope,
+2. primary ROI group is binned into Pallial/cortical versus Subpallial,
+3. adult major subtype is built from transferred MTG interneuron labels plus
+   MSN/eccentric-MSN/CHAT-specific overrides,
+4. Other selected reference cells are retained for accounting but excluded from
+   the major-subtype transfer.
+
+The audit plots show reference composition and DIV90 assignment composition so
+the total cells and each bin can be visually checked before interpretation.
+```
+
+Validation and counts:
+
+```text
+Both river PNG/PDF pairs are nonzero.
+Audit PNG/PDF pairs are nonzero.
+
+PNG dimensions:
+  river_div90_class_to_adult_pallial_subpallial_bin.png: 3607 x 1817
+  river_div90_class_to_adult_major_interneuron_subtypes.png: 3905 x 1817
+
+Audit accounting totals:
+  reference_cells_total: 60,000
+  reference_cells_used_for_subtype_transfer: 51,195
+  reference_cells_excluded_from_subtype_transfer_other_selected_reference: 8,805
+  div90_cells_pallial_transfer: 16,206
+  div90_cells_major_subtype_transfer: 16,206
+  river_pallial_edges_total: 16,206
+  river_major_subtype_edges_total: 16,206
+
+Restricted reference composition after bridge export:
+  MGE interneuron: 18,514
+  CGE interneuron: 15,648
+  Medium spiny neuron: 12,374
+  Eccentric medium spiny neuron: 8,121
+  LAMP5-LHX6 and Chandelier: 4,770
+  Splatter CHAT/cholinergic subset: 573
+
+Transferred pallial/subpallial assignments:
+  Subpallial: 11,442
+  Pallial/cortical: 4,764
+
+Transferred major subtype assignments:
+  Medium spiny neuron: 4,549
+  Eccentric medium spiny neuron: 4,111
+  Vip: 3,527
+  Pvalb: 1,819
+  Lamp5 Lhx6: 1,150
+  Sst: 742
+  Subpallial Cholinergic neurons: 306
+  Pax6: 2
+```
+
+V2 aligned-river and fine-subtype update:
+
+```text
+Date logged: 2026-06-27
+
+Purpose:
+  Fix river-plot geometry so side rectangles and flows share the same scaled
+  vertical coordinates, add label-spreading/leader lines for small bins, and add
+  a fine final subtype transfer that preserves pallial/cortical versus
+  subpallial context.
+
+Output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v2
+
+New bridge label column:
+  final_fine_subtype
+
+Fine subtype options:
+  Cortical PV+ basket neurons
+  Cortical PV+ Chandelier neurons
+  Cortical SST+ LRP neurons
+  Cortical SST+ Mt neurons
+  Cortical SST+ nMt neurons
+  Pallial/cortical Medium spiny neuron
+  Subpallial PV+ neurons
+  Subpallial SST+ LRP neurons
+  Subpallial SST+ neurons
+  Subpallial Cholinergic neurons
+  Subpallial Medium spiny neuron
+  Subpallial Eccentric medium spiny neuron
+
+Other selected reference is retained for audit/accounting and excluded from the
+fine-subtype transfer.
+
+V2 jobs:
+  52439770  siletti-final-restricted-bridge-v2   COMPLETED  00:02:27  max RSS 17589848K  gl3435
+  52439771  siletti-final-pallsub-transfer-v2    COMPLETED  00:01:50  max RSS 13849648K  gl3009
+  52439772  siletti-final-major-transfer-v2      COMPLETED  00:01:29  max RSS 12468616K  gl3018
+  52439773  siletti-final-fine-transfer-v2       COMPLETED  00:01:13  max RSS 11204292K  gl3408
+  52439774  siletti-final-rivers-v2              COMPLETED  00:00:26  max RSS 953068K    gl3378
+
+V2 main river plots:
+  plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
+  plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
+  plots/river_div90_class_to_adult_final_fine_subtypes.png/pdf
+
+V2 accounting totals:
+  reference_cells_total: 60,000
+  reference_cells_used_for_subtype_transfer: 51,195
+  reference_cells_excluded_from_subtype_transfer_other_selected_reference: 8,805
+  reference_cells_used_for_final_fine_subtype_transfer: 37,417
+  reference_cells_excluded_from_final_fine_subtype_transfer_other_selected_reference: 22,583
+  div90_cells_pallial_transfer: 16,206
+  div90_cells_major_subtype_transfer: 16,206
+  div90_cells_final_fine_subtype_transfer: 16,206
+  river_pallial_edges_total: 16,206
+  river_major_subtype_edges_total: 16,206
+  river_final_fine_subtype_edges_total: 16,206
+
+V2 fine subtype assignments:
+  Subpallial Eccentric medium spiny neuron: 6,745
+  Subpallial Medium spiny neuron: 4,301
+  Cortical PV+ basket neurons: 3,550
+  Subpallial SST+ neurons: 763
+  Subpallial Cholinergic neurons: 394
+  Cortical SST+ Mt neurons: 286
+  Cortical SST+ LRP neurons: 145
+  Cortical SST+ nMt neurons: 22
+
+Note:
+  Cortical PV+ Chandelier neurons are present in the adult reference
+  (613 reference cells) but received 0 DIV90 assignments in the v2
+  fine-subtype transfer.
+```
+
+V3 pallial/subpallial grouping and combined 1x3 update:
+
+```text
+Date logged: 2026-06-27
+
+Purpose:
+  Add explicit vertical Pallial/cortical vs Subpallial grouping bars to all
+  river plots; split the major-cell-type transfer by ROI bin; keep zero-count
+  target labels visible when they are part of the ordered reference option set;
+  and add a combined long 1x3 river panel.
+
+Output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v3
+
+New bridge label column:
+  major_interneuron_subtype_roi
+
+V3 jobs:
+  52440165  siletti-final-restricted-bridge-v3    COMPLETED  00:02:40  max RSS 17645408K  gl3028
+  52440166  siletti-final-pallsub-transfer-v3     COMPLETED  00:01:52  max RSS 13868608K  gl3009
+  52440167  siletti-final-majorroi-transfer-v3    COMPLETED  00:01:26  max RSS 12586348K  gl3408
+  52440168  siletti-final-fine-transfer-v3        COMPLETED  00:01:39  max RSS 11204324K  gl3018
+  52440169  siletti-final-rivers-v3               COMPLETED  00:00:29  max RSS 1096588K   gl3329
+
+V3 main river plots:
+  plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
+  plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
+  plots/river_div90_class_to_adult_final_fine_subtypes.png/pdf
+  plots/river_div90_class_to_adult_combined_1x3_pallial_major_fine.png/pdf
+
+V3 accounting totals:
+  reference_cells_total: 60,000
+  reference_cells_used_for_subtype_transfer: 51,195
+  reference_cells_excluded_from_subtype_transfer_other_selected_reference: 8,805
+  reference_cells_used_for_final_fine_subtype_transfer: 37,417
+  reference_cells_excluded_from_final_fine_subtype_transfer_other_selected_reference: 22,583
+  div90_cells_pallial_transfer: 16,206
+  div90_cells_major_subtype_transfer: 16,206
+  div90_cells_final_fine_subtype_transfer: 16,206
+  river_pallial_edges_total: 16,206
+  river_major_subtype_edges_total: 16,206
+  river_final_fine_subtype_edges_total: 16,206
+
+V3 split-major assignments:
+  Subpallial Eccentric medium spiny neuron: 4,614
+  Subpallial Medium spiny neuron: 4,587
+  Pallial/cortical Vip: 2,737
+  Pallial/cortical Pvalb: 1,840
+  Pallial/cortical Lamp5 Lhx6: 1,135
+  Pallial/cortical Sst: 887
+  Subpallial Cholinergic neurons: 337
+  Subpallial Vip: 65
+  Pallial/cortical Pax6: 4
+
+PV chandelier status:
+  Adult reference contains PV/chandelier-class cells:
+    final_fine_subtype Cortical PV+ Chandelier neurons: 613 reference cells
+    major_interneuron_subtype_roi Pallial/cortical Chandelier: 613 reference cells
+    major_interneuron_subtype_roi Subpallial Chandelier: 87 reference cells
+  DIV90 assignments to those labels in v3 are 0, so they are displayed as
+  zero-count target labels rather than nonzero flows.
+```
+
+Important interpretation caveat exposed by the audit:
+
+```text
+The pallial/subpallial bin is anatomical ROI-of-sampled-adult-cell, not a
+developmental birthplace label. Therefore, many adult MGE/CGE/LLC interneurons
+are binned as Pallial/cortical when their primary ROI group is CerebralCortex or
+Hippocampus. MSN, eccentric MSN, and Splatter-CHAT/cholinergic rows are mostly
+Subpallial. This is expected under the stated rule, but it must be inspected in
+the audit plots before using the river interpretation in final text.
+```
+
 Draft methods wording:
 
 ```text

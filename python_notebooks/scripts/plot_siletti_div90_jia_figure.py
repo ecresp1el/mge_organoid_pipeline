@@ -342,58 +342,110 @@ def make_river_edges(query: pd.DataFrame, source_col: str) -> pd.DataFrame:
     return edges
 
 
-def draw_river(edges: pd.DataFrame, outpath: Path) -> None:
+def draw_river(
+    edges: pd.DataFrame,
+    outpath: Path,
+    right_order: list[str] | None = None,
+    left_order: list[str] | None = None,
+    right_title: str = "Adult Siletti subtype",
+    plot_title: str = "C. DIV90 classes mapped to adult inhibitory-neuron subtypes",
+    right_group_getter=None,
+    include_zero_right: bool = False,
+    ax=None,
+) -> None:
     if edges.empty:
         raise ValueError("No assigned cells available for river plot.")
-    left_totals = edges.groupby("div90_class")["n_cells"].sum().sort_values(ascending=False)
-    right_order = adult_label_order(edges["adult_subtype"].astype(str).unique().tolist())
-    right_totals = edges.groupby("adult_subtype")["n_cells"].sum().reindex(right_order).dropna()
+    edges = edges.copy()
+    edges["div90_class"] = edges["div90_class"].astype(str)
+    edges["adult_subtype"] = edges["adult_subtype"].astype(str)
+    left_sum = edges.groupby("div90_class")["n_cells"].sum()
+    if left_order is None:
+        left_order = left_sum.sort_values(ascending=False).index.astype(str).tolist()
+    left_totals = left_sum.reindex([label for label in left_order if label in left_sum.index]).dropna()
+    right_sum = edges.groupby("adult_subtype")["n_cells"].sum()
+    if right_order is None:
+        right_order = adult_label_order(right_sum.index.astype(str).tolist())
+    if include_zero_right:
+        right_totals = right_sum.reindex(right_order, fill_value=0)
+    else:
+        right_totals = right_sum.reindex([label for label in right_order if label in right_sum.index]).dropna()
     total = float(edges["n_cells"].sum())
 
-    def positions(totals: pd.Series) -> dict[str, tuple[float, float]]:
-        gap = 0.012
-        usable = 1.0 - gap * max(0, len(totals) - 1)
+    def positions(totals: pd.Series, group_getter=None) -> tuple[dict[str, tuple[float, float]], float]:
+        labels = totals.index.astype(str).tolist()
+        base_gap = 0.016
+        group_gap = 0.052
+        gaps = []
+        for prev, cur in zip(labels, labels[1:]):
+            if group_getter is not None and group_getter(prev) != group_getter(cur):
+                gaps.append(group_gap)
+            else:
+                gaps.append(base_gap)
+        usable = 1.0 - sum(gaps)
+        if usable <= 0:
+            raise ValueError("Too many river labels to fit with requested gaps.")
+        scale = usable / total
         y = 1.0
         pos = {}
-        for label, value in totals.items():
-            h = usable * float(value) / total
+        for i, (label, value) in enumerate(totals.items()):
+            h = scale * float(value)
             pos[str(label)] = (y - h, y)
-            y -= h + gap
-        return pos
+            if i < len(gaps):
+                y -= h + gaps[i]
+        return pos, scale
 
-    left_pos = positions(left_totals)
-    right_pos = positions(right_totals)
+    left_pos, left_scale = positions(left_totals)
+    right_pos, right_scale = positions(right_totals, group_getter=right_group_getter)
     left_cursor = {k: v[1] for k, v in left_pos.items()}
     right_cursor = {k: v[1] for k, v in right_pos.items()}
+    left_rank = {label: i for i, label in enumerate(left_totals.index.astype(str))}
+    right_rank = {label: i for i, label in enumerate(right_totals.index.astype(str))}
 
-    fig, ax = plt.subplots(figsize=(12, max(7, 0.38 * max(len(left_totals), len(right_totals)))))
+    def text_positions(pos: dict[str, tuple[float, float]], min_sep: float = 0.055) -> dict[str, float]:
+        labels = list(pos)
+        desired = np.array([(pos[label][0] + pos[label][1]) / 2 for label in labels], dtype=float)
+        if len(labels) <= 1:
+            return {labels[0]: float(desired[0])} if labels else {}
+        placed = desired.copy()
+        placed[0] = min(0.98, placed[0])
+        for i in range(1, len(placed)):
+            placed[i] = min(placed[i], placed[i - 1] - min_sep)
+        if placed[-1] < 0.02:
+            placed += 0.02 - placed[-1]
+            for i in range(len(placed) - 2, -1, -1):
+                placed[i] = max(placed[i], placed[i + 1] + min_sep)
+            if placed[0] > 0.98:
+                placed -= placed[0] - 0.98
+        return {label: float(y) for label, y in zip(labels, placed)}
+
+    fig_height = max(7, 0.95 * max(len(left_totals), len(right_totals)))
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(12, fig_height))
+    else:
+        fig = ax.figure
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis("off")
 
     left_x0, left_x1 = 0.05, 0.12
     right_x0, right_x1 = 0.88, 0.95
-    for label, (y0, y1) in left_pos.items():
-        ax.add_patch(Rectangle((left_x0, y0), left_x1 - left_x0, y1 - y0, color="#b8c7d9", ec="white", lw=0.6))
-        ax.text(left_x0 - 0.015, (y0 + y1) / 2, f"{label}\n{int(left_totals[label]):,}", ha="right", va="center", fontsize=8)
-    for label, (y0, y1) in right_pos.items():
-        color = PALETTE.get(label, "#777777")
-        ax.add_patch(Rectangle((right_x0, y0), right_x1 - right_x0, y1 - y0, color=color, ec="white", lw=0.6))
-        ax.text(right_x1 + 0.015, (y0 + y1) / 2, f"{label}\n{int(right_totals[label]):,}", ha="left", va="center", fontsize=8)
-
-    edges_sorted = edges.sort_values(["div90_class", "adult_subtype"])
+    edges_sorted = edges.assign(
+        _left_rank=edges["div90_class"].map(left_rank).fillna(10_000).astype(int),
+        _right_rank=edges["adult_subtype"].map(right_rank).fillna(10_000).astype(int),
+    ).sort_values(["_left_rank", "_right_rank", "div90_class", "adult_subtype"])
     for _, row in edges_sorted.iterrows():
         left = str(row["div90_class"])
         right = str(row["adult_subtype"])
         value = float(row["n_cells"])
         if value <= 0 or left not in left_pos or right not in right_pos:
             continue
-        h = value / total
+        left_h = value * left_scale
+        right_h = value * right_scale
         ly1 = left_cursor[left]
-        ly0 = ly1 - h
+        ly0 = ly1 - left_h
         left_cursor[left] = ly0
         ry1 = right_cursor[right]
-        ry0 = ry1 - h
+        ry0 = ry1 - right_h
         right_cursor[right] = ry0
         verts = [
             (left_x1, ly0),
@@ -425,12 +477,58 @@ def draw_river(edges: pd.DataFrame, outpath: Path) -> None:
         )
         ax.add_patch(patch)
 
+    left_text_y = text_positions(left_pos)
+    right_text_y = text_positions(right_pos)
+    for label, (y0, y1) in left_pos.items():
+        center = (y0 + y1) / 2
+        text_y = left_text_y[label]
+        ax.add_patch(Rectangle((left_x0, y0), left_x1 - left_x0, y1 - y0, color="#b8c7d9", ec="white", lw=0.7))
+        if abs(text_y - center) > 0.002:
+            ax.plot([left_x0, left_x0 - 0.012], [center, text_y], color="#777777", lw=0.35, alpha=0.8)
+        ax.text(left_x0 - 0.015, text_y, f"{label}\n{int(left_totals[label]):,}", ha="right", va="center", fontsize=8)
+    for label, (y0, y1) in right_pos.items():
+        center = (y0 + y1) / 2
+        text_y = right_text_y[label]
+        color = PALETTE.get(label, "#777777")
+        ax.add_patch(Rectangle((right_x0, y0), right_x1 - right_x0, y1 - y0, color=color, ec="white", lw=0.7))
+        if abs(text_y - center) > 0.002:
+            ax.plot([right_x1, right_x1 + 0.012], [center, text_y], color="#777777", lw=0.35, alpha=0.8)
+        ax.text(right_x1 + 0.015, text_y, f"{label}\n{int(right_totals[label]):,}", ha="left", va="center", fontsize=8)
+
+    if right_group_getter is not None:
+        group_spans: dict[str, list[float]] = {}
+        for label, (y0, y1) in right_pos.items():
+            group = right_group_getter(label)
+            if group not in {"Pallial/cortical", "Subpallial"}:
+                continue
+            group_spans.setdefault(group, []).extend([y0, y1])
+        group_colors = {"Pallial/cortical": "#4c78a8", "Subpallial": "#f58518"}
+        group_x0, group_x1 = 0.858, 0.875
+        for group in ["Pallial/cortical", "Subpallial"]:
+            if group not in group_spans:
+                continue
+            y0 = min(group_spans[group])
+            y1 = max(group_spans[group])
+            ax.add_patch(Rectangle((group_x0, y0), group_x1 - group_x0, y1 - y0, color=group_colors[group], ec="white", lw=0.6))
+            ax.text(
+                (group_x0 + group_x1) / 2,
+                (y0 + y1) / 2,
+                group.replace("/cortical", ""),
+                ha="center",
+                va="center",
+                rotation=90,
+                fontsize=8,
+                color="white",
+                fontweight="bold",
+            )
+
     ax.text((left_x0 + left_x1) / 2, 1.03, "DIV90 class", ha="center", va="bottom", fontsize=11, fontweight="bold")
-    ax.text((right_x0 + right_x1) / 2, 1.03, "Adult Siletti subtype", ha="center", va="bottom", fontsize=11, fontweight="bold")
-    ax.set_title("C. DIV90 classes mapped to adult inhibitory-neuron subtypes", fontsize=13, pad=20)
-    fig.savefig(outpath.with_suffix(".png"), dpi=300, bbox_inches="tight")
-    fig.savefig(outpath.with_suffix(".pdf"), bbox_inches="tight")
-    plt.close(fig)
+    ax.text((right_x0 + right_x1) / 2, 1.03, right_title, ha="center", va="bottom", fontsize=11, fontweight="bold")
+    ax.set_title(plot_title, fontsize=13, pad=20)
+    if outpath is not None:
+        fig.savefig(outpath.with_suffix(".png"), dpi=300, bbox_inches="tight")
+        fig.savefig(outpath.with_suffix(".pdf"), bbox_inches="tight")
+        plt.close(fig)
 
 
 def sample_proportions(query: pd.DataFrame, sample_col: str) -> pd.DataFrame:

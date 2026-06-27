@@ -247,7 +247,7 @@ Slurm execution standard:
 | Figure ID | Status | Candidate Path | Notes |
 | --- | --- | --- | --- |
 | `fig_cross_study_marker_expression_v12` | Found, Log-audited, Modifying, Validated, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12` | First final folder created for cluster UMAP QC / DIV90 published recode outputs. Rerendered with editable Arial SVG text and 600 dpi export for rasterized UMAP layers. Other marker-expression multi-grids still pending formatting/finalization. |
-| `fig_cross_study_marker_expression_pv_precursors_on_off_target_v12` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate` | Plot-only rerender from v12 prepared marker tables. Added Bershteyn 2025, added PV ON-target LHX6/LHX8/NKX2.1, retained ERBB4, applied DIV90 vertical plotting-only UMAP orientation, removed DIV90 stressed clusters 6/7 from visualization only, drew expression values 0-1 as background gray with blue scale starting above 1, colorbars labeled from 0, exported PNG/PDF/SVG at 600 dpi through Slurm job 52370542 with editable Arial SVG text. |
+| `fig_cross_study_marker_expression_pv_precursors_on_off_target_v12` | Updated, Slurm-rendered, Validated package | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate` | 2026-06-27 revision groups PV ON-target MGE genes first as NKX2.1/LHX6/LHX8/ERBB4 with a top `MGE` span, replaces ST18 with ZEB2, removes HMX3, and refreshed marker extraction because ZEB2 was absent from the prepared v12 tables. Exported PNG/PDF/SVG at 600 dpi through Slurm job 52439584. |
 | `fig_cross_study_shi_label_transfer_v1_umap_score_grids` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1` | Plot-only rerender of Shi Seurat label-transfer UMAP score grids and matched sample-composition panels from saved v1 combined table. Updated score grids to fixed 0-1 grey-to-blue scaling, applied DIV90 visualization-only stressed-cluster 6/7 removal, applied DIV90 vertical plotting-only UMAP orientation, wrapped long all-label headers, exported requested PNG/PDF/SVG at 600 dpi through Slurm job 52371207 with editable Arial SVG text. Added sample-composition panels through Slurm job 52371553 using the same final denominator and Bershteyn 2023 shorthand sample labels. |
 | `fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate` | Found, Confirmed, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1` | New candidate package created for the DIV90 Jia all-cell URD marker-validation, UMAP pseudotime, and cluster-number-name tree pseudotime panels. Current assets were copied into `final_figures`; formatting should proceed by plot-only re-render from existing assets, not by recomputing URD pseudotime, the lineage tree, or marker validation. |
 
@@ -666,12 +666,12 @@ for this figure family?
 
 ```text
 Found: yes
-Log-audited: yes; source v12 workflow logs were previously checked and this
-  update used the already prepared v12 marker-expression tables.
+Log-audited: yes; source v12 workflow logs were previously checked, and the
+  2026-06-27 marker revision refreshed marker extraction before rendering.
 Confirmed: pending user visual review
 Modified: yes
-Validated: partial; output manifest and PNG visual spot-check completed
-Finalized: candidate package created
+Validated: yes; manifest/table checks and PNG visual spot-check completed
+Finalized: candidate package refreshed
 ```
 
 ### Candidate Paths
@@ -777,15 +777,47 @@ figures/svg/cross_study_marker_expression_pv_precursors_on_off_target.svg
         SVG = 600
       Slurm script validated PNG/PDF/SVG were nonzero before copying into
       final_figures.
+  - 2026-06-27 requested marker revision:
+      PV ON-target marker order now starts with the MGE block:
+        NKX2-1, LHX6, LHX8, ERBB4
+      NKX2-1 is displayed as NKX2.1.
+      Added a horizontal top span labeled "MGE" over those four columns.
+      Replaced ST18 with ZEB2.
+      Removed HMX3 from the paired OFF-target marker list.
+      Existing prepared v12 marker-expression tables contain ST18 and HMX3 but
+      not ZEB2, so this revision requires fresh H5AD/Seurat marker extraction
+      before the final 600 dpi render can be packaged.
+  - 2026-06-27 Slurm refresh completed successfully:
+      Job ID: 52439584
+      Submitted sbatch:
+        /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/render_pv_precursor_final_panel_mge_zeb2_600dpi.sbatch
+      Logs:
+        /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/pv-mge-zeb2-pv-mge-zeb2-52439584.out
+        /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/pv-mge-zeb2-pv-mge-zeb2-52439584.err
+      Runtime/resources:
+        00:05:16 elapsed, 34,003,032K MaxRSS, 8 CPUs, 180G memory requested
+      DPI:
+        PNG = 600
+        PDF = 600
+        SVG = 600
+      Outputs were copied to final_figures after PNG/PDF/SVG were confirmed
+      nonzero.
 ```
 
 ### Validation
 
 ```text
 Manifest check:
-  - Target panel genes:
-    MAFB, MEF2C, ERBB4, LHX6, LHX8, NKX2-1, ETV1, CRABP1, TAC1, ST18, PVALB,
-    SP8, EBF1, NKX2-2, RAX, HMX3, DBH
+  - 2026-06-27 target panel genes:
+    NKX2-1, LHX6, LHX8, ERBB4, MAFB, MEF2C, ETV1, CRABP1, TAC1, ZEB2, PVALB,
+    SP8, EBF1, NKX2-2, RAX, DBH
+  - Manifest confirms ZEB2 is present and ST18/HMX3 are absent.
+  - Refreshed per-study marker-expression tables contain ZEB2 and do not
+    contain ST18 or HMX3.
+  - Target outputs exist as PNG, PDF, and SVG:
+      PNG 6.8M, 8047 x 5026
+      PDF 6.5M
+      SVG 9.3M
   - Target panel studies:
     This Study DIV30, This Study DIV90, Siebert 2026, Walsh 2025,
     Bershteyn 2025, Bershteyn 2023, Samarasinghe 2021
@@ -805,6 +837,10 @@ Visual spot-check:
     and no DejaVu glyph-path text definitions.
   - Gene header displays NKX2.1.
   - High-DPI final render completed via Slurm at 600 dpi for PNG/PDF/SVG.
+  - 2026-06-27 PNG spot-check confirms the first four columns are NKX2.1,
+    LHX6, LHX8, and ERBB4 with a horizontal MGE span above them; ZEB2 appears
+    in place of ST18; HMX3 is absent; and the ON/OFF divider remains after
+    PVALB.
   - Slurm output log records nonzero output validation:
       PNG 7.8M
       PDF 7.3M
@@ -1793,6 +1829,328 @@ Audit conclusion:
   when the original curated `candidate_jia_group` label and exclusions are used.
   Therefore, the Splatter-dominant all-supercluster figure is not a remaining
   matrix-corruption problem; it is a label-space/reference-composition problem.
+```
+
+## Figure: fig_siletti_div90_restricted_ge_msn_chat_rivers_v3
+
+### Status
+
+```text
+Generated v3 final-candidate river plots with aligned rectangle/ribbon geometry,
+fine-subtype transfer, split major subtype ROI labels, vertical
+Pallial/cortical vs Subpallial grouping bars, a combined 1x3 panel, and visual
+accounting audits; ready for visual review.
+```
+
+### Candidate Paths
+
+```text
+Final-candidate output:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v3
+
+Expected plots:
+plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
+plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
+plots/river_div90_class_to_adult_final_fine_subtypes.png/pdf
+plots/river_div90_class_to_adult_combined_1x3_pallial_major_fine.png/pdf
+
+Audit plots in same folder:
+plots/audit_reference_supercluster_by_pallial_subpallial_bin.png/pdf
+plots/audit_reference_major_subtype_by_pallial_subpallial_bin.png/pdf
+plots/audit_reference_major_subtype_totals_including_excluded.png/pdf
+plots/audit_reference_final_fine_subtype_by_pallial_subpallial_bin.png/pdf
+plots/audit_reference_final_fine_subtype_totals_including_excluded.png/pdf
+plots/audit_div90_class_to_pallial_subpallial_counts.png/pdf
+plots/audit_div90_class_to_major_subtype_counts.png/pdf
+plots/audit_div90_class_to_final_fine_subtype_counts.png/pdf
+plots/audit_transfer_score_distributions.png/pdf
+```
+
+### Source Code and Handoffs
+
+```text
+python_notebooks/scripts/export_siletti_div90_seurat_bridge.py
+python_notebooks/scripts/plot_siletti_div90_final_restricted_rivers.py
+python_notebooks/HANDOFF_siletti_2023_whb_reference_metadata.md
+```
+
+### Rerun Decision
+
+```text
+Rerun submitted with corrected per-H5AD gene indexing and restricted final
+candidate reference.
+
+Reference scope:
+  MGE interneuron
+  CGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Medium spiny neuron
+  Eccentric medium spiny neuron
+  Splatter restricted to subpallial cholinergic/CHAT-like rows only
+
+Pallial/subpallial rule:
+  CerebralCortex + Hippocampus -> Pallial/cortical
+  all other primary ROI groups -> Subpallial
+```
+
+### Modification Log
+
+```text
+Bridge:
+  52439510  siletti-final-restricted-bridge  COMPLETED  00:02:29  max RSS 17571972K  gl3018
+  run_label: siletti_div90_final_candidate_restricted_ge_msn_chat_bridge_v1
+  scope: mge_cge_llc_msn_emsn_cholinergic
+
+Pallial/subpallial transfer:
+  52439512  siletti-final-pallsub-transfer  COMPLETED  00:01:37  max RSS 13764068K  gl3018
+  label_column: roi_pallial_subpallial_bin
+
+Major subtype transfer:
+  52439514  siletti-final-subtype-transfer  COMPLETED  00:01:34  max RSS 12580828K  gl3047
+  label_column: major_interneuron_subtype
+  excluded labels: Other selected reference
+
+River plots:
+  52439515  siletti-final-rivers  COMPLETED  00:00:18  max RSS 650588K  gl3300
+
+Audit-layer rerender:
+  plot_siletti_div90_final_restricted_rivers.py rerun after completion to add
+  explicit visual/accounting audit outputs to the same final-candidate folder.
+```
+
+### Validation
+
+```text
+Generated plot files:
+  plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
+  plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
+  plots/audit_reference_supercluster_by_pallial_subpallial_bin.png/pdf
+  plots/audit_reference_major_subtype_by_pallial_subpallial_bin.png/pdf
+  plots/audit_reference_major_subtype_totals_including_excluded.png/pdf
+  plots/audit_div90_class_to_pallial_subpallial_counts.png/pdf
+  plots/audit_div90_class_to_major_subtype_counts.png/pdf
+  plots/audit_transfer_score_distributions.png/pdf
+
+PNG dimensions:
+  river_div90_class_to_adult_pallial_subpallial_bin.png: 3607 x 1817
+  river_div90_class_to_adult_major_interneuron_subtypes.png: 3905 x 1817
+  audit_div90_class_to_major_subtype_counts.png: 4085 x 1403
+  audit_div90_class_to_pallial_subpallial_counts.png: 3787 x 1403
+  audit_reference_major_subtype_by_pallial_subpallial_bin.png: 3593 x 1403
+  audit_reference_major_subtype_totals_including_excluded.png: 2942 x 1172
+  audit_reference_supercluster_by_pallial_subpallial_bin.png: 3593 x 1403
+  audit_transfer_score_distributions.png: 3041 x 1172
+
+Saved tables:
+  tables/river_div90_class_to_adult_pallial_subpallial_bin_edges.tsv
+  tables/river_div90_class_to_adult_major_interneuron_subtypes_edges.tsv
+  tables/div90_query_with_pallial_subpallial_assignments.tsv.gz
+  tables/div90_query_with_major_interneuron_subtype_assignments.tsv.gz
+  tables/audit_accounting_totals.tsv
+  tables/audit_reference_source_supercluster_by_pallial_subpallial_bin.tsv
+  tables/audit_reference_major_subtype_by_pallial_subpallial_bin.tsv
+  tables/audit_reference_major_subtype_totals.tsv
+  tables/audit_div90_class_to_pallial_subpallial_counts.tsv
+  tables/audit_div90_class_to_major_subtype_counts.tsv
+
+Audit accounting totals:
+  reference_cells_total: 60,000
+  reference_cells_used_for_subtype_transfer: 51,195
+  reference_cells_excluded_from_subtype_transfer_other_selected_reference: 8,805
+  div90_cells_pallial_transfer: 16,206
+  div90_cells_major_subtype_transfer: 16,206
+  river_pallial_edges_total: 16,206
+  river_major_subtype_edges_total: 16,206
+```
+
+Assignment counts:
+
+```text
+Pallial/subpallial:
+  Subpallial: 11,442
+  Pallial/cortical: 4,764
+
+Major subtype:
+  Medium spiny neuron: 4,549
+  Eccentric medium spiny neuron: 4,111
+  Vip: 3,527
+  Pvalb: 1,819
+  Lamp5 Lhx6: 1,150
+  Sst: 742
+  Subpallial Cholinergic neurons: 306
+  Pax6: 2
+```
+
+### V2 Aligned River Update
+
+```text
+Status:
+  Generated and validated. This is the current preferred candidate for visual
+  review because it fixes river rectangle/ribbon alignment and adds the
+  fine-subtype river.
+
+Output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v2
+
+Main plots:
+  plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
+  plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
+  plots/river_div90_class_to_adult_final_fine_subtypes.png/pdf
+
+Geometry/rendering changes:
+  Rectangles and ribbons now use the same scaled vertical segment positions.
+  Right-side labels are ordered with pallial/cortical groups above subpallial
+  groups where the label space carries that distinction.
+  Small labels are spread with leader lines so tiny bins remain readable without
+  moving the rectangles themselves.
+
+Fine subtype label column:
+  final_fine_subtype
+
+Fine subtype options:
+  Cortical PV+ basket neurons
+  Cortical PV+ Chandelier neurons
+  Cortical SST+ LRP neurons
+  Cortical SST+ Mt neurons
+  Cortical SST+ nMt neurons
+  Pallial/cortical Medium spiny neuron
+  Subpallial PV+ neurons
+  Subpallial SST+ LRP neurons
+  Subpallial SST+ neurons
+  Subpallial Cholinergic neurons
+  Subpallial Medium spiny neuron
+  Subpallial Eccentric medium spiny neuron
+
+Other selected reference is retained for accounting and excluded from the
+fine-subtype transfer.
+
+Jobs:
+  52439770  siletti-final-restricted-bridge-v2   COMPLETED  00:02:27  max RSS 17589848K  gl3435
+  52439771  siletti-final-pallsub-transfer-v2    COMPLETED  00:01:50  max RSS 13849648K  gl3009
+  52439772  siletti-final-major-transfer-v2      COMPLETED  00:01:29  max RSS 12468616K  gl3018
+  52439773  siletti-final-fine-transfer-v2       COMPLETED  00:01:13  max RSS 11204292K  gl3408
+  52439774  siletti-final-rivers-v2              COMPLETED  00:00:26  max RSS 953068K    gl3378
+```
+
+V2 accounting totals:
+
+```text
+reference_cells_total: 60,000
+reference_cells_used_for_subtype_transfer: 51,195
+reference_cells_excluded_from_subtype_transfer_other_selected_reference: 8,805
+reference_cells_used_for_final_fine_subtype_transfer: 37,417
+reference_cells_excluded_from_final_fine_subtype_transfer_other_selected_reference: 22,583
+div90_cells_pallial_transfer: 16,206
+div90_cells_major_subtype_transfer: 16,206
+div90_cells_final_fine_subtype_transfer: 16,206
+river_pallial_edges_total: 16,206
+river_major_subtype_edges_total: 16,206
+river_final_fine_subtype_edges_total: 16,206
+```
+
+V2 fine subtype assignments:
+
+```text
+Subpallial Eccentric medium spiny neuron: 6,745
+Subpallial Medium spiny neuron: 4,301
+Cortical PV+ basket neurons: 3,550
+Subpallial SST+ neurons: 763
+Subpallial Cholinergic neurons: 394
+Cortical SST+ Mt neurons: 286
+Cortical SST+ LRP neurons: 145
+Cortical SST+ nMt neurons: 22
+
+Cortical PV+ Chandelier neurons are present in the reference
+(613 reference cells) but received 0 DIV90 assignments in this transfer.
+```
+
+### V3 Grouped River Update
+
+```text
+Status:
+  Generated and validated. This is the current preferred candidate for visual
+  review.
+
+Output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v3
+
+Main plots:
+  plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
+  plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
+  plots/river_div90_class_to_adult_final_fine_subtypes.png/pdf
+  plots/river_div90_class_to_adult_combined_1x3_pallial_major_fine.png/pdf
+
+V3 changes:
+  Added vertical Pallial/cortical and Subpallial grouping bars on all river
+  plots.
+  Added split major label column: major_interneuron_subtype_roi.
+  Major labels are now ordered as Pallial/cortical labels first, then
+  Subpallial labels.
+  Zero-count ordered target labels remain visible so reference options such as
+  PV/chandelier are not mistaken for absent reference classes.
+
+Jobs:
+  52440165  siletti-final-restricted-bridge-v3    COMPLETED  00:02:40  max RSS 17645408K  gl3028
+  52440166  siletti-final-pallsub-transfer-v3     COMPLETED  00:01:52  max RSS 13868608K  gl3009
+  52440167  siletti-final-majorroi-transfer-v3    COMPLETED  00:01:26  max RSS 12586348K  gl3408
+  52440168  siletti-final-fine-transfer-v3        COMPLETED  00:01:39  max RSS 11204324K  gl3018
+  52440169  siletti-final-rivers-v3               COMPLETED  00:00:29  max RSS 1096588K   gl3329
+```
+
+V3 accounting totals:
+
+```text
+reference_cells_total: 60,000
+reference_cells_used_for_subtype_transfer: 51,195
+reference_cells_excluded_from_subtype_transfer_other_selected_reference: 8,805
+reference_cells_used_for_final_fine_subtype_transfer: 37,417
+reference_cells_excluded_from_final_fine_subtype_transfer_other_selected_reference: 22,583
+div90_cells_pallial_transfer: 16,206
+div90_cells_major_subtype_transfer: 16,206
+div90_cells_final_fine_subtype_transfer: 16,206
+river_pallial_edges_total: 16,206
+river_major_subtype_edges_total: 16,206
+river_final_fine_subtype_edges_total: 16,206
+```
+
+V3 split-major assignments:
+
+```text
+Subpallial Eccentric medium spiny neuron: 4,614
+Subpallial Medium spiny neuron: 4,587
+Pallial/cortical Vip: 2,737
+Pallial/cortical Pvalb: 1,840
+Pallial/cortical Lamp5 Lhx6: 1,135
+Pallial/cortical Sst: 887
+Subpallial Cholinergic neurons: 337
+Subpallial Vip: 65
+Pallial/cortical Pax6: 4
+```
+
+PV chandelier status:
+
+```text
+Adult reference contains:
+  Cortical PV+ Chandelier neurons: 613 reference cells
+  Pallial/cortical Chandelier: 613 reference cells
+  Subpallial Chandelier: 87 reference cells
+
+DIV90 assignments to those chandelier labels in v3 are 0. They are shown as
+zero-count target labels in the river plots, not as nonzero flows.
+```
+
+### Open Questions
+
+```text
+Visual review pending before final packaging.
+
+Interpretation caveat to review visually:
+  Pallial/subpallial is an adult primary-ROI bin, not a developmental origin
+  label. Under this rule, many adult MGE/CGE/LLC interneurons are counted as
+  Pallial/cortical because their sampled ROI is CerebralCortex or Hippocampus.
+  MSN, eccentric MSN, and Splatter-CHAT/cholinergic rows are mostly Subpallial.
+  Use the audit plots/tables above to decide whether this rule is acceptable for
+  the final figure wording.
 ```
 
 Assignment/methods summary:
