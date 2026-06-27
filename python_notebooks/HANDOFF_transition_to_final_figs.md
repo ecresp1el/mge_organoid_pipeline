@@ -249,9 +249,9 @@ Slurm execution standard:
 | `fig_cross_study_marker_expression_v12` | Found, Log-audited, Modifying, Validated, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12` | First final folder created for cluster UMAP QC / DIV90 published recode outputs. Rerendered with editable Arial SVG text and 600 dpi export for rasterized UMAP layers. Other marker-expression multi-grids still pending formatting/finalization. |
 | `fig_cross_study_marker_expression_pv_precursors_on_off_target_v12` | Updated, Slurm-rendered, Validated package | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate` | 2026-06-27 revision groups PV ON-target MGE genes first as NKX2.1/LHX6/LHX8/ERBB4 with a top `MGE` span, replaces ST18 with ZEB2, removes HMX3, and refreshed marker extraction because ZEB2 was absent from the prepared v12 tables. Exported PNG/PDF/SVG at 600 dpi through Slurm job 52439584. |
 | `fig_cross_study_shi_label_transfer_v1_umap_score_grids` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1` | Plot-only rerender of Shi Seurat label-transfer UMAP score grids and matched sample-composition panels from saved v1 combined table. Updated score grids to fixed 0-1 grey-to-blue scaling, applied DIV90 visualization-only stressed-cluster 6/7 removal, applied DIV90 vertical plotting-only UMAP orientation, wrapped long all-label headers, exported requested PNG/PDF/SVG at 600 dpi through Slurm job 52371207 with editable Arial SVG text. Added sample-composition panels through Slurm job 52371553 using the same final denominator and Bershteyn 2023 shorthand sample labels. |
-| `maturation_scores` | Slurm-rendered, Validated package | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/maturation_scores/maturation_scores_v1` | Unified DIV30/DIV90 Jia RGC1/RGC2/IPC Scanpy `score_genes` UMAP overlays plus derived `IPC - mean(RGC1,RGC2)` index, and the older `01_seurat_to_anndata.ipynb` predefined-gene maturation scores. Final package is `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/maturation_scores`; latest Slurm job 52442083 completed 2026-06-27 with PNG/PDF/SVG plus score and audit tables. |
+| `maturation_scores` | Modified, Slurm queued | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/maturation_scores/maturation_scores_v1` | 2026-06-27 rerender now computes every displayed module with `Seurat::AddModuleScore`, removes mature-minus-immature/MGE subtraction scores, keeps only Jia RGC1/RGC2 mean, Jia IPC, immature module, and mature module, and applies the DIV90 final-figure visualization rules (exclude current clusters 6/7, flip plotted UMAP2). Corrected Slurm job 52445648 is queued; final package target remains `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/maturation_scores`. |
 | `fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate` | Found, Confirmed, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1` | New candidate package created for the DIV90 Jia all-cell URD marker-validation, UMAP pseudotime, and cluster-number-name tree pseudotime panels. Current assets were copied into `final_figures`; formatting should proceed by plot-only re-render from existing assets, not by recomputing URD pseudotime, the lineage tree, or marker validation. |
-| `fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered` | Generated, Validated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chat_river_plots_v8_no_cge_no_msn_fullref_min10_ordered` | Current preferred Siletti river candidate. v8 removes CGE, MSN, and eccentric MSN before bridge export and before unified fast-kNN transfer, keeps MGE, LAMP5-LHX6/chandelier, and Splatter-CHAT, uses all eligible adult reference cells with no reference caps, filters plotted river edges with fewer than 10 DIV90 cells, recomputes rectangles/ribbons from the filtered edge tables so tiny populations do not leave boxes, and computes the left DIV90 cluster order by descending Pallial/cortical fraction from the current run. Copied into `final_figures` as a clearly marked candidate package; not final-approved yet. |
+| `fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered` | Finalized | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chat_river_plots_v8_no_cge_no_msn_fullref_min10_ordered` | Final Siletti DIV90 restricted MGE/LLC/CHAT river figure package. v8 removes CGE, MSN, and eccentric MSN before bridge export and before unified fast-kNN transfer, keeps MGE, LAMP5-LHX6/chandelier, and Splatter-CHAT, uses all eligible adult reference cells with no reference caps, filters plotted river edges with fewer than 10 DIV90 cells, recomputes rectangles/ribbons from filtered edge tables, and computes one left DIV90 cluster order by descending Pallial/cortical fraction from the current run. Final package is in `final_figures`. |
 
 ## Figure: maturation_scores
 
@@ -260,9 +260,10 @@ Slurm execution standard:
 ```text
 Found: yes
 Renderer added: yes
-Slurm render: completed as job 52441418 on 2026-06-27, expanded as job 52442083
-on 2026-06-27
-Final validation: passed
+Slurm render: completed old Scanpy/mean-expression jobs 52441418, 52442083,
+and 52444331 on 2026-06-27; corrected Seurat AddModuleScore job 52445648 is
+queued on 2026-06-27
+Final validation: pending corrected Seurat rerender
 ```
 
 ### Candidate Paths
@@ -282,11 +283,11 @@ Later DIV90 Jia-root metadata path:
 ```
 
 The old combined RGC/IPC progression workflow used Shi Table S5 RGC/IPC genes
-and plain mean log-normalized expression, not Jia RGC1/RGC2/IPC Scanpy module
-scores. The later DIV90 URD RootScore metadata also used mean log-normalized
-Jia program expression for DIV90. The DIV30 Jia notebook used Scanpy
-`score_genes`, so the new final render recalculates DIV30 and DIV90 together
-with one scoring contract.
+and plain mean log-normalized expression. The later DIV90 URD RootScore
+metadata also used mean log-normalized Jia program expression for DIV90. The
+DIV30 Jia notebook used Scanpy `score_genes`. The corrected final workflow
+therefore exports fresh DIV30 and DIV90 module scores from the Seurat objects
+with one scoring contract: `Seurat::AddModuleScore` for every displayed module.
 
 ### Source Code and Handoffs
 
@@ -295,6 +296,7 @@ python_notebooks/HANDOFF_jia_program_div30_scoring.md
 python_notebooks/notebooks/jia_program_div30_scoring.ipynb
 python_notebooks/notebooks/01_seurat_to_anndata.ipynb
 python_notebooks/src/mge_organoid_python/gene_program_scoring.py
+scripts/38_export_maturation_module_scores_seurat.R
 python_notebooks/scripts/render_maturation_scores_final.py
 slurm_templates/60_render_maturation_scores_final.sbatch.template
 ```
@@ -305,11 +307,11 @@ slurm_templates/60_render_maturation_scores_final.sbatch.template
 Marker CSV:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/reference/Jia_et_al_2026_Science_3_progs.csv
 
-DIV30 AnnData:
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div30.h5ad
+DIV30 Seurat:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/varela_this_paper/varela_this_paper_seurat.rds
 
-DIV90 AnnData:
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div90.h5ad
+DIV90 Seurat:
+/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds
 ```
 
 ### Log Audit
@@ -321,12 +323,18 @@ sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/60_render_
 Job ID:
 52441418
 52442083
+52444331
+52445648 (corrected Seurat AddModuleScore render; queued)
 
 Logs:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52441418.out
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52441418.err
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52442083.out
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52442083.err
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52444331.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52444331.err
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52445648.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52445648.err
 
 sacct:
 Job 52441418: State COMPLETED, ExitCode 0:0, Elapsed 00:03:00, batch MaxRSS
@@ -334,35 +342,50 @@ Job 52441418: State COMPLETED, ExitCode 0:0, Elapsed 00:03:00, batch MaxRSS
 
 Job 52442083: State COMPLETED, ExitCode 0:0, Elapsed 00:03:40, batch MaxRSS
 24889880K, AllocCPUS 8, ReqMem 180G.
+
+Job 52444331: State COMPLETED, ExitCode 0:0, Elapsed 00:03:28, batch MaxRSS
+24358092K, AllocCPUS 8, ReqMem 180G.
+
+Job 52445648: pending/queued at handoff update time.
 ```
 
 ### Rerun Decision
 
 ```text
 Rerun type: scoring rerun, not upstream reconstruction.
-Reason: DIV30 and DIV90 prior score paths were not identical.
-Method: Scanpy score_genes on each timepoint with the same Jia marker CSV,
-ctrl_size=50, random_state=0, use_raw=False.
+Reason: DIV30 and DIV90 prior score paths were not identical, and user asked
+that all displayed scores be computed via Seurat AddModuleScore so the plotted
+score axes are comparable.
+Method: Seurat::AddModuleScore from the DIV30 and DIV90 Seurat objects for all
+displayed modules, ctrl=50, nbin=24, seed=0, assay=RNA. The renderer uses one
+shared 1st/99th percentile color scale per score across plotted DIV30 and DIV90
+cells.
 ```
 
 ### Modification Log
 
 ```text
 2026-06-27:
-- Added a unified final renderer for DIV30 and DIV90 Jia RGC1/RGC2/IPC scores.
-- Added derived display-only maturation index:
-  jia_score_IPC - mean(jia_score_RGC1, jia_score_RGC2).
-- Added the older `01_seurat_to_anndata.ipynb` predefined-gene maturation score
-  family:
-  - progenitor_score = mean(VIM, HES1, HES5, SOX2, FABP7, NES)
-  - cycling_score = mean(MKI67, TOP2A, CENPF, UBE2C, PTTG1, NUSAP1, PCNA)
-  - mge_identity_score = mean(NKX2-1, LHX6, SOX6, DLX1, DLX2, ASCL1)
-  - postmitotic_interneuron_score = mean(GAD1, GAD2, ERBB4, SST, CXCR4, DCX, STMN2)
-  - maturation_synaptic_score = mean(SYT1, SNAP25, SLC32A1, MAP2, TUBB3, ELAVL4, RBFOX3)
-  - maturation_score = postmitotic_interneuron_score + maturation_synaptic_score
-    - progenitor_score - cycling_score
-  In current DIV30/DIV90 AnnData, TUBB3 is missing and the other synaptic
-  markers are used.
+- Added a Seurat score exporter:
+  `scripts/38_export_maturation_module_scores_seurat.R`.
+- Reworked the Python renderer to plot only from the Seurat-exported score
+  table, preventing accidental regeneration of the older Scanpy/mean-expression
+  outputs.
+- Removed all mature-minus-immature/MGE maturation subtraction scores from the
+  final plots and output table.
+- Current displayed modules:
+  - Jia RGC1/RGC2 mean = mean(jia_score_RGC1, jia_score_RGC2)
+  - Jia IPC = jia_score_IPC
+  - immature_module_score via Seurat::AddModuleScore
+  - mature_module_score via Seurat::AddModuleScore
+- Requested immature genes:
+  DCX, STMN2, STMN4, SOX11, TUBB3, TUBB2B, ELAVL4, GAP43, CXCR4, ACKR3.
+- Requested mature genes:
+  RBFOX3, SNAP25, SYT1, SYN1, SYN2, DLG4, VAMP2, SLC12A5, GAD1, GAD2, SLC6A1,
+  ERBB4.
+- Applies final-figure DIV90 visualization rules:
+  current clusters 6 and 7 are removed from plotted DIV90 cells only; the
+  per-cell table keeps all cells; DIV90 plotted UMAP2 is vertically flipped.
 - Exports PNG/PDF/SVG at 600 dpi, with rasterized point layers and editable
   SVG text settings.
 ```
@@ -370,17 +393,19 @@ ctrl_size=50, random_state=0, use_raw=False.
 ### Validation
 
 ```text
-Validated 2026-06-27:
+Validated old outputs 2026-06-27:
 - Slurm job 52441418 completed with exit code 0.
 - Expanded Slurm job 52442083 completed with exit code 0.
-- PNG, PDF, and SVG outputs are nonzero.
-- PNG is 6908 x 3016 px.
-- SVG contains editable `<text>` elements with Arial-family declarations.
-- Visual inspection of PNG confirmed two rows (DIV30, DIV90) and four score
-  columns (RGC1, RGC2, IPC, IPC-minus-mean-RGC index).
-- Visual inspection of the predefined-gene PNG confirmed two rows (DIV30, DIV90)
-  and six score columns (progenitor, cycling, MGE identity, postmitotic
-  interneuron, synaptic maturation, combined maturation score).
+- Revised Slurm job 52444331 completed with exit code 0.
+
+Pending corrected-output validation after Slurm job 52445648 completes:
+- PNG/PDF/SVG outputs nonzero.
+- No `mge_maturation_score`, mature-minus-immature, or Scanpy control audit
+  tables remain in the final package.
+- Compact Jia grid has two score columns: Jia RGC1/RGC2 mean and Jia IPC.
+- Predefined grid has four score columns: Jia RGC1/RGC2 mean, Jia IPC,
+  immature module, and mature module.
+- DIV90 filter summary reports current cluster 6/7 removal for plotted cells.
 ```
 
 ### Final Figure Package
@@ -397,23 +422,18 @@ figures/png/predefined_maturation_scores_umap_grid.png
 figures/pdf/predefined_maturation_scores_umap_grid.pdf
 figures/svg/predefined_maturation_scores_umap_grid.svg
 tables/div30_div90_maturation_scores_obs.tsv.gz
-tables/div30_div90_jia_maturation_scores_obs.tsv.gz
-tables/DIV30_predefined_maturation_gene_set_report.tsv
-tables/DIV90_predefined_maturation_gene_set_report.tsv
-tables/*gene_overlap*
-tables/*scanpy_control_gene*
-tables/*scanpy_program_gene_bins*
+tables/maturation_score_gene_report.tsv
+tables/maturation_score_module_gene_sets_requested.tsv
+tables/maturation_scores_plot_filter_summary.tsv
 provenance/maturation_scores_provenance.json
 ```
 
 ### Open Questions
 
 ```text
-- Which maturation-score family to emphasize in the manuscript:
-  Jia RGC1/RGC2/IPC module scores, the derived Jia IPC-minus-RGC index, or the
-  older predefined-gene maturation score.
-- Whether DIV90 UMAP orientation should stay native or use a plotting-only flip
-  for visual comparison with other final figures.
+- None currently. User requested no MGE maturation subtraction score, Seurat
+  AddModuleScore for all displayed modules, and DIV90 final-figure visualization
+  logic.
 ```
 
 ## Figure: fig_cross_study_marker_expression_v12
@@ -2001,7 +2021,7 @@ Audit conclusion:
 ### Status
 
 ```text
-Generated v8 final-candidate river plots from one unified leaf-label transfer.
+Generated and finalized v8 river plots from one unified leaf-label transfer.
 CGE, MSN, and eccentric MSN are excluded completely from the adult reference
 before bridge export and before fast-kNN transfer; they are not merely hidden
 from the plots. v8 uses the full eligible MGE/LLC/CHAT adult reference with no
@@ -2011,19 +2031,18 @@ the three river levels use one nested assignment logic. Vertical Pallial/cortica
 vs Subpallial grouping bars, a combined 1x3 panel, and visual accounting audits
 are included. v8 filters plotted river edges with fewer than 10 DIV90 cells and
 computes one left-side DIV90 class order across all river plots from this run's
-Pallial/cortical fractions. A
-final_figures candidate package has been created, but this is not
-final-approved yet; visual review and final wording remain pending.
+Pallial/cortical fractions. This is the final-approved v8 package as of
+2026-06-27.
 ```
 
-### Candidate Paths
+### Final Paths
 
 ```text
-Final-candidate output:
+Source output:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chat_river_plots_v8_no_cge_no_msn_fullref_min10_ordered
 
-Final-figures candidate package:
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered_candidate
+Final-figures package:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered
 
 Expected plots:
 plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
@@ -2053,6 +2072,9 @@ python_notebooks/scripts/plot_siletti_div90_final_restricted_rivers.py
 python_notebooks/scripts/plot_siletti_div90_jia_figure.py
 python_notebooks/HANDOFF_siletti_2023_whb_reference_metadata.md
 ```
+
+The final package contains exact copies of these scripts under `code/` and
+copied handoffs under `provenance/`.
 
 ### Rerun Decision
 
@@ -2593,15 +2615,14 @@ Validation:
 
 ```text
 Status:
-  Generated, visually spot-checked, and copied into final_figures as the current
-  preferred candidate package. Not final-approved yet; visual review and final
-  wording remain pending.
+  Generated, visually spot-checked, and finalized as the current Siletti
+  DIV90 restricted MGE/LLC/CHAT river package.
 
 Output:
   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chat_river_plots_v8_no_cge_no_msn_fullref_min10_ordered
 
-Final-figures candidate package:
-  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered_candidate
+Final-figures package:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered
 
 Computation:
   CGE, MSN, and eccentric MSN were removed from the bridge scope before transfer.
@@ -2644,16 +2665,52 @@ Validation:
   absent.
 ```
 
+Exact Slurm submit commands:
+
+```bash
+PROJECT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+REPO=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+PY=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+SCOPE=mge_llc_cholinergic
+BRIDGE_RUN=siletti_div90_final_candidate_restricted_mge_llc_chat_bridge_v8_no_cge_no_msn_fullref
+XFER_RUN=siletti_div90_final_candidate_restricted_mge_llc_chat_unified_leaf_transfer_v8_no_cge_no_msn_fullref
+PLOT_OUT=$PROJECT/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chat_river_plots_v8_no_cge_no_msn_fullref_min10_ordered
+BRIDGE_DIR=$PROJECT/results/siletti_2023_whb_reference_label_transfer/$BRIDGE_RUN/$SCOPE/seurat_bridge
+XFER_DIR=$PROJECT/results/siletti_2023_whb_reference_label_transfer/$XFER_RUN/$SCOPE/svd50_k50_ref0_query0
+
+sbatch --parsable \
+  --job-name=siletti-final-bridge-v8-no-cge-no-msn \
+  --account=louisdan0 --partition=standard \
+  --time=02:00:00 --cpus-per-task=4 --mem=96G \
+  --output="$PROJECT/logs/%x-%j.out" --error="$PROJECT/logs/%x-%j.err" \
+  --wrap="cd '$REPO' && '$PY' python_notebooks/scripts/export_siletti_div90_seurat_bridge.py --project-root '$PROJECT' --scope '$SCOPE' --run-label '$BRIDGE_RUN' --max-ref-cells-per-subcluster 0 --max-ref-cells-total 0 --seed 0"
+
+sbatch --parsable \
+  --dependency=afterok:52442085 \
+  --job-name=siletti-final-transfer-v8-no-cge-no-msn \
+  --account=louisdan0 --partition=standard \
+  --time=06:00:00 --cpus-per-task=12 --mem=120G \
+  --output="$PROJECT/logs/%x-%j.out" --error="$PROJECT/logs/%x-%j.err" \
+  --wrap="cd '$REPO' && '$PY' python_notebooks/scripts/siletti_div90_fast_knn_label_transfer.py --bridge-dir '$BRIDGE_DIR' --outdir '$XFER_DIR' --label-column unified_leaf_subtype --exclude-label 'Other selected reference' --max-reference-cells 0 --max-query-cells 0 --nfeatures 3000 --n-components 50 --k 50 --seed 0"
+
+sbatch --parsable \
+  --dependency=afterok:52442086 \
+  --job-name=siletti-final-rivers-v8-no-cge-no-msn \
+  --account=louisdan0 --partition=standard \
+  --time=00:45:00 --cpus-per-task=2 --mem=24G \
+  --output="$PROJECT/logs/%x-%j.out" --error="$PROJECT/logs/%x-%j.err" \
+  --wrap="cd '$REPO' && '$PY' python_notebooks/scripts/plot_siletti_div90_final_restricted_rivers.py --bridge-dir '$BRIDGE_DIR' --unified-transfer-dir '$XFER_DIR' --outdir '$PLOT_OUT' --source-class-col div90_broad_class --min-river-edge-cells 10"
+```
+
 ### Final Figure Package
 
 ```text
 Status:
-  Packaged candidate only. This folder is for final-figure development and
-  provenance capture; it does not mean the Siletti river figure is final
-  approved.
+  Finalized v8 package. User approved treating this package as final on
+  2026-06-27.
 
 Package:
-  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered_candidate
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered
 
 Contents:
   README.md
@@ -2664,22 +2721,21 @@ Contents:
   figures/pdf/ matching PDF files
   figures/png/audit/ and figures/pdf/audit/ visual accounting checks
   tables/ all river edge, assignment, accounting, zero-label, and chandelier
-    audit tables from the v4 output
-  code/ exact scripts copied for the candidate package
-  logs/ Slurm logs for bridge, unified transfer, river rendering, and PV-only
-    chandelier audit
+    audit tables from the v8 output
+  code/ exact scripts copied for the final package
+  logs/ Slurm logs for bridge, unified transfer, and river rendering
   provenance/ git commit, git status, relevant uncommitted diff, source README,
-    file manifest, and sha256 manifest
+    exact commands, file manifest, and sha256 manifest
 
 Note:
-  No SVG files were generated for this candidate. The package keeps an empty
+  No SVG files were generated for this final. The package keeps an empty
   figures/svg/ directory to match the final_figures standard layout.
 ```
 
 ### Open Questions
 
 ```text
-Visual review pending before final approval.
+No open computational blocker for the finalized v8 package.
 
 Interpretation caveat to review visually:
   Pallial/subpallial is an adult primary-ROI bin, not a developmental origin
@@ -2693,16 +2749,30 @@ Interpretation caveat to review visually:
 Assignment/methods summary:
 
 ```text
-This run transfers `source_supercluster`, not `candidate_jia_group`.
-The reference is the all-31-supercluster Siletti/CELLxGENE WHB set, downsampled
-at bridge export to max 100 cells per Siletti subcluster and max 60,000 total
-adult reference cells. DIV90 query cells are uncapped.
+This v8 final run transfers `unified_leaf_subtype`, not `source_supercluster`
+or `candidate_jia_group`.
+
+Included adult Siletti reference classes:
+  MGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Splatter restricted to subpallial cholinergic/CHAT-like rows only
+
+Excluded before bridge export and transfer:
+  CGE interneuron
+  Medium spiny neuron
+  Eccentric medium spiny neuron
+  all other WHB superclusters
+  non-CHAT/non-cholinergic Splatter rows
+
+The transfer excludes `Other selected reference` from the training reference.
+Pallial/subpallial and major subtype labels are derived from the winning
+`unified_leaf_subtype`, so all three river levels use one nested call.
 
 The assignment is not Seurat anchors. It is the repo fast-kNN path:
 shared unique genes -> library-size normalize to 10,000 counts/cell -> log1p ->
 top 3,000 variable genes -> TruncatedSVD with 50 components -> cosine kNN with
 k = 50 -> normalized cosine-similarity weighted vote -> highest-weight
-`source_supercluster` becomes `predicted.id`.
+`unified_leaf_subtype` becomes the prediction.
 ```
 
 Detailed methods/input/output record:

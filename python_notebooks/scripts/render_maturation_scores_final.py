@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Render unified Jia maturation-score UMAP overlays for DIV30 and DIV90."""
+"""Render final DIV30/DIV90 maturation-score UMAP overlays from Seurat scores."""
 
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import os
 import shutil
@@ -17,116 +18,65 @@ mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import scanpy as sc
 
-from mge_organoid_python.gene_program_scoring import (
-    choose_first_existing,
-    choose_umap_key,
-    match_program_genes,
-    programs_from_marker_table,
-    read_marker_program_csv,
-    safe_token,
-    scanpy_score_genes_control_audit,
-    score_programs_scanpy,
-    select_program_markers,
-)
-from mge_organoid_python.loader import cached_h5ad_path
 from mge_organoid_python.paths import resolve_project_root
-from mge_organoid_python.studies import default_studies
 
 
-PROGRAM_ORDER = ["RGC1", "RGC2", "IPC"]
-PROGRAM_DISPLAY = {
-    "RGC1": "Jia RGC1",
-    "RGC2": "Jia RGC2",
-    "IPC": "Jia IPC",
-}
-MATURATION_COL = "jia_maturation_index_IPC_minus_mean_RGC1_RGC2"
-MATURATION_DISPLAY = "IPC - mean(RGC1, RGC2)"
 JIA_RGC_MEAN_COL = "jia_score_RGC1_RGC2_mean"
-JIA_RGC_MEAN_DISPLAY = "Jia RGC1/RGC2 mean"
 
-PREDEFINED_GENE_SETS = {
-    "immature_module_score": [
-        "DCX",
-        "STMN2",
-        "STMN4",
-        "SOX11",
-        "TUBB3",
-        "TUBB2B",
-        "ELAVL4",
-        "GAP43",
-        "CXCR4",
-        "ACKR3",
-    ],
-    "mature_module_score": [
-        "RBFOX3",
-        "SNAP25",
-        "SYT1",
-        "SYN1",
-        "SYN2",
-        "DLG4",
-        "VAMP2",
-        "SLC12A5",
-        "GAD1",
-        "GAD2",
-        "SLC6A1",
-        "ERBB4",
-    ],
-}
-PREDEFINED_MATURATION_COL = "mge_maturation_score"
-PREDEFINED_SCORE_ORDER = [
-    JIA_RGC_MEAN_COL,
-    "jia_score_IPC",
-    "immature_module_score",
-    "mature_module_score",
-    PREDEFINED_MATURATION_COL,
+JIA_SCORE_COLUMNS = [
+    (JIA_RGC_MEAN_COL, "Jia RGC1/RGC2 mean", "viridis"),
+    ("jia_score_IPC", "Jia IPC", "viridis"),
 ]
-PREDEFINED_SCORE_DISPLAY = {
-    JIA_RGC_MEAN_COL: "Jia RGC1/RGC2 mean",
-    "jia_score_IPC": "Jia IPC",
-    "immature_module_score": "Immature module",
-    "mature_module_score": "Mature module",
-    PREDEFINED_MATURATION_COL: "MGE maturation score",
-}
+PREDEFINED_SCORE_COLUMNS = [
+    (JIA_RGC_MEAN_COL, "Jia RGC1/RGC2 mean", "viridis"),
+    ("jia_score_IPC", "Jia IPC", "viridis"),
+    ("immature_module_score", "Immature module", "magma"),
+    ("mature_module_score", "Mature module", "magma"),
+]
+
+IMMATURE_GENES = [
+    "DCX",
+    "STMN2",
+    "STMN4",
+    "SOX11",
+    "TUBB3",
+    "TUBB2B",
+    "ELAVL4",
+    "GAP43",
+    "CXCR4",
+    "ACKR3",
+]
+MATURE_GENES = [
+    "RBFOX3",
+    "SNAP25",
+    "SYT1",
+    "SYN1",
+    "SYN2",
+    "DLG4",
+    "VAMP2",
+    "SLC12A5",
+    "GAD1",
+    "GAD2",
+    "SLC6A1",
+    "ERBB4",
+]
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Score Jia RGC1/RGC2/IPC programs in DIV30 and DIV90 and render final UMAP overlays."
+        description="Render final maturation-score UMAP overlays from a Seurat AddModuleScore table."
     )
-    parser.add_argument(
-        "--project-root",
-        default=os.environ.get("PROJECT_ROOT"),
-        help="Runtime project root. Defaults to PROJECT_ROOT or the documented Great Lakes root.",
-    )
-    parser.add_argument(
-        "--marker-csv",
-        default=None,
-        help="Jia marker CSV. Defaults to PROJECT_ROOT/reference/Jia_et_al_2026_Science_3_progs.csv.",
-    )
-    parser.add_argument(
-        "--run-label",
-        default="maturation_scores_v1",
-        help="Results run label under PROJECT_ROOT/results/maturation_scores/.",
-    )
-    parser.add_argument(
-        "--final-folder",
-        default="maturation_scores",
-        help="Final figure folder under PROJECT_ROOT/final_figures/.",
-    )
+    parser.add_argument("--project-root", default=os.environ.get("PROJECT_ROOT"))
+    parser.add_argument("--marker-csv", default=None)
+    parser.add_argument("--score-table", required=True, help="TSV/TSV.GZ exported by scripts/38_export_maturation_module_scores_seurat.R.")
+    parser.add_argument("--run-label", default="maturation_scores_v1")
+    parser.add_argument("--final-folder", default="maturation_scores")
     parser.add_argument("--ctrl-size", type=int, default=50)
+    parser.add_argument("--nbin", type=int, default=24)
     parser.add_argument("--random-state", type=int, default=0)
-    parser.add_argument("--top-n", type=int, default=None)
-    parser.add_argument("--min-avg-log2fc", type=float, default=None)
-    parser.add_argument("--max-p-val-adj", type=float, default=None)
     parser.add_argument("--dpi", type=int, default=600)
     parser.add_argument("--point-size", type=float, default=None)
-    parser.add_argument(
-        "--skip-control-audit",
-        action="store_true",
-        help="Skip Scanpy control-gene audit tables if only the plots are needed.",
-    )
     return parser.parse_args()
 
 
@@ -163,189 +113,50 @@ def git_status(repo_root: Path) -> dict[str, str]:
     }
 
 
-def load_study(study_id: str, project_root: Path):
-    studies = {study.study_id: study for study in default_studies()}
-    if study_id not in studies:
-        raise KeyError(f"Unknown study_id: {study_id}")
-    h5ad_path = cached_h5ad_path(studies[study_id], project_root=project_root)
-    if not h5ad_path.exists():
-        raise FileNotFoundError(h5ad_path)
-    print(f"[MaturationScores] loading {study_id}: {h5ad_path}", flush=True)
-    adata = sc.read_h5ad(h5ad_path)
-    print(
-        f"[MaturationScores] loaded {study_id}: {adata.n_obs} cells x {adata.n_vars} genes",
-        flush=True,
-    )
-    return adata, h5ad_path
+def copy_if_different(src: Path, dst: Path) -> None:
+    src = src.resolve()
+    dst = dst.resolve()
+    if src == dst:
+        return
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
 
 
-def score_one(
-    adata,
-    dataset_label: str,
-    selected_markers: pd.DataFrame,
-    ctrl_size: int,
-    random_state: int,
-    table_dir: Path,
-    skip_control_audit: bool,
-) -> dict[str, str]:
-    programs = programs_from_marker_table(
-        selected_markers,
-        gene_col="gene",
-        program_col="cluster",
-        program_order=PROGRAM_ORDER,
-    )
-    matched, overlap_summary, overlap_detail = match_program_genes(programs, adata.var_names)
-    overlap_summary.insert(0, "dataset", dataset_label)
-    overlap_detail.insert(0, "dataset", dataset_label)
-    overlap_summary.to_csv(
-        table_dir / f"{safe_token(dataset_label)}_jia_program_gene_overlap_summary.tsv",
-        sep="\t",
-        index=False,
-    )
-    overlap_detail.to_csv(
-        table_dir / f"{safe_token(dataset_label)}_jia_program_gene_overlap_detail.tsv",
-        sep="\t",
-        index=False,
-    )
-    print(
-        f"[MaturationScores] {dataset_label} gene overlap\n"
-        + overlap_summary.to_string(index=False),
-        flush=True,
-    )
-
-    score_columns = score_programs_scanpy(
-        adata,
-        matched,
-        score_prefix="jia_score_",
-        ctrl_size=ctrl_size,
-        random_state=random_state,
-    )
-    adata.obs[JIA_RGC_MEAN_COL] = (
-        pd.to_numeric(adata.obs[score_columns["RGC1"]], errors="coerce")
-        + pd.to_numeric(adata.obs[score_columns["RGC2"]], errors="coerce")
-    ) / 2.0
-    adata.obs[MATURATION_COL] = (
-        pd.to_numeric(adata.obs[score_columns["IPC"]], errors="coerce")
-        - pd.to_numeric(adata.obs[JIA_RGC_MEAN_COL], errors="coerce")
-    )
-
-    if not skip_control_audit:
-        control_summary, control_detail, program_bins = scanpy_score_genes_control_audit(
-            adata,
-            matched,
-            score_columns=score_columns,
-            ctrl_size=ctrl_size,
-            random_state=random_state,
-        )
-        for frame in (control_summary, control_detail, program_bins):
-            frame.insert(0, "dataset", dataset_label)
-        control_summary.to_csv(
-            table_dir / f"{safe_token(dataset_label)}_scanpy_control_gene_summary.tsv",
-            sep="\t",
-            index=False,
-        )
-        control_detail.to_csv(
-            table_dir / f"{safe_token(dataset_label)}_scanpy_control_gene_detail.tsv",
-            sep="\t",
-            index=False,
-        )
-        program_bins.to_csv(
-            table_dir / f"{safe_token(dataset_label)}_scanpy_program_gene_bins.tsv",
-            sep="\t",
-            index=False,
-        )
-
-    return score_columns
+def clear_output_files(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    for child in path.iterdir():
+        if child.is_file() or child.is_symlink():
+            child.unlink()
 
 
-def resolve_genes(adata, genes: list[str]) -> tuple[list[str], list[str]]:
-    var_names = pd.Index(adata.var_names.astype(str))
-    upper_to_actual = {}
-    for gene in var_names:
-        upper_to_actual.setdefault(gene.upper(), gene)
-
-    found = []
-    missing = []
-    for gene in genes:
-        if gene in var_names:
-            found.append(gene)
-        elif gene.upper() in upper_to_actual:
-            found.append(upper_to_actual[gene.upper()])
-        else:
-            missing.append(gene)
-    return found, missing
+def read_score_table(path: Path) -> pd.DataFrame:
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt") as handle:
+        data = pd.read_csv(handle, sep="\t", low_memory=False)
+    required = {"dataset", "cell_id", "umap_1", "umap_2", "plot_include"}
+    missing = required.difference(data.columns)
+    if missing:
+        raise ValueError(f"Score table is missing required column(s): {sorted(missing)}")
+    for column, _, _ in PREDEFINED_SCORE_COLUMNS:
+        if column not in data.columns:
+            raise ValueError(f"Score table is missing score column: {column}")
+    return data
 
 
-def score_predefined_maturation_gene_sets(adata, dataset_label: str, table_dir: Path) -> list[dict[str, object]]:
-    report = []
-    for score_name, genes in PREDEFINED_GENE_SETS.items():
-        found, missing = resolve_genes(adata, genes)
-        if not found:
-            adata.obs[score_name] = np.nan
-        else:
-            x = adata[:, found].X
-            if hasattr(x, "toarray"):
-                values = np.asarray(x.mean(axis=1)).ravel()
-            else:
-                values = np.asarray(x).mean(axis=1)
-            adata.obs[score_name] = values
-        report.append(
-            {
-                "dataset": dataset_label,
-                "score": score_name,
-                "scoring_method": "mean_expression_of_resolved_genes",
-                "n_genes_requested": len(genes),
-                "n_genes_found": len(found),
-                "genes_requested": ", ".join(genes),
-                "genes_found": ", ".join(found),
-                "genes_missing": ", ".join(missing),
-            }
-        )
-
-    adata.obs[PREDEFINED_MATURATION_COL] = (
-        pd.to_numeric(adata.obs["mature_module_score"], errors="coerce")
-        - pd.to_numeric(adata.obs["immature_module_score"], errors="coerce")
-    )
-    report.append(
-        {
-            "dataset": dataset_label,
-            "score": PREDEFINED_MATURATION_COL,
-            "scoring_method": "mature_module_score - immature_module_score",
-            "n_genes_requested": "",
-            "n_genes_found": "",
-            "genes_requested": "",
-            "genes_found": "",
-            "genes_missing": "",
-        }
-    )
-    report_df = pd.DataFrame(report)
-    report_df.to_csv(
-        table_dir / f"{safe_token(dataset_label)}_predefined_maturation_gene_set_report.tsv",
-        sep="\t",
-        index=False,
-    )
-    print(
-        f"[MaturationScores] {dataset_label} predefined maturation gene sets\n"
-        + report_df[["dataset", "score", "n_genes_requested", "n_genes_found", "genes_found", "genes_missing"]].to_string(index=False),
-        flush=True,
-    )
-    return report
+def bool_series(values: pd.Series) -> pd.Series:
+    if values.dtype == bool:
+        return values.fillna(False)
+    text = values.astype(str).str.lower().str.strip()
+    return text.isin(["true", "t", "1", "yes", "y"])
 
 
-def obs_score_table(adata, dataset_label: str, score_columns: dict[str, str], cluster_col: str | None) -> pd.DataFrame:
-    cols = []
-    for candidate in ["cell_id", "orig.ident", "sample", "cluster_number_name", "seurat_clusters"]:
-        if candidate in adata.obs.columns and candidate not in cols:
-            cols.append(candidate)
-    if cluster_col and cluster_col in adata.obs.columns and cluster_col not in cols:
-        cols.append(cluster_col)
-    cols.extend([score_columns[p] for p in PROGRAM_ORDER if p in score_columns])
-    cols.append(JIA_RGC_MEAN_COL)
-    cols.append(MATURATION_COL)
-    cols.extend([col for col in PREDEFINED_SCORE_ORDER if col in adata.obs.columns and col not in cols])
-    out = adata.obs[cols].copy()
-    out.insert(0, "dataset", dataset_label)
-    out.insert(1, "obs_name", adata.obs_names.astype(str))
+def prepare_plot_data(data: pd.DataFrame) -> pd.DataFrame:
+    out = data.copy()
+    out["plot_include"] = bool_series(out["plot_include"])
+    out["umap_1_plot"] = pd.to_numeric(out["umap_1"], errors="coerce")
+    out["umap_2_plot"] = pd.to_numeric(out["umap_2"], errors="coerce")
+    div90 = out["dataset"].astype(str).eq("DIV90")
+    out.loc[div90, "umap_2_plot"] = -1.0 * out.loc[div90, "umap_2_plot"]
     return out
 
 
@@ -359,36 +170,46 @@ def clean_axis(ax: plt.Axes) -> None:
         spine.set_visible(False)
 
 
+def shared_norms(data: pd.DataFrame, columns: list[tuple[str, str, str]]) -> dict[str, mpl.colors.Normalize]:
+    norms: dict[str, mpl.colors.Normalize] = {}
+    plot_data = data.loc[data["plot_include"]]
+    for column, _, _ in columns:
+        values = pd.to_numeric(plot_data[column], errors="coerce").to_numpy()
+        finite = np.isfinite(values)
+        if finite.any():
+            vmin = float(np.nanpercentile(values[finite], 1))
+            vmax = float(np.nanpercentile(values[finite], 99))
+        else:
+            vmin, vmax = 0.0, 1.0
+        if vmax <= vmin:
+            vmax = vmin + 1e-6
+        norms[column] = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+    return norms
+
+
 def plot_score_layer(
     fig: plt.Figure,
     ax: plt.Axes,
-    coords: np.ndarray,
-    values: np.ndarray,
+    frame: pd.DataFrame,
+    score_column: str,
     title: str,
     cmap: str,
+    norm: mpl.colors.Normalize,
     point_size: float,
-    center_zero: bool = False,
 ) -> None:
-    finite = np.isfinite(values)
+    coords = frame[["umap_1_plot", "umap_2_plot"]].to_numpy(dtype=float)
+    values = pd.to_numeric(frame[score_column], errors="coerce").to_numpy()
+    finite = np.isfinite(values) & np.isfinite(coords[:, 0]) & np.isfinite(coords[:, 1])
+
     ax.scatter(
         coords[:, 0],
         coords[:, 1],
         s=point_size,
-        c="#d9d9d9",
+        c="#d0d0d0",
         alpha=0.35,
         linewidths=0,
         rasterized=True,
     )
-    if center_zero:
-        lim = float(np.nanpercentile(np.abs(values[finite]), 99)) if finite.any() else 1.0
-        lim = max(lim, 1e-6)
-        norm = mpl.colors.TwoSlopeNorm(vmin=-lim, vcenter=0.0, vmax=lim)
-    else:
-        vmin = float(np.nanpercentile(values[finite], 1)) if finite.any() else 0.0
-        vmax = float(np.nanpercentile(values[finite], 99)) if finite.any() else 1.0
-        if vmax <= vmin:
-            vmax = vmin + 1e-6
-        norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
     scatter = ax.scatter(
         coords[finite, 0],
         coords[finite, 1],
@@ -407,82 +228,36 @@ def plot_score_layer(
     cbar.outline.set_linewidth(0.4)
 
 
-def render_umap_grid(
-    scored: list[dict[str, object]],
+def render_grid(
+    data: pd.DataFrame,
+    columns: list[tuple[str, str, str]],
     output_stem: Path,
     dpi: int,
     point_size: float | None,
-) -> None:
-    n_rows = len(scored)
-    columns = [
-        ("rgc_mean", JIA_RGC_MEAN_DISPLAY, "viridis", False),
-        ("IPC", "Jia IPC", "viridis", False),
-        ("maturation", MATURATION_DISPLAY, "coolwarm", True),
-    ]
+) -> dict[str, dict[str, float]]:
+    datasets = ["DIV30", "DIV90"]
+    norms = shared_norms(data, columns)
     fig, axes = plt.subplots(
-        n_rows,
+        len(datasets),
         len(columns),
-        figsize=(2.85 * len(columns), 2.75 * n_rows),
+        figsize=(2.75 * len(columns), 2.75 * len(datasets)),
         constrained_layout=True,
         squeeze=False,
     )
-    for row_idx, item in enumerate(scored):
-        adata = item["adata"]
-        dataset_label = str(item["label"])
-        umap_key = str(item["umap_key"])
-        score_columns = item["score_columns"]
-        coords = np.asarray(adata.obsm[umap_key])
-        size = point_size if point_size is not None else (0.25 if adata.n_obs > 80000 else 0.75)
-        for col_idx, (program, display, cmap, center_zero) in enumerate(columns):
-            if program == "maturation":
-                values = pd.to_numeric(adata.obs[MATURATION_COL], errors="coerce").to_numpy()
-            elif program == "rgc_mean":
-                values = pd.to_numeric(adata.obs[JIA_RGC_MEAN_COL], errors="coerce").to_numpy()
-            else:
-                values = pd.to_numeric(adata.obs[score_columns[program]], errors="coerce").to_numpy()
-            title = f"{dataset_label} {display}"
-            plot_score_layer(fig, axes[row_idx, col_idx], coords, values, title, cmap, size, center_zero)
 
-    for ext in ["png", "pdf", "svg"]:
-        path = output_stem.with_suffix(f".{ext}")
-        fig.savefig(path, dpi=dpi, bbox_inches="tight")
-        print(f"[MaturationScores] wrote {path}", flush=True)
-    plt.close(fig)
-
-
-def render_predefined_maturation_grid(
-    scored: list[dict[str, object]],
-    output_stem: Path,
-    dpi: int,
-    point_size: float | None,
-) -> None:
-    n_rows = len(scored)
-    fig, axes = plt.subplots(
-        n_rows,
-        len(PREDEFINED_SCORE_ORDER),
-        figsize=(2.75 * len(PREDEFINED_SCORE_ORDER), 2.75 * n_rows),
-        constrained_layout=True,
-        squeeze=False,
-    )
-    for row_idx, item in enumerate(scored):
-        adata = item["adata"]
-        dataset_label = str(item["label"])
-        umap_key = str(item["umap_key"])
-        coords = np.asarray(adata.obsm[umap_key])
-        size = point_size if point_size is not None else (0.25 if adata.n_obs > 80000 else 0.75)
-        for col_idx, score_name in enumerate(PREDEFINED_SCORE_ORDER):
-            values = pd.to_numeric(adata.obs[score_name], errors="coerce").to_numpy()
-            center_zero = score_name == PREDEFINED_MATURATION_COL
-            cmap = "coolwarm" if center_zero else ("viridis" if score_name.startswith("jia_score") else "magma")
+    for row_idx, dataset in enumerate(datasets):
+        frame = data.loc[data["dataset"].astype(str).eq(dataset) & data["plot_include"]].copy()
+        size = point_size if point_size is not None else (0.25 if len(frame) > 80000 else 0.75)
+        for col_idx, (score_column, display, cmap) in enumerate(columns):
             plot_score_layer(
                 fig,
                 axes[row_idx, col_idx],
-                coords,
-                values,
-                f"{dataset_label} {PREDEFINED_SCORE_DISPLAY.get(score_name, score_name)}",
+                frame,
+                score_column,
+                f"{dataset} {display}",
                 cmap,
+                norms[score_column],
                 size,
-                center_zero=center_zero,
             )
 
     for ext in ["png", "pdf", "svg"]:
@@ -490,53 +265,85 @@ def render_predefined_maturation_grid(
         fig.savefig(path, dpi=dpi, bbox_inches="tight")
         print(f"[MaturationScores] wrote {path}", flush=True)
     plt.close(fig)
+    return {column: {"vmin_1pct": norm.vmin, "vmax_99pct": norm.vmax} for column, _, _ in columns for norm in [norms[column]]}
+
+
+def write_plot_filter_summary(data: pd.DataFrame, table_dir: Path) -> None:
+    rows = []
+    for dataset, frame in data.groupby("dataset", sort=False):
+        include = frame["plot_include"].astype(bool)
+        rows.append(
+            {
+                "dataset": dataset,
+                "n_total_cells": int(len(frame)),
+                "n_plotted_cells": int(include.sum()),
+                "n_excluded_cells": int((~include).sum()),
+                "div90_visualization_cluster_col": frame.get("div90_visualization_cluster_col", pd.Series([""])).astype(str).replace("nan", "").iloc[0],
+                "rule": "DIV90 excludes current clusters 6 and 7; DIV90 UMAP2 is multiplied by -1 for plotting" if str(dataset) == "DIV90" else "all cells plotted",
+            }
+        )
+    pd.DataFrame(rows).to_csv(table_dir / "maturation_scores_plot_filter_summary.tsv", sep="\t", index=False)
 
 
 def write_readme(
     final_dir: Path,
     run_dir: Path,
     marker_csv: Path,
-    h5ad_paths: dict[str, Path],
+    score_table: Path,
     ctrl_size: int,
+    nbin: int,
     random_state: int,
 ) -> None:
     readme = f"""# Maturation Scores
 
-Unified DIV30/DIV90 Jia program score UMAP overlays.
+Unified DIV30/DIV90 UMAP overlays for Jia and predefined maturation modules.
 
 ## Scoring
 
-- Marker source: `{marker_csv}`
-- Programs: `RGC1`, `RGC2`, `IPC`
-- Method: `scanpy.tl.score_genes` on each AnnData `.X`, `use_raw=False`
-- Control genes: expression-binned Scanpy controls, `ctrl_size={ctrl_size}`, `random_state={random_state}`
-- Jia plotted summary:
-  `mean(jia_score_RGC1, jia_score_RGC2)`, `jia_score_IPC`, and
-  `jia_score_IPC - mean(jia_score_RGC1, jia_score_RGC2)`.
-- MGE maturation score:
-  `mature_module_score - immature_module_score`
+- Jia marker source: `{marker_csv}`
+- Scoring method for every displayed module: `Seurat::AddModuleScore`
+- Parameters: `ctrl={ctrl_size}`, `nbin={nbin}`, `seed={random_state}`, assay `RNA`
+- Jia displays: `mean(jia_score_RGC1, jia_score_RGC2)` and `jia_score_IPC`
+- Predefined displays: the Jia RGC1/RGC2 mean, Jia IPC, immature module, and mature module
+- No mature-minus-immature MGE maturation score is computed or plotted in this final package.
 
-The three original Jia program scores are exported separately in the table, but
-the figure shows the compact RGC1/RGC2 mean, IPC score, and IPC-minus-RGC
-summary. The MGE maturation score uses transparent mean-expression marker
-modules from the requested immature and mature gene sets.
+Immature module genes requested:
+`{", ".join(IMMATURE_GENES)}`
+
+Mature module genes requested:
+`{", ".join(MATURE_GENES)}`
+
+Gene-level coverage for the requested and resolved genes is in
+`tables/maturation_score_gene_report.tsv`. The requested module gene list is in
+`tables/maturation_score_module_gene_sets_requested.tsv`.
+
+## DIV90 Visualization
+
+DIV90 plotting follows the final-figure handoff rule used elsewhere: current
+clusters 6 and 7 are excluded from the UMAP view as stressed cells, and the
+plotted DIV90 coordinates use `UMAP2_plot = -1 * UMAP2`. The per-cell score
+table still retains all cells and records the plot-inclusion flag.
+
+## Color Scales
+
+Each score uses one shared color scale across DIV30 and DIV90, clipped to the
+combined 1st and 99th percentiles of plotted cells for that score.
 
 ## Inputs
 
-- DIV30 H5AD: `{h5ad_paths["DIV30"]}`
-- DIV90 H5AD: `{h5ad_paths["DIV90"]}`
+- Seurat score table: `{score_table}`
+- Reproducible run directory: `{run_dir}`
 
 ## Outputs
 
-- Main overlays: `figures/png/maturation_scores_umap_grid.png`,
+- Jia module overlays: `figures/png/maturation_scores_umap_grid.png`,
   `figures/pdf/maturation_scores_umap_grid.pdf`, and
   `figures/svg/maturation_scores_umap_grid.svg`
-- Predefined maturation overlays:
+- Predefined module overlays:
   `figures/png/predefined_maturation_scores_umap_grid.png`,
   `figures/pdf/predefined_maturation_scores_umap_grid.pdf`, and
   `figures/svg/predefined_maturation_scores_umap_grid.svg`
-- Tables and audits are in `tables/`
-- Reproducible run outputs are mirrored from `{run_dir}`
+- Tables and gene audits are in `tables/`
 """
     (final_dir / "README.md").write_text(readme, encoding="utf-8")
 
@@ -546,10 +353,10 @@ def main() -> int:
     configure_matplotlib()
     repo_root = Path(__file__).resolve().parents[2]
     project_root = resolve_project_root(args.project_root)
-    marker_csv = Path(args.marker_csv or project_root / "reference" / "Jia_et_al_2026_Science_3_progs.csv")
-    marker_csv = marker_csv.expanduser().resolve()
-    if not marker_csv.exists():
-        raise FileNotFoundError(marker_csv)
+    marker_csv = Path(args.marker_csv or project_root / "reference" / "Jia_et_al_2026_Science_3_progs.csv").expanduser().resolve()
+    score_table = Path(args.score_table).expanduser().resolve()
+    if not score_table.exists():
+        raise FileNotFoundError(score_table)
 
     run_dir = project_root / "results" / "maturation_scores" / args.run_label
     final_dir = project_root / "final_figures" / args.final_folder
@@ -560,65 +367,34 @@ def main() -> int:
         "pdf": final_dir / "figures" / "pdf",
         "svg": final_dir / "figures" / "svg",
     }
-    for path in [result_plot_dir, result_table_dir, final_dir / "code", final_dir / "tables", final_dir / "logs", final_dir / "provenance", *final_plot_dirs.values()]:
+    for path in [
+        result_plot_dir,
+        result_table_dir,
+        final_dir / "code",
+        final_dir / "tables",
+        final_dir / "logs",
+        final_dir / "provenance",
+        *final_plot_dirs.values(),
+    ]:
         path.mkdir(parents=True, exist_ok=True)
 
-    markers = read_marker_program_csv(marker_csv, gene_col="gene", program_col="cluster")
-    selected_markers = select_program_markers(
-        markers,
-        gene_col="gene",
-        program_col="cluster",
-        top_n=args.top_n,
-        min_avg_log2fc=args.min_avg_log2fc,
-        max_p_val_adj=args.max_p_val_adj,
-    )
-    selected_markers.to_csv(result_table_dir / "jia_program_markers_selected.tsv", sep="\t", index=False)
-    markers.to_csv(result_table_dir / "jia_program_markers_full.tsv", sep="\t", index=False)
+    for path in [final_dir / "tables", final_dir / "provenance", *final_plot_dirs.values()]:
+        clear_output_files(path)
 
-    h5ad_paths: dict[str, Path] = {}
-    scored = []
-    all_obs_tables = []
-    for dataset_label, study_id in [("DIV30", "varela_div30"), ("DIV90", "varela_div90")]:
-        adata, h5ad_path = load_study(study_id, project_root)
-        h5ad_paths[dataset_label] = h5ad_path
-        cluster_col = choose_first_existing(
-            adata.obs.columns,
-            ["cluster_number_name", "paper_cluster_annotation", "seurat_clusters", "RNA_snn_res.0.5", "RNA_snn_res.0.2"],
-        )
-        umap_key = choose_umap_key(adata)
-        score_columns = score_one(
-            adata,
-            dataset_label,
-            selected_markers,
-            args.ctrl_size,
-            args.random_state,
-            result_table_dir,
-            args.skip_control_audit,
-        )
-        score_predefined_maturation_gene_sets(adata, dataset_label, result_table_dir)
-        all_obs_tables.append(obs_score_table(adata, dataset_label, score_columns, cluster_col))
-        scored.append(
-            {
-                "label": dataset_label,
-                "adata": adata,
-                "umap_key": umap_key,
-                "score_columns": score_columns,
-                "cluster_col": cluster_col or "",
-            }
-        )
+    data = prepare_plot_data(read_score_table(score_table))
+    copy_if_different(score_table, result_table_dir / score_table.name)
+    write_plot_filter_summary(data, result_table_dir)
 
-    obs_scores = pd.concat(all_obs_tables, ignore_index=True)
-    obs_scores.to_csv(result_table_dir / "div30_div90_maturation_scores_obs.tsv.gz", sep="\t", index=False)
-    obs_scores.to_csv(result_table_dir / "div30_div90_jia_maturation_scores_obs.tsv.gz", sep="\t", index=False)
-
-    render_umap_grid(
-        scored,
+    jia_limits = render_grid(
+        data,
+        JIA_SCORE_COLUMNS,
         result_plot_dir / "maturation_scores_umap_grid",
         dpi=args.dpi,
         point_size=args.point_size,
     )
-    render_predefined_maturation_grid(
-        scored,
+    predefined_limits = render_grid(
+        data,
+        PREDEFINED_SCORE_COLUMNS,
         result_plot_dir / "predefined_maturation_scores_umap_grid",
         dpi=args.dpi,
         point_size=args.point_size,
@@ -636,21 +412,20 @@ def main() -> int:
         "run_dir": str(run_dir),
         "final_dir": str(final_dir),
         "marker_csv": str(marker_csv),
-        "h5ad_paths": {key: str(value) for key, value in h5ad_paths.items()},
+        "score_table": str(score_table),
+        "scoring_method": "Seurat::AddModuleScore",
         "ctrl_size": args.ctrl_size,
+        "nbin": args.nbin,
         "random_state": args.random_state,
-        "top_n": args.top_n,
-        "min_avg_log2fc": args.min_avg_log2fc,
-        "max_p_val_adj": args.max_p_val_adj,
         "dpi": args.dpi,
+        "div90_visualization_filter": "exclude current clusters 6 and 7 as stressed cells",
+        "div90_plot_coordinate_transform": "UMAP1_plot = UMAP1; UMAP2_plot = -1 * UMAP2",
+        "color_limits": {"jia_grid": jia_limits, "predefined_grid": predefined_limits},
         "git": git_status(repo_root),
     }
-    (run_dir / "maturation_scores_provenance.json").write_text(
-        json.dumps(provenance, indent=2),
-        encoding="utf-8",
-    )
+    (run_dir / "maturation_scores_provenance.json").write_text(json.dumps(provenance, indent=2), encoding="utf-8")
     shutil.copy2(run_dir / "maturation_scores_provenance.json", final_dir / "provenance" / "maturation_scores_provenance.json")
-    write_readme(final_dir, run_dir, marker_csv, h5ad_paths, args.ctrl_size, args.random_state)
+    write_readme(final_dir, run_dir, marker_csv, score_table, args.ctrl_size, args.nbin, args.random_state)
     print(f"[MaturationScores] final package: {final_dir}", flush=True)
     return 0
 

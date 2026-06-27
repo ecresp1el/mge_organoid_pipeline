@@ -1,5 +1,5 @@
 #!/bin/bash
-# Render unified DIV30/DIV90 Jia maturation-score UMAP overlays.
+# Render unified DIV30/DIV90 maturation-score UMAP overlays from Seurat AddModuleScore.
 #
 # Usage:
 #   cp slurm_templates/60_render_maturation_scores_final.sbatch.template \
@@ -20,13 +20,19 @@ set -euo pipefail
 REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
 PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
 CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+RSCRIPT="${RSCRIPT:-${CONDA_ENV_BIN}/Rscript}"
 
 RUN_LABEL="${MATURATION_SCORES_RUN_LABEL:-maturation_scores_v1}"
 FINAL_FOLDER="${MATURATION_SCORES_FINAL_FOLDER:-maturation_scores}"
 CTRL_SIZE="${MATURATION_SCORES_CTRL_SIZE:-50}"
+NBIN="${MATURATION_SCORES_NBIN:-24}"
 RANDOM_STATE="${MATURATION_SCORES_RANDOM_STATE:-0}"
 DPI="${MATURATION_SCORES_DPI:-600}"
 MARKER_CSV="${MATURATION_SCORES_MARKER_CSV:-${PROJECT_ROOT}/reference/Jia_et_al_2026_Science_3_progs.csv}"
+DIV30_RDS="${MATURATION_SCORES_DIV30_RDS:-${PROJECT_ROOT}/results/varela_this_paper/varela_this_paper_seurat.rds}"
+DIV90_RDS="${MATURATION_SCORES_DIV90_RDS:-/nfs/turbo/umms-parent/Manny_test/ventral_sosrs_output/umap_props_output/clustered_day90_with_cluster_names_2.rds}"
+RUN_DIR="${PROJECT_ROOT}/results/maturation_scores/${RUN_LABEL}"
+SCORE_TABLE="${RUN_DIR}/tables/div30_div90_maturation_scores_obs.tsv.gz"
 
 export PATH="${CONDA_ENV_BIN}:${PATH}"
 export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
@@ -41,16 +47,38 @@ echo "PROJECT_ROOT=${PROJECT_ROOT}"
 echo "RUN_LABEL=${RUN_LABEL}"
 echo "FINAL_FOLDER=${FINAL_FOLDER}"
 echo "MARKER_CSV=${MARKER_CSV}"
+echo "DIV30_RDS=${DIV30_RDS}"
+echo "DIV90_RDS=${DIV90_RDS}"
 echo "CTRL_SIZE=${CTRL_SIZE}"
+echo "NBIN=${NBIN}"
 echo "RANDOM_STATE=${RANDOM_STATE}"
 echo "DPI=${DPI}"
+
+rm -rf "${RUN_DIR}/tables" "${RUN_DIR}/figures"
+mkdir -p "${RUN_DIR}/tables" "${RUN_DIR}/figures"
+
+echo "Rscript: $("${RSCRIPT}" --version 2>&1 | head -n 1)"
+"${RSCRIPT}" -e 'pkgs <- c("Seurat", "SeuratObject"); status <- sapply(pkgs, requireNamespace, quietly=TRUE); print(data.frame(package=pkgs, installed=status), row.names=FALSE); quit(status=ifelse(all(status), 0, 1))'
+"${RSCRIPT}" -e "invisible(parse(file='${REPO_ROOT}/scripts/38_export_maturation_module_scores_seurat.R')); cat('R parse ok\n')"
+
+"${RSCRIPT}" "${REPO_ROOT}/scripts/38_export_maturation_module_scores_seurat.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --div30-rds "${DIV30_RDS}" \
+  --div90-rds "${DIV90_RDS}" \
+  --marker-csv "${MARKER_CSV}" \
+  --outdir "${RUN_DIR}/tables" \
+  --ctrl "${CTRL_SIZE}" \
+  --nbin "${NBIN}" \
+  --seed "${RANDOM_STATE}"
 
 "${CONDA_ENV_BIN}/python" "${REPO_ROOT}/python_notebooks/scripts/render_maturation_scores_final.py" \
   --project-root "${PROJECT_ROOT}" \
   --marker-csv "${MARKER_CSV}" \
+  --score-table "${SCORE_TABLE}" \
   --run-label "${RUN_LABEL}" \
   --final-folder "${FINAL_FOLDER}" \
   --ctrl-size "${CTRL_SIZE}" \
+  --nbin "${NBIN}" \
   --random-state "${RANDOM_STATE}" \
   --dpi "${DPI}"
 
@@ -58,5 +86,6 @@ FINAL_DIR="${PROJECT_ROOT}/final_figures/${FINAL_FOLDER}"
 cp -p "${PROJECT_ROOT}/logs/maturation_scores-${SLURM_JOB_ID}.out" "${FINAL_DIR}/logs/" 2>/dev/null || true
 cp -p "${PROJECT_ROOT}/logs/maturation_scores-${SLURM_JOB_ID}.err" "${FINAL_DIR}/logs/" 2>/dev/null || true
 cp -p "${PROJECT_ROOT}/jobs/60_render_maturation_scores_final.sbatch" "${FINAL_DIR}/code/" 2>/dev/null || true
+cp -p "${REPO_ROOT}/scripts/38_export_maturation_module_scores_seurat.R" "${FINAL_DIR}/code/" 2>/dev/null || true
 
 echo "Maturation scores final render finished: $(date)"

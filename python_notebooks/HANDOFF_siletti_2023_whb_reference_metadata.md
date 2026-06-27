@@ -2015,7 +2015,7 @@ PV chandelier status:
   zero-count target labels rather than nonzero flows.
 ```
 
-V4 unified transfer and V5 final-figure plotting update:
+Unified transfer and final Siletti river figure updates:
 
 ```text
 Date logged: 2026-06-27
@@ -2029,9 +2029,10 @@ Purpose:
 Preferred output:
   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chat_river_plots_v8_no_cge_no_msn_fullref_min10_ordered
 
-Final-figures candidate package:
-  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered_candidate
-  Status: packaged for final-figure development, not final-approved.
+Final-figures package:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered
+  Status: finalized as the current Siletti DIV90 restricted MGE/LLC/CHAT river
+  figure package on 2026-06-27.
 
 Bridge columns:
   unified_leaf_subtype
@@ -2142,7 +2143,8 @@ V8 no-CGE no-MSN full-reference update:
   Output:
     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chat_river_plots_v8_no_cge_no_msn_fullref_min10_ordered
   Package:
-    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered_candidate
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered
+    Status: final package.
   Computation:
     CGE, MSN, and eccentric MSN removed before bridge export and before unified
     fast-kNN transfer. Reference export used no per-subcluster or total
@@ -2171,7 +2173,53 @@ V8 no-CGE no-MSN full-reference update:
     major_subtype: 9 edges filtered, 16,174 / 16,206 cells plotted
     final_fine_subtype: 13 edges filtered, 16,160 / 16,206 cells plotted
 
-Current v5 main river plots:
+Final v8 computational workflow:
+  Bridge script:
+    python_notebooks/scripts/export_siletti_div90_seurat_bridge.py
+  Transfer script:
+    python_notebooks/scripts/siletti_div90_fast_knn_label_transfer.py
+  Plot script:
+    python_notebooks/scripts/plot_siletti_div90_final_restricted_rivers.py
+  Reference cells exported:
+    268,321 total
+    222,434 MGE interneuron
+    45,118 LAMP5-LHX6 and Chandelier
+    769 Splatter CHAT/cholinergic subset
+  Reference cells used for transfer:
+    250,439 after excluding `Other selected reference`
+  DIV90 query cells:
+    16,206, no query subsampling
+  fast-kNN details:
+    shared unique genes -> library-size normalize to 10,000 counts/cell ->
+    log1p -> top 3,000 variable genes -> TruncatedSVD with 50 components ->
+    cosine kNN with k = 50 -> normalized cosine-similarity weighted vote.
+  Transferred label:
+    unified_leaf_subtype
+  Derived labels:
+    unified_major_subtype_roi
+    unified_pallial_subpallial_bin
+  Plot filter:
+    draw only edges with at least 10 DIV90 cells; retain full edge tables for
+    accounting.
+
+Final v8 exact Slurm submit commands:
+  PROJECT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+  REPO=/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+  PY=/home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python
+  SCOPE=mge_llc_cholinergic
+  BRIDGE_RUN=siletti_div90_final_candidate_restricted_mge_llc_chat_bridge_v8_no_cge_no_msn_fullref
+  XFER_RUN=siletti_div90_final_candidate_restricted_mge_llc_chat_unified_leaf_transfer_v8_no_cge_no_msn_fullref
+  PLOT_OUT=$PROJECT/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chat_river_plots_v8_no_cge_no_msn_fullref_min10_ordered
+  BRIDGE_DIR=$PROJECT/results/siletti_2023_whb_reference_label_transfer/$BRIDGE_RUN/$SCOPE/seurat_bridge
+  XFER_DIR=$PROJECT/results/siletti_2023_whb_reference_label_transfer/$XFER_RUN/$SCOPE/svd50_k50_ref0_query0
+
+  sbatch --parsable --job-name=siletti-final-bridge-v8-no-cge-no-msn --account=louisdan0 --partition=standard --time=02:00:00 --cpus-per-task=4 --mem=96G --output="$PROJECT/logs/%x-%j.out" --error="$PROJECT/logs/%x-%j.err" --wrap="cd '$REPO' && '$PY' python_notebooks/scripts/export_siletti_div90_seurat_bridge.py --project-root '$PROJECT' --scope '$SCOPE' --run-label '$BRIDGE_RUN' --max-ref-cells-per-subcluster 0 --max-ref-cells-total 0 --seed 0"
+
+  sbatch --parsable --dependency=afterok:52442085 --job-name=siletti-final-transfer-v8-no-cge-no-msn --account=louisdan0 --partition=standard --time=06:00:00 --cpus-per-task=12 --mem=120G --output="$PROJECT/logs/%x-%j.out" --error="$PROJECT/logs/%x-%j.err" --wrap="cd '$REPO' && '$PY' python_notebooks/scripts/siletti_div90_fast_knn_label_transfer.py --bridge-dir '$BRIDGE_DIR' --outdir '$XFER_DIR' --label-column unified_leaf_subtype --exclude-label 'Other selected reference' --max-reference-cells 0 --max-query-cells 0 --nfeatures 3000 --n-components 50 --k 50 --seed 0"
+
+  sbatch --parsable --dependency=afterok:52442086 --job-name=siletti-final-rivers-v8-no-cge-no-msn --account=louisdan0 --partition=standard --time=00:45:00 --cpus-per-task=2 --mem=24G --output="$PROJECT/logs/%x-%j.out" --error="$PROJECT/logs/%x-%j.err" --wrap="cd '$REPO' && '$PY' python_notebooks/scripts/plot_siletti_div90_final_restricted_rivers.py --bridge-dir '$BRIDGE_DIR' --unified-transfer-dir '$XFER_DIR' --outdir '$PLOT_OUT' --source-class-col div90_broad_class --min-river-edge-cells 10"
+
+Final v8 main river plots:
   plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
   plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
   plots/river_div90_class_to_adult_final_fine_subtypes.png/pdf
