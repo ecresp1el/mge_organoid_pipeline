@@ -2015,7 +2015,7 @@ PV chandelier status:
   zero-count target labels rather than nonzero flows.
 ```
 
-V4 unified transfer update:
+V4 unified transfer and V5 final-figure plotting update:
 
 ```text
 Date logged: 2026-06-27
@@ -2027,10 +2027,10 @@ Purpose:
   assignment logic.
 
 Preferred output:
-  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v4_unified
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v5_min10_ordered
 
 Final-figures candidate package:
-  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v4_unified_candidate
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v5_min10_ordered_candidate
   Status: packaged for final-figure development, not final-approved.
 
 Bridge columns:
@@ -2043,7 +2043,33 @@ V4 jobs:
   52440423  siletti-final-unified-transfer-v4  COMPLETED  00:01:47  max RSS 12666716K  gl3009
   52440424  siletti-final-rivers-v4-unified    COMPLETED  00:00:29  max RSS 1073464K   gl3434
 
-V4 plots:
+V5 plot-only update:
+  Date logged: 2026-06-27
+  Output:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v5_min10_ordered
+  Package:
+    /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v5_min10_ordered_candidate
+  Computation:
+    Plot-only rerender from saved v4 bridge and unified transfer. No fast-kNN
+    transfer rerun.
+  Plotting rule:
+    Do not draw individual river edges with fewer than 10 DIV90 cells.
+    Recompute river rectangles/ribbons from the filtered plotted-edge tables so
+    sub-10-cell populations do not leave visible boxes.
+  Left-side DIV90 order:
+    PV Precursors
+    CRABP1+/PV Precursors
+    SST+, NPY +, Cortical Fated
+    PV precursors/Migrating cells/Cortical-fated
+    LHX8+ vMGE GABergic Striatal/GP fated 1
+    MGE Striatal/GP Fated
+    LHX8+ vMGE GABergic Striatal/GP fated 2
+  Filter audit:
+    pallial_subpallial: 0 edges filtered, 16,206 / 16,206 cells plotted
+    major_subtype: 14 edges filtered, 16,146 / 16,206 cells plotted
+    final_fine_subtype: 20 edges filtered, 16,128 / 16,206 cells plotted
+
+Current v5 main river plots:
   plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
   plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
   plots/river_div90_class_to_adult_final_fine_subtypes.png/pdf

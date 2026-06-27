@@ -63,6 +63,13 @@ SCOPES = {
         "Eccentric medium spiny neuron",
         "Splatter",
     ),
+    "mge_llc_msn_emsn_cholinergic": (
+        "MGE interneuron",
+        "LAMP5-LHX6 and Chandelier",
+        "Medium spiny neuron",
+        "Eccentric medium spiny neuron",
+        "Splatter",
+    ),
 }
 H5AD_BY_SUPERCLUSTER = {
     "MGE interneuron": "siletti_whb_mge_interneuron.h5ad",

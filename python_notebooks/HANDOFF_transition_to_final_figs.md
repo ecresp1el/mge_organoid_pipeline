@@ -250,7 +250,7 @@ Slurm execution standard:
 | `fig_cross_study_marker_expression_pv_precursors_on_off_target_v12` | Updated, Slurm-rendered, Validated package | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate` | 2026-06-27 revision groups PV ON-target MGE genes first as NKX2.1/LHX6/LHX8/ERBB4 with a top `MGE` span, replaces ST18 with ZEB2, removes HMX3, and refreshed marker extraction because ZEB2 was absent from the prepared v12 tables. Exported PNG/PDF/SVG at 600 dpi through Slurm job 52439584. |
 | `fig_cross_study_shi_label_transfer_v1_umap_score_grids` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1` | Plot-only rerender of Shi Seurat label-transfer UMAP score grids and matched sample-composition panels from saved v1 combined table. Updated score grids to fixed 0-1 grey-to-blue scaling, applied DIV90 visualization-only stressed-cluster 6/7 removal, applied DIV90 vertical plotting-only UMAP orientation, wrapped long all-label headers, exported requested PNG/PDF/SVG at 600 dpi through Slurm job 52371207 with editable Arial SVG text. Added sample-composition panels through Slurm job 52371553 using the same final denominator and Bershteyn 2023 shorthand sample labels. |
 | `fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate` | Found, Confirmed, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1` | New candidate package created for the DIV90 Jia all-cell URD marker-validation, UMAP pseudotime, and cluster-number-name tree pseudotime panels. Current assets were copied into `final_figures`; formatting should proceed by plot-only re-render from existing assets, not by recomputing URD pseudotime, the lineage tree, or marker validation. |
-| `fig_siletti_div90_restricted_ge_msn_chat_rivers_v4_unified` | Generated, Validated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v4_unified` | Unified v4 Siletti river candidate copied into `final_figures` as a clearly marked candidate package. It includes the four main river plots, audit plots/tables, code, Slurm logs, and provenance. This is not final-approved yet; visual review and final wording remain pending. |
+| `fig_siletti_div90_restricted_ge_msn_chat_rivers_v5_min10_ordered` | Generated, Validated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v5_min10_ordered` | Current preferred Siletti river candidate. v5 reuses the saved v4 unified transfer, filters plotted river edges with fewer than 10 DIV90 cells, recomputes rectangles/ribbons from the filtered edge tables so tiny populations do not leave boxes, and fixes the left DIV90 cluster order by descending Pallial/cortical fraction. Copied into `final_figures` as a clearly marked candidate package; not final-approved yet. |
 
 ## Figure: fig_cross_study_marker_expression_v12
 
@@ -1832,27 +1832,29 @@ Audit conclusion:
   matrix-corruption problem; it is a label-space/reference-composition problem.
 ```
 
-## Figure: fig_siletti_div90_restricted_ge_msn_chat_rivers_v4_unified
+## Figure: fig_siletti_div90_restricted_ge_msn_chat_rivers_v5_min10_ordered
 
 ### Status
 
 ```text
-Generated v4 final-candidate river plots from one unified leaf-label transfer.
+Generated v5 final-candidate river plots from one unified leaf-label transfer.
 Pallial/subpallial and major labels are derived from that same prediction, so
 the three river levels use one nested assignment logic. Vertical Pallial/cortical
 vs Subpallial grouping bars, a combined 1x3 panel, and visual accounting audits
-are included. A final_figures candidate package has been created, but this is
-not final-approved yet; visual review and final wording remain pending.
+are included. v5 filters plotted river edges with fewer than 10 DIV90 cells and
+uses one fixed left-side DIV90 class order across all river plots. A
+final_figures candidate package has been created, but this is not
+final-approved yet; visual review and final wording remain pending.
 ```
 
 ### Candidate Paths
 
 ```text
 Final-candidate output:
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v4_unified
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v5_min10_ordered
 
 Final-figures candidate package:
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v4_unified_candidate
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v5_min10_ordered_candidate
 
 Expected plots:
 plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
@@ -2152,9 +2154,9 @@ zero-count target labels in the river plots, not as nonzero flows.
 
 ```text
 Status:
-  Generated, validated, and copied into final_figures as the current preferred
-  candidate package. Not final-approved yet; visual review and final wording
-  remain pending.
+  Generated and validated. Superseded for final-figure plotting by v5, which
+  uses the same unified transfer but adds the <10-cell edge filter and fixed
+  left-side ordering.
 
 Output:
   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v4_unified
@@ -2258,6 +2260,63 @@ Soft-score/non-winner audit:
   robust alternate chandelier assignment.
 ```
 
+### V5 Min-10 Ordered Plot Update
+
+```text
+Status:
+  Generated, visually spot-checked, and copied into final_figures as the current
+  preferred candidate package. Not final-approved yet; visual review and final
+  wording remain pending.
+
+Output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_ge_msn_chat_river_plots_v5_min10_ordered
+
+Final-figures candidate package:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v5_min10_ordered_candidate
+
+Computation:
+  Plot-only rerender from the saved v4 bridge and unified transfer. No bridge
+  export and no fast-kNN transfer were rerun.
+
+Plotting changes:
+  Edges with fewer than 10 DIV90 cells are not drawn.
+  River rectangles and ribbons are recomputed from the filtered plotted-edge
+  tables, so sub-10-cell populations do not leave tiny visible target boxes or
+  spacing artifacts.
+  Full unfiltered edge tables remain in `tables/` for accounting.
+  Filtered edges are recorded in explicit audit tables.
+
+Left-side DIV90 class order:
+  PV Precursors
+  CRABP1+/PV Precursors
+  SST+, NPY +, Cortical Fated
+  PV precursors/Migrating cells/Cortical-fated
+  LHX8+ vMGE GABergic Striatal/GP fated 1
+  MGE Striatal/GP Fated
+  LHX8+ vMGE GABergic Striatal/GP fated 2
+
+Filter audit:
+  pallial_subpallial: 0 edges filtered, 16,206 / 16,206 cells plotted
+  major_subtype: 14 edges filtered, 16,146 / 16,206 cells plotted
+  final_fine_subtype: 20 edges filtered, 16,128 / 16,206 cells plotted
+
+New tables:
+  tables/river_plot_edge_filter_audit.tsv
+  tables/river_major_subtype_filtered_edges_lt10.tsv
+  tables/river_final_fine_subtype_filtered_edges_lt10.tsv
+  tables/river_div90_class_to_adult_pallial_subpallial_bin_plotted_edges_min10.tsv
+  tables/river_div90_class_to_adult_major_interneuron_subtypes_plotted_edges_min10.tsv
+  tables/river_div90_class_to_adult_final_fine_subtypes_plotted_edges_min10.tsv
+
+Validation:
+  Main PNG/PDF files are present and nonzero.
+  Plotted-edge minimums are >=10:
+    pallial/subpallial min plotted edge: 18
+    major subtype min plotted edge: 12
+    final fine subtype min plotted edge: 11
+  Combined 1x3 PNG dimensions: 11794 x 3559.
+```
+
 ### Final Figure Package
 
 ```text
@@ -2267,7 +2326,7 @@ Status:
   approved.
 
 Package:
-  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v4_unified_candidate
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_ge_msn_chat_rivers_v5_min10_ordered_candidate
 
 Contents:
   README.md
