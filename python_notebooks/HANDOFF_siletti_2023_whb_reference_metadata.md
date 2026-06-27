@@ -1651,6 +1651,25 @@ Score summary:
   median max score: 1.000000
 ```
 
+Scale-up audit:
+
+```text
+Detailed audit file:
+  python_notebooks/HANDOFF_siletti_scaleup_transfer_audit_2026_06_26.md
+
+This audit explains why the original MGE/Jia-style transfers looked reasonable
+while the all-supercluster source-supercluster transfer behaved badly:
+  1. the original all-supercluster v1 had a multi-H5AD gene-order bug;
+  2. v2 fixed the matrix bug but changed the label space from curated
+     MGE/Jia-style labels to raw broad `source_supercluster`;
+  3. the all-supercluster v2 reference is dominated by Splatter and broad
+     non-Jia/non-MGE labels;
+  4. an audit-only candidate-Jia transfer on the corrected all-supercluster v2
+     bridge completed as job 52413882 and returned MGE/Jia-style labels, which
+     supports label-space/reference-composition as the remaining issue rather
+     than persistent matrix corruption.
+```
+
 Draft methods wording:
 
 ```text

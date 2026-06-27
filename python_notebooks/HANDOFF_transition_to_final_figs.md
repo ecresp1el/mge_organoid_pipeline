@@ -1774,6 +1774,27 @@ Corrected v2 files:
   figure_D_sample_predicted_siletti_supercluster_proportions.png/pdf
 ```
 
+Scale-up audit:
+
+```text
+Detailed audit file:
+  python_notebooks/HANDOFF_siletti_scaleup_transfer_audit_2026_06_26.md
+
+Do not finalize the all-supercluster source-supercluster figure until the audit
+question is resolved. The key issue is that the old MGE/Jia-style transfer used
+a curated, restricted label space, while the scaled v2 run uses raw broad
+`source_supercluster` labels and is dominated by Splatter.
+
+Audit job:
+  52413882  siletti-all-jia-audit-v2  COMPLETED  00:01:01
+
+Audit conclusion:
+  The corrected all-supercluster v2 bridge can produce MGE/Jia-style labels
+  when the original curated `candidate_jia_group` label and exclusions are used.
+  Therefore, the Splatter-dominant all-supercluster figure is not a remaining
+  matrix-corruption problem; it is a label-space/reference-composition problem.
+```
+
 Assignment/methods summary:
 
 ```text
