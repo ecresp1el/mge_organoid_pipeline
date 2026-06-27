@@ -43,6 +43,52 @@ PROGRAM_DISPLAY = {
 }
 MATURATION_COL = "jia_maturation_index_IPC_minus_mean_RGC1_RGC2"
 MATURATION_DISPLAY = "IPC - mean(RGC1, RGC2)"
+JIA_RGC_MEAN_COL = "jia_score_RGC1_RGC2_mean"
+JIA_RGC_MEAN_DISPLAY = "Jia RGC1/RGC2 mean"
+
+PREDEFINED_GENE_SETS = {
+    "immature_module_score": [
+        "DCX",
+        "STMN2",
+        "STMN4",
+        "SOX11",
+        "TUBB3",
+        "TUBB2B",
+        "ELAVL4",
+        "GAP43",
+        "CXCR4",
+        "ACKR3",
+    ],
+    "mature_module_score": [
+        "RBFOX3",
+        "SNAP25",
+        "SYT1",
+        "SYN1",
+        "SYN2",
+        "DLG4",
+        "VAMP2",
+        "SLC12A5",
+        "GAD1",
+        "GAD2",
+        "SLC6A1",
+        "ERBB4",
+    ],
+}
+PREDEFINED_MATURATION_COL = "mge_maturation_score"
+PREDEFINED_SCORE_ORDER = [
+    JIA_RGC_MEAN_COL,
+    "jia_score_IPC",
+    "immature_module_score",
+    "mature_module_score",
+    PREDEFINED_MATURATION_COL,
+]
+PREDEFINED_SCORE_DISPLAY = {
+    JIA_RGC_MEAN_COL: "Jia RGC1/RGC2 mean",
+    "jia_score_IPC": "Jia IPC",
+    "immature_module_score": "Immature module",
+    "mature_module_score": "Mature module",
+    PREDEFINED_MATURATION_COL: "MGE maturation score",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -174,13 +220,13 @@ def score_one(
         ctrl_size=ctrl_size,
         random_state=random_state,
     )
+    adata.obs[JIA_RGC_MEAN_COL] = (
+        pd.to_numeric(adata.obs[score_columns["RGC1"]], errors="coerce")
+        + pd.to_numeric(adata.obs[score_columns["RGC2"]], errors="coerce")
+    ) / 2.0
     adata.obs[MATURATION_COL] = (
         pd.to_numeric(adata.obs[score_columns["IPC"]], errors="coerce")
-        - (
-            pd.to_numeric(adata.obs[score_columns["RGC1"]], errors="coerce")
-            + pd.to_numeric(adata.obs[score_columns["RGC2"]], errors="coerce")
-        )
-        / 2.0
+        - pd.to_numeric(adata.obs[JIA_RGC_MEAN_COL], errors="coerce")
     )
 
     if not skip_control_audit:
@@ -212,6 +258,80 @@ def score_one(
     return score_columns
 
 
+def resolve_genes(adata, genes: list[str]) -> tuple[list[str], list[str]]:
+    var_names = pd.Index(adata.var_names.astype(str))
+    upper_to_actual = {}
+    for gene in var_names:
+        upper_to_actual.setdefault(gene.upper(), gene)
+
+    found = []
+    missing = []
+    for gene in genes:
+        if gene in var_names:
+            found.append(gene)
+        elif gene.upper() in upper_to_actual:
+            found.append(upper_to_actual[gene.upper()])
+        else:
+            missing.append(gene)
+    return found, missing
+
+
+def score_predefined_maturation_gene_sets(adata, dataset_label: str, table_dir: Path) -> list[dict[str, object]]:
+    report = []
+    for score_name, genes in PREDEFINED_GENE_SETS.items():
+        found, missing = resolve_genes(adata, genes)
+        if not found:
+            adata.obs[score_name] = np.nan
+        else:
+            x = adata[:, found].X
+            if hasattr(x, "toarray"):
+                values = np.asarray(x.mean(axis=1)).ravel()
+            else:
+                values = np.asarray(x).mean(axis=1)
+            adata.obs[score_name] = values
+        report.append(
+            {
+                "dataset": dataset_label,
+                "score": score_name,
+                "scoring_method": "mean_expression_of_resolved_genes",
+                "n_genes_requested": len(genes),
+                "n_genes_found": len(found),
+                "genes_requested": ", ".join(genes),
+                "genes_found": ", ".join(found),
+                "genes_missing": ", ".join(missing),
+            }
+        )
+
+    adata.obs[PREDEFINED_MATURATION_COL] = (
+        pd.to_numeric(adata.obs["mature_module_score"], errors="coerce")
+        - pd.to_numeric(adata.obs["immature_module_score"], errors="coerce")
+    )
+    report.append(
+        {
+            "dataset": dataset_label,
+            "score": PREDEFINED_MATURATION_COL,
+            "scoring_method": "mature_module_score - immature_module_score",
+            "n_genes_requested": "",
+            "n_genes_found": "",
+            "genes_requested": "",
+            "genes_found": "",
+            "genes_missing": "",
+        }
+    )
+    report_df = pd.DataFrame(report)
+    report_df.to_csv(
+        table_dir / f"{safe_token(dataset_label)}_predefined_maturation_gene_set_report.tsv",
+        sep="\t",
+        index=False,
+    )
+    print(
+        f"[MaturationScores] {dataset_label} predefined maturation gene sets\n"
+        + report_df[["dataset", "score", "n_genes_requested", "n_genes_found", "genes_found", "genes_missing"]].to_string(index=False),
+        flush=True,
+    )
+    return report
+
+
 def obs_score_table(adata, dataset_label: str, score_columns: dict[str, str], cluster_col: str | None) -> pd.DataFrame:
     cols = []
     for candidate in ["cell_id", "orig.ident", "sample", "cluster_number_name", "seurat_clusters"]:
@@ -220,7 +340,9 @@ def obs_score_table(adata, dataset_label: str, score_columns: dict[str, str], cl
     if cluster_col and cluster_col in adata.obs.columns and cluster_col not in cols:
         cols.append(cluster_col)
     cols.extend([score_columns[p] for p in PROGRAM_ORDER if p in score_columns])
+    cols.append(JIA_RGC_MEAN_COL)
     cols.append(MATURATION_COL)
+    cols.extend([col for col in PREDEFINED_SCORE_ORDER if col in adata.obs.columns and col not in cols])
     out = adata.obs[cols].copy()
     out.insert(0, "dataset", dataset_label)
     out.insert(1, "obs_name", adata.obs_names.astype(str))
@@ -293,9 +415,8 @@ def render_umap_grid(
 ) -> None:
     n_rows = len(scored)
     columns = [
-        ("RGC1", "RGC1", "viridis", False),
-        ("RGC2", "RGC2", "viridis", False),
-        ("IPC", "IPC", "viridis", False),
+        ("rgc_mean", JIA_RGC_MEAN_DISPLAY, "viridis", False),
+        ("IPC", "Jia IPC", "viridis", False),
         ("maturation", MATURATION_DISPLAY, "coolwarm", True),
     ]
     fig, axes = plt.subplots(
@@ -315,10 +436,54 @@ def render_umap_grid(
         for col_idx, (program, display, cmap, center_zero) in enumerate(columns):
             if program == "maturation":
                 values = pd.to_numeric(adata.obs[MATURATION_COL], errors="coerce").to_numpy()
+            elif program == "rgc_mean":
+                values = pd.to_numeric(adata.obs[JIA_RGC_MEAN_COL], errors="coerce").to_numpy()
             else:
                 values = pd.to_numeric(adata.obs[score_columns[program]], errors="coerce").to_numpy()
             title = f"{dataset_label} {display}"
             plot_score_layer(fig, axes[row_idx, col_idx], coords, values, title, cmap, size, center_zero)
+
+    for ext in ["png", "pdf", "svg"]:
+        path = output_stem.with_suffix(f".{ext}")
+        fig.savefig(path, dpi=dpi, bbox_inches="tight")
+        print(f"[MaturationScores] wrote {path}", flush=True)
+    plt.close(fig)
+
+
+def render_predefined_maturation_grid(
+    scored: list[dict[str, object]],
+    output_stem: Path,
+    dpi: int,
+    point_size: float | None,
+) -> None:
+    n_rows = len(scored)
+    fig, axes = plt.subplots(
+        n_rows,
+        len(PREDEFINED_SCORE_ORDER),
+        figsize=(2.75 * len(PREDEFINED_SCORE_ORDER), 2.75 * n_rows),
+        constrained_layout=True,
+        squeeze=False,
+    )
+    for row_idx, item in enumerate(scored):
+        adata = item["adata"]
+        dataset_label = str(item["label"])
+        umap_key = str(item["umap_key"])
+        coords = np.asarray(adata.obsm[umap_key])
+        size = point_size if point_size is not None else (0.25 if adata.n_obs > 80000 else 0.75)
+        for col_idx, score_name in enumerate(PREDEFINED_SCORE_ORDER):
+            values = pd.to_numeric(adata.obs[score_name], errors="coerce").to_numpy()
+            center_zero = score_name == PREDEFINED_MATURATION_COL
+            cmap = "coolwarm" if center_zero else ("viridis" if score_name.startswith("jia_score") else "magma")
+            plot_score_layer(
+                fig,
+                axes[row_idx, col_idx],
+                coords,
+                values,
+                f"{dataset_label} {PREDEFINED_SCORE_DISPLAY.get(score_name, score_name)}",
+                cmap,
+                size,
+                center_zero=center_zero,
+            )
 
     for ext in ["png", "pdf", "svg"]:
         path = output_stem.with_suffix(f".{ext}")
@@ -345,10 +510,16 @@ Unified DIV30/DIV90 Jia program score UMAP overlays.
 - Programs: `RGC1`, `RGC2`, `IPC`
 - Method: `scanpy.tl.score_genes` on each AnnData `.X`, `use_raw=False`
 - Control genes: expression-binned Scanpy controls, `ctrl_size={ctrl_size}`, `random_state={random_state}`
-- Derived maturation index: `jia_score_IPC - mean(jia_score_RGC1, jia_score_RGC2)`
+- Jia plotted summary:
+  `mean(jia_score_RGC1, jia_score_RGC2)`, `jia_score_IPC`, and
+  `jia_score_IPC - mean(jia_score_RGC1, jia_score_RGC2)`.
+- MGE maturation score:
+  `mature_module_score - immature_module_score`
 
-The derived maturation index is only a display summary. The three Jia program
-scores are exported separately and should remain the primary score columns.
+The three original Jia program scores are exported separately in the table, but
+the figure shows the compact RGC1/RGC2 mean, IPC score, and IPC-minus-RGC
+summary. The MGE maturation score uses transparent mean-expression marker
+modules from the requested immature and mature gene sets.
 
 ## Inputs
 
@@ -360,6 +531,10 @@ scores are exported separately and should remain the primary score columns.
 - Main overlays: `figures/png/maturation_scores_umap_grid.png`,
   `figures/pdf/maturation_scores_umap_grid.pdf`, and
   `figures/svg/maturation_scores_umap_grid.svg`
+- Predefined maturation overlays:
+  `figures/png/predefined_maturation_scores_umap_grid.png`,
+  `figures/pdf/predefined_maturation_scores_umap_grid.pdf`, and
+  `figures/svg/predefined_maturation_scores_umap_grid.svg`
 - Tables and audits are in `tables/`
 - Reproducible run outputs are mirrored from `{run_dir}`
 """
@@ -420,6 +595,7 @@ def main() -> int:
             result_table_dir,
             args.skip_control_audit,
         )
+        score_predefined_maturation_gene_sets(adata, dataset_label, result_table_dir)
         all_obs_tables.append(obs_score_table(adata, dataset_label, score_columns, cluster_col))
         scored.append(
             {
@@ -432,6 +608,7 @@ def main() -> int:
         )
 
     obs_scores = pd.concat(all_obs_tables, ignore_index=True)
+    obs_scores.to_csv(result_table_dir / "div30_div90_maturation_scores_obs.tsv.gz", sep="\t", index=False)
     obs_scores.to_csv(result_table_dir / "div30_div90_jia_maturation_scores_obs.tsv.gz", sep="\t", index=False)
 
     render_umap_grid(
@@ -440,9 +617,16 @@ def main() -> int:
         dpi=args.dpi,
         point_size=args.point_size,
     )
+    render_predefined_maturation_grid(
+        scored,
+        result_plot_dir / "predefined_maturation_scores_umap_grid",
+        dpi=args.dpi,
+        point_size=args.point_size,
+    )
 
     for ext, dest_dir in final_plot_dirs.items():
-        shutil.copy2(result_plot_dir / f"maturation_scores_umap_grid.{ext}", dest_dir / f"maturation_scores_umap_grid.{ext}")
+        for stem in ["maturation_scores_umap_grid", "predefined_maturation_scores_umap_grid"]:
+            shutil.copy2(result_plot_dir / f"{stem}.{ext}", dest_dir / f"{stem}.{ext}")
     for table_path in result_table_dir.iterdir():
         if table_path.is_file():
             shutil.copy2(table_path, final_dir / "tables" / table_path.name)

@@ -200,6 +200,33 @@ def complete_left_order(edges: pd.DataFrame, left_order: list[str]) -> list[str]
     return list(left_order) + extras
 
 
+def left_order_by_pallial_fraction(pallial_edges: pd.DataFrame) -> list[str]:
+    pivot = pallial_edges.pivot_table(
+        index="div90_class",
+        columns="adult_subtype",
+        values="n_cells",
+        aggfunc="sum",
+        fill_value=0,
+    )
+    for col in PALLIAL_ORDER:
+        if col not in pivot.columns:
+            pivot[col] = 0
+    pivot["total"] = pivot.sum(axis=1)
+    pivot["pallial_fraction"] = np.where(
+        pivot["total"].to_numpy() > 0,
+        pivot["Pallial/cortical"].to_numpy(dtype=float) / pivot["total"].to_numpy(dtype=float),
+        0.0,
+    )
+    ordered = (
+        pivot.reset_index()
+        .sort_values(["pallial_fraction", "total", "div90_class"], ascending=[False, False, True])
+        ["div90_class"]
+        .astype(str)
+        .tolist()
+    )
+    return ordered
+
+
 def write_filter_audit(
     edges_by_level: dict[str, tuple[pd.DataFrame, pd.DataFrame]],
     tables_dir: Path,
@@ -640,12 +667,14 @@ def main() -> None:
     if args.min_river_edge_cells < 1:
         raise ValueError("--min-river-edge-cells must be >= 1")
 
+    left_order = left_order_by_pallial_fraction(make_edges(pallial_obs, args.source_class_col))
+
     pallial_edges, pallial_plot_edges = write_one(
         pallial_obs,
         plots_dir / "river_div90_class_to_adult_pallial_subpallial_bin",
         args.source_class_col,
         PALLIAL_ORDER,
-        DIV90_LEFT_ORDER_BY_PALLIAL_PROP,
+        left_order,
         "Adult Siletti ROI bin",
         "DIV90 classes mapped to adult Siletti pallial/subpallial ROI bin",
         args.min_river_edge_cells,
@@ -655,7 +684,7 @@ def main() -> None:
         plots_dir / "river_div90_class_to_adult_major_interneuron_subtypes",
         args.source_class_col,
         MAJOR_SUBTYPE_ORDER,
-        DIV90_LEFT_ORDER_BY_PALLIAL_PROP,
+        left_order,
         "Adult Siletti major subtype",
         "DIV90 classes mapped to adult Siletti major subtypes",
         args.min_river_edge_cells,
@@ -668,7 +697,7 @@ def main() -> None:
             plots_dir / "river_div90_class_to_adult_final_fine_subtypes",
             args.source_class_col,
             FINE_SUBTYPE_ORDER,
-            DIV90_LEFT_ORDER_BY_PALLIAL_PROP,
+            left_order,
             "Adult Siletti fine subtype",
             "DIV90 classes mapped to adult Siletti fine final subtypes",
             args.min_river_edge_cells,
@@ -678,7 +707,7 @@ def main() -> None:
             subtype_plot_edges,
             fine_plot_edges,
             plots_dir / "river_div90_class_to_adult_combined_1x3_pallial_major_fine",
-            DIV90_LEFT_ORDER_BY_PALLIAL_PROP,
+            left_order,
         )
     pallial_edges.to_csv(tables_dir / "river_div90_class_to_adult_pallial_subpallial_bin_edges.tsv", sep="\t", index=False)
     subtype_edges.to_csv(tables_dir / "river_div90_class_to_adult_major_interneuron_subtypes_edges.tsv", sep="\t", index=False)
@@ -721,8 +750,8 @@ def main() -> None:
         "fine_transfer_dir": str(args.fine_transfer_dir) if args.fine_transfer_dir is not None else None,
         "outdir": str(args.outdir),
         "source_class_col": args.source_class_col,
-        "left_order_rule": "fixed DIV90 class order by descending Pallial/cortical fraction from the current pallial/subpallial assignment",
-        "left_order": DIV90_LEFT_ORDER_BY_PALLIAL_PROP,
+        "left_order_rule": "DIV90 class order computed by descending Pallial/cortical fraction from the current pallial/subpallial assignment",
+        "left_order": left_order,
         "min_river_edge_cells": int(args.min_river_edge_cells),
         "plots": [
             "river_div90_class_to_adult_pallial_subpallial_bin.png/pdf",
