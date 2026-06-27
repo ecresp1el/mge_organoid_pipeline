@@ -721,7 +721,7 @@ def main() -> None:
         "fine_transfer_dir": str(args.fine_transfer_dir) if args.fine_transfer_dir is not None else None,
         "outdir": str(args.outdir),
         "source_class_col": args.source_class_col,
-        "left_order_rule": "fixed DIV90 class order by descending Pallial/cortical fraction from the v4 pallial/subpallial assignment",
+        "left_order_rule": "fixed DIV90 class order by descending Pallial/cortical fraction from the current pallial/subpallial assignment",
         "left_order": DIV90_LEFT_ORDER_BY_PALLIAL_PROP,
         "min_river_edge_cells": int(args.min_river_edge_cells),
         "plots": [
@@ -772,7 +772,7 @@ def main() -> None:
         "boxes or spacing artifacts. Full unfiltered edge tables and filtered-edge "
         "audit tables are retained under `tables/`.\n\n"
         "Left-side DIV90 class order is fixed across all river plots by descending "
-        "Pallial/cortical fraction in the v4 pallial/subpallial assignment.\n\n"
+        "Pallial/cortical fraction in the current pallial/subpallial assignment.\n\n"
         "Main river plots:\n\n"
         "- `plots/river_div90_class_to_adult_pallial_subpallial_bin.png`\n"
         "- `plots/river_div90_class_to_adult_major_interneuron_subtypes.png`\n"

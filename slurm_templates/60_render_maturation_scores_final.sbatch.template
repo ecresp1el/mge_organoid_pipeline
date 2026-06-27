@@ -1,0 +1,62 @@
+#!/bin/bash
+# Render unified DIV30/DIV90 Jia maturation-score UMAP overlays.
+#
+# Usage:
+#   cp slurm_templates/60_render_maturation_scores_final.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/60_render_maturation_scores_final.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/60_render_maturation_scores_final.sbatch
+
+#SBATCH --job-name=maturation_scores
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=180G
+#SBATCH --time=18:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/%x-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+RUN_LABEL="${MATURATION_SCORES_RUN_LABEL:-maturation_scores_v1}"
+FINAL_FOLDER="${MATURATION_SCORES_FINAL_FOLDER:-maturation_scores}"
+CTRL_SIZE="${MATURATION_SCORES_CTRL_SIZE:-50}"
+RANDOM_STATE="${MATURATION_SCORES_RANDOM_STATE:-0}"
+DPI="${MATURATION_SCORES_DPI:-600}"
+MARKER_CSV="${MATURATION_SCORES_MARKER_CSV:-${PROJECT_ROOT}/reference/Jia_et_al_2026_Science_3_progs.csv}"
+
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+export PROJECT_ROOT
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs"
+cd "${REPO_ROOT}"
+
+echo "Maturation scores final render started: $(date)"
+echo "REPO_ROOT=${REPO_ROOT}"
+echo "PROJECT_ROOT=${PROJECT_ROOT}"
+echo "RUN_LABEL=${RUN_LABEL}"
+echo "FINAL_FOLDER=${FINAL_FOLDER}"
+echo "MARKER_CSV=${MARKER_CSV}"
+echo "CTRL_SIZE=${CTRL_SIZE}"
+echo "RANDOM_STATE=${RANDOM_STATE}"
+echo "DPI=${DPI}"
+
+"${CONDA_ENV_BIN}/python" "${REPO_ROOT}/python_notebooks/scripts/render_maturation_scores_final.py" \
+  --project-root "${PROJECT_ROOT}" \
+  --marker-csv "${MARKER_CSV}" \
+  --run-label "${RUN_LABEL}" \
+  --final-folder "${FINAL_FOLDER}" \
+  --ctrl-size "${CTRL_SIZE}" \
+  --random-state "${RANDOM_STATE}" \
+  --dpi "${DPI}"
+
+FINAL_DIR="${PROJECT_ROOT}/final_figures/${FINAL_FOLDER}"
+cp -p "${PROJECT_ROOT}/logs/maturation_scores-${SLURM_JOB_ID}.out" "${FINAL_DIR}/logs/" 2>/dev/null || true
+cp -p "${PROJECT_ROOT}/logs/maturation_scores-${SLURM_JOB_ID}.err" "${FINAL_DIR}/logs/" 2>/dev/null || true
+cp -p "${PROJECT_ROOT}/jobs/60_render_maturation_scores_final.sbatch" "${FINAL_DIR}/code/" 2>/dev/null || true
+
+echo "Maturation scores final render finished: $(date)"
