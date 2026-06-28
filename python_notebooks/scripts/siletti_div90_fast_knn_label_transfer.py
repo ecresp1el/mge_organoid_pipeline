@@ -1,48 +1,84 @@
 #!/usr/bin/env python
 """Fast Siletti adult reference -> DIV90 label transfer from bridge matrices.
 
-What this script transfers
---------------------------
-The input is an already-exported "Seurat bridge" directory containing:
+This script is the transparent, sparse-matrix label-transfer implementation used
+for the final Siletti adult-reference river figures. The final v8 figure used
+this script with:
+
+* ``--label-column unified_leaf_subtype``
+* ``--exclude-label "Other selected reference"``
+* ``--max-reference-cells 0`` and ``--max-query-cells 0`` (no subsampling)
+* ``--nfeatures 3000``, ``--n-components 50``, and ``--k 50``
+
+What this script is, and what it is not
+---------------------------------------
+Despite the historical directory name "Seurat bridge", this script does not run
+Seurat and does not call ``FindTransferAnchors``. It also does not perform CCA,
+RPCA, Harmony, or any anchor-based integration. The "bridge" is simply a pair
+of matched sparse count matrices and metadata tables that were already exported
+onto the same ordered set of shared unique genes.
+
+The algorithm here is deliberately explicit:
+
+1. Read reference and query count matrices from Matrix Market files.
+2. Optionally remove unwanted reference labels before training. In the final v8
+   run, ``Other selected reference`` was removed at this step.
+3. Optionally downsample reference/query cells for smoke tests. A value of 0
+   means no downsampling; the final v8 run used all exported cells.
+4. Independently library-size normalize reference and query cells to 10,000
+   counts per cell and apply ``log1p``.
+5. Select high-variance genes jointly across the stacked normalized reference
+   and query matrices. This makes the feature set responsive to both datasets,
+   while the dimensional basis below is still fit on the adult reference.
+6. Fit ``TruncatedSVD`` on the adult reference matrix and project DIV90 query
+   cells with ``svd.transform`` into the same reference-derived latent basis.
+7. L2-normalize those SVD coordinates and perform cosine nearest-neighbor
+   search from each query cell to adult reference cells.
+8. Convert cosine distances to positive similarities, normalize the 50 neighbor
+   weights within each query cell, sum weights by reference label, and report
+   the highest-scoring label.
+
+Input bridge files
+------------------
+The input is an already-exported bridge directory containing:
 
 * ``reference_counts.mtx`` and ``reference_metadata.tsv.gz``: adult Siletti
-  reference cells from a chosen scope, usually ``mge_llc``.
+  reference cells from a chosen scope. For final v8 this was the restricted
+  MGE/LAMP5-LHX6/CHAT scope.
 * ``query_counts.mtx`` and ``query_metadata.tsv.gz``: DIV90 neuron-lineage query
   cells from the Varela DIV90 object.
+* matching ``*_genes.tsv`` and ``*_barcodes.tsv`` files. The reference and query
+  gene files must be identical and in the same order.
 
-For the Jia-style MGE question, the intended label column is
-``candidate_jia_group``. That column has one deliberately non-biological bucket,
-``Excluded / not assigned to Jia-style 9 groups``. By default this script drops
-that label before transfer, because otherwise the classifier would learn to
-assign query cells to "not a Jia-style group" rather than one of the adult
-MGE/LLC subtype candidates.
+Label columns
+-------------
+For early Jia-style MGE tests, the label column was often ``candidate_jia_group``
+and the default excluded label was ``Excluded / not assigned to Jia-style 9
+groups``. For the final v8 Siletti adult-reference figure, the transferred label
+was ``unified_leaf_subtype`` and the excluded label was ``Other selected
+reference``. Broader plotting labels such as ``unified_major_subtype_roi`` and
+``unified_pallial_subpallial_bin`` were derived downstream from the winning
+``unified_leaf_subtype`` by the river-plotting script; they were not separate
+independent transfers.
 
 What the caps mean
 ------------------
 ``--max-reference-cells`` and ``--max-query-cells`` are compute/debug caps, not
 biological filters. If a cap is >0, cells are uniformly sampled with the fixed
-seed after label filtering. If a cap is 0, all available cells are used. The
-current scale-up path is:
+seed after reference-label filtering. If a cap is 0, all available cells are
+used. The final v8 run used 0 for both caps.
 
-1. smoke: tiny caps to prove file/label logic.
-2. pilot: 5,000 adult reference x 3,000 DIV90 query cells.
-3. full mge_llc: no caps after filtering the excluded label, i.e. 18,459 adult
-   reference cells x 16,206 DIV90 query cells.
+Why the SVD is reference-fit
+----------------------------
+Feature selection is joint, but the SVD model is fit on the adult reference and
+then applied to the DIV90 query. In code this is:
 
-Why not mge_cge_llc for candidate_jia_group?
---------------------------------------------
-For ``candidate_jia_group``, the added CGE cells are almost entirely excluded
-because Jia's comparison is MGE-derived inhibitory neuron biology. If the goal
-changes to broader interneuron MTG labels such as Vip/Lamp5/Sncg/Pax6, then
-``mge_cge_llc`` and another label column such as ``transferred_mtg_label`` would
-be appropriate.
+``ref_pcs = svd.fit_transform(x_ref)``
+``query_pcs = svd.transform(x_query)``
 
-Algorithm
----------
-This is a deliberately transparent transfer path for debugging/scaling:
-counts -> log-normalized sparse matrix -> variable genes -> TruncatedSVD ->
-cosine kNN label voting. It uses the same bridge files as the Seurat run, but
-avoids the opaque Seurat ``FindTransferAnchors`` bottleneck.
+This means adult identities are represented by a reference-derived
+transcriptional basis, and query cells are classified by proximity to adult
+reference cells in that basis.
 """
 
 from __future__ import annotations
@@ -67,6 +103,12 @@ def timestamp() -> str:
 
 
 def write_progress(path: Path, step: str, status: str, detail: str = "") -> None:
+    """Append an auditable progress row and echo it to stdout.
+
+    The final v8 run kept this file as a compact execution trace. It records the
+    matrix sizes after loading, the reference count after excluded-label removal,
+    the number of selected features, SVD dimensionality, and kNN label count.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     exists = path.exists()
     with path.open("a") as handle:
@@ -81,6 +123,18 @@ def read_tsv(path: Path) -> pd.DataFrame:
 
 
 def read_bridge_counts(prefix: str, bridge_dir: Path) -> tuple[sparse.csr_matrix, list[str], pd.DataFrame]:
+    """Read one side of the bridge and return a cells x genes sparse matrix.
+
+    Bridge counts are stored as Matrix Market features x cells, matching the
+    export convention used elsewhere in the project. The transfer algorithm is
+    easier to express as cells x genes, so this function transposes the matrix
+    after validating that matrix shape agrees with the gene and barcode files.
+
+    The barcode order defines matrix-column order. Metadata are reindexed to
+    that same order with ``seurat_cell_id``. That column name is historical: the
+    fast-kNN workflow uses the sparse matrices directly and does not create a
+    Seurat object here.
+    """
     counts_path = bridge_dir / f"{prefix}_counts.mtx"
     genes_path = bridge_dir / f"{prefix}_genes.tsv"
     barcodes_path = bridge_dir / f"{prefix}_barcodes.tsv"
@@ -103,6 +157,16 @@ def read_bridge_counts(prefix: str, bridge_dir: Path) -> tuple[sparse.csr_matrix
 
 
 def log_normalize(x: sparse.csr_matrix, scale_factor: float = 1e4) -> sparse.csr_matrix:
+    """Library-size normalize each cell to ``scale_factor`` and apply log1p.
+
+    Reference and query matrices are normalized separately. The transform is:
+
+    ``log1p(raw_count / total_counts_in_cell * 10000)``
+
+    This keeps the workflow close to common scRNA-seq log-normalized expression
+    without borrowing information across reference/query cells during
+    normalization.
+    """
     x = x.astype(np.float32).tocsr(copy=True)
     totals = np.asarray(x.sum(axis=1)).ravel()
     totals[totals == 0] = 1.0
@@ -113,12 +177,19 @@ def log_normalize(x: sparse.csr_matrix, scale_factor: float = 1e4) -> sparse.csr
 
 
 def sparse_variance(x: sparse.csr_matrix) -> np.ndarray:
+    """Compute per-gene variance for a sparse cells x genes matrix."""
     mean = np.asarray(x.mean(axis=0)).ravel()
     mean_sq = np.asarray(x.power(2).mean(axis=0)).ravel()
     return mean_sq - np.square(mean)
 
 
 def subset_rows(x: sparse.csr_matrix, meta: pd.DataFrame, max_cells: int, seed: int) -> tuple[sparse.csr_matrix, pd.DataFrame]:
+    """Uniformly downsample cells for smoke/pilot runs.
+
+    A ``max_cells`` value of 0 disables downsampling. For final figure runs this
+    should remain 0 unless the figure is explicitly meant to show a sampled
+    diagnostic.
+    """
     if max_cells <= 0 or x.shape[0] <= max_cells:
         return x, meta
     rng = np.random.default_rng(seed)
@@ -132,7 +203,22 @@ def vote_labels(
     ref_labels: np.ndarray,
     labels: list[str],
 ) -> tuple[np.ndarray, np.ndarray, pd.DataFrame]:
-    # Cosine distance is [0, 2]. Convert to positive similarity and normalize.
+    """Convert neighbor distances into a normalized label vote.
+
+    ``NearestNeighbors(metric="cosine")`` returns smaller values for closer
+    cells. For each query cell, this function:
+
+    1. Converts cosine distance to a nonnegative similarity with ``1 - d``.
+       Negative similarities are clipped to 0.
+    2. Normalizes the k neighbor similarities to sum to 1 within that query
+       cell. If all similarities are 0, it falls back to an unweighted vote.
+    3. Sums normalized weights by adult reference label.
+    4. Reports the label with the largest summed weight and keeps the full score
+       matrix for downstream audits.
+
+    Therefore the prediction is not the single closest reference cell and not a
+    plain majority vote. It is a cosine-ranked, similarity-weighted kNN vote.
+    """
     weights = np.clip(1.0 - distances, a_min=0.0, a_max=None)
     row_sums = weights.sum(axis=1)
     zero_rows = row_sums == 0
@@ -190,6 +276,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def excluded_labels(args: argparse.Namespace) -> list[str]:
+    """Parse labels to remove from the reference before fitting/neighbor search."""
     raw = args.exclude_labels if args.exclude_labels is not None else args.exclude_label
     if not raw or str(raw).upper() == "NONE":
         return []
@@ -211,6 +298,11 @@ def main() -> None:
         raise ValueError("Reference and query gene order differ; rebuild bridge or add explicit gene intersection.")
     write_progress(progress_path, "load", "end", f"reference={x_ref.shape}; query={x_query.shape}; genes={len(genes_ref)}")
 
+    # Remove non-biological or accounting-only labels from the adult reference
+    # before any dimensionality reduction or neighbor search. In the final v8
+    # Siletti figure this removed "Other selected reference" from transfer
+    # training, while keeping it available in upstream reference-accounting
+    # tables.
     if args.label_column not in meta_ref.columns:
         raise ValueError(f"Reference metadata missing label column: {args.label_column}")
     meta_ref[args.label_column] = meta_ref[args.label_column].fillna("unlabeled_or_na").astype(str)
@@ -227,14 +319,24 @@ def main() -> None:
             f"before={before}; after={x_ref.shape[0]}; excluded={' || '.join(labels_to_exclude)}",
         )
 
+    # Optional compute/debug caps. These happen after excluded-label removal so
+    # any pilot run samples from the actual training reference, not from labels
+    # that would later be dropped.
     x_ref, meta_ref = subset_rows(x_ref, meta_ref, args.max_reference_cells, args.seed)
     x_query, meta_query = subset_rows(x_query, meta_query, args.max_query_cells, args.seed + 1)
     write_progress(progress_path, "downsample", "end", f"reference={x_ref.shape[0]}; query={x_query.shape[0]}")
 
+    # Normalize reference and query independently, then use the transformed
+    # matrices for both feature selection and SVD/kNN. No precomputed embedding,
+    # integrated assay, anchor object, or reference UMAP is used here.
     x_ref = log_normalize(x_ref)
     x_query = log_normalize(x_query)
     write_progress(progress_path, "log_normalize", "end", f"reference_nnz={x_ref.nnz}; query_nnz={x_query.nnz}")
 
+    # Joint feature selection: stack the normalized reference and query matrices
+    # and select the highest-variance genes across both datasets. This is the
+    # only step before SVD where reference and query are considered together.
+    # The final v8 run selected 3,000 genes from 17,849 shared unique genes.
     var = sparse_variance(sparse.vstack([x_ref, x_query], format="csr"))
     nfeatures = min(args.nfeatures, x_ref.shape[1])
     feature_idx = np.argsort(var)[::-1][:nfeatures]
@@ -245,14 +347,26 @@ def main() -> None:
     x_query = x_query[:, feature_idx]
     write_progress(progress_path, "select_features", "end", f"nfeatures={nfeatures}")
 
+    # Reference-fit latent basis: the SVD model is fit on adult reference cells,
+    # then the DIV90 query is projected into that reference-derived basis. This
+    # supports wording like "adult reference cells were embedded with
+    # TruncatedSVD and DIV90 cells were projected into the same latent space."
     n_components = min(args.n_components, nfeatures - 1, x_ref.shape[0] - 1, x_query.shape[0] - 1)
     svd = TruncatedSVD(n_components=n_components, random_state=args.seed)
     ref_pcs = svd.fit_transform(x_ref)
     query_pcs = svd.transform(x_query)
+
+    # L2-normalize coordinates before cosine nearest-neighbor search. Cosine
+    # distance on normalized vectors is a scale-insensitive comparison of the
+    # SVD expression profiles.
     ref_pcs = normalize(ref_pcs)
     query_pcs = normalize(query_pcs)
     write_progress(progress_path, "svd", "end", f"n_components={n_components}; explained_variance={svd.explained_variance_ratio_.sum():.4f}")
 
+    # Find the k nearest adult reference cells for each DIV90 query cell and
+    # assign the adult label with the largest normalized similarity-weighted
+    # vote. The full per-label vote table is saved, which lets downstream audits
+    # inspect score margins and second-best labels.
     labels = sorted(meta_ref[args.label_column].dropna().astype(str).unique().tolist())
     k = min(args.k, x_ref.shape[0])
     nn = NearestNeighbors(n_neighbors=k, metric="cosine", algorithm="brute", n_jobs=-1)
@@ -261,6 +375,11 @@ def main() -> None:
     predicted, max_score, score_df = vote_labels(distances, indices, meta_ref[args.label_column].astype(str).to_numpy(), labels)
     write_progress(progress_path, "knn_transfer", "end", f"k={k}; labels={len(labels)}")
 
+    # Prediction outputs:
+    # - fast_knn/*_predictions.tsv.gz: compact predictions + per-label scores.
+    # - fast_knn/*_prediction_scores.tsv.gz: score matrix only.
+    # - tables/*_query_obs_with_predictions.tsv.gz: original query metadata plus
+    #   predicted label and maximum vote score.
     cell_col = "seurat_cell_id" if "seurat_cell_id" in meta_query.columns else meta_query.columns[0]
     predictions = pd.DataFrame({
         "cell_id": meta_query[cell_col].astype(str).to_numpy(),
@@ -276,11 +395,16 @@ def main() -> None:
     obs = pd.concat([meta_query.reset_index(drop=True), predictions[["predicted.id", "prediction.score.max"]]], axis=1)
     write_tsv_gz(obs, tables_dir / f"{prefix}_query_obs_with_predictions.tsv.gz")
 
+    # Cluster-level table used by figure/audit code to summarize which adult
+    # labels were assigned to each original DIV90 cluster.
     cluster_col = "cluster_id" if "cluster_id" in obs.columns else "cluster_id_manifest" if "cluster_id_manifest" in obs.columns else None
     if cluster_col:
         cluster_counts = obs.groupby([cluster_col, "predicted.id"], dropna=False).size().reset_index(name="n_cells")
         cluster_counts.to_csv(tables_dir / f"{prefix}_cluster_label_counts.tsv", sep="\t", index=False)
 
+    # Store the exact transfer settings in a machine-readable sidecar. This is
+    # the quickest way to confirm, after the fact, that the run used the intended
+    # label column, reference/query counts, feature count, SVD dimensions, and k.
     diag = {
         "method": "fast_knn_svd_cosine",
         "bridge_dir": str(args.bridge_dir),

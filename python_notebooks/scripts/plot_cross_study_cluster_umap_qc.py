@@ -47,9 +47,9 @@ DIV30_PAPER_CLUSTER_MAP = {
 
 DIV90_PUBLISHED_RECODE = {
     "0": {"id": "3", "label": "MGE Striatal/GP fated", "keep": True, "exclude_reason": ""},
-    "1": {"id": "1", "label": "SST+, NPY+ Cortical fated", "keep": True, "exclude_reason": ""},
+    "1": {"id": "7", "label": "PV Precursors/Migrating cells/Cortical fated", "keep": True, "exclude_reason": ""},
     "2": {"id": "2", "label": "CRABP1+/PV Precursors", "keep": True, "exclude_reason": ""},
-    "3": {"id": "7", "label": "PV Precursors/Migrating cells/Cortical fated", "keep": True, "exclude_reason": ""},
+    "3": {"id": "1", "label": "SST+, NPY+ Cortical fated", "keep": True, "exclude_reason": ""},
     "4": {"id": "8", "label": "Pre-Astrocytes/Astrocytes", "keep": True, "exclude_reason": ""},
     "5": {"id": "4", "label": "LHX8+ vMGE GABAergic Striatal/GP fated 1", "keep": True, "exclude_reason": ""},
     "6": {"id": "", "label": "", "keep": False, "exclude_reason": "Stressed Cells"},

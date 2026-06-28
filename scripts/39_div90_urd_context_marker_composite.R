@@ -72,14 +72,16 @@ save_plot_set <- function(plot, prefix, width, height, dpi = 300) {
   svg_path <- paste0(prefix, ".svg")
   ggplot2::ggsave(png_path, plot, width = width, height = height, dpi = dpi, bg = "white")
   ggplot2::ggsave(pdf_path, plot, width = width, height = height, device = grDevices::cairo_pdf, bg = "white")
-  if (requireNamespace("svglite", quietly = TRUE)) {
-    svglite::svglite(svg_path, width = width, height = height)
-    print(plot)
-    grDevices::dev.off()
-  } else {
-    unlink(svg_path)
-    log_msg("Skipping SVG because svglite is unavailable; editable vector text is available in PDF: ", pdf_path)
-  }
+    if (requireNamespace("svglite", quietly = TRUE)) {
+        svglite::svglite(svg_path, width = width, height = height)
+        print(plot)
+        grDevices::dev.off()
+    } else {
+        grDevices::svg(svg_path, width = width, height = height, bg = "white")
+        print(plot)
+        grDevices::dev.off()
+        log_msg("Wrote SVG with base grDevices::svg because svglite is unavailable: ", svg_path)
+    }
 }
 
 repair_count_dimnames <- function(object) {
@@ -124,12 +126,12 @@ clean_biology_name <- function(x) {
 div90_published_cluster_recode <- function() {
   data.frame(
     raw_cluster_id = c(0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L),
-    published_cluster_id = c(3L, 1L, 2L, 7L, 8L, 4L, NA_integer_, NA_integer_, 5L, 10L, 8L, 6L, 9L),
+    published_cluster_id = c(3L, 7L, 2L, 1L, 8L, 4L, NA_integer_, NA_integer_, 5L, 10L, 8L, 6L, 9L),
     published_cluster_name = c(
       "MGE Striatal/GP fated",
-      "SST+, NPY+ Cortical fated",
-      "CRABP1+/PV Precursors",
       "PV Precursors/Migrating cells/Cortical fated",
+      "CRABP1+/PV Precursors",
+      "SST+, NPY+ Cortical fated",
       "Pre-Astrocytes/Astrocytes",
       "LHX8+ vMGE GABAergic Striatal/GP fated 1",
       "Stressed Cells",
@@ -592,9 +594,9 @@ render_status <- data.frame(
     "published plotting orientation: UMAP_1 unchanged, UMAP_2 multiplied by -1",
     "left-to-right rotated tree; tips at right",
     paste0("shared UMAP/tree limits ", paste(signif(pseudotime_limits, 4), collapse = " to ")),
-    "cluster number and wrapped cluster name labels drawn at cluster tree tips",
-    if (requireNamespace("svglite", quietly = TRUE)) "pdf,svg" else "pdf"
-  ),
+        "cluster number and wrapped cluster name labels drawn at cluster tree tips",
+        if (requireNamespace("svglite", quietly = TRUE)) "pdf,svg via svglite" else "pdf,svg via grDevices::svg"
+    ),
   stringsAsFactors = FALSE
 )
 write_tsv(render_status, file.path(cfg$outdir, "context_marker_composite_render_status.tsv"))

@@ -64,9 +64,9 @@ DIV30_RECODE = {
 
 DIV90_RECODE = {
     "0": ("3", "MGE Striatal/GP fated"),
-    "1": ("1", "SST+, NPY+ Cortical fated"),
+    "1": ("7", "PV Precursors/Migrating cells/Cortical fated"),
     "2": ("2", "CRABP1+/PV Precursors"),
-    "3": ("7", "PV Precursors/Migrating cells/Cortical fated"),
+    "3": ("1", "SST+, NPY+ Cortical fated"),
     "4": ("8", "Pre-Astrocytes/Astrocytes"),
     "5": ("4", "LHX8+ vMGE GABAergic Striatal/GP fated 1"),
     "8": ("5", "LHX8+ vMGE GABAergic Striatal/GP fated 2"),
