@@ -11,6 +11,9 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
+matplotlib.rcParams["svg.fonttype"] = "none"
+matplotlib.rcParams["font.family"] = "Arial"
+matplotlib.rcParams["font.sans-serif"] = ["Arial"]
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -353,6 +356,7 @@ def draw_combined_rivers(
     fig.subplots_adjust(left=0.04, right=0.985, top=0.9, bottom=0.04, wspace=0.55)
     fig.savefig(out_prefix.with_suffix(".png"), dpi=300, bbox_inches="tight")
     fig.savefig(out_prefix.with_suffix(".pdf"), bbox_inches="tight")
+    fig.savefig(out_prefix.with_suffix(".svg"), bbox_inches="tight")
     plt.close(fig)
 
 
@@ -376,6 +380,7 @@ def write_stacked_bar(counts: pd.DataFrame, index_col: str, column_col: str, val
     ax.legend(frameon=False, bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
     fig.savefig(out_prefix.with_suffix(".png"), dpi=300, bbox_inches="tight")
     fig.savefig(out_prefix.with_suffix(".pdf"), bbox_inches="tight")
+    fig.savefig(out_prefix.with_suffix(".svg"), bbox_inches="tight")
     plt.close(fig)
 
 
@@ -389,6 +394,7 @@ def write_simple_bar(counts: pd.DataFrame, label_col: str, value_col: str, out_p
     ax.set_title(title)
     fig.savefig(out_prefix.with_suffix(".png"), dpi=300, bbox_inches="tight")
     fig.savefig(out_prefix.with_suffix(".pdf"), bbox_inches="tight")
+    fig.savefig(out_prefix.with_suffix(".svg"), bbox_inches="tight")
     plt.close(fig)
 
 
@@ -415,6 +421,7 @@ def write_score_histograms(
     axes[0].set_ylabel("DIV90 cells")
     fig.savefig(out_prefix.with_suffix(".png"), dpi=300, bbox_inches="tight")
     fig.savefig(out_prefix.with_suffix(".pdf"), bbox_inches="tight")
+    fig.savefig(out_prefix.with_suffix(".svg"), bbox_inches="tight")
     plt.close(fig)
 
 
