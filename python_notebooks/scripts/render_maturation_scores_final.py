@@ -190,8 +190,9 @@ def score_color_norms(
     data: pd.DataFrame,
     columns: list[tuple[str, str]],
     table_dir: Path,
-) -> tuple[dict[str, mpl.colors.Normalize], dict[str, dict[str, float]]]:
-    plot_data = data.loc[data["plot_include"]]
+) -> tuple[pd.DataFrame, dict[str, mpl.colors.Normalize], dict[str, dict[str, float]]]:
+    out = data.copy()
+    plot_data = out.loc[out["plot_include"]]
     rows = []
     limits: dict[str, dict[str, float]] = {}
     norms: dict[str, mpl.colors.Normalize] = {}
@@ -205,19 +206,30 @@ def score_color_norms(
             raw_min, raw_max = 0.0, 1.0
         if raw_max <= raw_min:
             raw_max = raw_min + 1e-6
-        norms[column] = mpl.colors.Normalize(vmin=raw_min, vmax=raw_max)
-        limits[column] = {"raw_min": raw_min, "raw_max": raw_max}
+        plot_col = f"{column}_display01"
+        raw_values = pd.to_numeric(out[column], errors="coerce")
+        out[plot_col] = ((raw_values - raw_min) / (raw_max - raw_min)).clip(lower=0.0, upper=1.0)
+        norms[column] = mpl.colors.Normalize(vmin=0.0, vmax=1.0)
+        limits[column] = {
+            "raw_vmin_1pct": raw_min,
+            "raw_vmax_99pct": raw_max,
+            "display_vmin": 0.0,
+            "display_vmax": 1.0,
+        }
         rows.append(
             {
                 "score_column": column,
                 "display": display,
-                "plot_transform": "raw Seurat AddModuleScore values, clipped to this score column's 1st-99th percentile range across plotted cells",
-                "display_vmin_1pct_plotted_cells": raw_min,
-                "display_vmax_99pct_plotted_cells": raw_max,
+                "plot_column": plot_col,
+                "plot_transform": "raw Seurat AddModuleScore values clipped to this score column's 1st-99th percentile range across plotted cells, then rescaled to 0-1 for display",
+                "raw_vmin_1pct_plotted_cells": raw_min,
+                "raw_vmax_99pct_plotted_cells": raw_max,
+                "display_vmin": 0.0,
+                "display_vmax": 1.0,
             }
         )
     pd.DataFrame(rows).to_csv(table_dir / "maturation_score_color_scaling.tsv", sep="\t", index=False)
-    return norms, limits
+    return out, norms, limits
 
 
 def clean_axis(ax: plt.Axes) -> None:
@@ -240,7 +252,7 @@ def plot_score_layer(
     point_size: float,
 ) -> mpl.collections.PathCollection:
     coords = frame[["umap_1_plot", "umap_2_plot"]].to_numpy(dtype=float)
-    values = pd.to_numeric(frame[score_column], errors="coerce").to_numpy()
+    values = pd.to_numeric(frame[f"{score_column}_display01"], errors="coerce").to_numpy()
     finite = np.isfinite(values) & np.isfinite(coords[:, 0]) & np.isfinite(coords[:, 1])
 
     ax.scatter(
@@ -360,6 +372,54 @@ def draw_cluster_layer(ax: plt.Axes, frame: pd.DataFrame, dataset: str, point_si
     return label_table
 
 
+def draw_violin_layer(ax: plt.Axes, data: pd.DataFrame, score_column: str, display: str) -> dict[str, object]:
+    values_by_dataset = []
+    rows: dict[str, object] = {"score_column": score_column, "display": display}
+    for dataset in ["DIV30", "DIV90"]:
+        frame = data.loc[data["dataset"].astype(str).eq(dataset) & data["plot_include"]]
+        values = pd.to_numeric(frame[f"{score_column}_display01"], errors="coerce").to_numpy(dtype=float)
+        values = values[np.isfinite(values)]
+        values_by_dataset.append(values)
+        rows[f"{dataset}_n"] = int(values.size)
+        rows[f"{dataset}_median_display01"] = float(np.nanmedian(values)) if values.size else np.nan
+        rows[f"{dataset}_mean_display01"] = float(np.nanmean(values)) if values.size else np.nan
+
+    parts = ax.violinplot(
+        values_by_dataset,
+        positions=[1, 2],
+        widths=0.65,
+        showmeans=False,
+        showmedians=False,
+        showextrema=False,
+    )
+    for body, color in zip(parts["bodies"], ["#4c78a8", "#f58518"]):
+        body.set_facecolor(color)
+        body.set_edgecolor("none")
+        body.set_alpha(0.72)
+
+    for pos, values, color in zip([1, 2], values_by_dataset, ["#1f4e79", "#a85a00"]):
+        if values.size == 0:
+            continue
+        median = float(np.nanmedian(values))
+        q1, q3 = np.nanpercentile(values, [25, 75])
+        ax.plot([pos - 0.22, pos + 0.22], [median, median], color="black", linewidth=0.8)
+        ax.plot([pos, pos], [q1, q3], color=color, linewidth=2.0, solid_capstyle="round")
+
+    ax.set_ylim(-0.02, 1.02)
+    ax.set_xticks([1, 2])
+    ax.set_xticklabels(["DIV30", "DIV90"], fontsize=6)
+    ax.set_yticks([0, 0.5, 1])
+    ax.tick_params(axis="y", labelsize=6, length=2, width=0.4)
+    ax.set_ylabel("Display score", fontsize=6, labelpad=1)
+    ax.set_title(display, fontsize=7, fontweight="normal", pad=2)
+    ax.grid(axis="y", color="#e5e5e5", linewidth=0.4)
+    for spine in ["top", "right"]:
+        ax.spines[spine].set_visible(False)
+    ax.spines["left"].set_linewidth(0.5)
+    ax.spines["bottom"].set_linewidth(0.5)
+    return rows
+
+
 def render_grid(
     data: pd.DataFrame,
     columns: list[tuple[str, str]],
@@ -369,19 +429,24 @@ def render_grid(
     point_size: float | None,
     table_dir: Path | None = None,
     include_cluster_column: bool = False,
+    include_violin_row: bool = False,
 ) -> dict[str, dict[str, float]]:
     datasets = ["DIV30", "DIV90"]
+    n_score_rows = len(datasets)
+    n_rows = n_score_rows + (1 if include_violin_row else 0)
     n_cols = len(columns) + (1 if include_cluster_column else 0)
     width_ratios = [1.55, *([1.0] * len(columns))] if include_cluster_column else [1.0] * len(columns)
+    height_ratios = [1.0, 1.0, 0.56] if include_violin_row else [1.0] * n_rows
     fig, axes = plt.subplots(
-        len(datasets),
+        n_rows,
         n_cols,
-        figsize=(2.75 * n_cols, 2.75 * len(datasets)),
+        figsize=(2.75 * n_cols, 2.75 * n_score_rows + (1.25 if include_violin_row else 0.0)),
         constrained_layout=True,
         squeeze=False,
-        gridspec_kw={"width_ratios": width_ratios},
+        gridspec_kw={"width_ratios": width_ratios, "height_ratios": height_ratios},
     )
     cluster_rows = []
+    violin_rows = []
     score_scatters: dict[str, mpl.collections.PathCollection] = {}
 
     for row_idx, dataset in enumerate(datasets):
@@ -403,13 +468,19 @@ def render_grid(
             )
 
     offset = 1 if include_cluster_column else 0
+    if include_violin_row:
+        if include_cluster_column:
+            axes[n_score_rows, 0].axis("off")
+        for col_idx, (score_column, display) in enumerate(columns):
+            violin_rows.append(draw_violin_layer(axes[n_score_rows, col_idx + offset], data, score_column, display))
+
     for col_idx, (score_column, _) in enumerate(columns):
         scatter = score_scatters.get(score_column)
         if scatter is None:
             continue
         cbar = fig.colorbar(
             scatter,
-            ax=axes[:, col_idx + offset].ravel().tolist(),
+            ax=axes[:n_score_rows, col_idx + offset].ravel().tolist(),
             fraction=0.030,
             pad=0.012,
             shrink=0.46,
@@ -426,6 +497,12 @@ def render_grid(
     if include_cluster_column and table_dir is not None and cluster_rows:
         pd.concat(cluster_rows, ignore_index=True).to_csv(
             table_dir / "predefined_maturation_scores_grid_cluster_label_positions.tsv",
+            sep="\t",
+            index=False,
+        )
+    if include_violin_row and table_dir is not None and violin_rows:
+        pd.DataFrame(violin_rows).to_csv(
+            table_dir / "predefined_maturation_scores_display01_violin_summary.tsv",
             sep="\t",
             index=False,
         )
@@ -573,9 +650,10 @@ table still retains all cells and records the plot-inclusion flag.
 
 ## Color Scales
 
-Score overlays are rendered with the Shi-style grey-to-blue colormap, but each
-score column autoscales to its raw Seurat AddModuleScore 1st-99th percentile
-range across plotted DIV30/DIV90 cells. The display ranges are recorded in
+Score overlays are rendered as 0-1 display scores with the Shi-style
+grey-to-blue colormap. For each score column, raw Seurat AddModuleScore values
+are clipped to the plotted-cell 1st-99th percentile range across DIV30/DIV90 and
+then rescaled to 0-1. The raw percentile cut points are recorded in
 `tables/maturation_score_color_scaling.tsv`.
 
 ## Inputs
@@ -593,7 +671,8 @@ range across plotted DIV30/DIV90 cells. The display ranges are recorded in
   `figures/pdf/predefined_maturation_scores_umap_grid.pdf`, and
   `figures/svg/predefined_maturation_scores_umap_grid.svg`. The first column
   is a DIV30/DIV90 cluster-number/name UMAP with the labels listed beside the
-  UMAP rather than over the point cloud.
+  UMAP rather than over the point cloud. The bottom row shows DIV30 versus DIV90
+  violins for each 0-1 display score; the cluster column is intentionally blank.
 - DIV90 cluster reference UMAP:
   `figures/png/div90_cluster_number_name_reference_umap.png`,
   `figures/pdf/div90_cluster_number_name_reference_umap.pdf`, and
@@ -639,7 +718,7 @@ def main() -> int:
     data = prepare_plot_data(read_score_table(score_table))
     copy_if_different(score_table, result_table_dir / score_table.name)
     write_plot_filter_summary(data, result_table_dir)
-    score_norms, score_limits = score_color_norms(data, all_score_columns(), result_table_dir)
+    data, score_norms, score_limits = score_color_norms(data, all_score_columns(), result_table_dir)
 
     jia_limits = render_grid(
         data,
@@ -658,6 +737,7 @@ def main() -> int:
         point_size=args.point_size,
         table_dir=result_table_dir,
         include_cluster_column=True,
+        include_violin_row=True,
     )
     render_div90_cluster_reference(
         data,
@@ -693,7 +773,7 @@ def main() -> int:
         "dpi": args.dpi,
         "div90_visualization_filter": "exclude current clusters 6 and 7 as stressed cells",
         "div90_plot_coordinate_transform": "UMAP1_plot = UMAP1; UMAP2_plot = -1 * UMAP2",
-        "score_display_transform": "raw Seurat AddModuleScore values shown with per-score grey-to-blue 1st-99th percentile scaling across plotted cells",
+        "score_display_transform": "raw Seurat AddModuleScore values clipped to per-score plotted-cell 1st-99th percentile cut points, then rescaled to 0-1 for grey-to-blue display",
         "score_display_raw_limits": score_limits,
         "color_limits": {"jia_grid": jia_limits, "predefined_grid": predefined_limits},
         "git": git_status(repo_root),

@@ -670,12 +670,18 @@ cells.
     6/7 removed from the plotted row.
   - Cluster labels are listed beside the cluster UMAPs, not overlaid on top of
     the point clouds.
-  - Score overlays use a grey-to-blue colormap and autoscale to each raw
-    module-score column's 1st-99th percentile range across plotted DIV30 and
-    plotted DIV90 cells, protecting the display from outliers. Each score
-    column has one short shared colorbar. Raw Seurat AddModuleScore values
-    remain in the per-cell table; `tables/maturation_score_color_scaling.tsv`
-    records the percentile range used for each score column.
+  - Score overlays use 0-1 display values and a grey-to-blue colormap. Each raw
+    Seurat AddModuleScore column is clipped to its plotted-cell 1st-99th
+    percentile range across DIV30 and DIV90, then rescaled to 0-1 for plotting.
+    Each score column has one short shared 0-1 colorbar. Raw Seurat
+    AddModuleScore values remain in the per-cell table;
+    `tables/maturation_score_color_scaling.tsv` records the raw percentile
+    cut points used for each score column.
+  - Added a bottom violin row to `predefined_maturation_scores_umap_grid`:
+    the cluster column is blank, and each score column compares DIV30 versus
+    DIV90 using the same 0-1 display score values as the UMAP overlays.
+    `tables/predefined_maturation_scores_display01_violin_summary.tsv` records
+    the n, median, and mean for the violin panels.
 - Exports PNG/PDF/SVG at 600 dpi, with rasterized point layers and editable
   SVG text settings.
 ```
@@ -704,8 +710,12 @@ Validated corrected outputs 2026-06-27:
   `cluster_number_name`: 0, 1, 2, 3, 4, 5, 8, 9, 10, 11, and 12.
 - Plot-only updated predefined grid was visually inspected after rerender:
   first column contains DIV30 and DIV90 cluster-number/name UMAPs with side
-  legends, and score panels use one shared per-column grey-to-blue autoscaled
+  legends, and score panels use one shared per-column 0-1 grey-to-blue
   colorbar.
+- `tables/maturation_score_display01_verification.tsv` verifies all plotted
+  display values are bounded from 0 to 1 and that the raw percentile cut points
+  match the saved color-scaling table.
+- Bottom-row violin panels were visually checked in the predefined grid.
 ```
 
 ### Final Figure Package
@@ -726,7 +736,9 @@ tables/maturation_score_gene_report.tsv
 tables/maturation_score_module_gene_sets_requested.tsv
 tables/maturation_scores_plot_filter_summary.tsv
 tables/maturation_score_color_scaling.tsv
+tables/maturation_score_display01_verification.tsv
 tables/predefined_maturation_scores_grid_cluster_label_positions.tsv
+tables/predefined_maturation_scores_display01_violin_summary.tsv
 provenance/maturation_scores_provenance.json
 ```
 
