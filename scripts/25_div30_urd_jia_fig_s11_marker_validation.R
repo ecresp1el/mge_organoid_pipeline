@@ -34,6 +34,8 @@ parse_args <- function(args) {
     `gene-labels` = "",
     `panel-title` = "",
     `point-size` = "0.28",
+    `expression-color-floor` = "1",
+    `vmax-quantile` = "0.99",
     help = FALSE
   )
   i <- 1L
@@ -75,9 +77,17 @@ write_tsv <- function(x, path) {
   write.table(x, con, sep = "\t", row.names = FALSE, quote = FALSE, na = "")
 }
 
-save_plot_pair <- function(plot, png_path, pdf_path, width, height, dpi = 300) {
+save_plot_set <- function(plot, png_path, pdf_path, svg_path, width, height, dpi = 300) {
   ggsave(png_path, plot, width = width, height = height, dpi = dpi, bg = "white")
-  ggsave(pdf_path, plot, width = width, height = height, bg = "white")
+  ggsave(pdf_path, plot, width = width, height = height, device = grDevices::cairo_pdf, bg = "white")
+  if (requireNamespace("svglite", quietly = TRUE)) {
+    svglite::svglite(svg_path, width = width, height = height)
+    print(plot)
+    grDevices::dev.off()
+  } else {
+    unlink(svg_path)
+    log_msg("Skipping SVG because svglite is not available; editable vector text is available in PDF: ", pdf_path)
+  }
 }
 
 repair_logupx_dimnames <- function(object) {
@@ -177,32 +187,70 @@ marker_summary <- function(marker_df) {
   out[order(out$panel, out$display_order), , drop = FALSE]
 }
 
-tree_marker_plot <- function(layout, cells, marker_df, gene, panel_title, point_size, show_legend = FALSE) {
-  # Marker panels scale to each gene's own logUPX range and can keep a visible
-  # colorbar, so individual files and grid panels are auditable gene by gene.
+expression_color_vmax <- function(values, floor_value, quantile_value) {
+  values <- values[is.finite(values)]
+  positive <- values[values > 0]
+  if (length(positive) == 0) return(floor_value)
+  max(as.numeric(stats::quantile(positive, probs = quantile_value, names = FALSE, na.rm = TRUE)), floor_value)
+}
+
+expression_floor_palette <- function(color_vmax, floor_value, background = "#d0d0d0", high = "#0000ff") {
+  color_vmax <- max(color_vmax, floor_value + 1e-6)
+  floor_fraction <- max(0, min(1, floor_value / color_vmax))
+  scales::gradient_n_pal(
+    colours = c(background, background, high),
+    values = c(0, floor_fraction, 1)
+  )
+}
+
+tree_marker_plot <- function(layout, cells, marker_df, gene, panel_title, point_size, color_floor, vmax_quantile, show_legend = FALSE) {
+  # Match the cross-study marker-expression logic: values at/below the floor
+  # are drawn as background grey, and the blue scale clips at per-gene q99.
   df <- marker_df[marker_df$gene == gene, , drop = FALSE]
   plot_df <- merge(cells, df[, c("cell", "expression_logupx", "gene_present")], by = "cell", all.x = TRUE)
   plot_df <- plot_df[order(plot_df$expression_logupx, na.last = TRUE), , drop = FALSE]
+  plot_df$expression_color_value <- ifelse(
+    is.finite(plot_df$expression_logupx) & plot_df$expression_logupx > color_floor,
+    plot_df$expression_logupx,
+    NA_real_
+  )
   x_limits <- range(c(layout$x1, layout$x2, cells$x), na.rm = TRUE)
   y_limits <- range(c(layout$y1, layout$y2, cells$y), na.rm = TRUE)
   x_pad <- diff(x_limits) * 0.04
   y_pad <- diff(y_limits) * 0.04
   x_limits <- x_limits + c(-x_pad, x_pad)
   y_limits <- y_limits + c(-y_pad, y_pad)
-  finite_expr <- plot_df$expression_logupx[!is.na(plot_df$expression_logupx)]
-  max_expr <- if (length(finite_expr) > 0) max(finite_expr) else NA_real_
-  if (!is.finite(max_expr) || max_expr <= 0) max_expr <- 1
+  max_expr <- expression_color_vmax(plot_df$expression_logupx, color_floor, vmax_quantile)
+  color_vmax <- max(max_expr, color_floor + 1e-6)
 
   p <- ggplot() +
     geom_segment(data = layout, aes(x = x1, y = y1, xend = x2, yend = y2), linewidth = 0.25, color = "grey60") +
-    geom_point(data = plot_df, aes(x = x, y = y, color = expression_logupx), size = point_size, alpha = 0.85) +
-    scale_color_gradient(low = "grey90", high = "#b2182b", limits = c(0, max_expr), na.value = "grey88", name = "logUPX") +
+    geom_point(data = plot_df, aes(x = x, y = y), size = point_size * 0.72, color = "#d0d0d0", alpha = 0.7) +
+    geom_point(
+      data = plot_df[is.finite(plot_df$expression_color_value), , drop = FALSE],
+      aes(x = x, y = y, color = expression_color_value),
+      size = point_size,
+      alpha = 0.9
+    ) +
+    scale_color_gradientn(
+      colours = c("#d0d0d0", "#d0d0d0", "#0000ff"),
+      values = c(0, color_floor / color_vmax, 1),
+      limits = c(0, color_vmax),
+      oob = scales::squish,
+      name = "logUPX",
+      breaks = c(0, color_vmax),
+      labels = c("0", formatC(max_expr, format = "fg", digits = 2))
+    ) +
     coord_cartesian(xlim = x_limits, ylim = y_limits, expand = FALSE) +
     theme_void(base_size = 8) +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold", size = 9),
       plot.subtitle = element_text(hjust = 0.5, size = 7),
-      legend.position = if (show_legend) "right" else "none"
+      legend.position = if (show_legend) "right" else "none",
+      legend.key.height = grid::unit(16, "pt"),
+      legend.key.width = grid::unit(6, "pt"),
+      legend.title = element_text(size = 6),
+      legend.text = element_text(size = 5)
     ) +
     labs(title = df$display_label[[1]], subtitle = panel_title)
   if (!isTRUE(df$gene_present[[1]])) {
@@ -211,7 +259,7 @@ tree_marker_plot <- function(layout, cells, marker_df, gene, panel_title, point_
   p
 }
 
-panel_plots <- function(layout, cells, marker_df, spec, point_size) {
+panel_plots <- function(layout, cells, marker_df, spec, point_size, color_floor, vmax_quantile) {
   lapply(seq_len(nrow(spec)), function(i) {
     subtitle <- if (spec$panel[[i]] == "custom_marker_panel") {
       ""
@@ -220,7 +268,7 @@ panel_plots <- function(layout, cells, marker_df, spec, point_size) {
     } else {
       paste(spec$lineage_pair[[i]], spec$terminal_identity[[i]], sep = "\n")
     }
-    tree_marker_plot(layout, cells, marker_df, spec$gene[[i]], subtitle, point_size, show_legend = TRUE)
+    tree_marker_plot(layout, cells, marker_df, spec$gene[[i]], subtitle, point_size, color_floor, vmax_quantile, show_legend = TRUE)
   })
 }
 
@@ -231,6 +279,7 @@ safe_gene_filename <- function(gene) {
 print_usage <- function() {
   cat("Usage: Rscript scripts/25_div30_urd_jia_fig_s11_marker_validation.R --tree-rds <tree.rds> --outdir <dir>\n")
   cat("Optional: --genes HES1,NKX2-1,LHX6 --gene-labels Hes1,Nkx2.1,Lhx6 --panel-title <title>\n")
+  cat("Optional color controls: --expression-color-floor 1 --vmax-quantile 0.99\n")
 }
 
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
@@ -246,8 +295,11 @@ cfg <- list(
   outdir = opt$outdir,
   table_dir = file.path(opt$outdir, "tables"),
   plot_dir = file.path(opt$outdir, "plots"),
-  point_size = as_num(opt$`point-size`, "point-size")
+  point_size = as_num(opt$`point-size`, "point-size"),
+  expression_color_floor = as_num(opt$`expression-color-floor`, "expression-color-floor"),
+  vmax_quantile = as_num(opt$`vmax-quantile`, "vmax-quantile")
 )
+if (cfg$vmax_quantile <= 0 || cfg$vmax_quantile > 1) stop("vmax-quantile must be in (0, 1]", call. = FALSE)
 dir.create(cfg$table_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(cfg$plot_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -274,19 +326,26 @@ if (length(missing_genes) > 0) {
 }
 
 if ("custom_marker_panel" %in% spec$panel) {
-  custom_panel <- cowplot::plot_grid(plotlist = panel_plots(layout, cells, marker_df, spec, cfg$point_size), nrow = 1, labels = NULL)
+  custom_panel <- cowplot::plot_grid(plotlist = panel_plots(layout, cells, marker_df, spec, cfg$point_size, cfg$expression_color_floor, cfg$vmax_quantile), nrow = 1, labels = NULL)
   combined <- cowplot::plot_grid(
     cowplot::ggdraw() + cowplot::draw_label(panel_title, x = 0, hjust = 0, fontface = "bold", size = 11),
     custom_panel,
     ncol = 1,
     rel_heights = c(0.08, 1)
   )
-  save_plot_pair(combined, file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.png"), file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.pdf"), width = 24, height = 4.8)
+  save_plot_set(
+    combined,
+    file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.png"),
+    file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.pdf"),
+    file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.svg"),
+    width = 24,
+    height = 4.8
+  )
 } else {
   panel_a_spec <- spec[spec$panel == "A_developmental_progression", , drop = FALSE]
   panel_b_spec <- spec[spec$panel == "B_inhibitory_lineages", , drop = FALSE]
-  panel_a <- cowplot::plot_grid(plotlist = panel_plots(layout, cells, marker_df, panel_a_spec, cfg$point_size), nrow = 1, labels = NULL)
-  panel_b <- cowplot::plot_grid(plotlist = panel_plots(layout, cells, marker_df, panel_b_spec, cfg$point_size), nrow = 1, labels = NULL)
+  panel_a <- cowplot::plot_grid(plotlist = panel_plots(layout, cells, marker_df, panel_a_spec, cfg$point_size, cfg$expression_color_floor, cfg$vmax_quantile), nrow = 1, labels = NULL)
+  panel_b <- cowplot::plot_grid(plotlist = panel_plots(layout, cells, marker_df, panel_b_spec, cfg$point_size, cfg$expression_color_floor, cfg$vmax_quantile), nrow = 1, labels = NULL)
   panel_a_labeled <- cowplot::plot_grid(
     cowplot::ggdraw() + cowplot::draw_label("A. Developmental progression markers: VZ RGC -> SVZ RGC -> IPC -> newborn neuron", x = 0, hjust = 0, fontface = "bold", size = 11),
     panel_a,
@@ -301,9 +360,9 @@ if ("custom_marker_panel" %in% spec$panel) {
   )
   combined <- cowplot::plot_grid(panel_a_labeled, panel_b_labeled, ncol = 1, rel_heights = c(1, 1))
 
-  save_plot_pair(panel_a_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.pdf"), width = 16, height = 4.2)
-  save_plot_pair(panel_b_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.pdf"), width = 20, height = 4.2)
-  save_plot_pair(combined, file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.png"), file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.pdf"), width = 20, height = 8.8)
+  save_plot_set(panel_a_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.pdf"), file.path(cfg$plot_dir, "jia_fig_s11_panel_a_developmental_markers.svg"), width = 16, height = 4.2)
+  save_plot_set(panel_b_labeled, file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.png"), file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.pdf"), file.path(cfg$plot_dir, "jia_fig_s11_panel_b_lineage_markers.svg"), width = 20, height = 4.2)
+  save_plot_set(combined, file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.png"), file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.pdf"), file.path(cfg$plot_dir, "jia_fig_s11_style_urd_marker_validation.svg"), width = 20, height = 8.8)
 }
 
 for (i in seq_len(nrow(spec))) {
@@ -315,12 +374,13 @@ for (i in seq_len(nrow(spec))) {
   } else {
     paste(spec$lineage_pair[[i]], spec$terminal_identity[[i]], sep = "\n")
   }
-  p_gene <- tree_marker_plot(layout, cells, marker_df, gene, subtitle, cfg$point_size, show_legend = TRUE)
+  p_gene <- tree_marker_plot(layout, cells, marker_df, gene, subtitle, cfg$point_size, cfg$expression_color_floor, cfg$vmax_quantile, show_legend = TRUE)
   base <- paste0("jia_fig_s11_marker_tree_overlay_", safe_gene_filename(gene))
-  save_plot_pair(
+  save_plot_set(
     p_gene,
     file.path(cfg$plot_dir, paste0(base, ".png")),
     file.path(cfg$plot_dir, paste0(base, ".pdf")),
+    file.path(cfg$plot_dir, paste0(base, ".svg")),
     width = 6.2,
     height = 5.2
   )
@@ -335,6 +395,9 @@ report <- c(
   "- No branchpoint DE genes.",
   "- No lineage program averages.",
   "- No marker substitutions.",
+  paste0("- Expression color map: cross-study marker-expression whiteBlue logic (`#d0d0d0` background floor to `#0000ff`)."),
+  paste0("- Colorbar begins at 0; values from 0 to ", cfg$expression_color_floor, " are drawn as background grey."),
+  paste0("- Per-gene color maximum: q", cfg$vmax_quantile, " of positive expression, clipped at the maximum color."),
   "",
   "## Marker Panel",
   "",
@@ -344,6 +407,7 @@ report <- c(
   "",
   "- `plots/jia_fig_s11_style_urd_marker_validation.png`",
   "- `plots/jia_fig_s11_style_urd_marker_validation.pdf`",
+  "- `plots/jia_fig_s11_style_urd_marker_validation.svg`",
   if ("custom_marker_panel" %in% spec$panel) character() else "- `plots/jia_fig_s11_panel_a_developmental_markers.png`",
   if ("custom_marker_panel" %in% spec$panel) character() else "- `plots/jia_fig_s11_panel_b_lineage_markers.png`",
   "- `plots/jia_fig_s11_marker_tree_overlay_<GENE>.png` and `.pdf` for each individual marker, with visible logUPX colorbars",

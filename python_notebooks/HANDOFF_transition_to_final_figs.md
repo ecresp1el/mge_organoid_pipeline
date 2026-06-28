@@ -3210,6 +3210,186 @@ The marker renderer now supports optional `--genes`, `--gene-labels`, and
 `--panel-title` arguments while preserving the original Jia Fig. S11 default
 panel when those arguments are omitted.
 
+### 2026-06-28 Color Mapping / Editable Text Refresh
+
+The DIV90 URD marker overlay final-figure package was refreshed again to match
+the cross-study marker-expression PV precursor color logic:
+
+```text
+Reference color logic:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_marker_expression_pv_precursors_on_off_target_v12_candidate/figures/png/cross_study_marker_expression_pv_precursors_on_off_target.png
+
+Reference code:
+python_notebooks/src/mge_organoid_python/cross_study_marker_expression.py
+```
+
+Submitted render job:
+
+```text
+Job ID: 52461766
+Job name: div90_urd_blue_marker
+State: COMPLETED
+Exit code: 0:0
+Node: gl3030
+Elapsed: 00:00:26
+Job script:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/render_div90_urd_marker_panel_blue_floor_editable_20260628.sbatch
+```
+
+Color mapping now used for all current marker tree overlays:
+
+```text
+background / floor color: #d0d0d0
+high expression color: #0000ff
+expression color floor: logUPX <= 1 drawn as background grey
+colorbar lower bound: 0
+color scale max: per-gene q0.99 of positive expression
+values above max: clipped to max color
+```
+
+Editable text outputs were regenerated through the Slurm job. Current SVG files
+were rendered with live SVG text elements, and current PDFs were rendered as
+editable vector PDFs:
+
+```text
+figures/svg/current_jia_fig_s11_style_urd_marker_validation.svg
+figures/svg/current_div90_urd_marker_overlays_hes1_nkx21_lhx6_lhx8_crabp1_kcnc1.svg
+figures/svg/current_marker_tree_overlay_HES1.svg
+figures/svg/current_marker_tree_overlay_NKX2_1.svg
+figures/svg/current_marker_tree_overlay_LHX6.svg
+figures/svg/current_marker_tree_overlay_LHX8.svg
+figures/svg/current_marker_tree_overlay_CRABP1.svg
+figures/svg/current_marker_tree_overlay_KCNC1.svg
+```
+
+Post-job verification:
+
+```text
+current_jia_fig_s11_style_urd_marker_validation.svg: <text> tags present
+current_marker_tree_overlay_HES1.svg: <text> tags present
+logs/render_status.txt records:
+  slurm_job_id = 52461766
+  color_map = whiteBlue_gray_floor_to_blue
+  expression_color_floor = 1
+  vmax_rule = q0.99_positive_expression_per_gene
+  editable_vector_outputs = pdf,svg
+```
+
+No package installation was required for this final refresh; the submitted job
+used the existing cluster module/library setup.
+
+### 2026-06-28 Context Row Composite Refresh
+
+The DIV90 URD marker package was refreshed again to add a full context row above
+the six marker overlays. This was done through Slurm and did not recompute URD
+pseudotime, random walks, or the lineage tree.
+
+Final-figure package:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate
+
+User-facing alias:
+/Volumes/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate
+```
+
+Renderer:
+
+```text
+scripts/39_div90_urd_context_marker_composite.R
+```
+
+Submitted job:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/render_div90_urd_context_marker_composite_20260628.sbatch
+Slurm job: 52461953
+State: COMPLETED
+ExitCode: 0:0
+Node: gl3258
+Elapsed: 00:00:27
+```
+
+Source object:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1/lineage_tree_jia_endpoint_tips_v1/div30_urd_lineage_tree_object.rds
+```
+
+Composite layout:
+
+```text
+Top row:
+  1. DIV90 UMAP cluster context
+  2. Enlarged DIV90 URD lineage tree colored by cluster with cluster
+     number/name labels at the tips
+  3. DIV90 UMAP colored by pseudotime
+  4. DIV90 URD lineage tree colored by pseudotime
+
+Bottom row:
+  Hes1 | Nkx2.1 | Lhx6 | Lhx8 | Crabp1 | Kcnc1
+```
+
+Scale logic:
+
+```text
+Cluster context: categorical cluster palette from scripts/26_div90_umap_cluster_label_audit.R
+Pseudotime context: UMAP and lineage tree share identical viridis limits
+Tree orientation: all lineage trees are rotated left-to-right with tips at the right
+Marker overlays: independent per-gene q0.99 positive-expression max,
+  logUPX <= 1 drawn as #d0d0d0, expression above the floor drawn to #0000ff
+```
+
+Current packaged context composite outputs:
+
+```text
+figures/png/current_div90_urd_context_marker_composite.png
+figures/pdf/current_div90_urd_context_marker_composite.pdf
+figures/svg/current_div90_urd_context_marker_composite.svg
+
+Alias copies:
+figures/png/current_jia_fig_s11_style_urd_marker_validation_with_context.png
+figures/pdf/current_jia_fig_s11_style_urd_marker_validation_with_context.pdf
+figures/svg/current_jia_fig_s11_style_urd_marker_validation_with_context.svg
+```
+
+Verification:
+
+```text
+current_div90_urd_context_marker_composite.png: 6600 x 3300 PNG
+current_div90_urd_context_marker_composite.svg: <text> tags present
+current_div90_urd_context_marker_composite.svg: path_count = 0
+logs/context_marker_composite_render_status.tsv records:
+  output_base = context_marker_composite_v3_20260628
+  tree_orientation = left-to-right rotated tree; tips at right
+  pseudotime_scale = shared UMAP/tree limits 0 to 0.5531
+  cluster_tree_tip_labels = cluster number and wrapped cluster name labels drawn at cluster tree tips
+SVG text contains the figure title, cluster-tree tip labels, and all six marker labels.
+```
+
+Package metadata/provenance refreshed:
+
+```text
+README.md
+logs/context_marker_composite_slurm_status.txt
+logs/context_marker_composite_render_status.tsv
+tables/context_cluster_key.tsv
+tables/context_marker_gene_order.tsv
+tables/context_marker_expression_summary.tsv
+provenance/source_paths.tsv
+provenance/file_manifest.txt
+provenance/sha256_manifest.txt
+code/39_div90_urd_context_marker_composite.R
+```
+
+No package installation was required. The Slurm job reused the existing
+`R/4.5.1` module and current user library paths:
+
+```text
+/home/elcrespo/R/x86_64-pc-linux-gnu-library/4.4
+/home/elcrespo/R/x86_64-pc-linux-gnu-library/4.5
+```
+
 ## 2026-06-27 Siletti Splatter Candidate GAD Audit Pointer
 
 This audit was added after the v8/v9b/v10/v11 Siletti restricted-reference
