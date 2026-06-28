@@ -39,6 +39,16 @@ write_tsv <- function(df, path) {
   write.table(df, con, sep = "\t", quote = FALSE, row.names = FALSE, na = "")
 }
 
+row_bind_fill <- function(frames) {
+  all_cols <- unique(unlist(lapply(frames, colnames), use.names = FALSE))
+  aligned <- lapply(frames, function(frame) {
+    missing <- setdiff(all_cols, colnames(frame))
+    for (col in missing) frame[[col]] <- NA
+    frame[, all_cols, drop = FALSE]
+  })
+  do.call(rbind, aligned)
+}
+
 trim_trailing_slash <- function(x) sub("/+$", "", x)
 
 read_jia_markers <- function(path) {
@@ -270,7 +280,7 @@ main <- function() {
   gc()
   div90 <- score_dataset("DIV90", div90_rds, marker_programs, predefined_sets, assay, ctrl, nbin, seed)
 
-  obs <- rbind(div30$obs, div90$obs)
+  obs <- row_bind_fill(list(div30$obs, div90$obs))
   report <- rbind(div30$gene_report, div90$gene_report)
   write_tsv(obs, file.path(outdir, "div30_div90_maturation_scores_obs.tsv.gz"))
   write_tsv(report, file.path(outdir, "maturation_score_gene_report.tsv"))

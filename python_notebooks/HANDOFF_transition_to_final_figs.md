@@ -249,9 +249,267 @@ Slurm execution standard:
 | `fig_cross_study_marker_expression_v12` | Found, Log-audited, Modifying, Validated, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12` | First final folder created for cluster UMAP QC / DIV90 published recode outputs. Rerendered with editable Arial SVG text and 600 dpi export for rasterized UMAP layers. Other marker-expression multi-grids still pending formatting/finalization. |
 | `fig_cross_study_marker_expression_pv_precursors_on_off_target_v12` | Updated, Slurm-rendered, Validated package | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate` | 2026-06-27 revision groups PV ON-target MGE genes first as NKX2.1/LHX6/LHX8/ERBB4 with a top `MGE` span, replaces ST18 with ZEB2, removes HMX3, and refreshed marker extraction because ZEB2 was absent from the prepared v12 tables. Exported PNG/PDF/SVG at 600 dpi through Slurm job 52439584. |
 | `fig_cross_study_shi_label_transfer_v1_umap_score_grids` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1` | Plot-only rerender of Shi Seurat label-transfer UMAP score grids and matched sample-composition panels from saved v1 combined table. Updated score grids to fixed 0-1 grey-to-blue scaling, applied DIV90 visualization-only stressed-cluster 6/7 removal, applied DIV90 vertical plotting-only UMAP orientation, wrapped long all-label headers, exported requested PNG/PDF/SVG at 600 dpi through Slurm job 52371207 with editable Arial SVG text. Added sample-composition panels through Slurm job 52371553 using the same final denominator and Bershteyn 2023 shorthand sample labels. |
-| `maturation_scores` | Modified, Slurm queued | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/maturation_scores/maturation_scores_v1` | 2026-06-27 rerender now computes every displayed module with `Seurat::AddModuleScore`, removes mature-minus-immature/MGE subtraction scores, keeps only Jia RGC1/RGC2 mean, Jia IPC, immature module, and mature module, and applies the DIV90 final-figure visualization rules (exclude current clusters 6/7, flip plotted UMAP2). Corrected Slurm job 52445648 is queued; final package target remains `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/maturation_scores`. |
+| `maturation_scores` | Slurm-rendered, Plot-updated, Validated package | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/maturation_scores/maturation_scores_v1` | 2026-06-27 rerender computes every displayed module with `Seurat::AddModuleScore`, removes mature-minus-immature/MGE subtraction scores, keeps RG scores, IP scores, immature neuron score, and mature neuron score, and applies DIV90 final-figure visualization rules (exclude current clusters 6/7, flip plotted UMAP2). Corrected Slurm job 52449579 completed. Later plot-only update added cluster-number/name UMAPs as the first column of the predefined maturation grid, moved cluster labels to side legends, and changed score overlays to grey-to-blue autoscaling by each raw module-score column. Final package is `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/maturation_scores`. |
 | `fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate` | Found, Confirmed, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1` | New candidate package created for the DIV90 Jia all-cell URD marker-validation, UMAP pseudotime, and cluster-number-name tree pseudotime panels. Current assets were copied into `final_figures`; formatting should proceed by plot-only re-render from existing assets, not by recomputing URD pseudotime, the lineage tree, or marker validation. |
 | `fig_siletti_div90_restricted_mge_llc_chat_rivers_v8_no_cge_no_msn_fullref_min10_ordered` | Finalized | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chat_river_plots_v8_no_cge_no_msn_fullref_min10_ordered` | Final Siletti DIV90 restricted MGE/LLC/CHAT river figure package. v8 removes CGE, MSN, and eccentric MSN before bridge export and before unified fast-kNN transfer, keeps MGE, LAMP5-LHX6/chandelier, and Splatter-CHAT, uses all eligible adult reference cells with no reference caps, filters plotted river edges with fewer than 10 DIV90 cells, recomputes rectangles/ribbons from filtered edge tables, and computes one left DIV90 cluster order by descending Pallial/cortical fraction from the current run. Final package is in `final_figures`. |
+| `fig_siletti_div90_restricted_mge_llc_chol_gaba_rivers_v9b_no_cge_no_msn_fullref_min10_ordered_candidate` | Generated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chol_gaba_river_plots_v9b_no_cge_no_msn_fullref_min10_ordered` | v9b reruns the no-CGE/no-MSN full-reference workflow but replaces the v8 cluster-400 `NT-CHOL NT-VGLUT3` Splatter subset with only the mixed cholinergic-GABA candidate Splatter cluster 392/subcluster 1639 (`NT-CHOL NT-GABA NT-VGLUT3`, 42 reference cells, SLC5A7/LHX8/CHAT/ISL1). Packaged in `final_figures` as a candidate; 388 DIV90 cells win `Subpallial Cholinergic-GABA neurons`, but the median margin over second-best label is only 0.042, so this is a focused restricted-reference signal rather than definitive cholinergic-GABA identity. |
+| `fig_siletti_div90_restricted_mge_llc_pure_chol_rivers_v10_no_cge_no_msn_fullref_min10_ordered_candidate` | Generated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_pure_chol_river_plots_v10_no_cge_no_msn_fullref_min10_ordered` | v10 reruns the same no-CGE/no-MSN full-reference workflow using only the exact pure cholinergic Splatter row, cluster 398/subcluster 1532 (`NT-CHOL`, 137 reference cells, SLC5A7/PHOX2B/TBX20/CHAT, mostly Myelencephalon/Pons). It excludes v8 cluster-400 and v9b cluster-392 Splatter rows. 1,857 DIV90 cells win `Subpallial Pure cholinergic neurons` raw, 1,848 are visible after the min-10 fine-river edge filter; median margin is 0.141. This is pure cholinergic by neurotransmitter annotation but not MGE-like by anatomy/marker audit. |
+| `fig_siletti_div90_restricted_mge_llc_no_chol_rivers_v11_no_cge_no_msn_fullref_min10_ordered_candidate` | Generated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_no_chol_river_plots_v11_no_cge_no_msn_fullref_min10_ordered` | v11 removes all cholinergic/Splatter reference rows entirely and uses only MGE interneuron plus LAMP5-LHX6 and Chandelier. It excludes v8 cluster-400, v9b cluster-392, v10 cluster-398, all Splatter, CGE, MSN, and eccentric MSN before bridge export and transfer. Reference export: 267,552 cells total; transfer training after excluding `Other selected reference`: 249,670 cells. |
+
+## Figure: fig_siletti_div90_restricted_mge_llc_chol_gaba_rivers_v9b_no_cge_no_msn_fullref_min10_ordered_candidate
+
+### Status
+
+```text
+Generated and packaged as a final-figure candidate on 2026-06-27.
+
+This v9b run keeps the same no-CGE/no-MSN full-reference principle as v8 but
+replaces the v8 Splatter cluster-400 `NT-CHOL NT-VGLUT3` subset with only the
+mixed cholinergic-GABA candidate:
+  Splatter cluster 392, subcluster 1639
+  neurotransmitter: NT-CHOL NT-GABA NT-VGLUT3
+  reference cells: 42
+  marker evidence in workbook audit: SLC5A7, LHX8, CHAT, ISL1
+
+Because the selected reference class has only 42 adult cells and the query
+assignments have low margins, treat this as a restricted-reference nearest
+neighbor signal, not as proof that the assigned DIV90 cells are mature
+cholinergic-GABA neurons.
+```
+
+### Paths
+
+```text
+Source output:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chol_gaba_river_plots_v9b_no_cge_no_msn_fullref_min10_ordered
+
+Final-figures candidate package:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chol_gaba_rivers_v9b_no_cge_no_msn_fullref_min10_ordered_candidate
+```
+
+### Computational Scope
+
+```text
+Included adult Siletti reference:
+  MGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Splatter cluster 392/subcluster 1639 only
+
+Excluded before bridge export and transfer:
+  CGE interneuron
+  Medium spiny neuron
+  Eccentric medium spiny neuron
+  all other WHB superclusters
+  all other Splatter rows, including v8 cluster-400 NT-CHOL NT-VGLUT3 rows
+
+Excluded from transfer training:
+  Other selected reference
+
+Reference export:
+  no per-subcluster cap
+  no total reference cap
+  no query subsampling
+```
+
+### Counts and Jobs
+
+```text
+Reference after export:
+  reference_cells_total: 267,594
+  MGE interneuron: 222,434
+  LAMP5-LHX6 and Chandelier: 45,118
+  Splatter mixed cholinergic-GABA subset: 42
+
+Transfer:
+  reference_cells_used_after_excluding_other_selected_reference: 249,712
+  div90_query_cells: 16,206
+  nfeatures: 3,000
+  n_components: 50
+  k: 50
+
+Jobs:
+  52450055  siletti-final-bridge-v9b-chol-gaba    COMPLETED  00:04:35  max RSS 49965888K
+  52450056  siletti-final-transfer-v9b-chol-gaba  COMPLETED  00:07:13  max RSS 45803992K
+  52450057  siletti-final-rivers-v9b-chol-gaba    COMPLETED  00:00:33  max RSS 1253392K
+```
+
+### Output Figures and Audits
+
+```text
+Main river plots:
+  plots/river_div90_class_to_adult_pallial_subpallial_bin.png/pdf
+  plots/river_div90_class_to_adult_major_interneuron_subtypes.png/pdf
+  plots/river_div90_class_to_adult_final_fine_subtypes.png/pdf
+  plots/river_div90_class_to_adult_combined_1x3_pallial_major_fine.png/pdf
+
+Visual/accounting audits:
+  plots/audit_reference_supercluster_by_pallial_subpallial_bin.png/pdf
+  plots/audit_reference_major_subtype_by_pallial_subpallial_bin.png/pdf
+  plots/audit_reference_final_fine_subtype_by_pallial_subpallial_bin.png/pdf
+  plots/audit_div90_class_to_pallial_subpallial_counts.png/pdf
+  plots/audit_div90_class_to_major_subtype_counts.png/pdf
+  plots/audit_div90_class_to_final_fine_subtype_counts.png/pdf
+  plots/audit_transfer_score_distributions.png/pdf
+
+Filter audit:
+  pallial_subpallial: 1 edge filtered, 16,201 / 16,206 cells plotted
+  major_subtype: 10 edges filtered, 16,173 / 16,206 cells plotted
+  final_fine_subtype: 15 edges filtered, 16,161 / 16,206 cells plotted
+```
+
+### Cholinergic-GABA Result
+
+```text
+Raw DIV90 assignments to `Subpallial Cholinergic-GABA neurons`: 388
+Median prediction score: 0.262
+Median margin over second-best label: 0.042
+Calls with margin <= 0.10: 310 / 388
+
+Per-DIV90-class counts:
+  CRABP1+/PV Precursors: 103
+  LHX8+ vMGE GABergic Striatal/GP fated 1: 48
+  LHX8+ vMGE GABergic Striatal/GP fated 2: 31
+  MGE Striatal/GP Fated: 67
+  PV Precursors: 2
+  PV precursors/Migrating cells/Cortical-fated: 17
+  SST+, NPY +, Cortical Fated: 120
+
+Score audit tables:
+  tables/audit_v9b_cholinergic_gaba_assigned_score_summary.tsv
+  tables/audit_v9b_cholinergic_gaba_assigned_by_div90_class_score_summary.tsv
+  tables/audit_v9b_cholinergic_gaba_assigned_second_best_labels.tsv
+  tables/audit_v9b_cholinergic_gaba_assigned_query_score_margins.tsv.gz
+```
+
+### Exact Commands
+
+```text
+Exact Slurm commands are saved in:
+  final_figures/fig_siletti_div90_restricted_mge_llc_chol_gaba_rivers_v9b_no_cge_no_msn_fullref_min10_ordered_candidate/provenance/exact_commands_v9b.sh
+
+The scripts used are:
+  python_notebooks/scripts/export_siletti_div90_seurat_bridge.py
+  python_notebooks/scripts/siletti_div90_fast_knn_label_transfer.py
+  python_notebooks/scripts/plot_siletti_div90_final_restricted_rivers.py
+```
+
+## Figure: fig_siletti_div90_restricted_mge_llc_pure_chol_rivers_v10_no_cge_no_msn_fullref_min10_ordered_candidate
+
+### Status
+
+```text
+Generated and packaged as a final-figure candidate on 2026-06-27.
+
+This v10 run uses the same no-CGE/no-MSN full-reference workflow as v8/v9b but
+restricts Splatter to the exact pure cholinergic row:
+  Splatter cluster 398, subcluster 1532
+  neurotransmitter: NT-CHOL
+  reference cells: 137
+  top genes/audit evidence: SLC5A7, PHOX2B, TBX20, CHAT
+  top anatomy: mostly Myelencephalon/Pons
+
+This is pure cholinergic by Siletti neurotransmitter annotation, but it is not
+MGE-like by the available anatomy/marker audit.
+```
+
+### Paths
+
+```text
+Source output:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_pure_chol_river_plots_v10_no_cge_no_msn_fullref_min10_ordered
+
+Final-figures candidate package:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_pure_chol_rivers_v10_no_cge_no_msn_fullref_min10_ordered_candidate
+```
+
+### Used vs Not Used
+
+```text
+v8 used:
+  MGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Splatter cluster 400 subclusters 1634, 1635, 1636, 1637, 1638, 1640, 1641,
+  1642 (`NT-CHOL NT-VGLUT3`, 769 cells)
+  These are the workbook/Jia-style rows with `jia_side` =
+  `Subpallial inhibitory neurons` and `candidate_jia_group` =
+  `Subpallial Cholinergic neurons`. Here "inhibitory" is the authors'
+  broad subpallial-inhibitory class umbrella, not a statement that the
+  neurotransmitter annotation is GABAergic.
+v8 did not use:
+  Splatter cluster 392/subcluster 1639
+  Splatter cluster 398/subcluster 1532
+
+v9b used:
+  MGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Splatter cluster 392/subcluster 1639 (`NT-CHOL NT-GABA NT-VGLUT3`, 42 cells)
+v9b did not use:
+  v8 cluster-400 rows
+  pure cluster 398/subcluster 1532 row
+
+v10 used:
+  MGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Splatter cluster 398/subcluster 1532 (`NT-CHOL`, 137 cells)
+v10 did not use:
+  v8 cluster-400 rows
+  v9b cluster 392/subcluster 1639 row
+
+All three exclude:
+  CGE interneuron
+  Medium spiny neuron
+  Eccentric medium spiny neuron
+  all unrelated Splatter rows
+  all unrelated Siletti superclusters
+  Other selected reference from transfer training
+```
+
+### Counts and Jobs
+
+```text
+Reference after export:
+  reference_cells_total: 267,689
+  MGE interneuron: 222,434
+  LAMP5-LHX6 and Chandelier: 45,118
+  Splatter pure NT-CHOL subset: 137
+
+Transfer:
+  reference_cells_used_after_excluding_other_selected_reference: 249,807
+  div90_query_cells: 16,206
+  nfeatures: 3,000
+  n_components: 50
+  k: 50
+
+Jobs:
+  52450743  siletti-final-bridge-v10-pure-chol    COMPLETED  00:04:39  max RSS 45638584K
+  52450744  siletti-final-transfer-v10-pure-chol  COMPLETED  00:07:10  max RSS 34499624K
+  52450745  siletti-final-rivers-v10-pure-chol    COMPLETED  00:00:28  max RSS 1252568K
+```
+
+### Pure-Cholinergic Result
+
+```text
+Raw DIV90 assignments to `Subpallial Pure cholinergic neurons`: 1,857
+Plotted in final fine river after min-10 edge filter: 1,848
+Median prediction score: 0.381
+Median margin over second-best label: 0.141
+Calls with margin <= 0.10: 747 / 1,857
+
+Per-DIV90-class raw counts:
+  CRABP1+/PV Precursors: 536
+  LHX8+ vMGE GABergic Striatal/GP fated 1: 162
+  LHX8+ vMGE GABergic Striatal/GP fated 2: 138
+  MGE Striatal/GP Fated: 299
+  PV Precursors: 9
+  PV precursors/Migrating cells/Cortical-fated: 100
+  SST+, NPY +, Cortical Fated: 613
+
+Score audit tables:
+  tables/audit_v10_pure_cholinergic_assigned_score_summary.tsv
+  tables/audit_v10_pure_cholinergic_assigned_by_div90_class_score_summary.tsv
+  tables/audit_v10_pure_cholinergic_assigned_second_best_labels.tsv
+  tables/audit_v10_pure_cholinergic_assigned_query_score_margins.tsv.gz
+```
 
 ## Figure: maturation_scores
 
@@ -261,9 +519,9 @@ Slurm execution standard:
 Found: yes
 Renderer added: yes
 Slurm render: completed old Scanpy/mean-expression jobs 52441418, 52442083,
-and 52444331 on 2026-06-27; corrected Seurat AddModuleScore job 52445648 is
-queued on 2026-06-27
-Final validation: pending corrected Seurat rerender
+and 52444331 on 2026-06-27; corrected Seurat AddModuleScore job 52449579
+completed on 2026-06-27
+Final validation: passed
 ```
 
 ### Candidate Paths
@@ -324,7 +582,9 @@ Job ID:
 52441418
 52442083
 52444331
-52445648 (corrected Seurat AddModuleScore render; queued)
+52445648 (superseded pending/high-memory corrected attempt)
+52445982 (failed after scoring because DIV30/DIV90 metadata columns differed)
+52449579 (corrected Seurat AddModuleScore render; completed)
 
 Logs:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52441418.out
@@ -335,6 +595,10 @@ Logs:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52444331.err
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52445648.out
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52445648.err
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52445982.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52445982.err
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52449579.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/maturation_scores-52449579.err
 
 sacct:
 Job 52441418: State COMPLETED, ExitCode 0:0, Elapsed 00:03:00, batch MaxRSS
@@ -346,7 +610,15 @@ Job 52442083: State COMPLETED, ExitCode 0:0, Elapsed 00:03:40, batch MaxRSS
 Job 52444331: State COMPLETED, ExitCode 0:0, Elapsed 00:03:28, batch MaxRSS
 24358092K, AllocCPUS 8, ReqMem 180G.
 
-Job 52445648: pending/queued at handoff update time.
+Job 52445648: cancelled/superseded before running.
+
+Job 52445982: State FAILED, ExitCode 1:0, Elapsed 00:08:39, batch MaxRSS
+89609232K, AllocCPUS 8, ReqMem 100G. This run successfully completed Seurat
+scoring but failed when combining DIV30/DIV90 metadata frames with different
+columns.
+
+Job 52449579: State COMPLETED, ExitCode 0:0, Elapsed 00:08:45, batch MaxRSS
+75854032K, AllocCPUS 8, ReqMem 100G.
 ```
 
 ### Rerun Decision
@@ -386,6 +658,24 @@ cells.
 - Applies final-figure DIV90 visualization rules:
   current clusters 6 and 7 are removed from plotted DIV90 cells only; the
   per-cell table keeps all cells; DIV90 plotted UMAP2 is vertically flipped.
+- Added a DIV90 `cluster_number_name` reference UMAP to the maturation-score
+  final package, using the same cluster 6/7 removal and plotted UMAP2 flip.
+- Plot-only update after job 52449579:
+  - `predefined_maturation_scores_umap_grid` now uses first column cluster
+    UMAPs for DIV30 and DIV90.
+  - DIV30 cluster UMAP labels use the paper/manual cluster mapping:
+    1 - Radial glia, 2 - Inhibitory progenitors, 3 - SST+ cIN,
+    4 - PV neuron precursor, 5 - MGE subpallial neurons.
+  - DIV90 cluster UMAP labels use current `cluster_number_name`, with clusters
+    6/7 removed from the plotted row.
+  - Cluster labels are listed beside the cluster UMAPs, not overlaid on top of
+    the point clouds.
+  - Score overlays use a grey-to-blue colormap and autoscale to each raw
+    module-score column's 1st-99th percentile range across plotted DIV30 and
+    plotted DIV90 cells, protecting the display from outliers. Each score
+    column has one short shared colorbar. Raw Seurat AddModuleScore values
+    remain in the per-cell table; `tables/maturation_score_color_scaling.tsv`
+    records the percentile range used for each score column.
 - Exports PNG/PDF/SVG at 600 dpi, with rasterized point layers and editable
   SVG text settings.
 ```
@@ -398,14 +688,24 @@ Validated old outputs 2026-06-27:
 - Expanded Slurm job 52442083 completed with exit code 0.
 - Revised Slurm job 52444331 completed with exit code 0.
 
-Pending corrected-output validation after Slurm job 52445648 completes:
-- PNG/PDF/SVG outputs nonzero.
-- No `mge_maturation_score`, mature-minus-immature, or Scanpy control audit
-  tables remain in the final package.
+Validated corrected outputs 2026-06-27:
+- Slurm job 52449579 completed with exit code 0.
+- PNG/PDF/SVG outputs are nonzero.
+- No `mge_maturation_score`, mature-minus-immature, Scanpy control audit, or
+  Scanpy program-bin tables remain in the final package.
 - Compact Jia grid has two score columns: Jia RGC1/RGC2 mean and Jia IPC.
 - Predefined grid has four score columns: Jia RGC1/RGC2 mean, Jia IPC,
   immature module, and mature module.
-- DIV90 filter summary reports current cluster 6/7 removal for plotted cells.
+- DIV90 filter summary reports 22,338 total cells, 20,049 plotted cells, and
+  2,289 excluded cells from current clusters 6/7.
+- DIV90 score overlays and the DIV90 cluster reference UMAP use the same
+  plotting-only vertical UMAP2 flip as the other final-figure handoffs.
+- DIV90 cluster reference UMAP labels plotted clusters by number and
+  `cluster_number_name`: 0, 1, 2, 3, 4, 5, 8, 9, 10, 11, and 12.
+- Plot-only updated predefined grid was visually inspected after rerender:
+  first column contains DIV30 and DIV90 cluster-number/name UMAPs with side
+  legends, and score panels use one shared per-column grey-to-blue autoscaled
+  colorbar.
 ```
 
 ### Final Figure Package
@@ -425,6 +725,8 @@ tables/div30_div90_maturation_scores_obs.tsv.gz
 tables/maturation_score_gene_report.tsv
 tables/maturation_score_module_gene_sets_requested.tsv
 tables/maturation_scores_plot_filter_summary.tsv
+tables/maturation_score_color_scaling.tsv
+tables/predefined_maturation_scores_grid_cluster_label_positions.tsv
 provenance/maturation_scores_provenance.json
 ```
 
@@ -2761,9 +3063,40 @@ Splatter cholinergic/CHAT-like definition:
   Siletti Splatter cluster 400 subclusters 1634, 1635, 1636, 1637, 1638,
   1640, 1641, and 1642. In the Linnarsson/Siletti workbook these rows are
   class NEUR and neurotransmitter `NT-CHOL NT-VGLUT3`, with top enriched genes
-  including SLC5A7, CHAT, LHX8, and ISL1. They are not annotated as GABAergic
-  in the Siletti neurotransmitter field, and they were not selected by
-  NKX2-1/NKX2.1 expression.
+  including SLC5A7, CHAT, LHX8, and ISL1. The same workbook-derived mapping
+  places them under `jia_side = Subpallial inhibitory neurons` and
+  `candidate_jia_group = Subpallial Cholinergic neurons`. Therefore the
+  authors/Jia-style "subpallial inhibitory" umbrella is not equivalent to the
+  Siletti neurotransmitter field: these rows are not annotated as `NT-GABA` in
+  the Siletti neurotransmitter field, but they are still the internally named
+  subpallial-inhibitory/cholinergic group. They were not selected by
+  NKX2-1/NKX2.1 expression. Treat them as adult basal forebrain /
+  ventral-telencephalic cholinergic reference neurons; do not state that this
+  transfer proves MGE developmental origin, and do not confuse them with the
+  Siletti `MGE interneuron` supercluster.
+  A workbook-wide audit for cholinergic evidence plus LHX8/ISL1/NKX2-1 marker
+  evidence found no matching rows in the Siletti `MGE interneuron`
+  supercluster; all 14 matching subclusters were in `Splatter`. The final run
+  used the strict cluster-400 NT-CHOL/NT-VGLUT3 subset only. Splatter cluster
+  392 subcluster 1639 was a nearby excluded row with `NT-CHOL NT-GABA
+  NT-VGLUT3` and SLC5A7/LHX8/CHAT/ISL1 marker evidence.
+  A focused `NT-CHOL` plus `NT-GABA` audit found no exact `NT-CHOL NT-GABA`
+  rows without VGLUT. Allowing VGLUT co-annotation gives 2 Splatter rows
+  totaling 152 cells: cluster 377 subcluster 847 (`HDC NT-CHOL NT-GABA
+  NT-VGLUT2`, 110 cells; SLC5A7/CHAT) and cluster 392 subcluster 1639
+  (`NT-CHOL NT-GABA NT-VGLUT3`, 42 cells; SLC5A7/LHX8/CHAT/ISL1). These were
+  not included in final v8.
+  A pure `NT-CHOL` audit found exactly 1 Siletti row: Splatter cluster 398
+  subcluster 1532, 137 cells, top ROIGroupFine Myelencephalon/Pons and top
+  genes SLC5A7/PHOX2B/TBX20/CHAT. It was not LHX8/ISL1/NKX2-1-associated and
+  was not included in final v8.
+  Interpretation caveat from v7/v8 paired audit: v8 assigns 5,285 raw cells
+  to `Subpallial Cholinergic neurons` and plots 5,280 after the min-10 edge
+  filter. Only 1,359 of those were also cholinergic in v7 when MSN/eccentric
+  MSN were still available; 3,907 were `Subpallial Medium spiny neuron` in v7.
+  Thus the large v8 cholinergic flow mainly reflects what striatal/GP-like
+  DIV90 cells choose when MSN/EMSN are removed from the reference, not a
+  standalone proof that 5,280 cells are cholinergic.
 
 Excluded before bridge export and transfer:
   CGE interneuron
@@ -2864,3 +3197,79 @@ code/25_div30_urd_jia_fig_s11_marker_validation.R
 The marker renderer now supports optional `--genes`, `--gene-labels`, and
 `--panel-title` arguments while preserving the original Jia Fig. S11 default
 panel when those arguments are omitted.
+
+## 2026-06-27 Siletti Splatter Candidate GAD Audit Pointer
+
+This audit was added after the v8/v9b/v10/v11 Siletti restricted-reference
+river-plot work to check GAD1/GAD2 expression only in the Splatter candidate
+rows used for the cholinergic versions, not MSN/eccentric MSN.
+
+Output:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_splatter_candidate_chol_gad_feature_audit_v1
+```
+
+Script:
+
+```text
+python_notebooks/scripts/audit_siletti_splatter_candidate_gad_features.py
+```
+
+Main plots:
+
+```text
+plots/siletti_splatter_candidate_chol_clusters_featureplot_view_all_markers.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_GAD1.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_GAD2.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_CHAT.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_SLC5A7.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_LHX8.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_ISL1.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_marker_violins.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_gad_pct_detected.png/pdf
+```
+
+Main summary table:
+
+```text
+tables/siletti_splatter_candidate_chol_clusters_gad_feature_summary.tsv
+```
+
+Summary:
+
+```text
+v8 cluster 400: GAD1 82.7%, GAD2 35.1%, CHAT 92.5%, SLC5A7 98.3%,
+LHX8 92.3%, ISL1 85.8% detected.
+
+v9b cluster 392/subcluster 1639: GAD1 88.1%, GAD2 11.9%, CHAT 57.1%,
+SLC5A7 83.3%, LHX8 61.9%, ISL1 69.0% detected.
+
+v10 cluster 398/subcluster 1532: GAD1 6.6%, GAD2 10.2%, CHAT 72.3%,
+SLC5A7 94.9%, LHX8 0.0%, ISL1 33.6% detected.
+```
+
+Decision for final figures:
+
+```text
+Proceed with the original v8 cluster-400 approach for the Siletti
+cholinergic/MGE-like reference component.
+
+These cells show strong GABAergic features, including widespread GAD1
+expression, despite being annotated in Siletti as `NT-CHOL NT-VGLUT3`.
+Together with strong CHAT, SLC5A7, LHX8, and ISL1 detection, this supports v8
+cluster 400 as the best current final-figure choice among the tested
+cholinergic options. v9b is retained as an audit/candidate comparison only, and
+v10 should not be used as the MGE-like cholinergic reference.
+```
+
+Interpretation:
+
+```text
+The v8 cluster-400 candidate is the strongest MGE-like cholinergic candidate
+among the three by combined CHAT/SLC5A7/LHX8/ISL1 and GAD1 evidence. The v9b
+mixed cholinergic-GABA row is GAD1-positive but small and weaker. The v10 pure
+NT-CHOL row is cholinergic by CHAT/SLC5A7 but not LHX8-positive and mostly not
+GAD1/GAD2-positive, so it should not be treated as the MGE-like cholinergic
+reference.
+```

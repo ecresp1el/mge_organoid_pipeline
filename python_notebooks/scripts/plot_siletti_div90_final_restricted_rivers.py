@@ -39,6 +39,8 @@ MAJOR_SUBTYPE_ORDER = [
     "Subpallial Medium spiny neuron",
     "Subpallial Eccentric medium spiny neuron",
     "Subpallial Cholinergic neurons",
+    "Subpallial Cholinergic-GABA neurons",
+    "Subpallial Pure cholinergic neurons",
 ]
 FINE_SUBTYPE_ORDER = [
     "Cortical PV+ basket neurons",
@@ -62,6 +64,8 @@ FINE_SUBTYPE_ORDER = [
     "Subpallial Chandelier",
     "Subpallial Medium spiny neuron",
     "Subpallial Eccentric medium spiny neuron",
+    "Subpallial Cholinergic-GABA neurons",
+    "Subpallial Pure cholinergic neurons",
 ]
 OTHER_SELECTED_REFERENCE = "Other selected reference"
 DIV90_LEFT_ORDER_BY_PALLIAL_PROP = [
@@ -105,6 +109,9 @@ PALETTE.update(
         "Pallial/cortical Medium spiny neuron": "#c7a76c",
         "Subpallial Medium spiny neuron": "#8c6d31",
         "Subpallial Eccentric medium spiny neuron": "#ad494a",
+        "Subpallial Cholinergic neurons": "#f28e2b",
+        "Subpallial Cholinergic-GABA neurons": "#d37295",
+        "Subpallial Pure cholinergic neurons": "#c07c31",
     }
 )
 
@@ -772,10 +779,17 @@ def main() -> None:
         ],
     }
     (tables_dir / "plot_config.json").write_text(json.dumps(config, indent=2, sort_keys=True) + "\n")
+    transfer_labels = sorted(
+        str(label)
+        for label in ref.loc[~ref["unified_leaf_subtype"].eq(OTHER_SELECTED_REFERENCE), "unified_leaf_subtype"].dropna().unique()
+    )
     (reports_dir / "README_final_candidate_restricted_rivers.md").write_text(
-        "# Final Restricted Siletti River Plots v8\n\n"
+        "# Restricted Siletti River Plots\n\n"
         "Reference scope: MGE interneuron, LAMP5-LHX6/chandelier, and Splatter "
-        "restricted to subpallial cholinergic/CHAT-like interneuron rows.\n\n"
+        "restricted to the cholinergic/CHAT-like rows selected by the bridge "
+        "run. The exact Splatter cluster/subcluster rule is recorded in the "
+        "bridge `tables/siletti_div90_seurat_bridge_config.json` and "
+        "`tables/siletti_reference_scope_and_subsampling_audit.tsv`.\n\n"
         "Excluded before bridge export and before transfer: CGE interneuron, "
         "medium spiny neuron, eccentric medium spiny neuron, all other WHB "
         "superclusters, and non-CHAT/non-cholinergic Splatter rows. `Other "
@@ -788,11 +802,11 @@ def main() -> None:
         "adult MGE/LAMP5-LHX6/chandelier interneurons are Pallial/cortical "
         "because they are sampled from CerebralCortex or Hippocampus. "
         "Splatter-CHAT/cholinergic rows are mostly Subpallial.\n\n"
-        "Fine subtype options in this run: cortical PV basket, cortical PV "
-        "chandelier, cortical SST LRP, cortical SST Mt, cortical SST nMt, "
-        "subpallial PV, subpallial SST LRP, subpallial SST, subpallial "
-        "cholinergic. Cortical PV+ Chandelier neurons are present in the adult "
-        "reference; labels with zero DIV90 assignments are recorded in "
+        "Fine subtype options in this run:\n\n"
+        + "\n".join(f"- `{label}`" for label in transfer_labels)
+        + "\n\n"
+        "Cortical PV+ Chandelier neurons are present in the adult "
+        "reference when listed above; labels with zero DIV90 assignments are recorded in "
         "`tables/audit_reference_labels_with_zero_query_assignments.tsv` rather "
         "than drawn as zero-count river targets.\n\n"
         "Transfer method: one unified fast-kNN transfer of `unified_leaf_subtype` "

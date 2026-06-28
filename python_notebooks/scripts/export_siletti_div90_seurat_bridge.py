@@ -52,6 +52,8 @@ SCOPES = {
     "all_superclusters": ALL_SUPERCLUSTERS,
     "mge_llc": ("MGE interneuron", "LAMP5-LHX6 and Chandelier"),
     "mge_llc_cholinergic": ("MGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
+    "mge_llc_cholinergic_gaba": ("MGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
+    "mge_llc_cholinergic_pure": ("MGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
     "mge_cge_llc": ("MGE interneuron", "CGE interneuron", "LAMP5-LHX6 and Chandelier"),
     "mge_cge_llc_cholinergic": ("MGE interneuron", "CGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
     "mge_cge_llc_splatter": ("MGE interneuron", "CGE interneuron", "LAMP5-LHX6 and Chandelier", "Splatter"),
@@ -80,6 +82,12 @@ H5AD_BY_SUPERCLUSTER = {
 CHOLINERGIC_SPLATTER_CLUSTER_ID = "400"
 CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS = {"1634", "1635", "1636", "1637", "1638", "1640", "1641", "1642"}
 CHOLINERGIC_JIA_GROUP = "Subpallial Cholinergic neurons"
+CHOLINERGIC_GABA_SPLATTER_CLUSTER_ID = "392"
+CHOLINERGIC_GABA_SPLATTER_SUBCLUSTER_IDS = {"1639"}
+CHOLINERGIC_GABA_GROUP = "Subpallial Cholinergic-GABA neurons"
+PURE_CHOLINERGIC_SPLATTER_CLUSTER_ID = "398"
+PURE_CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS = {"1532"}
+PURE_CHOLINERGIC_GROUP = "Subpallial Pure cholinergic neurons"
 PALLIAL_ROI_GROUPS = {"CerebralCortex", "Hippocampus"}
 INTERNEURON_MTG_LABELS = {"Pvalb", "Sst", "Vip", "Lamp5", "Sncg", "Pax6", "Lamp5 Lhx6", "Chandelier"}
 JIA_FINE_SUBTYPE_LABELS = {
@@ -92,6 +100,8 @@ JIA_FINE_SUBTYPE_LABELS = {
     "Subpallial SST+ neurons",
     "Subpallial PV+ neurons",
     CHOLINERGIC_JIA_GROUP,
+    CHOLINERGIC_GABA_GROUP,
+    PURE_CHOLINERGIC_GROUP,
 }
 OTHER_SELECTED_REFERENCE = "Other selected reference"
 
@@ -183,6 +193,8 @@ def major_interneuron_subtype(meta: pd.DataFrame) -> pd.Series:
     label.loc[source.eq("Medium spiny neuron")] = "Medium spiny neuron"
     label.loc[source.eq("Eccentric medium spiny neuron")] = "Eccentric medium spiny neuron"
     label.loc[candidate.eq(CHOLINERGIC_JIA_GROUP)] = "Subpallial Cholinergic neurons"
+    label.loc[is_cholinergic_gaba_splatter(meta)] = CHOLINERGIC_GABA_GROUP
+    label.loc[is_pure_cholinergic_splatter(meta)] = PURE_CHOLINERGIC_GROUP
     return label
 
 
@@ -210,6 +222,8 @@ def final_fine_subtype(meta: pd.DataFrame) -> pd.Series:
     label.loc[is_emsn] = roi_bin.loc[is_emsn] + " Eccentric medium spiny neuron"
 
     label.loc[candidate.eq(CHOLINERGIC_JIA_GROUP)] = CHOLINERGIC_JIA_GROUP
+    label.loc[is_cholinergic_gaba_splatter(meta)] = CHOLINERGIC_GABA_GROUP
+    label.loc[is_pure_cholinergic_splatter(meta)] = PURE_CHOLINERGIC_GROUP
     return label
 
 
@@ -232,6 +246,8 @@ def unified_major_from_leaf(leaf: pd.Series) -> pd.Series:
         (leaf.eq("Subpallial PV+ neurons"), "Subpallial Pvalb"),
         (leaf.isin(["Subpallial SST+ LRP neurons", "Subpallial SST+ neurons"]), "Subpallial Sst"),
         (leaf.eq(CHOLINERGIC_JIA_GROUP), "Subpallial Cholinergic neurons"),
+        (leaf.eq(CHOLINERGIC_GABA_GROUP), CHOLINERGIC_GABA_GROUP),
+        (leaf.eq(PURE_CHOLINERGIC_GROUP), PURE_CHOLINERGIC_GROUP),
         (leaf.eq("Pallial/cortical Medium spiny neuron"), "Pallial/cortical Medium spiny neuron"),
         (leaf.eq("Subpallial Medium spiny neuron"), "Subpallial Medium spiny neuron"),
         (leaf.eq("Subpallial Eccentric medium spiny neuron"), "Subpallial Eccentric medium spiny neuron"),
@@ -249,6 +265,22 @@ def unified_bin_from_leaf(leaf: pd.Series) -> pd.Series:
     label.loc[leaf.str.startswith(("Cortical ", "Pallial/cortical "))] = "Pallial/cortical"
     label.loc[leaf.str.startswith("Subpallial ")] = "Subpallial"
     return label
+
+
+def is_cholinergic_gaba_splatter(meta: pd.DataFrame) -> pd.Series:
+    return (
+        meta["source_supercluster"].astype(str).eq("Splatter")
+        & meta["cluster_id"].astype(str).eq(CHOLINERGIC_GABA_SPLATTER_CLUSTER_ID)
+        & meta["subcluster_id"].astype(str).isin(CHOLINERGIC_GABA_SPLATTER_SUBCLUSTER_IDS)
+    )
+
+
+def is_pure_cholinergic_splatter(meta: pd.DataFrame) -> pd.Series:
+    return (
+        meta["source_supercluster"].astype(str).eq("Splatter")
+        & meta["cluster_id"].astype(str).eq(PURE_CHOLINERGIC_SPLATTER_CLUSTER_ID)
+        & meta["subcluster_id"].astype(str).isin(PURE_CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS)
+    )
 
 
 def load_reference_metadata_and_indices(
@@ -287,6 +319,12 @@ def load_reference_metadata_and_indices(
     meta["transferred_mtg_label"] = meta["Transferred MTG Label (Transferred from cluster level)"].fillna("unlabeled_or_na").astype(str)
     meta["candidate_jia_group"] = meta["candidate_jia_group"].fillna("unassigned_jia_group").astype(str)
     meta["best_fetal_pair"] = meta["best_fetal_pair"].fillna("No fetal marker-pair hit").astype(str)
+    chol_gaba_annotation_mask = is_cholinergic_gaba_splatter(meta)
+    meta.loc[chol_gaba_annotation_mask, "candidate_jia_group"] = CHOLINERGIC_GABA_GROUP
+    meta.loc[chol_gaba_annotation_mask, "jia_side"] = "Subpallial"
+    pure_chol_annotation_mask = is_pure_cholinergic_splatter(meta)
+    meta.loc[pure_chol_annotation_mask, "candidate_jia_group"] = PURE_CHOLINERGIC_GROUP
+    meta.loc[pure_chol_annotation_mask, "jia_side"] = "Subpallial"
     meta["roi_pallial_subpallial_bin"] = ctx_hippocampus_vs_rest_bin(meta["primary_roi_group"])
     meta["source_supercluster_roi_bin"] = meta["source_supercluster"].astype(str) + " | " + meta["roi_pallial_subpallial_bin"].astype(str)
     meta["major_interneuron_subtype"] = major_interneuron_subtype(meta)
@@ -307,7 +345,49 @@ def load_reference_metadata_and_indices(
             }
         )
 
-    if scope.endswith("_cholinergic"):
+    if scope.endswith("_cholinergic_gaba"):
+        is_splatter = meta["source_supercluster"].eq("Splatter")
+        chol_gaba_mask = is_cholinergic_gaba_splatter(meta)
+        keep = (~is_splatter) | chol_gaba_mask
+        scope_audit.append(
+            {
+                "stage": "splatter_cholinergic_gaba_filter",
+                "source_supercluster": "Splatter",
+                "candidate_jia_group": CHOLINERGIC_GABA_GROUP,
+                "n_cells": int(chol_gaba_mask.sum()),
+            }
+        )
+        scope_audit.append(
+            {
+                "stage": "splatter_excluded_by_scope_filter",
+                "source_supercluster": "Splatter",
+                "candidate_jia_group": "non_cholinergic_gaba_or_not_cluster_392_subcluster_1639",
+                "n_cells": int((is_splatter & ~chol_gaba_mask).sum()),
+            }
+        )
+        meta = meta.loc[keep].copy()
+    elif scope.endswith("_cholinergic_pure"):
+        is_splatter = meta["source_supercluster"].eq("Splatter")
+        pure_chol_mask = is_pure_cholinergic_splatter(meta)
+        keep = (~is_splatter) | pure_chol_mask
+        scope_audit.append(
+            {
+                "stage": "splatter_pure_cholinergic_filter",
+                "source_supercluster": "Splatter",
+                "candidate_jia_group": PURE_CHOLINERGIC_GROUP,
+                "n_cells": int(pure_chol_mask.sum()),
+            }
+        )
+        scope_audit.append(
+            {
+                "stage": "splatter_excluded_by_scope_filter",
+                "source_supercluster": "Splatter",
+                "candidate_jia_group": "non_pure_cholinergic_or_not_cluster_398_subcluster_1532",
+                "n_cells": int((is_splatter & ~pure_chol_mask).sum()),
+            }
+        )
+        meta = meta.loc[keep].copy()
+    elif scope.endswith("_cholinergic"):
         is_splatter = meta["source_supercluster"].eq("Splatter")
         is_cholinergic_splatter = (
             is_splatter
@@ -490,6 +570,12 @@ def main() -> None:
         "cholinergic_splatter_cluster_id": CHOLINERGIC_SPLATTER_CLUSTER_ID if args.scope.endswith("_cholinergic") else None,
         "cholinergic_splatter_subcluster_ids": sorted(CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS) if args.scope.endswith("_cholinergic") else None,
         "cholinergic_jia_group": CHOLINERGIC_JIA_GROUP if args.scope.endswith("_cholinergic") else None,
+        "cholinergic_gaba_splatter_cluster_id": CHOLINERGIC_GABA_SPLATTER_CLUSTER_ID if args.scope.endswith("_cholinergic_gaba") else None,
+        "cholinergic_gaba_splatter_subcluster_ids": sorted(CHOLINERGIC_GABA_SPLATTER_SUBCLUSTER_IDS) if args.scope.endswith("_cholinergic_gaba") else None,
+        "cholinergic_gaba_group": CHOLINERGIC_GABA_GROUP if args.scope.endswith("_cholinergic_gaba") else None,
+        "pure_cholinergic_splatter_cluster_id": PURE_CHOLINERGIC_SPLATTER_CLUSTER_ID if args.scope.endswith("_cholinergic_pure") else None,
+        "pure_cholinergic_splatter_subcluster_ids": sorted(PURE_CHOLINERGIC_SPLATTER_SUBCLUSTER_IDS) if args.scope.endswith("_cholinergic_pure") else None,
+        "pure_cholinergic_group": PURE_CHOLINERGIC_GROUP if args.scope.endswith("_cholinergic_pure") else None,
         "roi_pallial_subpallial_rule": "CerebralCortex or Hippocampus -> Pallial/cortical; all other primary_roi_group values -> Subpallial",
         "max_ref_cells_per_subcluster": args.max_ref_cells_per_subcluster,
         "max_ref_cells_total": args.max_ref_cells_total,

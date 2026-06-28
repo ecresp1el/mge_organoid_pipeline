@@ -2189,11 +2189,85 @@ Final v8 computational workflow:
     cluster 400 subclusters 1634, 1635, 1636, 1637, 1638, 1640, 1641, and
     1642. In the Linnarsson/Siletti workbook these subclusters are annotated
     as class NEUR and neurotransmitter `NT-CHOL NT-VGLUT3`, with top enriched
-    genes including SLC5A7, CHAT, LHX8, and ISL1. They are therefore treated
-    here as adult subpallial cholinergic/VGLUT3 reference neurons, not as
-    GABAergic neurons. They were not selected by NKX2-1/NKX2.1 expression, and
+    genes including SLC5A7, CHAT, LHX8, and ISL1. The same workbook-derived
+    mapping calls these rows `jia_side = Subpallial inhibitory neurons` and
+    `candidate_jia_group = Subpallial Cholinergic neurons`. Therefore, in this
+    specific workbook context, "subpallial inhibitory neurons" is the broad
+    authors/Jia-style subpallial-inhibitory class umbrella and does not require
+    the Siletti neurotransmitter field to be `NT-GABA`. These cluster-400 rows
+    are not `NT-GABA`; they are `NT-CHOL NT-VGLUT3`. They are therefore treated
+    here as adult subpallial cholinergic/VGLUT3 reference neurons within the
+    authors' subpallial-inhibitory umbrella. They were not selected by
+    NKX2-1/NKX2.1 expression, and
     NKX2-1 was not among the top enriched genes listed for these selected
-    subclusters in the workbook annotation checked here.
+    subclusters in the workbook annotation checked here. The adult annotation
+    is consistent with basal forebrain / ventral telencephalic cholinergic
+    identity and may be discussed as MGE-lineage-associated only with caution;
+    this run does not prove developmental origin, and these cells are not part
+    of the Siletti `MGE interneuron` supercluster.
+  Cholinergic/MGE-marker audit:
+    A workbook-wide audit across all 3,313 Siletti subclusters searched for
+    cholinergic evidence (`Neurotransmitter` containing CHOL or top enriched
+    CHAT/SLC5A7) plus MGE/ventral marker evidence (top enriched LHX8, ISL1, or
+    NKX2-1). This found 14 subclusters and all were in `Splatter`; none were in
+    the Siletti `MGE interneuron` supercluster. The final v8 run included the
+    8 strict cluster-400 NT-CHOL/NT-VGLUT3 subclusters. A nearby but excluded
+    row was Splatter cluster 392 subcluster 1639 (`NT-CHOL NT-GABA NT-VGLUT3`,
+    42 cells; top genes include SLC5A7/LHX8/CHAT/ISL1).
+    Audit tables:
+      final_figures/.../tables/audit_all_siletti_cholinergic_evidence_subclusters.tsv
+      final_figures/.../tables/audit_all_siletti_cholinergic_mge_marker_associated_subclusters.tsv
+  NT-CHOL/NT-GABA audit:
+    Exact `NT-CHOL NT-GABA` rows without a VGLUT label: 0 subclusters, 0 cells.
+    Rows containing both `NT-CHOL` and `NT-GABA` with any VGLUT co-annotation:
+      2 subclusters, 152 cells, both in `Splatter`.
+      Subcluster 847, cluster 377: `HDC NT-CHOL NT-GABA NT-VGLUT2`, 110 cells,
+        top genes include SLC5A7 and CHAT but not LHX8/ISL1/NKX2-1.
+      Subcluster 1639, cluster 392: `NT-CHOL NT-GABA NT-VGLUT3`, 42 cells,
+        top genes include SLC5A7, LHX8, CHAT, and ISL1.
+    The final v8 run did not include these rows because its Splatter rule was
+    the stricter cluster-400 `NT-CHOL NT-VGLUT3` cholinergic subset.
+    Audit tables:
+      final_figures/.../tables/audit_all_siletti_nt_chol_nt_gaba_any_vglut_subclusters.tsv
+      final_figures/.../tables/audit_all_siletti_nt_chol_nt_gaba_no_vglut_subclusters.tsv
+      final_figures/.../tables/audit_all_siletti_nt_chol_nt_gaba_mge_marker_subclusters.tsv
+  Pure NT-CHOL audit:
+    Exact `NT-CHOL` only rows: 1 subcluster, 137 cells, in `Splatter`.
+      Subcluster 1532, cluster 398: `NT-CHOL`, class NEUR, top ROIGroupFine
+        Myelencephalon 88.3% and Pons 10.9%, top genes include SLC5A7,
+        PHOX2B, TBX20, and CHAT.
+    This pure NT-CHOL row is not LHX8/ISL1/NKX2-1 marker-associated by the
+    top-gene audit and was not included in final v8. Exact `NT-CHOL` only rows
+    with CHAT/SLC5A7 plus LHX8/ISL1/NKX2-1 evidence: 0 subclusters, 0 cells.
+    Audit tables:
+      final_figures/.../tables/audit_all_siletti_exact_nt_chol_only_subclusters.tsv
+      final_figures/.../tables/audit_all_siletti_any_nt_chol_subclusters.tsv
+      final_figures/.../tables/audit_all_siletti_exact_nt_chol_only_mge_marker_subclusters.tsv
+  V8 cholinergic-call interpretation audit:
+    The final v8 no-CGE/no-MSN run assigns 5,285 raw DIV90 cells to
+    `Subpallial Cholinergic neurons`; 5,280 are visible in the plotted river
+    after the <10-cell edge filter removes one 5-cell PV-precursor edge.
+    This should not be interpreted as 5,285 definitive cholinergic DIV90 cells.
+    In a paired cell-level comparison against v7, which used the same no-CGE
+    full-reference principle but kept MSN/eccentric MSN available, only 1,359
+    of the v8 cholinergic-assigned cells were also cholinergic in v7. Most
+    v8 cholinergic calls, 3,907/5,285, were `Subpallial Medium spiny neuron`
+    in v7 and became cholinergic only after MSN was removed from the reference.
+    Therefore v8 is best read as: among the restricted MGE/LLC/CHAT-only
+    adult reference choices, many DIV90 striatal/GP-like cells are nearest to
+    the basal-forebrain cholinergic/VGLUT3 Splatter reference. It is not by
+    itself proof of cholinergic identity.
+    Score audit:
+      median v8 cholinergic prediction score: 0.500
+      median v8 cholinergic margin over second label: 0.242
+      1,169/5,285 v8 cholinergic calls have margin <=0.10.
+    Audit tables:
+      final_figures/.../tables/audit_v8_cholinergic_assigned_by_div90_class_score_summary.tsv
+      final_figures/.../tables/audit_v8_cholinergic_assigned_second_best_labels.tsv
+      final_figures/.../tables/audit_v8_cholinergic_assigned_query_score_margins.tsv.gz
+      final_figures/.../tables/audit_v7_to_v8_cell_level_label_transitions.tsv.gz
+      final_figures/.../tables/audit_v8_cholinergic_by_div90_class_and_v7_label.tsv
+      final_figures/.../tables/audit_v7_vs_v8_final_fine_subtype_counts_delta.tsv
   Reference cells used for transfer:
     250,439 after excluding `Other selected reference`
   DIV90 query cells:
@@ -2303,6 +2377,322 @@ Soft-score/non-winner audit:
   not a robust alternate chandelier assignment.
 ```
 
+### V9b Mixed Cholinergic-GABA Replacement Run
+
+```text
+Date logged: 2026-06-27
+
+Purpose:
+  Replace the v8 cluster-400 `NT-CHOL NT-VGLUT3` Splatter subset with the
+  narrower mixed cholinergic-GABA candidate that is more relevant to the user's
+  MGE/cholinergic question:
+    Splatter cluster 392, subcluster 1639
+    Neurotransmitter: NT-CHOL NT-GABA NT-VGLUT3
+    Reference cells: 42
+    Workbook marker evidence: SLC5A7, LHX8, CHAT, ISL1
+
+Status:
+  Generated and packaged as a final-figure candidate.
+
+Source output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chol_gaba_river_plots_v9b_no_cge_no_msn_fullref_min10_ordered
+
+Final-figures candidate package:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_chol_gaba_rivers_v9b_no_cge_no_msn_fullref_min10_ordered_candidate
+
+Reference scope:
+  Included:
+    MGE interneuron
+    LAMP5-LHX6 and Chandelier
+    Splatter cluster 392/subcluster 1639 only
+  Excluded before bridge export and transfer:
+    CGE interneuron
+    Medium spiny neuron
+    Eccentric medium spiny neuron
+    all other WHB superclusters
+    all other Splatter rows, including the v8 cluster-400 NT-CHOL NT-VGLUT3
+    cholinergic/VGLUT3 subset
+  Excluded from transfer training:
+    Other selected reference
+
+Reference export:
+  No per-subcluster reference cap.
+  No total reference cap.
+  No query subsampling.
+  reference_cells_total: 267,594
+    MGE interneuron: 222,434
+    LAMP5-LHX6 and Chandelier: 45,118
+    Splatter mixed cholinergic-GABA candidate: 42
+
+Transfer:
+  label column: unified_leaf_subtype
+  reference_cells_used_after_excluding_other_selected_reference: 249,712
+  div90_query_cells: 16,206
+  nfeatures: 3,000
+  n_components: 50
+  k: 50
+  workflow:
+    shared unique genes -> library-size normalize to 10,000 counts/cell ->
+    log1p -> top 3,000 variable genes -> TruncatedSVD with 50 components ->
+    cosine kNN with k = 50 -> normalized cosine-similarity weighted vote.
+
+Derived plotting labels:
+  unified_major_subtype_roi
+  unified_pallial_subpallial_bin
+
+Plot rule:
+  Draw only river edges with at least 10 DIV90 cells; retain full edge tables
+  for accounting.
+
+Filter audit:
+  pallial_subpallial: 1 edge filtered, 16,201 / 16,206 cells plotted
+  major_subtype: 10 edges filtered, 16,173 / 16,206 cells plotted
+  final_fine_subtype: 15 edges filtered, 16,161 / 16,206 cells plotted
+
+Jobs:
+  52450055  siletti-final-bridge-v9b-chol-gaba    COMPLETED  00:04:35  max RSS 49965888K
+  52450056  siletti-final-transfer-v9b-chol-gaba  COMPLETED  00:07:13  max RSS 45803992K
+  52450057  siletti-final-rivers-v9b-chol-gaba    COMPLETED  00:00:33  max RSS 1253392K
+
+Exact Slurm commands:
+  final_figures/fig_siletti_div90_restricted_mge_llc_chol_gaba_rivers_v9b_no_cge_no_msn_fullref_min10_ordered_candidate/provenance/exact_commands_v9b.sh
+```
+
+V9b assignment result:
+
+```text
+Raw DIV90 assignments to `Subpallial Cholinergic-GABA neurons`: 388
+Median prediction score: 0.262
+Median margin over second-best label: 0.042
+Calls with margin <= 0.10: 310 / 388
+
+Counts by DIV90 broad class:
+  CRABP1+/PV Precursors: 103
+  LHX8+ vMGE GABergic Striatal/GP fated 1: 48
+  LHX8+ vMGE GABergic Striatal/GP fated 2: 31
+  MGE Striatal/GP Fated: 67
+  PV Precursors: 2
+  PV precursors/Migrating cells/Cortical-fated: 17
+  SST+, NPY +, Cortical Fated: 120
+```
+
+V9b interpretation caveat:
+
+```text
+The v9b mixed cholinergic-GABA class has only 42 adult Siletti reference cells,
+and the 388 assigned DIV90 cells have low score margins. Therefore v9b should
+be read as a restricted-reference nearest-neighbor result against the best
+available mixed CHOL/GABA Splatter candidate, not as definitive proof that the
+388 query cells are mature cholinergic-GABA neurons.
+
+This is more biologically targeted than v8 for the user's MGE/cholinergic
+question because it uses the `NT-CHOL NT-GABA NT-VGLUT3` row with LHX8/ISL1
+evidence instead of the larger cluster-400 `NT-CHOL NT-VGLUT3` rows. However,
+the row remains in Siletti `Splatter`, not in the Siletti `MGE interneuron`
+supercluster.
+
+Score audit tables in the v9b package:
+  tables/audit_v9b_cholinergic_gaba_assigned_score_summary.tsv
+  tables/audit_v9b_cholinergic_gaba_assigned_by_div90_class_score_summary.tsv
+  tables/audit_v9b_cholinergic_gaba_assigned_second_best_labels.tsv
+  tables/audit_v9b_cholinergic_gaba_assigned_query_score_margins.tsv.gz
+```
+
+### V10 Pure-Cholinergic Replacement Run
+
+```text
+Date logged: 2026-06-27
+
+Purpose:
+  Run the same no-CGE/no-MSN full-reference workflow using the exact pure
+  cholinergic Siletti Splatter row:
+    Splatter cluster 398, subcluster 1532
+    Neurotransmitter: NT-CHOL
+    Reference cells: 137
+    Workbook/audit marker evidence: SLC5A7, PHOX2B, TBX20, CHAT
+    Anatomy/audit evidence: mostly Myelencephalon/Pons
+
+Status:
+  Generated and packaged as a final-figure candidate.
+
+Source output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_pure_chol_river_plots_v10_no_cge_no_msn_fullref_min10_ordered
+
+Final-figures candidate package:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_pure_chol_rivers_v10_no_cge_no_msn_fullref_min10_ordered_candidate
+```
+
+Used vs not used across the last three cholinergic versions:
+
+```text
+v8 used:
+  MGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Splatter cluster 400 subclusters 1634, 1635, 1636, 1637, 1638, 1640, 1641,
+  1642 (`NT-CHOL NT-VGLUT3`, 769 cells)
+  These cluster-400 rows are the internally named `jia_side = Subpallial
+  inhibitory neurons` / `candidate_jia_group = Subpallial Cholinergic neurons`
+  rows. "Subpallial inhibitory" here is an authors/Jia-style class umbrella,
+  not a synonym for `NT-GABA`.
+v8 did not use:
+  Splatter cluster 392/subcluster 1639
+  Splatter cluster 398/subcluster 1532
+
+v9b used:
+  MGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Splatter cluster 392/subcluster 1639 (`NT-CHOL NT-GABA NT-VGLUT3`, 42 cells)
+v9b did not use:
+  v8 cluster-400 rows
+  pure cluster 398/subcluster 1532 row
+
+v10 used:
+  MGE interneuron
+  LAMP5-LHX6 and Chandelier
+  Splatter cluster 398/subcluster 1532 (`NT-CHOL`, 137 cells)
+v10 did not use:
+  v8 cluster-400 rows
+  v9b cluster 392/subcluster 1639 row
+
+All three exclude:
+  CGE interneuron
+  Medium spiny neuron
+  Eccentric medium spiny neuron
+  all unrelated Splatter rows
+  all unrelated Siletti superclusters
+  Other selected reference from transfer training
+```
+
+V10 computational details:
+
+```text
+Reference export:
+  No per-subcluster reference cap.
+  No total reference cap.
+  No query subsampling.
+  reference_cells_total: 267,689
+    MGE interneuron: 222,434
+    LAMP5-LHX6 and Chandelier: 45,118
+    Splatter pure NT-CHOL subset: 137
+
+Transfer:
+  label column: unified_leaf_subtype
+  reference_cells_used_after_excluding_other_selected_reference: 249,807
+  div90_query_cells: 16,206
+  nfeatures: 3,000
+  n_components: 50
+  k: 50
+  workflow:
+    shared unique genes -> library-size normalize to 10,000 counts/cell ->
+    log1p -> top 3,000 variable genes -> TruncatedSVD with 50 components ->
+    cosine kNN with k = 50 -> normalized cosine-similarity weighted vote.
+
+Filter audit:
+  pallial_subpallial: 0 edges filtered, 16,206 / 16,206 cells plotted
+  major_subtype: 10 edges filtered, 16,170 / 16,206 cells plotted
+  final_fine_subtype: 14 edges filtered, 16,164 / 16,206 cells plotted
+
+Jobs:
+  52450743  siletti-final-bridge-v10-pure-chol    COMPLETED  00:04:39  max RSS 45638584K
+  52450744  siletti-final-transfer-v10-pure-chol  COMPLETED  00:07:10  max RSS 34499624K
+  52450745  siletti-final-rivers-v10-pure-chol    COMPLETED  00:00:28  max RSS 1252568K
+```
+
+V10 assignment result:
+
+```text
+Raw DIV90 assignments to `Subpallial Pure cholinergic neurons`: 1,857
+Plotted in final fine river after min-10 edge filter: 1,848
+Median prediction score: 0.381
+Median margin over second-best label: 0.141
+Calls with margin <= 0.10: 747 / 1,857
+
+Counts by DIV90 broad class:
+  CRABP1+/PV Precursors: 536
+  LHX8+ vMGE GABergic Striatal/GP fated 1: 162
+  LHX8+ vMGE GABergic Striatal/GP fated 2: 138
+  MGE Striatal/GP Fated: 299
+  PV Precursors: 9
+  PV precursors/Migrating cells/Cortical-fated: 100
+  SST+, NPY +, Cortical Fated: 613
+```
+
+V10 interpretation caveat:
+
+```text
+The pure `NT-CHOL` row is not MGE-derived by the current evidence. It is in the
+Siletti `Splatter` supercluster, with Myelencephalon/Pons anatomy and
+PHOX2B/TBX20 marker evidence. Therefore v10 asks whether DIV90 cells are close
+to an exact pure cholinergic adult row under the restricted reference, but it
+should not be used to claim MGE cholinergic identity.
+
+Score audit tables in the v10 package:
+  tables/audit_v10_pure_cholinergic_assigned_score_summary.tsv
+  tables/audit_v10_pure_cholinergic_assigned_by_div90_class_score_summary.tsv
+  tables/audit_v10_pure_cholinergic_assigned_second_best_labels.tsv
+  tables/audit_v10_pure_cholinergic_assigned_query_score_margins.tsv.gz
+```
+
+### V11 No-Cholinergic Reference Run
+
+```text
+Date logged: 2026-06-27
+
+Purpose:
+  Remove all cholinergic/Splatter reference choices entirely and rerun the same
+  no-CGE/no-MSN full-reference workflow with only:
+    MGE interneuron
+    LAMP5-LHX6 and Chandelier
+
+Status:
+  Generated and packaged as a final-figure candidate.
+
+Source output:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_no_chol_river_plots_v11_no_cge_no_msn_fullref_min10_ordered
+
+Final-figures candidate package:
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_siletti_div90_restricted_mge_llc_no_chol_rivers_v11_no_cge_no_msn_fullref_min10_ordered_candidate
+
+Included reference:
+  MGE interneuron: 222,434 cells
+  LAMP5-LHX6 and Chandelier: 45,118 cells
+
+Excluded before bridge export and transfer:
+  all Splatter rows
+  all cholinergic rows, including:
+    v8 cluster 400 NT-CHOL NT-VGLUT3 rows
+    v9b cluster 392/subcluster 1639 NT-CHOL NT-GABA NT-VGLUT3 row
+    v10 cluster 398/subcluster 1532 pure NT-CHOL row
+  CGE interneuron
+  Medium spiny neuron
+  Eccentric medium spiny neuron
+  all other WHB superclusters
+
+Reference export:
+  No per-subcluster reference cap.
+  No total reference cap.
+  No query subsampling.
+  reference_cells_total: 267,552
+
+Transfer:
+  label column: unified_leaf_subtype
+  reference_cells_used_after_excluding_other_selected_reference: 249,670
+  div90_query_cells: 16,206
+  nfeatures: 3,000
+  n_components: 50
+  k: 50
+
+Jobs:
+  52451433  siletti-final-bridge-v11-no-chol    COMPLETED  00:04:40  max RSS 51455260K
+  52451434  siletti-final-transfer-v11-no-chol  COMPLETED  00:07:48  max RSS 50293512K
+  52451435  siletti-final-rivers-v11-no-chol    COMPLETED  00:00:30  max RSS 1221744K
+
+Filter audit:
+  pallial_subpallial: 3 edges filtered, 16,188 / 16,206 cells plotted
+  major_subtype: 8 edges filtered, 16,167 / 16,206 cells plotted
+  final_fine_subtype: 12 edges filtered, 16,158 / 16,206 cells plotted
+```
+
 Important interpretation caveat exposed by the audit:
 
 ```text
@@ -2312,6 +2702,142 @@ are binned as Pallial/cortical when their primary ROI group is CerebralCortex or
 Hippocampus. MSN, eccentric MSN, and Splatter-CHAT/cholinergic rows are mostly
 Subpallial. This is expected under the stated rule, but it must be inspected in
 the audit plots before using the river interpretation in final text.
+```
+
+## 2026-06-27 Splatter Candidate Cholinergic GAD1/GAD2 Audit
+
+This audit answers whether the **Splatter candidate rows actually used in the
+recent cholinergic versions** express GAD1/GAD2. It does **not** audit MSN or
+eccentric MSN.
+
+Output:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_splatter_candidate_chol_gad_feature_audit_v1
+```
+
+Script:
+
+```text
+python_notebooks/scripts/audit_siletti_splatter_candidate_gad_features.py
+```
+
+Input:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/source_cellxgene_superclusters/h5ad/siletti_whb_splatter.h5ad
+```
+
+Rows audited:
+
+```text
+v8:
+  Splatter cluster 400, subclusters 1634, 1635, 1636, 1637, 1638, 1640,
+  1641, 1642
+  label used in transfer: Subpallial Cholinergic neurons
+  neurotransmitter annotation: NT-CHOL NT-VGLUT3
+  n = 769
+
+v9b:
+  Splatter cluster 392, subcluster 1639
+  label used in transfer: Subpallial Cholinergic-GABA neurons
+  neurotransmitter annotation: NT-CHOL NT-GABA NT-VGLUT3
+  n = 42
+
+v10:
+  Splatter cluster 398, subcluster 1532
+  label used in transfer: Subpallial Pure cholinergic neurons
+  neurotransmitter annotation: NT-CHOL
+  n = 137
+```
+
+Markers audited:
+
+```text
+GAD1, GAD2, CHAT, SLC5A7, LHX8, ISL1
+```
+
+Key result:
+
+```text
+v8 cluster 400:
+  GAD1 detected: 82.7%
+  GAD2 detected: 35.1%
+  CHAT detected: 92.5%
+  SLC5A7 detected: 98.3%
+  LHX8 detected: 92.3%
+  ISL1 detected: 85.8%
+
+v9b cluster 392/subcluster 1639:
+  GAD1 detected: 88.1%
+  GAD2 detected: 11.9%
+  CHAT detected: 57.1%
+  SLC5A7 detected: 83.3%
+  LHX8 detected: 61.9%
+  ISL1 detected: 69.0%
+
+v10 cluster 398/subcluster 1532:
+  GAD1 detected: 6.6%
+  GAD2 detected: 10.2%
+  CHAT detected: 72.3%
+  SLC5A7 detected: 94.9%
+  LHX8 detected: 0.0%
+  ISL1 detected: 33.6%
+```
+
+Decision for final interpretation:
+
+```text
+Proceed with the original v8 cluster-400 approach for the Siletti Splatter
+cholinergic/MGE-like reference component.
+
+These cells show strong GABAergic features, including widespread GAD1
+expression, despite being annotated in Siletti as `NT-CHOL NT-VGLUT3`.
+Combined with strong CHAT, SLC5A7, LHX8, and ISL1 detection, this makes the v8
+cluster-400 set the best current reference choice for the MGE-like
+subpallial/cholinergic population. The v9b mixed CHOL/GABA row is small and
+weaker; the v10 pure NT-CHOL row is not LHX8-positive and is mostly not
+GAD1/GAD2-positive.
+```
+
+Interpretation:
+
+```text
+The v8 cluster-400 reference row is cholinergic and strongly LHX8/ISL1-positive
+but also GAD1-positive in most cells. The v9b mixed cholinergic-GABA row is also
+mostly GAD1-positive but has weaker cholinergic/developmental-marker coverage
+and only 42 cells. The v10 pure NT-CHOL row is cholinergic by CHAT/SLC5A7 but is
+not LHX8-positive and is mostly not GAD1/GAD2-positive, consistent with the
+prior warning that v10 is pure cholinergic but not an MGE-like cholinergic
+reference row.
+```
+
+Plots:
+
+```text
+plots/siletti_splatter_candidate_chol_clusters_featureplot_view_all_markers.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_GAD1.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_GAD2.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_CHAT.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_SLC5A7.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_LHX8.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_feature_ISL1.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_marker_violins.png/pdf
+plots/siletti_splatter_candidate_chol_clusters_gad_pct_detected.png/pdf
+```
+
+Tables:
+
+```text
+tables/siletti_splatter_candidate_chol_clusters_gad_feature_summary.tsv
+tables/siletti_splatter_candidate_chol_clusters_gad_feature_by_subcluster.tsv
+tables/siletti_splatter_candidate_chol_clusters_gad_feature_cells.tsv.gz
+```
+
+Slurm job:
+
+```text
+52451889  siletti-splatter-gad-audit-v1  COMPLETED  00:01:10  max RSS 23554720K
 ```
 
 Draft methods wording:
