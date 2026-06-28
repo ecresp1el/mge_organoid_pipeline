@@ -82,16 +82,26 @@ save_plot_set <- function(plot, prefix, width, height, dpi = 300) {
   }
 }
 
-repair_logupx_dimnames <- function(object) {
-  expr <- object@logupx.data
+repair_count_dimnames <- function(object) {
   counts <- object@count.data
-  if (is.null(rownames(expr)) && !is.null(rownames(counts)) && nrow(expr) == nrow(counts)) {
-    rownames(expr) <- rownames(counts)
+  expr <- object@logupx.data
+  if (is.null(rownames(counts)) && !is.null(rownames(expr)) && nrow(counts) == nrow(expr)) {
+    rownames(counts) <- rownames(expr)
   }
-  if (is.null(colnames(expr)) && !is.null(colnames(counts)) && ncol(expr) == ncol(counts)) {
-    colnames(expr) <- colnames(counts)
+  if (is.null(colnames(counts)) && !is.null(colnames(expr)) && ncol(counts) == ncol(expr)) {
+    colnames(counts) <- colnames(expr)
   }
-  expr
+  counts
+}
+
+marker_values_log1p_cp10k <- function(counts, totals, gene, cells) {
+  if (!(gene %in% rownames(counts))) return(rep(NA_real_, length(cells)))
+  totals <- totals[cells]
+  values <- as.numeric(counts[gene, cells])
+  out <- rep(NA_real_, length(cells))
+  ok <- is.finite(totals) & totals > 0
+  out[ok] <- log1p(values[ok] / totals[ok] * 10000)
+  out
 }
 
 palette_for_clusters <- function(n) {
@@ -109,6 +119,29 @@ cluster_id_from_label <- function(x) {
 
 clean_biology_name <- function(x) {
   sub("^[0-9]+\\s*-\\s*", "", as.character(x))
+}
+
+div90_published_cluster_recode <- function() {
+  data.frame(
+    raw_cluster_id = c(0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L),
+    published_cluster_id = c(3L, 1L, 2L, 7L, 8L, 4L, NA_integer_, NA_integer_, 5L, 10L, 8L, 6L, 9L),
+    published_cluster_name = c(
+      "MGE Striatal/GP fated",
+      "SST+, NPY+ Cortical fated",
+      "CRABP1+/PV Precursors",
+      "PV Precursors/Migrating cells/Cortical fated",
+      "Pre-Astrocytes/Astrocytes",
+      "LHX8+ vMGE GABAergic Striatal/GP fated 1",
+      "Stressed Cells",
+      "Stressed Cells",
+      "LHX8+ vMGE GABAergic Striatal/GP fated 2",
+      "Pre-OPCs/OPCs",
+      "Pre-Astrocytes/Astrocytes",
+      "PV Precursors",
+      "Dividing cells"
+    ),
+    stringsAsFactors = FALSE
+  )
 }
 
 wrapped <- function(x, width = 34) {
@@ -157,25 +190,41 @@ context_data <- function(object, annotation_col, pseudotime_name) {
   if (!(annotation_col %in% colnames(meta))) stop("Missing annotation column: ", annotation_col, call. = FALSE)
   pt <- extract_pseudotime(object, pseudotime_name)
   meta$pseudotime <- pt[meta$cell]
-  meta$annotation <- as.character(meta[[annotation_col]])
-  meta$cluster_id <- cluster_id_from_label(meta$annotation)
-  mapping <- aggregate(cell ~ cluster_id + annotation, meta, length)
+  meta$raw_annotation <- as.character(meta[[annotation_col]])
+  meta$raw_cluster_id <- cluster_id_from_label(meta$raw_annotation)
+  recode <- div90_published_cluster_recode()
+  recode$published_cluster_label <- ifelse(
+    is.na(recode$published_cluster_id),
+    "EXCLUDED - Stressed Cells",
+    paste0(recode$published_cluster_id, ". ", recode$published_cluster_name)
+  )
+  meta <- merge(meta, recode, by = "raw_cluster_id", all.x = TRUE, sort = FALSE)
+  meta <- meta[!is.na(meta$published_cluster_id), , drop = FALSE]
+  rownames(meta) <- meta$cell
+  meta$UMAP_2_original <- meta$UMAP_2
+  meta$UMAP_2 <- -1 * as.numeric(meta$UMAP_2_original)
+  meta$annotation <- meta$published_cluster_label
+  meta$cluster_id <- meta$published_cluster_id
+  mapping <- aggregate(cell ~ cluster_id + annotation + published_cluster_name, meta, length)
   colnames(mapping)[colnames(mapping) == "cell"] <- "n_cells"
-  mapping$biology_name <- clean_biology_name(mapping$annotation)
-  mapping <- mapping[order(mapping$cluster_id, mapping$annotation), , drop = FALSE]
+  mapping$biology_name <- mapping$published_cluster_name
+  mapping <- mapping[order(mapping$cluster_id), , drop = FALSE]
   mapping$cluster_factor <- factor(mapping$annotation, levels = mapping$annotation)
   colors <- setNames(palette_for_clusters(nrow(mapping)), mapping$annotation)
 
   layout <- as.data.frame(object@tree$tree.layout, stringsAsFactors = FALSE)
   cells <- as.data.frame(object@tree$cell.layout, stringsAsFactors = FALSE)
-  cells$annotation <- meta[cells$cell, annotation_col]
+  cells <- cells[cells$cell %in% meta$cell, , drop = FALSE]
+  cells$annotation <- meta[cells$cell, "annotation"]
   cells$annotation <- factor(as.character(cells$annotation), levels = mapping$annotation)
   cells$pseudotime <- pt[cells$cell]
+  cells$raw_cluster_id <- meta[cells$cell, "raw_cluster_id"]
+  cells$published_cluster_id <- meta[cells$cell, "published_cluster_id"]
   oriented <- orient_tree_left_to_right(layout, cells)
   layout <- oriented$layout
   cells <- oriented$cells
 
-  list(meta = meta, mapping = mapping, colors = colors, layout = layout, cells = cells)
+  list(meta = meta, mapping = mapping, colors = colors, layout = layout, cells = cells, recode = recode)
 }
 
 base_tree_plot <- function(layout) {
@@ -217,7 +266,7 @@ cluster_umap_plot <- function(df, mapping, colors) {
     coord_equal() +
     theme_void(base_size = 8) +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 9)) +
-    labs(title = "DIV90 UMAP: clusters")
+    labs(title = "DIV90 UMAP: published clusters")
 }
 
 cluster_key_plot <- function(mapping) {
@@ -276,7 +325,7 @@ cluster_tree_plot <- function(layout, cells, mapping, colors) {
     coord_cartesian(xlim = lim$x, ylim = lim$y, expand = FALSE) +
     theme_void(base_size = 8) +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 9)) +
-    labs(title = "DIV90 URD tree: clusters")
+    labs(title = "DIV90 URD tree: published clusters")
 }
 
 pseudotime_umap_plot <- function(df, pseudotime_limits) {
@@ -324,17 +373,18 @@ marker_spec <- function(genes, labels) {
   data.frame(gene = genes, display_label = labels, display_order = seq_along(genes), stringsAsFactors = FALSE)
 }
 
-build_marker_table <- function(expr, cells, spec) {
+build_marker_table <- function(counts, cells, spec) {
+  totals <- Matrix::colSums(counts)
   rows <- lapply(seq_len(nrow(spec)), function(i) {
     gene <- spec$gene[[i]]
-    present <- gene %in% rownames(expr)
-    values <- if (present) as.numeric(expr[gene, cells]) else rep(NA_real_, length(cells))
+    present <- gene %in% rownames(counts)
+    values <- marker_values_log1p_cp10k(counts, totals, gene, cells)
     data.frame(
       gene = gene,
       display_label = spec$display_label[[i]],
       display_order = spec$display_order[[i]],
       cell = cells,
-      expression_logupx = values,
+      expression_log1p_cp10k = values,
       gene_present = present,
       stringsAsFactors = FALSE
     )
@@ -344,7 +394,7 @@ build_marker_table <- function(expr, cells, spec) {
 
 marker_summary <- function(marker_df) {
   rows <- lapply(split(marker_df, marker_df$gene), function(df) {
-    values <- df$expression_logupx
+    values <- df$expression_log1p_cp10k
     has_values <- any(!is.na(values))
     data.frame(
       display_order = df$display_order[[1]],
@@ -353,8 +403,8 @@ marker_summary <- function(marker_df) {
       gene_present = df$gene_present[[1]],
       n_tree_cells = nrow(df),
       pct_above_floor = if (has_values) mean(values > 1, na.rm = TRUE) else NA_real_,
-      mean_logupx = if (has_values) mean(values, na.rm = TRUE) else NA_real_,
-      max_logupx = if (has_values) max(values, na.rm = TRUE) else NA_real_,
+      mean_log1p_cp10k = if (has_values) mean(values, na.rm = TRUE) else NA_real_,
+      max_log1p_cp10k = if (has_values) max(values, na.rm = TRUE) else NA_real_,
       stringsAsFactors = FALSE
     )
   })
@@ -371,15 +421,15 @@ expression_color_vmax <- function(values, floor_value, quantile_value) {
 
 marker_tree_plot <- function(layout, cells, marker_df, gene, point_size, color_floor, vmax_quantile) {
   df <- marker_df[marker_df$gene == gene, , drop = FALSE]
-  plot_df <- merge(cells[, c("cell", "x", "y")], df[, c("cell", "expression_logupx", "gene_present", "display_label")], by = "cell", all.x = TRUE)
-  plot_df <- plot_df[order(plot_df$expression_logupx, na.last = TRUE), , drop = FALSE]
+  plot_df <- merge(cells[, c("cell", "x", "y")], df[, c("cell", "expression_log1p_cp10k", "gene_present", "display_label")], by = "cell", all.x = TRUE)
+  plot_df <- plot_df[order(plot_df$expression_log1p_cp10k, na.last = TRUE), , drop = FALSE]
   plot_df$expression_color_value <- ifelse(
-    is.finite(plot_df$expression_logupx) & plot_df$expression_logupx > color_floor,
-    plot_df$expression_logupx,
+    is.finite(plot_df$expression_log1p_cp10k) & plot_df$expression_log1p_cp10k > color_floor,
+    plot_df$expression_log1p_cp10k,
     NA_real_
   )
   lim <- tree_limits(layout, plot_df)
-  max_expr <- expression_color_vmax(plot_df$expression_logupx, color_floor, vmax_quantile)
+  max_expr <- expression_color_vmax(plot_df$expression_log1p_cp10k, color_floor, vmax_quantile)
   color_vmax <- max(max_expr, color_floor + 1e-6)
   floor_fraction <- max(0, min(1, color_floor / color_vmax))
 
@@ -397,7 +447,7 @@ marker_tree_plot <- function(layout, cells, marker_df, gene, point_size, color_f
       values = c(0, floor_fraction, 1),
       limits = c(0, color_vmax),
       oob = scales::squish,
-      name = "logUPX",
+      name = "log1p(CP10K)",
       breaks = c(0, color_vmax),
       labels = c("0", formatC(max_expr, format = "fg", digits = 2))
     ) +
@@ -446,16 +496,17 @@ dir.create(cfg$table_dir, recursive = TRUE, showWarnings = FALSE)
 
 log_msg("Reading URD tree object: ", cfg$tree_rds)
 urd <- readRDS(cfg$tree_rds)
-expr <- repair_logupx_dimnames(urd)
+counts <- repair_count_dimnames(urd)
 ctx <- context_data(urd, cfg$annotation_col, cfg$pseudotime_name)
 spec <- marker_spec(opt$genes, opt$`gene-labels`)
-marker_df <- build_marker_table(expr, ctx$cells$cell, spec)
+marker_df <- build_marker_table(counts, ctx$cells$cell, spec)
 
 write_tsv(spec, file.path(cfg$table_dir, "context_marker_gene_order.tsv"))
 write_tsv(ctx$mapping[, c("cluster_id", "annotation", "biology_name", "n_cells")], file.path(cfg$table_dir, "context_cluster_key.tsv"))
+write_tsv(ctx$recode, file.path(cfg$table_dir, "div90_published_cluster_recode_used.tsv"))
 write_tsv(marker_summary(marker_df), file.path(cfg$table_dir, "context_marker_expression_summary.tsv"))
 
-missing_genes <- spec$gene[!spec$gene %in% rownames(expr)]
+missing_genes <- spec$gene[!spec$gene %in% rownames(counts)]
 if (length(missing_genes) > 0) {
   log_msg("Missing requested marker(s): ", paste(missing_genes, collapse = ", "))
 } else {
@@ -520,6 +571,8 @@ render_status <- data.frame(
     "expression_color_floor",
     "vmax_rule",
     "cluster_palette",
+    "cluster_recode",
+    "umap_orientation",
     "tree_orientation",
     "pseudotime_scale",
     "cluster_tree_tip_labels",
@@ -531,10 +584,12 @@ render_status <- data.frame(
     cfg$annotation_col,
     cfg$pseudotime_name,
     paste(spec$display_label, collapse = ","),
-    "cross-study-compatible grey floor to #0000ff blue",
+    "log1p(CP10K), cross-study-compatible grey floor to #0000ff blue",
     as.character(cfg$expression_color_floor),
     paste0("q", cfg$vmax_quantile, " positive expression per gene"),
     "palette_for_clusters from scripts/26_div90_umap_cluster_label_audit.R",
+    "published Fig. D 10-class recode; raw/current clusters 6/7 excluded; raw 4/10 collapsed to published cluster 8",
+    "published plotting orientation: UMAP_1 unchanged, UMAP_2 multiplied by -1",
     "left-to-right rotated tree; tips at right",
     paste0("shared UMAP/tree limits ", paste(signif(pseudotime_limits, 4), collapse = " to ")),
     "cluster number and wrapped cluster name labels drawn at cluster tree tips",

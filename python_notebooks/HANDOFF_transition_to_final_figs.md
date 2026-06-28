@@ -3226,11 +3226,11 @@ python_notebooks/src/mge_organoid_python/cross_study_marker_expression.py
 Submitted render job:
 
 ```text
-Job ID: 52461766
+Job ID: 52465316
 Job name: div90_urd_blue_marker
 State: COMPLETED
 Exit code: 0:0
-Node: gl3030
+Node: gl3047
 Elapsed: 00:00:26
 Job script:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/render_div90_urd_marker_panel_blue_floor_editable_20260628.sbatch
@@ -3241,7 +3241,8 @@ Color mapping now used for all current marker tree overlays:
 ```text
 background / floor color: #d0d0d0
 high expression color: #0000ff
-expression color floor: logUPX <= 1 drawn as background grey
+expression source: log1p(CP10K) from URD count.data
+expression color floor: log1p(CP10K) <= 1 drawn as background grey
 colorbar lower bound: 0
 color scale max: per-gene q0.99 of positive expression
 values above max: clipped to max color
@@ -3268,7 +3269,8 @@ Post-job verification:
 current_jia_fig_s11_style_urd_marker_validation.svg: <text> tags present
 current_marker_tree_overlay_HES1.svg: <text> tags present
 logs/render_status.txt records:
-  slurm_job_id = 52461766
+  slurm_job_id = 52465316
+  expression_source = log1p(CP10K) from URD count.data
   color_map = whiteBlue_gray_floor_to_blue
   expression_color_floor = 1
   vmax_rule = q0.99_positive_expression_per_gene
@@ -3303,11 +3305,11 @@ Submitted job:
 
 ```text
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/render_div90_urd_context_marker_composite_20260628.sbatch
-Slurm job: 52461953
+Slurm job: 52465361
 State: COMPLETED
 ExitCode: 0:0
-Node: gl3258
-Elapsed: 00:00:27
+Node: gl3047
+Elapsed: 00:00:24
 ```
 
 Source object:
@@ -3320,8 +3322,8 @@ Composite layout:
 
 ```text
 Top row:
-  1. DIV90 UMAP cluster context
-  2. Enlarged DIV90 URD lineage tree colored by cluster with cluster
+  1. DIV90 UMAP published-cluster context
+  2. Enlarged DIV90 URD lineage tree colored by published cluster with cluster
      number/name labels at the tips
   3. DIV90 UMAP colored by pseudotime
   4. DIV90 URD lineage tree colored by pseudotime
@@ -3333,11 +3335,13 @@ Bottom row:
 Scale logic:
 
 ```text
-Cluster context: categorical cluster palette from scripts/26_div90_umap_cluster_label_audit.R
+Cluster context: published Fig. D 10-class recode, not raw/current IDs
+Cluster recode: raw/current clusters 6/7 excluded; raw 4/10 collapsed to published cluster 8
+UMAP orientation: published plotting transform, UMAP_1 unchanged and UMAP_2 multiplied by -1
 Pseudotime context: UMAP and lineage tree share identical viridis limits
 Tree orientation: all lineage trees are rotated left-to-right with tips at the right
 Marker overlays: independent per-gene q0.99 positive-expression max,
-  logUPX <= 1 drawn as #d0d0d0, expression above the floor drawn to #0000ff
+  log1p(CP10K) <= 1 drawn as #d0d0d0, expression above the floor drawn to #0000ff
 ```
 
 Current packaged context composite outputs:
@@ -3360,11 +3364,15 @@ current_div90_urd_context_marker_composite.png: 6600 x 3300 PNG
 current_div90_urd_context_marker_composite.svg: <text> tags present
 current_div90_urd_context_marker_composite.svg: path_count = 0
 logs/context_marker_composite_render_status.tsv records:
-  output_base = context_marker_composite_v3_20260628
+  output_base = context_marker_composite_v5_log1p_cp10k_20260628
+  expression_source = log1p(CP10K) from URD count.data
+  cluster_recode = published Fig. D 10-class recode; raw/current clusters 6/7 excluded; raw 4/10 collapsed to published cluster 8
+  umap_orientation = published plotting orientation: UMAP_1 unchanged, UMAP_2 multiplied by -1
   tree_orientation = left-to-right rotated tree; tips at right
   pseudotime_scale = shared UMAP/tree limits 0 to 0.5531
   cluster_tree_tip_labels = cluster number and wrapped cluster name labels drawn at cluster tree tips
 SVG text contains the figure title, cluster-tree tip labels, and all six marker labels.
+tables/div90_published_cluster_recode_used.tsv records the raw/current-to-published cluster mapping.
 ```
 
 Package metadata/provenance refreshed:
@@ -3374,6 +3382,7 @@ README.md
 logs/context_marker_composite_slurm_status.txt
 logs/context_marker_composite_render_status.tsv
 tables/context_cluster_key.tsv
+tables/div90_published_cluster_recode_used.tsv
 tables/context_marker_gene_order.tsv
 tables/context_marker_expression_summary.tsv
 provenance/source_paths.tsv

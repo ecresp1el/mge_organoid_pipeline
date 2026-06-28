@@ -16,10 +16,8 @@
 #   CRABP1 -> CRABP1/ANGPT2  -> Subpallial GABAergic interneuron
 #
 # Expression source:
-#   URD logupx.data. Some saved URD tree objects may have logupx.data without
-#   dimnames after serialization; when dimensions match count.data, this script
-#   restores logupx.data row/column names from count.data before extracting
-#   exact requested genes.
+#   URD count.data transformed at plot time to log1p(CP10K):
+#   log1p(gene_count / total_cell_counts * 10000).
 
 log_msg <- function(...) {
   cat(sprintf("[%s] %s\n", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), paste0(..., collapse = " ")))
@@ -90,16 +88,26 @@ save_plot_set <- function(plot, png_path, pdf_path, svg_path, width, height, dpi
   }
 }
 
-repair_logupx_dimnames <- function(object) {
-  expr <- object@logupx.data
+repair_count_dimnames <- function(object) {
   counts <- object@count.data
-  if (is.null(rownames(expr)) && !is.null(rownames(counts)) && nrow(expr) == nrow(counts)) {
-    rownames(expr) <- rownames(counts)
+  expr <- object@logupx.data
+  if (is.null(rownames(counts)) && !is.null(rownames(expr)) && nrow(counts) == nrow(expr)) {
+    rownames(counts) <- rownames(expr)
   }
-  if (is.null(colnames(expr)) && !is.null(colnames(counts)) && ncol(expr) == ncol(counts)) {
-    colnames(expr) <- colnames(counts)
+  if (is.null(colnames(counts)) && !is.null(colnames(expr)) && ncol(counts) == ncol(expr)) {
+    colnames(counts) <- colnames(expr)
   }
-  expr
+  counts
+}
+
+marker_values_log1p_cp10k <- function(counts, totals, gene, cells) {
+  if (!(gene %in% rownames(counts))) return(rep(NA_real_, length(cells)))
+  totals <- totals[cells]
+  values <- as.numeric(counts[gene, cells])
+  out <- rep(NA_real_, length(cells))
+  ok <- is.finite(totals) & totals > 0
+  out[ok] <- log1p(values[ok] / totals[ok] * 10000)
+  out
 }
 
 marker_spec <- function() {
@@ -140,11 +148,12 @@ custom_marker_spec <- function(genes, labels = character()) {
   )
 }
 
-build_marker_table <- function(expr, cells, spec) {
+build_marker_table <- function(counts, cells, spec) {
+  totals <- Matrix::colSums(counts)
   rows <- lapply(seq_len(nrow(spec)), function(i) {
     gene <- spec$gene[[i]]
-    present <- gene %in% rownames(expr)
-    values <- if (present) as.numeric(expr[gene, cells]) else rep(NA_real_, length(cells))
+    present <- gene %in% rownames(counts)
+    values <- marker_values_log1p_cp10k(counts, totals, gene, cells)
     data.frame(
       panel = spec$panel[[i]],
       display_order = spec$display_order[[i]],
@@ -154,7 +163,7 @@ build_marker_table <- function(expr, cells, spec) {
       gene = gene,
       display_label = spec$display_label[[i]],
       cell = cells,
-      expression_logupx = values,
+      expression_log1p_cp10k = values,
       gene_present = present,
       stringsAsFactors = FALSE
     )
@@ -164,7 +173,7 @@ build_marker_table <- function(expr, cells, spec) {
 
 marker_summary <- function(marker_df) {
   rows <- lapply(split(marker_df, marker_df$gene), function(df) {
-    values <- df$expression_logupx
+    values <- df$expression_log1p_cp10k
     has_values <- any(!is.na(values))
     data.frame(
       panel = df$panel[[1]],
@@ -177,9 +186,9 @@ marker_summary <- function(marker_df) {
       gene_present = df$gene_present[[1]],
       n_cells = nrow(df),
       pct_expressed = if (has_values) mean(values > 0, na.rm = TRUE) else NA_real_,
-      mean_logupx = if (has_values) mean(values, na.rm = TRUE) else NA_real_,
-      median_logupx = if (has_values) median(values, na.rm = TRUE) else NA_real_,
-      max_logupx = if (has_values) max(values, na.rm = TRUE) else NA_real_,
+      mean_log1p_cp10k = if (has_values) mean(values, na.rm = TRUE) else NA_real_,
+      median_log1p_cp10k = if (has_values) median(values, na.rm = TRUE) else NA_real_,
+      max_log1p_cp10k = if (has_values) max(values, na.rm = TRUE) else NA_real_,
       stringsAsFactors = FALSE
     )
   })
@@ -207,11 +216,11 @@ tree_marker_plot <- function(layout, cells, marker_df, gene, panel_title, point_
   # Match the cross-study marker-expression logic: values at/below the floor
   # are drawn as background grey, and the blue scale clips at per-gene q99.
   df <- marker_df[marker_df$gene == gene, , drop = FALSE]
-  plot_df <- merge(cells, df[, c("cell", "expression_logupx", "gene_present")], by = "cell", all.x = TRUE)
-  plot_df <- plot_df[order(plot_df$expression_logupx, na.last = TRUE), , drop = FALSE]
+  plot_df <- merge(cells, df[, c("cell", "expression_log1p_cp10k", "gene_present")], by = "cell", all.x = TRUE)
+  plot_df <- plot_df[order(plot_df$expression_log1p_cp10k, na.last = TRUE), , drop = FALSE]
   plot_df$expression_color_value <- ifelse(
-    is.finite(plot_df$expression_logupx) & plot_df$expression_logupx > color_floor,
-    plot_df$expression_logupx,
+    is.finite(plot_df$expression_log1p_cp10k) & plot_df$expression_log1p_cp10k > color_floor,
+    plot_df$expression_log1p_cp10k,
     NA_real_
   )
   x_limits <- range(c(layout$x1, layout$x2, cells$x), na.rm = TRUE)
@@ -220,7 +229,7 @@ tree_marker_plot <- function(layout, cells, marker_df, gene, panel_title, point_
   y_pad <- diff(y_limits) * 0.04
   x_limits <- x_limits + c(-x_pad, x_pad)
   y_limits <- y_limits + c(-y_pad, y_pad)
-  max_expr <- expression_color_vmax(plot_df$expression_logupx, color_floor, vmax_quantile)
+  max_expr <- expression_color_vmax(plot_df$expression_log1p_cp10k, color_floor, vmax_quantile)
   color_vmax <- max(max_expr, color_floor + 1e-6)
 
   p <- ggplot() +
@@ -237,7 +246,7 @@ tree_marker_plot <- function(layout, cells, marker_df, gene, panel_title, point_
       values = c(0, color_floor / color_vmax, 1),
       limits = c(0, color_vmax),
       oob = scales::squish,
-      name = "logUPX",
+      name = "log1p(CP10K)",
       breaks = c(0, color_vmax),
       labels = c("0", formatC(max_expr, format = "fg", digits = 2))
     ) +
@@ -305,20 +314,20 @@ dir.create(cfg$plot_dir, recursive = TRUE, showWarnings = FALSE)
 
 log_msg("Reading URD tree: ", cfg$tree_rds)
 urd <- readRDS(cfg$tree_rds)
-expr <- repair_logupx_dimnames(urd)
+counts <- repair_count_dimnames(urd)
 layout <- as.data.frame(urd@tree$tree.layout, stringsAsFactors = FALSE)
 cells <- as.data.frame(urd@tree$cell.layout, stringsAsFactors = FALSE)
 custom_spec <- custom_marker_spec(opt$genes, opt$`gene-labels`)
 spec <- if (is.null(custom_spec)) marker_spec() else custom_spec
 panel_title <- if (nzchar(opt$`panel-title`)) opt$`panel-title` else "Jia Fig. S11-style URD marker validation"
 
-marker_df <- build_marker_table(expr, cells$cell, spec)
+marker_df <- build_marker_table(counts, cells$cell, spec)
 summary_df <- marker_summary(marker_df)
 write_tsv(spec, file.path(cfg$table_dir, "jia_fig_s11_marker_order.tsv"))
 write_tsv(summary_df, file.path(cfg$table_dir, "jia_fig_s11_marker_expression_summary.tsv"))
 write_tsv(marker_df, file.path(cfg$table_dir, "jia_fig_s11_marker_expression_by_cell.tsv.gz"))
 
-missing_genes <- spec$gene[!spec$gene %in% rownames(expr)]
+missing_genes <- spec$gene[!spec$gene %in% rownames(counts)]
 if (length(missing_genes) > 0) {
   log_msg("Missing requested marker(s): ", paste(missing_genes, collapse = ", "))
 } else {
@@ -390,7 +399,7 @@ report <- c(
   "# Jia Fig. S11-Style URD Marker Validation",
   "",
   paste0("- Tree object: `", cfg$tree_rds, "`"),
-  "- Expression source: `URD logupx.data`; dimnames repaired from `count.data` when absent.",
+  "- Expression source: `URD count.data`, transformed at plot time as `log1p(count / total_cell_counts * 10000)`.",
   "- No z-score scaling across genes.",
   "- No branchpoint DE genes.",
   "- No lineage program averages.",
@@ -410,7 +419,7 @@ report <- c(
   "- `plots/jia_fig_s11_style_urd_marker_validation.svg`",
   if ("custom_marker_panel" %in% spec$panel) character() else "- `plots/jia_fig_s11_panel_a_developmental_markers.png`",
   if ("custom_marker_panel" %in% spec$panel) character() else "- `plots/jia_fig_s11_panel_b_lineage_markers.png`",
-  "- `plots/jia_fig_s11_marker_tree_overlay_<GENE>.png` and `.pdf` for each individual marker, with visible logUPX colorbars",
+  "- `plots/jia_fig_s11_marker_tree_overlay_<GENE>.png` and `.pdf` for each individual marker, with visible log1p(CP10K) colorbars",
   "- `tables/jia_fig_s11_marker_order.tsv`",
   "- `tables/jia_fig_s11_marker_expression_summary.tsv`",
   "",
