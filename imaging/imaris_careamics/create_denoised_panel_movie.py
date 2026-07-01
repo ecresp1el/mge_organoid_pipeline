@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import imageio.v2 as imageio
@@ -21,7 +22,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--green", required=True, type=Path, help="Green denoised OME-TIFF.")
     parser.add_argument("--red", required=True, type=Path, help="Red denoised OME-TIFF.")
-    parser.add_argument("--output", required=True, type=Path, help="Output MP4 path.")
+    parser.add_argument("--output", required=True, type=Path, help="Output movie path.")
     parser.add_argument("--fps", type=float, default=12.0, help="Movie frames per second.")
     parser.add_argument("--lower-percentile", type=float, default=0.5)
     parser.add_argument("--upper-percentile", type=float, default=99.8)
@@ -52,6 +53,41 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--label-red", default="BiVe3-dTom")
     parser.add_argument("--label-green", default="PV-mNG")
     parser.add_argument("--label-merged", default="Merged")
+    parser.add_argument(
+        "--green-limits",
+        nargs=2,
+        type=float,
+        metavar=("LOW", "HIGH"),
+        help="Explicit fixed display limits for the green channel.",
+    )
+    parser.add_argument(
+        "--red-limits",
+        nargs=2,
+        type=float,
+        metavar=("LOW", "HIGH"),
+        help="Explicit fixed display limits for the red/magenta channel.",
+    )
+    parser.add_argument(
+        "--codec-mode",
+        choices=("compatible_h264", "intraframe_h264", "lossless_rgb", "prores"),
+        default="compatible_h264",
+        help=(
+            "Movie encoding mode. Use lossless_rgb or prores for artifact-resistant QC; "
+            "compatible_h264 is smaller but can show compression artifacts."
+        ),
+    )
+    parser.add_argument(
+        "--export-stills",
+        action="store_true",
+        help="Export selected lossless PNG frames next to the movie.",
+    )
+    parser.add_argument(
+        "--still-z",
+        nargs="*",
+        type=int,
+        default=None,
+        help="Z indices to export as PNG stills. Defaults to 0, 25, 50, 75, and 100%% depth.",
+    )
     parser.add_argument(
         "--quality",
         type=int,
@@ -160,6 +196,62 @@ def make_frame(
     return np.asarray(img)
 
 
+def writer_kwargs(codec_mode: str, quality: int) -> dict[str, object]:
+    if codec_mode == "compatible_h264":
+        return {
+            "codec": "libx264",
+            "quality": quality,
+            "macro_block_size": 1,
+            "output_params": ["-pix_fmt", "yuv420p", "-crf", "12", "-preset", "slow"],
+        }
+    if codec_mode == "intraframe_h264":
+        return {
+            "codec": "libx264",
+            "quality": quality,
+            "macro_block_size": 1,
+            "output_params": [
+                "-pix_fmt",
+                "yuv444p",
+                "-crf",
+                "8",
+                "-preset",
+                "slow",
+                "-g",
+                "1",
+                "-keyint_min",
+                "1",
+                "-sc_threshold",
+                "0",
+            ],
+        }
+    if codec_mode == "lossless_rgb":
+        return {
+            "codec": "libx264rgb",
+            "quality": quality,
+            "macro_block_size": 1,
+            "output_params": ["-crf", "0", "-preset", "slow", "-g", "1", "-keyint_min", "1"],
+        }
+    if codec_mode == "prores":
+        return {
+            "codec": "prores_ks",
+            "macro_block_size": 1,
+            "output_params": ["-profile:v", "3", "-pix_fmt", "yuv444p10le", "-qscale:v", "5"],
+        }
+    raise ValueError(f"Unsupported codec mode: {codec_mode}")
+
+
+def default_still_z_indices(start_z: int, end_z: int) -> list[int]:
+    depth = end_z - start_z
+    candidates = [
+        start_z,
+        start_z + depth // 4,
+        start_z + depth // 2,
+        start_z + (3 * depth) // 4,
+        end_z - 1,
+    ]
+    return sorted({z for z in candidates if start_z <= z < end_z})
+
+
 def main() -> None:
     args = parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -178,12 +270,18 @@ def main() -> None:
     print(f"Green: {args.green} shape={green.shape} dtype={green.dtype}")
     print(f"Red:   {args.red} shape={red.shape} dtype={red.dtype}")
     print("Calculating whole-stack percentile limits...")
-    green_limits = percentile_limits(
-        green, args.lower_percentile, args.upper_percentile, args.percentile_z_step
-    )
-    red_limits = percentile_limits(
-        red, args.lower_percentile, args.upper_percentile, args.percentile_z_step
-    )
+    if args.green_limits is None:
+        green_limits = percentile_limits(
+            green, args.lower_percentile, args.upper_percentile, args.percentile_z_step
+        )
+    else:
+        green_limits = (float(args.green_limits[0]), float(args.green_limits[1]))
+    if args.red_limits is None:
+        red_limits = percentile_limits(
+            red, args.lower_percentile, args.upper_percentile, args.percentile_z_step
+        )
+    else:
+        red_limits = (float(args.red_limits[0]), float(args.red_limits[1]))
     print(f"Green limits: {green_limits[0]:.6g}, {green_limits[1]:.6g}")
     print(f"Red limits:   {red_limits[0]:.6g}, {red_limits[1]:.6g}")
     print(f"Writing native panel movie: {args.output}")
@@ -191,13 +289,54 @@ def main() -> None:
 
     font = find_font(size=38)
     labels = (args.label_red, args.label_green, args.label_merged)
+
+    metadata = {
+        "green": str(args.green),
+        "red": str(args.red),
+        "output": str(args.output),
+        "shape_zyx": [int(z), int(y), int(x)],
+        "start_z": int(start_z),
+        "end_z": int(end_z),
+        "z_step": int(args.z_step),
+        "fps": float(args.fps),
+        "green_limits": [float(green_limits[0]), float(green_limits[1])],
+        "red_limits": [float(red_limits[0]), float(red_limits[1])],
+        "lower_percentile": float(args.lower_percentile),
+        "upper_percentile": float(args.upper_percentile),
+        "percentile_z_step": int(args.percentile_z_step),
+        "codec_mode": args.codec_mode,
+        "labels": list(labels),
+    }
+    metadata_path = args.output.with_suffix(args.output.suffix + ".display_limits.json")
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"Display metadata: {metadata_path}")
+
+    if args.export_stills:
+        still_dir = args.output.with_suffix("").parent / f"{args.output.with_suffix('').name}_stills"
+        still_dir.mkdir(parents=True, exist_ok=True)
+        still_zs = args.still_z if args.still_z is not None else default_still_z_indices(start_z, end_z)
+        for zi in still_zs:
+            if not (start_z <= zi < end_z):
+                print(f"WARNING: skipping still outside selected Z range: {zi}", flush=True)
+                continue
+            frame = make_frame(
+                green[zi],
+                red[zi],
+                green_limits,
+                red_limits,
+                labels,
+                font,
+                label_h=88,
+                gutter=16,
+            )
+            still_path = still_dir / f"z{zi:04d}.png"
+            Image.fromarray(frame).save(still_path)
+            print(f"Wrote still: {still_path}", flush=True)
+
     with imageio.get_writer(
         args.output,
         fps=args.fps,
-        codec="libx264",
-        quality=args.quality,
-        macro_block_size=1,
-        output_params=["-pix_fmt", "yuv420p", "-crf", "12", "-preset", "slow"],
+        **writer_kwargs(args.codec_mode, args.quality),
     ) as writer:
         for idx, zi in enumerate(range(start_z, end_z, args.z_step), start=1):
             frame = make_frame(

@@ -36,6 +36,8 @@ NUM_STEPS="${NUM_STEPS:-200}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
 PATCH_SIZE_Z="${PATCH_SIZE_Z:-16}"
 PATCH_SIZE_YX="${PATCH_SIZE_YX:-64}"
+TILE_OVERLAP_Z="${TILE_OVERLAP_Z:-8}"
+TILE_OVERLAP_YX="${TILE_OVERLAP_YX:-32}"
 REQUIRE_GPU="${REQUIRE_GPU:-true}"
 
 if [[ -z "${IMS_INPUT}" ]]; then
@@ -84,6 +86,8 @@ python "${REPO_ROOT}/imaging/imaris_careamics/denoise_ims_careamics.py" \
   --batch-size "${BATCH_SIZE}" \
   --patch-size-z "${PATCH_SIZE_Z}" \
   --patch-size-yx "${PATCH_SIZE_YX}" \
+  --tile-overlap-z "${TILE_OVERLAP_Z}" \
+  --tile-overlap-yx "${TILE_OVERLAP_YX}" \
   "${gpu_arg[@]}"
 
 echo "Imaris CAREamics full denoising finished: $(date)"

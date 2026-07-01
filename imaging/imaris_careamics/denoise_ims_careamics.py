@@ -54,6 +54,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--patch-size-z", type=int, default=16, help="N2V patch size in Z.")
     parser.add_argument("--patch-size-yx", type=int, default=64, help="N2V patch size in Y and X.")
     parser.add_argument(
+        "--tile-overlap-z",
+        type=int,
+        default=None,
+        help="Prediction tile overlap in Z. Defaults to half the Z patch size.",
+    )
+    parser.add_argument(
+        "--tile-overlap-yx",
+        type=int,
+        default=None,
+        help="Prediction tile overlap in Y and X. Defaults to half the YX patch size.",
+    )
+    parser.add_argument(
         "--num-steps",
         type=int,
         default=None,
@@ -313,6 +325,7 @@ def train_and_predict_channel(
     epochs: int,
     num_steps: int | None,
     seed: int,
+    tile_overlap: tuple[int, int, int],
 ) -> np.ndarray:
     from careamics import CAREamist
 
@@ -334,7 +347,7 @@ def train_and_predict_channel(
 
     print_header(f"Predicting {channel_name}")
     predictions = []
-    tile_overlap = tuple(max(1, min(8, size // 4)) for size in patch_size)
+    print(f"Prediction tile overlap ZYX: {tile_overlap}", flush=True)
     for t in range(raw_tzyx.shape[0]):
         pred = careamist.predict(
             pred_data=[np.asarray(raw_tzyx[t], dtype=np.float32)],
@@ -586,6 +599,15 @@ def main() -> int:
     patch_size = adjusted_patch_size(tuple(map(int, raw_channels["green"].shape[1:])), requested_patch)
     if patch_size != requested_patch:
         print(f"WARNING: adjusted patch size from {requested_patch} to {patch_size} for data shape.", flush=True)
+    requested_overlap = (
+        args.tile_overlap_z if args.tile_overlap_z is not None else patch_size[0] // 2,
+        args.tile_overlap_yx if args.tile_overlap_yx is not None else patch_size[1] // 2,
+        args.tile_overlap_yx if args.tile_overlap_yx is not None else patch_size[2] // 2,
+    )
+    tile_overlap = tuple(
+        max(1, min(int(overlap), int(size) - 1)) for overlap, size in zip(requested_overlap, patch_size)
+    )
+    print(f"Prediction tile overlap ZYX: {tile_overlap}", flush=True)
 
     denoised_channels: dict[str, np.ndarray] = {}
     for _channel_index, name in CHANNELS:
@@ -598,6 +620,7 @@ def main() -> int:
             epochs=epochs,
             num_steps=num_steps,
             seed=args.seed,
+            tile_overlap=tile_overlap,
         )
 
     print_header("Saving denoised OME-TIFFs and previews")
