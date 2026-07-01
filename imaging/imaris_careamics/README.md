@@ -85,6 +85,15 @@ python imaging/imaris_careamics/denoise_ims_careamics.py \
 Smoke outputs are written to `<output-dir>/smoke_test/`.
 Full outputs are written to `<output-dir>/full_run/`.
 
+Native-resolution denoised panel movie:
+
+```bash
+python imaging/imaris_careamics/create_denoised_panel_movie.py \
+  --green /path/to/full_run/green_denoised.ome.tif \
+  --red /path/to/full_run/red_denoised.ome.tif \
+  --output /path/to/full_run/denoised_1x3_zstack_panel_native.mp4
+```
+
 ## Slurm Commands
 
 Copy or submit from the repo root on Great Lakes:
@@ -149,6 +158,9 @@ Each run directory contains:
 
 Preview scaling uses 0.5 to 99.8 percentiles per channel across the full loaded
 movie or stack, not per slice. Raw and denoised OME-TIFF outputs are not preview-scaled.
+
+The optional `denoised_1x3_zstack_panel_native.mp4` movie is a native-resolution
+Z-scroll panel with magenta `BiVe3-dTom`, green `PV-mNG`, and merged views.
 
 ## Workflow
 
