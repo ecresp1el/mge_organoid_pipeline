@@ -66,6 +66,8 @@ python imaging/imaris_careamics/denoise_ims_careamics.py \
   --batch-size 2 \
   --patch-size-z 16 \
   --patch-size-yx 64 \
+  --tile-overlap-z 8 \
+  --tile-overlap-yx 32 \
   --require-gpu
 ```
 
@@ -79,6 +81,8 @@ python imaging/imaris_careamics/denoise_ims_careamics.py \
   --batch-size 2 \
   --patch-size-z 16 \
   --patch-size-yx 64 \
+  --tile-overlap-z 8 \
+  --tile-overlap-yx 32 \
   --require-gpu
 ```
 
@@ -92,6 +96,17 @@ python imaging/imaris_careamics/create_denoised_panel_movie.py \
   --green /path/to/full_run/green_denoised.ome.tif \
   --red /path/to/full_run/red_denoised.ome.tif \
   --output /path/to/full_run/denoised_1x3_zstack_panel_native.mp4
+```
+
+Artifact-resistant QC movie plus lossless stills:
+
+```bash
+python imaging/imaris_careamics/create_denoised_panel_movie.py \
+  --green /path/to/full_run/green_denoised.ome.tif \
+  --red /path/to/full_run/red_denoised.ome.tif \
+  --output /path/to/full_run/denoised_1x3_zstack_panel_fixedscale_prores.mov \
+  --codec-mode prores \
+  --export-stills
 ```
 
 ## Slurm Commands
@@ -159,8 +174,15 @@ Each run directory contains:
 Preview scaling uses 0.5 to 99.8 percentiles per channel across the full loaded
 movie or stack, not per slice. Raw and denoised OME-TIFF outputs are not preview-scaled.
 
-The optional `denoised_1x3_zstack_panel_native.mp4` movie is a native-resolution
-Z-scroll panel with magenta `BiVe3-dTom`, green `PV-mNG`, and merged views.
+The optional panel movie is a native-resolution Z-scroll with magenta `BiVe3-dTom`,
+green `PV-mNG`, and merged views. The script writes a `.display_limits.json`
+sidecar so the fixed display limits are recorded. Use `--codec-mode prores` or
+`--codec-mode lossless_rgb` plus `--export-stills` when checking for denoising
+grids, because standard H.264 can introduce block or chroma artifacts.
+
+Prediction uses overlapping 3D chunks. The default overlap is half the patch size
+(`8 x 32 x 32` for `16 x 64 x 64` patches), which is safer for avoiding visible
+patch-boundary artifacts than a small overlap.
 
 ## Workflow
 
