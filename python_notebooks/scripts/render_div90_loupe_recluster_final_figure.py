@@ -727,11 +727,15 @@ def draw_callout_umap(ax: plt.Axes, local: pd.DataFrame, spec: dict[str, object]
             continue
         if side in {"top", "bottom"}:
             frame = frame.sort_values("loupe_x").reset_index(drop=True)
-            x_positions = np.linspace(xmin - x_pad * 0.18, xmax + x_pad * 0.18, frame.shape[0])
-            text_y = ymax + y_pad * 0.58 if side == "top" else ymin - y_pad * 0.58
+            x_positions = np.linspace(xmin - x_pad * 0.26, xmax + x_pad * 0.26, frame.shape[0])
+            base_y = ymax + y_pad * 0.44 if side == "top" else ymin - y_pad * 0.44
+            sign = 1 if side == "top" else -1
             va = "bottom" if side == "top" else "top"
             ha = "center"
-            positions = [(float(x), text_y, ha, va) for x in x_positions]
+            positions = [
+                (float(x), base_y + sign * (i % 2) * y_pad * 0.24, ha, va)
+                for i, x in enumerate(x_positions)
+            ]
         else:
             frame = frame.sort_values("loupe_y", ascending=False).reset_index(drop=True)
             y_positions = spaced_values(ymax + y_pad * 0.20, ymin - y_pad * 0.20, frame.shape[0])
@@ -750,16 +754,16 @@ def draw_callout_umap(ax: plt.Axes, local: pd.DataFrame, spec: dict[str, object]
                 x_range,
                 y_range,
             )
-            ax.plot(line_x, line_y, color=color, lw=2.4, alpha=0.98, zorder=4)
+            ax.plot(line_x, line_y, color=color, lw=4.2, alpha=0.98, zorder=4)
             ax.text(
                 text_x,
                 text_y,
                 str(row["text"]),
                 ha=ha,
                 va=va,
-                fontsize=17.0,
+                fontsize=21.0,
                 color="#151515",
-                bbox=dict(boxstyle="round,pad=0.26", fc="white", ec=color, lw=2.0, alpha=0.96),
+                bbox=dict(boxstyle="round,pad=0.32", fc="white", ec=color, lw=3.4, alpha=0.96),
                 zorder=5,
             )
 
@@ -777,22 +781,9 @@ def draw_callout_umap(ax: plt.Axes, local: pd.DataFrame, spec: dict[str, object]
     ax.set_yticks([])
     for spine in ax.spines.values():
         spine.set_visible(False)
-    ax.text(
-        0.50,
-        0.02,
-        f"n={local.shape[0]:,}",
-        transform=ax.transAxes,
-        fontsize=16.0,
-        fontweight="bold",
-        ha="center",
-        va="bottom",
-        bbox=dict(fc="white", ec="0.72", lw=0.65, alpha=0.94),
-        zorder=6,
-    )
-
 
 def plot_callout_panel(data: dict[str, dict[str, object]], dirs: dict[str, Path], dpi: int) -> None:
-    fig = plt.figure(figsize=(20.0, 18.5), constrained_layout=True)
+    fig = plt.figure(figsize=(28.0, 21.5), constrained_layout=True)
     grid = fig.add_gridspec(nrows=3, ncols=2, width_ratios=[1.1, 6.0], hspace=0.12, wspace=0.05)
     for i, set_id in enumerate([str(s["set_id"]) for s in RECLUSTER_SPECS]):
         entry = data[set_id]
