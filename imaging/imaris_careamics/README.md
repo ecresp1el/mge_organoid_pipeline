@@ -20,6 +20,20 @@ Current sample:
 - Output root: `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F1`
 - Sample config: `imaging/imaris_careamics/config/cl32_bive4_pv_reporter_40x_realbive4_F1.env`
 
+Current scale-up handoff:
+
+- `imaging/imaris_careamics/HANDOFF_imaris_careamics_scaleup_2026_07_01.md`
+
+The current eight-movie batch has two complete F0-F3 sets:
+
+| Set | Samples |
+| --- | --- |
+| `cl32_bive4_pv_reporter_40x` | `F0`, `F1`, `F2`, `F3` |
+| `cl32_bive4_pv_reporter_40x_realbive4` | `F0`, `F1`, `F2`, `F3` |
+
+`cl32_bive4_pv_reporter_40x_realbive4_F1` was the completed pilot/full run.
+The other seven were submitted as separate Slurm jobs on 2026-07-01.
+
 ## Environment
 
 Conda install:
@@ -155,7 +169,11 @@ sbatch slurm/run_full_denoising.sbatch
 
 ## Outputs
 
-Each run directory contains:
+Each sample writes outputs under:
+
+`/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/<sample>/full_run/`
+
+Each full run directory contains:
 
 - `green_raw.ome.tif`
 - `red_raw.ome.tif`
@@ -171,6 +189,12 @@ Each run directory contains:
 - `qc/clipping_saturation_warnings.txt`
 - `run_metadata.json`
 
+Logs are written to:
+
+- `<output-dir>/logs/run_full_denoising_<jobid>.log`
+- `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/imaris-n2v-full-<jobid>.out`
+- `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/imaris-n2v-full-<jobid>.err`
+
 Preview scaling uses 0.5 to 99.8 percentiles per channel across the full loaded
 movie or stack, not per slice. Raw and denoised OME-TIFF outputs are not preview-scaled.
 
@@ -183,6 +207,23 @@ grids, because standard H.264 can introduce block or chroma artifacts.
 Prediction uses overlapping 3D chunks. The default overlap is half the patch size
 (`8 x 32 x 32` for `16 x 64 x 64` patches), which is safer for avoiding visible
 patch-boundary artifacts than a small overlap.
+
+Quick status check for the current scale-up jobs:
+
+```bash
+squeue -j 52693455,52693456,52693458,52693459,52693460,52693461,52693462 \
+  -o '%.18i %.9P %.35j %.8u %.2t %.12M %.6D %.12b %.10m %R'
+```
+
+Quick output-completion check:
+
+```bash
+for d in /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_{F0,F1,F2,F3} \
+         /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_{F0,F1,F2,F3}; do
+  echo "== $d =="
+  ls -lh "$d/full_run"/{green_denoised.ome.tif,red_denoised.ome.tif,max_projection_preview.mp4} 2>/dev/null || true
+done
+```
 
 ## Workflow
 

@@ -13,6 +13,7 @@
   - `slurm/run_smoke_test.sbatch`
   - `slurm/run_full_denoising.sbatch`
 - See `imaging/imaris_careamics/README.md` for install, smoke-test, full-run, and QC details.
+- Current scale-up handoff: `imaging/imaris_careamics/HANDOFF_imaris_careamics_scaleup_2026_07_01.md`.
 
 ## Directory Conventions (PROJECT_ROOT)
 Canonical layout for each study:
