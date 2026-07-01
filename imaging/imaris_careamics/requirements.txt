@@ -1,0 +1,9 @@
+numpy
+h5py
+hdf5plugin
+tifffile
+imageio
+imageio-ffmpeg
+matplotlib
+careamics==0.3.2
+torch>=2.2

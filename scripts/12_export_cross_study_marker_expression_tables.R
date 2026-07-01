@@ -113,7 +113,12 @@ get_matrix_layer <- function(obj, assay, layer) {
     }
     return(LayerData(assay_obj, layer = layer_hits[[1L]]))
   }
-  GetAssayData(obj, assay = assay, slot = layer)
+  tryCatch(
+    GetAssayData(obj, assay = assay, layer = layer),
+    error = function(err) {
+      GetAssayData(obj, assay = assay, slot = layer)
+    }
+  )
 }
 
 normalize_marker_counts_log1p_cp10k <- function(marker_counts, total_counts, scale_factor = 10000) {

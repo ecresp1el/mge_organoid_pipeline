@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Render non-final This Study DIV30 marker/coexpression UMAP analysis into the
+# shared Siebert/DIV30 exploratory folder.
+
+#SBATCH --job-name=div30-marker-coexpr
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=64G
+#SBATCH --time=02:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/div30-marker-coexpr-%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/div30-marker-coexpr-%x-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+DIV30_SEURAT_RDS="${DIV30_SEURAT_RDS:-${PROJECT_ROOT}/results/varela_this_paper/varela_this_paper_seurat.rds}"
+OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/results/siebert_2026/analysis/siebert_marker_coexpression_umap_v3_sample_breakdown}"
+THRESHOLD="${THRESHOLD:-0.5}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${OUT_DIR}"
+cd "${REPO_ROOT}"
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Repo root: ${REPO_ROOT}"
+echo "Project/data root: ${PROJECT_ROOT}"
+echo "DIV30 RDS: ${DIV30_SEURAT_RDS}"
+echo "Output dir: ${OUT_DIR}"
+echo "Threshold: ${THRESHOLD}"
+echo "Seurat module: ${SEURAT5_MODULE}"
+echo "Rscript: $(Rscript --version 2>&1 | head -n 1)"
+
+Rscript "${REPO_ROOT}/scripts/16_siebert_marker_coexpression_umap_analysis.R" \
+  --project-root "${PROJECT_ROOT}" \
+  --seurat-rds "${DIV30_SEURAT_RDS}" \
+  --out-dir "${OUT_DIR}" \
+  --study-id "varela_div30" \
+  --study-label "This Study, DIV 30" \
+  --sample-col "orig.ident" \
+  --assay "RNA" \
+  --reduction "umap" \
+  --cluster-col "seurat_clusters" \
+  --output-prefix "div30_marker" \
+  --threshold "${THRESHOLD}"
+
+echo "Job finished: $(date)"

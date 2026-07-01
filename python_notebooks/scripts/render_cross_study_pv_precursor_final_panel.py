@@ -22,6 +22,17 @@ from mge_organoid_python.cross_study_marker_expression import (
 )
 
 
+PV_PRECURSOR_STUDY_ORDER = [
+    "varela_div30",
+    "varela_div90",
+    "siebert_2026",
+    "walsh",
+    "samarasinghe_2021",
+    "bershteyn_2025",
+    "bershteyn_2023",
+]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", required=True)
@@ -29,21 +40,44 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def ordered_pv_precursor_specs(specs):
+    order = {study_id: idx for idx, study_id in enumerate(PV_PRECURSOR_STUDY_ORDER)}
+    return sorted(specs, key=lambda spec: order.get(spec.study_id, len(order)))
+
+
+def pv_precursor_genes_with_vipr2() -> list[str]:
+    genes = list(PV_PRECURSOR_MARKER_PANEL.genes)
+    if "VIPR2" in genes:
+        return genes
+    tac1_index = genes.index("TAC1") if "TAC1" in genes else len(PV_PRECURSOR_MARKER_PANEL.on_genes)
+    genes.insert(tac1_index + 1, "VIPR2")
+    return genes
+
+
+def pv_precursor_gene_group_labels_with_vipr2() -> dict[str, str]:
+    labels = PV_PRECURSOR_MARKER_PANEL.gene_group_labels()
+    labels["VIPR2"] = PV_PRECURSOR_MARKER_PANEL.off_label
+    return labels
+
+
 def main() -> None:
     args = parse_args()
     project_root = Path(args.project_root)
-    specs = default_cross_study_marker_specs(project_root)
-    data = load_marker_expression_tables(specs, project_root, args.run_label, genes=ALL_MARKER_GENES)
+    specs = ordered_pv_precursor_specs(default_cross_study_marker_specs(project_root))
+    plot_genes = pv_precursor_genes_with_vipr2()
+    load_genes = list(dict.fromkeys([*ALL_MARKER_GENES, "VIPR2"]))
+    gene_group_labels = pv_precursor_gene_group_labels_with_vipr2()
+    data = load_marker_expression_tables(specs, project_root, args.run_label, genes=load_genes)
 
     output_path = plot_dir(project_root, args.run_label) / "cross_study_marker_expression_pv_precursors_on_off_target.png"
     manifest = plot_marker_umap_grid(
         data=data,
         output_path=output_path,
-        genes=PV_PRECURSOR_MARKER_PANEL.genes,
+        genes=plot_genes,
         specs=specs,
         title="Cross-study PV Precursors/OFF-target marker expression",
         on_genes_for_divider=PV_PRECURSOR_MARKER_PANEL.on_genes,
-        gene_group_labels=PV_PRECURSOR_MARKER_PANEL.gene_group_labels(),
+        gene_group_labels=gene_group_labels,
         top_gene_spans=PV_PRECURSOR_TOP_GENE_SPANS,
     )
     manifest.insert(0, "plot_token", "pv_precursors_on_off_target")
@@ -59,11 +93,11 @@ def main() -> None:
 
     audit = marker_expression_distribution_audit_table(
         data,
-        genes=PV_PRECURSOR_MARKER_PANEL.genes,
+        genes=plot_genes,
         plot_token="pv_precursors_on_off_target",
         panel_id=PV_PRECURSOR_MARKER_PANEL.panel_id,
         panel_label=PV_PRECURSOR_MARKER_PANEL.panel_label,
-        gene_group_labels=PV_PRECURSOR_MARKER_PANEL.gene_group_labels(),
+        gene_group_labels=gene_group_labels,
     )
     audit.to_csv(
         table_dir(project_root, args.run_label) / "cross_study_marker_expression_pv_precursors_on_off_target_distribution_audit.tsv",

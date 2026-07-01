@@ -4,6 +4,16 @@
 - Repo (code/config only): `/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline`
 - Runtime workspace (data/jobs/results): `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder` (PROJECT_ROOT)
 
+## Non-scRNA Imaging Branch
+- Imaris `.ims` CAREamics denoising lives under `imaging/imaris_careamics/`.
+- It is intentionally separate from the scRNA-seq notebook/script tree.
+- Runtime outputs should be placed under `PROJECT_ROOT/results/imaging/imaris_careamics/<sample_or_run_label>/`.
+- Slurm entrypoints are:
+  - `slurm/check_gpu.sbatch`
+  - `slurm/run_smoke_test.sbatch`
+  - `slurm/run_full_denoising.sbatch`
+- See `imaging/imaris_careamics/README.md` for install, smoke-test, full-run, and QC details.
+
 ## Directory Conventions (PROJECT_ROOT)
 Canonical layout for each study:
 

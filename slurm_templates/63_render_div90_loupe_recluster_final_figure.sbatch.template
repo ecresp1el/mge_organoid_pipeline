@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Render final DIV90 Loupe recluster annotation figure from CSV exports.
+#
+# Usage:
+#   cp slurm_templates/63_render_div90_loupe_recluster_final_figure.sbatch.template \
+#     /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/63_render_div90_loupe_recluster_final_figure.sbatch
+#   sbatch /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/63_render_div90_loupe_recluster_final_figure.sbatch
+
+#SBATCH --job-name=div90-loupe-final
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=24G
+#SBATCH --time=01:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/%x-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/%x-%j.err
+
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+
+FIGURE_ID="${DIV90_LOUPE_FIGURE_ID:-fig_div90_loupe_recluster_annotations_v1}"
+CSV_DIR="${DIV90_LOUPE_CSV_DIR:-${PROJECT_ROOT}/data/raw/loupe_exports/div90_recluster_annotations}"
+CLOUPE="${DIV90_LOUPE_CLOUPE:-${CSV_DIR}/D90 combined SO multi reclustered.cloupe}"
+RECOVERED_TRACKS="${DIV90_LOUPE_RECOVERED_TRACKS:-${CSV_DIR}/recovered_from_cloupe/loupe_recovered_selected_celltracks.tsv.gz}"
+H5AD="${DIV90_LOUPE_H5AD:-${PROJECT_ROOT}/results/python_anndata/varela_div90.h5ad}"
+DPI="${DIV90_LOUPE_DPI:-600}"
+OUTDIR="${PROJECT_ROOT}/final_figures/${FIGURE_ID}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${OUTDIR}/logs" "${OUTDIR}/code"
+cd "${REPO_ROOT}"
+
+export PROJECT_ROOT
+export PATH="${CONDA_ENV_BIN}:${PATH}"
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+
+echo "DIV90 Loupe final render started: $(date)"
+echo "Host: $(hostname)"
+echo "REPO_ROOT=${REPO_ROOT}"
+echo "PROJECT_ROOT=${PROJECT_ROOT}"
+echo "FIGURE_ID=${FIGURE_ID}"
+echo "CSV_DIR=${CSV_DIR}"
+echo "CLOUPE=${CLOUPE}"
+echo "RECOVERED_TRACKS=${RECOVERED_TRACKS}"
+echo "H5AD=${H5AD}"
+echo "OUTDIR=${OUTDIR}"
+echo "DPI=${DPI}"
+echo "Python: $("${CONDA_ENV_BIN}/python" --version)"
+
+"${CONDA_ENV_BIN}/python" -m py_compile \
+  "${REPO_ROOT}/python_notebooks/scripts/extract_loupe_cloupe_celltracks.py" \
+  "${REPO_ROOT}/python_notebooks/scripts/render_div90_loupe_recluster_final_figure.py"
+
+"${CONDA_ENV_BIN}/python" \
+  "${REPO_ROOT}/python_notebooks/scripts/extract_loupe_cloupe_celltracks.py" \
+  --cloupe "${CLOUPE}" \
+  --outdir "$(dirname "${RECOVERED_TRACKS}")"
+
+"${CONDA_ENV_BIN}/python" \
+  "${REPO_ROOT}/python_notebooks/scripts/render_div90_loupe_recluster_final_figure.py" \
+  --project-root "${PROJECT_ROOT}" \
+  --csv-dir "${CSV_DIR}" \
+  --h5ad "${H5AD}" \
+  --loupe-tracks "${RECOVERED_TRACKS}" \
+  --figure-id "${FIGURE_ID}" \
+  --outdir "${OUTDIR}" \
+  --dpi "${DPI}"
+
+cp -p "${REPO_ROOT}/python_notebooks/scripts/extract_loupe_cloupe_celltracks.py" "${OUTDIR}/code/" 2>/dev/null || true
+cp -p "${REPO_ROOT}/python_notebooks/scripts/render_div90_loupe_recluster_final_figure.py" "${OUTDIR}/code/" 2>/dev/null || true
+cp -p "${PROJECT_ROOT}/jobs/63_render_div90_loupe_recluster_final_figure.sbatch" "${OUTDIR}/code/" 2>/dev/null || true
+cp -p "${PROJECT_ROOT}/logs/div90-loupe-final-${SLURM_JOB_ID}.out" "${OUTDIR}/logs/" 2>/dev/null || true
+cp -p "${PROJECT_ROOT}/logs/div90-loupe-final-${SLURM_JOB_ID}.err" "${OUTDIR}/logs/" 2>/dev/null || true
+
+echo "Generated files:"
+find "${OUTDIR}" -maxdepth 4 -type f | sort
+echo "DIV90 Loupe final render finished: $(date)"

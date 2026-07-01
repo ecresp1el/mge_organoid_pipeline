@@ -1360,6 +1360,20 @@ Layout logic:
   the paired OFF-target genes. Because `ZEB2` was not present in the prepared
   v12 per-study marker tables, this update requires rerunning marker extraction
   before the plot-only final render.
+- The 2026-06-29 single-gene follow-up generated repeated UMAP/violin/sample
+  percent-positive panels for `NKX2-1`, `LHX6`, `LHX8`, `MAFB`, `MEF2C`,
+  `CRABP1`, `TAC1`, `VIPR2`, and `PVALB` using a shared `>= 0.5`
+  log-expression threshold and the same visualization-filtered denominator.
+  `TAC1` was already present in the prepared v12 candidate marker tables.
+  `VIPR2` required a copied/enriched marker-table run,
+  `cross_study_marker_expression_v12_pv_precursors_final_candidate_plus_vipr2`,
+  with DIV30/DIV90 extracted from H5AD caches and non-Varela studies exported
+  from Seurat through Slurm job 52539566. The first separate per-gene folders
+  were deleted and replaced by one consolidated package:
+  `final_figures/fig_cross_study_single_gene_expression_v12_candidate`. The
+  conceptual methods and planned study-by-marker/sample-by-marker synthesis
+  figure are recorded in:
+  `python_notebooks/HANDOFF_cross_study_marker_synthesis_concept.md`.
 - A v12 plot-only rerender keeps the same marker tables/data but shortens the
   bottom per-gene colorbars to 60% of each column width while keeping them
   aligned in one row. The expression overlay uses the table/cell order directly;

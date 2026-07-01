@@ -246,8 +246,13 @@ Slurm execution standard:
 
 | Figure ID | Status | Candidate Path | Notes |
 | --- | --- | --- | --- |
+| `fig_div90_loupe_recluster_annotations_v1` | Finalized | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_div90_loupe_recluster_annotations_v1` | 2026-07-01 plot-only final render from six Loupe Browser CSV UMAP coordinate exports plus recovered Loupe `.cloupe` cell-track reannotations for DIV90 cortical-only, progenitor/astro/glia, and subpallial-only reclusters. No analysis/reclustering was performed; cached DIV90 AnnData metadata was used only for canonical UMAP inset placement. PNG/PDF/SVG outputs exported at 600 dpi. |
 | `fig_cross_study_marker_expression_v12` | Found, Log-audited, Modifying, Validated, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12` | First final folder created for cluster UMAP QC / DIV90 published recode outputs. Rerendered with editable Arial SVG text and 600 dpi export for rasterized UMAP layers. Other marker-expression multi-grids still pending formatting/finalization. |
-| `fig_cross_study_marker_expression_pv_precursors_on_off_target_v12` | Updated, Slurm-rendered, Validated package | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate` | 2026-06-27 revision groups PV ON-target MGE genes first as NKX2.1/LHX6/LHX8/ERBB4 with a top `MGE` span, replaces ST18 with ZEB2, removes HMX3, and refreshed marker extraction because ZEB2 was absent from the prepared v12 tables. Exported PNG/PDF/SVG at 600 dpi through Slurm job 52439584. |
+| `fig_cross_study_marker_expression_pv_precursors_on_off_target_v12` | Updated, Slurm-rendered, Validated package | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate_plus_vipr2` | 2026-06-27 revision groups PV ON-target MGE genes first as NKX2.1/LHX6/LHX8/ERBB4 with a top `MGE` span, replaces ST18 with ZEB2, removes HMX3, and refreshed marker extraction because ZEB2 was absent from the prepared v12 tables. 2026-06-29 rerender adds VIPR2 as an OFF-target marker immediately after TAC1 and places Samarasinghe et al. 2021 above the Bershteyn rows in the UMAP grid. Exported PNG/PDF/SVG at 600 dpi through Slurm job 52547789. |
+| `fig_cross_study_lhx6_expression_v12_candidate` | Superseded and deleted | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_single_gene_expression_v12_candidate` | The original standalone LHX6 folder was deleted on 2026-06-29 when the single-gene panels were rebuilt into one consolidated fresh package. LHX6 outputs now live inside the consolidated package. |
+| `fig_cross_study_single_gene_expression_v12_candidate` | Fresh consolidated package generated and validated | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_single_gene_expression_v12_candidate` | 2026-06-29 rebuilt the single-gene UMAP/violin/sample-positive panels for NKX2.1/NKX2-1, LHX6, LHX8, MAFB, MEF2C, CRABP1, TAC1, VIPR2, and PV/PVALB into one folder. `VIPR2` required an enriched copied marker run with a newly exported VIPR2 column. The previous separate per-gene folders were deleted. Package contains 9 PNG, 9 PDF, 9 SVG, per-gene tables, and combined manifests. |
+| `fig_cross_study_mge_pv_marker_synthesis_v1_candidate` | Concept documented, superseded by integrated publication render | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_single_gene_expression_v12_candidate` | New synthesis concept documented in `python_notebooks/HANDOFF_cross_study_marker_synthesis_concept.md`. The direct concept-only synthesis was not rendered separately because the user requested a more specific integrated publication-style figure. |
+| `fig_cross_study_integrated_mge_marker_expression_v1_candidate` | Generated and validated | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_integrated_mge_marker_expression_v1_candidate` | 2026-06-29 rendered two integrated publication-style figures from the LHX6 template style. The canonical MGE marker violin/positive-sample matrix now includes NKX2.1, LHX6, LHX8, CRABP1, TAC1, VIPR2, ZEB2, SST, and PVALB; This Study DIV30 vs DIV90 replicate reproducibility remains NKX2.1, LHX6, LHX8. Expression remains the existing `log1p(CP10K)` scale with threshold 0.5; no log10 conversion. |
 | `fig_cross_study_shi_label_transfer_v1_umap_score_grids` | Modified, Slurm-rendered, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_shi_seurat_label_transfer/cross_study_shi_seurat_label_transfer_v1` | Plot-only rerender of Shi Seurat label-transfer UMAP score grids and matched sample-composition panels from saved v1 combined table. Updated score grids to fixed 0-1 grey-to-blue scaling, applied DIV90 visualization-only stressed-cluster 6/7 removal, applied DIV90 vertical plotting-only UMAP orientation, wrapped long all-label headers, exported requested PNG/PDF/SVG at 600 dpi through Slurm job 52371207 with editable Arial SVG text. Added sample-composition panels through Slurm job 52371553 using the same final denominator and Bershteyn 2023 shorthand sample labels. |
 | `maturation_scores` | Slurm-rendered, Plot-updated, Validated package | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/maturation_scores/maturation_scores_v1` | 2026-06-27 rerender computes every displayed module with `Seurat::AddModuleScore`, removes mature-minus-immature/MGE subtraction scores, keeps RG scores, IP scores, immature neuron score, and mature neuron score, and applies DIV90 final-figure visualization rules (exclude current clusters 6/7, flip plotted UMAP2). Corrected Slurm job 52449579 completed. Later plot-only update added cluster-number/name UMAPs as the first column of the predefined maturation grid, moved cluster labels to side legends, and changed score overlays to grey-to-blue autoscaling by each raw module-score column. Final package is `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/maturation_scores`. |
 | `fig_div90_jia_urd_marker_pseudotime_tree_v1_candidate` | Found, Confirmed, Final package started | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1` | New candidate package created for the DIV90 Jia all-cell URD marker-validation, UMAP pseudotime, and cluster-number-name tree pseudotime panels. Current assets were copied into `final_figures`; formatting should proceed by plot-only re-render from existing assets, not by recomputing URD pseudotime, the lineage tree, or marker validation. |
@@ -255,6 +260,145 @@ Slurm execution standard:
 | `fig_siletti_div90_restricted_mge_llc_chol_gaba_rivers_v9b_no_cge_no_msn_fullref_min10_ordered_candidate` | Generated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_chol_gaba_river_plots_v9b_no_cge_no_msn_fullref_min10_ordered` | v9b reruns the no-CGE/no-MSN full-reference workflow but replaces the v8 cluster-400 `NT-CHOL NT-VGLUT3` Splatter subset with only the mixed cholinergic-GABA candidate Splatter cluster 392/subcluster 1639 (`NT-CHOL NT-GABA NT-VGLUT3`, 42 reference cells, SLC5A7/LHX8/CHAT/ISL1). Packaged in `final_figures` as a candidate; 388 DIV90 cells win `Subpallial Cholinergic-GABA neurons`, but the median margin over second-best label is only 0.042, so this is a focused restricted-reference signal rather than definitive cholinergic-GABA identity. |
 | `fig_siletti_div90_restricted_mge_llc_pure_chol_rivers_v10_no_cge_no_msn_fullref_min10_ordered_candidate` | Generated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_pure_chol_river_plots_v10_no_cge_no_msn_fullref_min10_ordered` | v10 reruns the same no-CGE/no-MSN full-reference workflow using only the exact pure cholinergic Splatter row, cluster 398/subcluster 1532 (`NT-CHOL`, 137 reference cells, SLC5A7/PHOX2B/TBX20/CHAT, mostly Myelencephalon/Pons). It excludes v8 cluster-400 and v9b cluster-392 Splatter rows. 1,857 DIV90 cells win `Subpallial Pure cholinergic neurons` raw, 1,848 are visible after the min-10 fine-river edge filter; median margin is 0.141. This is pure cholinergic by neurotransmitter annotation but not MGE-like by anatomy/marker audit. |
 | `fig_siletti_div90_restricted_mge_llc_no_chol_rivers_v11_no_cge_no_msn_fullref_min10_ordered_candidate` | Generated, Packaged candidate | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/siletti_2023_whb_reference_label_transfer/siletti_div90_FINAL_FIGURE_CANDIDATE_restricted_mge_llc_no_chol_river_plots_v11_no_cge_no_msn_fullref_min10_ordered` | v11 removes all cholinergic/Splatter reference rows entirely and uses only MGE interneuron plus LAMP5-LHX6 and Chandelier. It excludes v8 cluster-400, v9b cluster-392, v10 cluster-398, all Splatter, CGE, MSN, and eccentric MSN before bridge export and transfer. Reference export: 267,552 cells total; transfer training after excluding `Other selected reference`: 249,670 cells. |
+
+## Figure: fig_div90_loupe_recluster_annotations_v1
+
+### Status
+
+```text
+Finalized on 2026-07-01.
+```
+
+### Candidate Paths
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/data/raw/loupe_exports/div90_recluster_annotations/
+```
+
+Six Loupe Browser CSV coordinate exports were used:
+
+```text
+UMAP-Projection_corticalonly.csv
+Cortical only recluster-UMAP-Projection.csv
+UMAP-Projection_progen_and_glia.csv
+Subcluster Progen & Astro-UMAP-Projection.csv
+UMAP-Projection_suppallialonly.csv
+Subpallial only Recluster-UMAP-Projection.csv
+```
+
+### Source Code and Handoffs
+
+```text
+python_notebooks/scripts/render_div90_loupe_recluster_final_figure.py
+python_notebooks/scripts/extract_loupe_cloupe_celltracks.py
+slurm_templates/63_render_div90_loupe_recluster_final_figure.sbatch.template
+python_notebooks/HANDOFF_div90_jia_lineage_urd_plan.md
+python_notebooks/HANDOFF_div90_parent_cluster_subclustering_audit.md
+```
+
+### Prepared Assets
+
+Context metadata/coordinates came from cached DIV90 AnnData:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/python_anndata/varela_div90.h5ad
+```
+
+This was used only for canonical DIV90 UMAP inset placement. The displayed
+cluster names are the Loupe reannotation cell-track labels recovered from:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/data/raw/loupe_exports/div90_recluster_annotations/D90 combined SO multi reclustered.cloupe
+```
+
+Recovered track tables:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/data/raw/loupe_exports/div90_recluster_annotations/recovered_from_cloupe/loupe_recovered_selected_celltracks.tsv.gz
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/data/raw/loupe_exports/div90_recluster_annotations/recovered_from_cloupe/loupe_recovered_selected_celltrack_summary.tsv
+```
+
+No expression analysis, reclustering, marker scoring, or label transfer was run.
+
+### Log Audit
+
+```text
+Render type: plot-only local command, with an equivalent Slurm rerun template staged.
+Runtime: approximately 1 minute for 600 dpi PNG/PDF/SVG export.
+Reason: only reads small Loupe CSV coordinate exports, recovered `.cloupe`
+cell-track metadata, and AnnData UMAP coordinates for the inset context.
+```
+
+The exact Slurm rerun template is staged at:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/jobs/63_render_div90_loupe_recluster_final_figure.sbatch
+```
+
+### Rerun Decision
+
+```text
+Plot-only rerender from exported Loupe CSVs.
+Do not rerun reclustering or any upstream analysis for this figure.
+```
+
+### Modification Log
+
+```text
+2026-07-01:
+  - Registered the transferred CSVs under data/raw/loupe_exports/div90_recluster_annotations.
+  - Recovered the Loupe Browser reannotation cell tracks from `D90 combined SO multi reclustered.cloupe`.
+  - Built a final panel with each Loupe local recluster UMAP colored/labeled by recovered Loupe reannotation labels and a compact canonical DIV90 UMAP inset.
+  - Applied separate publication palettes for the cortical-only, progenitor/astro/glia, and subpallial-only recluster label sets.
+  - Wrote source inventory, recovered Loupe annotation composition, membership table, copied source CSVs, recovered track table, and provenance JSON.
+  - Exported PNG/PDF/SVG at 600 dpi.
+  - Revised the main final panel after visual review:
+      local Loupe recluster UMAPs are now the main panels
+      canonical DIV90 subset-location maps are compact insets
+      three recluster groups use a distinct colorblind-safe palette
+      assigned parent cluster names are shown below each panel
+      exact full parent-cluster composition remains in the table output
+```
+
+### Validation
+
+```text
+Visual inspection completed for:
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_div90_loupe_recluster_annotations_v1/figures/png/div90_loupe_recluster_final_panel.png
+
+Confirmed:
+  - panels are nonblank
+  - subset highlighting matches expected cortical/progenitor-glial/subpallial regions
+  - local Loupe recluster layouts render from the CSV coordinates
+  - parent cluster labels are readable
+  - source tables and copied CSVs are present
+```
+
+### Final Figure Package
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_div90_loupe_recluster_annotations_v1/
+```
+
+Main outputs:
+
+```text
+figures/png/div90_loupe_recluster_final_panel.png
+figures/pdf/div90_loupe_recluster_final_panel.pdf
+figures/svg/div90_loupe_recluster_final_panel.svg
+figures/png/div90_loupe_recluster_membership_on_loupe_projection.png
+figures/png/div90_loupe_recluster_local_layouts_by_parent_cluster.png
+tables/div90_loupe_recluster_source_inventory.tsv
+tables/div90_loupe_recluster_parent_cluster_composition.tsv
+tables/div90_loupe_recluster_membership.tsv.gz
+provenance/render_provenance.json
+```
+
+### Open Questions
+
+```text
+None for the plot-only final package.
+```
 
 ## Figure: fig_siletti_div90_restricted_mge_llc_chol_gaba_rivers_v9b_no_cge_no_msn_fullref_min10_ordered_candidate
 
@@ -1184,7 +1328,7 @@ Original source plot:
 Modified candidate run:
 
 ```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate_plus_vipr2
 ```
 
 Final-figure candidate package:
@@ -1301,6 +1445,25 @@ figures/svg/cross_study_marker_expression_pv_precursors_on_off_target.svg
         SVG = 600
       Outputs were copied to final_figures after PNG/PDF/SVG were confirmed
       nonzero.
+  - 2026-06-29 Slurm rerender completed successfully:
+      Job ID: 52547789
+      Run label:
+        cross_study_marker_expression_v12_pv_precursors_final_candidate_plus_vipr2
+      Changes:
+        VIPR2 added as an OFF-target marker immediately after TAC1.
+        Samarasinghe et al. 2021 moved above Bershteyn et al. 2025 and
+        Bershteyn et al. 2023 in the UMAP row order.
+      Logs:
+        /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/pv-vipr2-panel-pv-vipr2-panel-52547789.out
+        /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/pv-vipr2-panel-pv-vipr2-panel-52547789.err
+      Runtime/resources:
+        00:02:40 elapsed, 23,913,404K MaxRSS, 4 CPUs, 96G memory requested
+      DPI:
+        PNG = 600
+        PDF = 600
+        SVG = 600
+      Outputs were copied to final_figures after PNG/PDF/SVG were confirmed
+      nonzero.
 ```
 
 ### Validation
@@ -1320,6 +1483,14 @@ Manifest check:
   - Target panel studies:
     This Study DIV30, This Study DIV90, Siebert 2026, Walsh 2025,
     Bershteyn 2025, Bershteyn 2023, Samarasinghe 2021
+  - 2026-06-29 target panel studies:
+    This Study DIV30, This Study DIV90, Siebert 2026, Walsh 2025,
+    Samarasinghe 2021, Bershteyn 2025, Bershteyn 2023
+  - 2026-06-29 target panel genes:
+    NKX2-1, LHX6, LHX8, ERBB4, MAFB, MEF2C, ETV1, CRABP1, TAC1, VIPR2,
+    ZEB2, PVALB, SP8, EBF1, NKX2-2, RAX, DBH
+  - Manifest confirms VIPR2 is present as OFF-target and is ordered immediately
+    after TAC1.
   - Excluded study IDs: none
   - Target outputs exist as PNG, PDF, and SVG.
   - DIV90 filter summary confirms 22,338 cells before filter, 20,049 after
@@ -1340,6 +1511,8 @@ Visual spot-check:
     LHX6, LHX8, and ERBB4 with a horizontal MGE span above them; ZEB2 appears
     in place of ST18; HMX3 is absent; and the ON/OFF divider remains after
     PVALB.
+  - 2026-06-29 SVG/text spot-check confirms TAC1, VIPR2, ZEB2 are adjacent in
+    that order and Samarasinghe et al. 2021 is above both Bershteyn rows.
   - Slurm output log records nonzero output validation:
       PNG 7.8M
       PDF 7.3M
@@ -1376,6 +1549,469 @@ Included provenance:
   git commit/status snapshot
   file manifest
   sha256 manifest
+```
+
+## Figure: fig_cross_study_lhx6_expression_v12_candidate
+
+### Status
+
+```text
+Found: requested 2026-06-29 from the finalized PV precursor marker-expression
+  handoff and the Shi sample-composition sample-labeling logic.
+Log-audited: not needed; this is a plot-only local render from prepared compact
+  marker-expression TSV tables, not a new extraction or upstream analysis run.
+Confirmed: pending user visual review
+Modified: yes
+Validated: yes; PNG visual preview, nonzero PNG/PDF/SVG outputs, editable SVG
+  text check, and summary-table checks completed.
+Finalized: candidate package created
+```
+
+### Candidate Paths
+
+Source prepared marker-expression run:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate_plus_vipr2
+```
+
+Historical standalone final-figure candidate package:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_lhx6_expression_v12_candidate
+```
+
+This standalone package was deleted on 2026-06-29 after the single-gene panels
+were rebuilt into one consolidated package:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_single_gene_expression_v12_candidate
+```
+
+Target outputs:
+
+```text
+figures/png/cross_study_lhx6_expression_umap_violin_sample_positive.png
+figures/pdf/cross_study_lhx6_expression_umap_violin_sample_positive.pdf
+figures/svg/cross_study_lhx6_expression_umap_violin_sample_positive.svg
+```
+
+### Source Code and Handoffs
+
+Renderer:
+
+```text
+python_notebooks/scripts/render_cross_study_lhx6_expression_final_panel.py
+```
+
+Source plotting/data helpers:
+
+```text
+python_notebooks/src/mge_organoid_python/cross_study_marker_expression.py
+python_notebooks/scripts/render_cross_study_shi_sample_composition_final_panels.py
+```
+
+### Prepared Assets
+
+Input tables:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate/tables/per_study/*_marker_expression.tsv.gz
+```
+
+Loaded study set:
+
+```text
+This Study, DIV 30: 90,631 cells
+This Study, DIV 90: 22,338 cells before visualization filter; 20,049 after
+Siebert et al. 2026: 64,676 cells
+Walsh et al. 2025: 4,519 cells
+Bershteyn et al. 2025: 124,583 cells
+Bershteyn et al. 2023: 98,042 cells
+Samarasinghe et al. 2021: 49,942 cells before visualization filter; 26,935
+  controls after visualization filter
+```
+
+### Modification Log
+
+```text
+2026-06-29:
+  - Created a new LHX6-focused final-figure renderer from prepared v12 candidate
+    marker-expression tables.
+  - Figure layout:
+      Row 1: one LHX6 UMAP per study, using plotting-only DIV90 UMAP2 flip and
+        visualization filters inherited from the marker-expression figure.
+      Row 2: violin plot of LHX6 log1p(CP10K) expression across studies.
+      Row 3: sample-level percent of cells with LHX6 expression >= 0.5.
+  - Positive-cell threshold:
+      LHX6 >= 0.5 log expression.
+  - Denominator:
+      Visualization-filtered cells with finite LHX6 expression. Samarasinghe is
+      controls-only; DIV90 current clusters 6 and 7 are removed as stressed
+      cells.
+  - Sample labels/order follow the same study-specific parsing conventions used
+    in the Shi sample-composition renderer where they can be inferred from the
+    marker table `sample` column.
+  - Exported PNG/PDF/SVG locally through:
+      PYTHONPATH=python_notebooks/src /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python python_notebooks/scripts/render_cross_study_lhx6_expression_final_panel.py --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label cross_study_marker_expression_v12_pv_precursors_final_candidate
+```
+
+### Validation
+
+```text
+Outputs:
+  PNG: 3.3M, 9212 x 3583
+  PDF: 1.2M
+  SVG: 3.6M
+
+SVG text check:
+  <text> tag count = 97
+  <path> tag count = 101
+  Matplotlib configured with svg.fonttype = none and Arial/Nimbus Sans fallback.
+
+Study-level LHX6 >= 0.5 summary:
+  This Study, DIV 30: 38,244 / 90,631 = 42.20%
+  This Study, DIV 90: 7,163 / 20,049 = 35.73%
+  Siebert et al. 2026: 4,573 / 64,676 = 7.07%
+  Walsh et al. 2025: 1,637 / 4,519 = 36.22%
+  Bershteyn et al. 2025: 49,194 / 124,583 = 39.49%
+  Bershteyn et al. 2023: 35,709 / 98,042 = 36.42%
+  Samarasinghe et al. 2021 controls: 13 / 26,935 = 0.05%
+
+Visual spot-check:
+  PNG opened successfully.
+  Top row contains one UMAP per study.
+  Middle row shows cross-study LHX6 expression violins with threshold line.
+  Bottom row shows sample-level LHX6-positive bars grouped by study.
+```
+
+### Final Figure Package
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_single_gene_expression_v12_candidate
+
+Included structure:
+  README.md
+  code/render_cross_study_lhx6_expression_final_panel.py
+  figures/png/
+  figures/pdf/
+  figures/svg/
+  tables/
+  provenance/
+
+Tables:
+  cross_study_lhx6_expression_output_manifest.tsv
+  cross_study_lhx6_expression_plot_filter_summary.tsv
+  cross_study_lhx6_expression_sample_positive_fraction.tsv
+  cross_study_lhx6_expression_study_summary.tsv
+
+Provenance:
+  render_manifest.tsv
+  git_commit.txt
+  git_status_short.txt
+  sha256_manifest.txt
+```
+
+## Figure: fig_cross_study_single_gene_expression_v12_candidate
+
+### Status
+
+```text
+Generated: yes; requested 2026-06-29 as repeats of the LHX6 panel.
+Log-audited: not needed; all are plot-only local renders from prepared compact
+  marker-expression TSV tables.
+Confirmed: pending user visual review
+Validated: yes; PNG/PDF/SVG output checks, PNG dimension checks, editable SVG
+  text checks, and study-summary readbacks completed.
+Finalized: one consolidated candidate package created
+```
+
+### Candidate Paths
+
+Source prepared marker-expression run:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate
+```
+
+Final-figure candidate package:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_single_gene_expression_v12_candidate
+```
+
+The prior separate per-gene packages were deleted on 2026-06-29 and replaced
+by this one fresh consolidated package.
+
+### Source Code and Handoffs
+
+Renderer:
+
+```text
+python_notebooks/scripts/render_cross_study_lhx6_expression_final_panel.py
+python_notebooks/scripts/render_cross_study_single_gene_expression_batch.py
+```
+
+The renderer was generalized after the LHX6 render so `--gene` controls the
+gene column, output stem, table names, and final package folder. User shorthand
+`PV` maps to the marker column `PVALB`; `NKX2.1` maps to the marker column
+`NKX2-1`.
+
+Synthesis concept handoff:
+
+```text
+python_notebooks/HANDOFF_cross_study_marker_synthesis_concept.md
+```
+
+This handoff records the shared method contract, study-level percent-positive
+matrix, and recommended next synthesis-figure layout before any integrated
+synthesis render is made.
+
+### Modification Log
+
+```text
+2026-06-29:
+  - Repeated the single-gene panel for:
+      LHX6
+      LHX8
+      MAFB
+      MEF2C
+      CRABP1
+      TAC1
+      VIPR2
+      PV/PVALB
+      NKX2.1/NKX2-1
+  - Kept the same panel layout:
+      Row 1: one marker UMAP per study
+      Row 2: cross-study expression violin
+      Row 3: sample-level percent marker-positive cells
+  - Kept the same positive-cell threshold:
+      marker expression >= 0.5 log expression
+  - Kept the same denominator:
+      visualization-filtered cells with finite marker expression. Samarasinghe
+      is controls-only; DIV90 current clusters 6 and 7 are removed as stressed
+      cells.
+  - Batch render command:
+      for gene in LHX8 MAFB MEF2C CRABP1 PV; do
+        PYTHONPATH=python_notebooks/src /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python python_notebooks/scripts/render_cross_study_lhx6_expression_final_panel.py --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label cross_study_marker_expression_v12_pv_precursors_final_candidate --gene "$gene"
+      done
+  - Added NKX2.1 afterward with:
+      PYTHONPATH=python_notebooks/src /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python python_notebooks/scripts/render_cross_study_lhx6_expression_final_panel.py --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label cross_study_marker_expression_v12_pv_precursors_final_candidate --gene NKX2.1
+  - Rebuilt the full set into one fresh consolidated package and deleted the
+    separate per-gene folders:
+      PYTHONPATH=python_notebooks/src:python_notebooks/scripts /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python python_notebooks/scripts/render_cross_study_single_gene_expression_batch.py --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label cross_study_marker_expression_v12_pv_precursors_final_candidate --fresh
+  - Added TAC1 and VIPR2 after user request:
+      TAC1 was already present in the prepared marker tables.
+      VIPR2 was not present, so a copied/enriched run was created:
+        cross_study_marker_expression_v12_pv_precursors_final_candidate_plus_vipr2
+      VIPR2 export method:
+        DIV30/DIV90 were extracted from H5AD caches with the Python marker
+        extractor.
+        Non-Varela studies were exported from Seurat objects through Slurm job
+        52539566 after updating the R exporter to use SeuratObject v5 `layer=`.
+      Consolidated package was updated with:
+        PYTHONPATH=python_notebooks/src:python_notebooks/scripts /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python python_notebooks/scripts/render_cross_study_single_gene_expression_batch.py --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label cross_study_marker_expression_v12_pv_precursors_final_candidate_plus_vipr2 --genes NKX2.1 LHX6 LHX8 MAFB MEF2C CRABP1 TAC1 VIPR2 PV --skip-existing
+```
+
+### Validation
+
+```text
+All nine PNG outputs: 9212 x 3583.
+SVG editable text check:
+  LHX6: 97 <text> tags
+  LHX8: 97 <text> tags
+  MAFB: 97 <text> tags
+  MEF2C: 97 <text> tags
+  CRABP1: 96 <text> tags
+  TAC1: 98 <text> tags
+  VIPR2: 96 <text> tags
+  PVALB: 97 <text> tags
+  NKX2-1: 95 <text> tags
+
+Study-level marker >= 0.5 summary:
+
+LHX8:
+  DIV30 58.23%, DIV90 17.72%, Siebert 0.53%, Walsh 4.05%,
+  Bershteyn 2025 5.65%, Bershteyn 2023 14.71%, Samarasinghe controls 0.04%.
+
+MAFB:
+  DIV30 20.57%, DIV90 12.46%, Siebert 5.96%, Walsh 29.96%,
+  Bershteyn 2025 52.78%, Bershteyn 2023 28.58%, Samarasinghe controls 4.70%.
+
+MEF2C:
+  DIV30 12.35%, DIV90 14.96%, Siebert 27.22%, Walsh 54.30%,
+  Bershteyn 2025 61.22%, Bershteyn 2023 55.32%, Samarasinghe controls 22.22%.
+
+CRABP1:
+  DIV30 40.84%, DIV90 27.24%, Siebert 10.77%, Walsh 12.95%,
+  Bershteyn 2025 0.24%, Bershteyn 2023 12.68%, Samarasinghe controls 14.26%.
+
+TAC1:
+  DIV30 13.57%, DIV90 7.81%, Siebert 1.62%, Walsh 8.23%,
+  Bershteyn 2025 5.11%, Bershteyn 2023 8.56%, Samarasinghe controls 1.34%.
+
+VIPR2:
+  DIV30 1.94%, DIV90 3.03%, Siebert 0.67%, Walsh 0.73%,
+  Bershteyn 2025 0.22%, Bershteyn 2023 0.86%, Samarasinghe controls 0.82%.
+
+PVALB:
+  DIV30 0.21%, DIV90 0.43%, Siebert 0.13%, Walsh 0.44%,
+  Bershteyn 2025 0.001%, Bershteyn 2023 0.10%, Samarasinghe controls 0.73%.
+
+NKX2.1/NKX2-1:
+  DIV30 94.96%, DIV90 61.58%, Siebert 19.98%, Walsh 43.64%,
+  Bershteyn 2025 17.34%, Bershteyn 2023 10.99%, Samarasinghe controls 0.31%.
+```
+
+### Final Figure Package
+
+The consolidated package contains:
+
+```text
+README.md
+code/render_cross_study_lhx6_expression_final_panel.py
+code/render_cross_study_single_gene_expression_batch.py
+figures/png/
+figures/pdf/
+figures/svg/
+tables/
+provenance/
+```
+
+It includes dynamic per-gene tables:
+
+```text
+cross_study_<gene>_expression_output_manifest.tsv
+cross_study_<gene>_expression_plot_filter_summary.tsv
+cross_study_<gene>_expression_sample_positive_fraction.tsv
+cross_study_<gene>_expression_study_summary.tsv
+cross_study_single_gene_expression_combined_output_manifest.tsv
+cross_study_single_gene_expression_combined_study_summary.tsv
+```
+
+## Figure: fig_cross_study_integrated_mge_marker_expression_v1_candidate
+
+### Status
+
+```text
+Found: yes
+Generated: yes
+Validated: yes
+Finalized: candidate package created; awaiting user visual approval
+```
+
+### Candidate Paths
+
+Source prepared marker-expression run:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/cross_study_marker_expression/cross_study_marker_expression_v12_pv_precursors_final_candidate_plus_vipr2
+```
+
+Final candidate package:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/final_figures/fig_cross_study_integrated_mge_marker_expression_v1_candidate
+```
+
+### Source Code and Handoffs
+
+Renderer:
+
+```text
+python_notebooks/scripts/render_cross_study_integrated_marker_publication_figures.py
+```
+
+Supporting template/helper renderer:
+
+```text
+python_notebooks/scripts/render_cross_study_lhx6_expression_final_panel.py
+```
+
+### Modification Log
+
+```text
+2026-06-29:
+  - Rendered two integrated publication-style figures from the existing LHX6
+    cross-study visual contract.
+  - Figure 1:
+      cross_study_canonical_mge_marker_expression_violin_positive_matrix
+      Paired gene-block layout for NKX2.1, LHX6, LHX8, CRABP1, TAC1,
+        VIPR2, ZEB2, SST, and PVALB.
+      For each gene, the compact sample-level violin row is immediately
+        followed by the matched sample-level percent-positive bar row.
+      Sample names are shown once at the bottom only.
+      Preserves study grouping, sample order, study separators, and study
+      color palette from the LHX6 template.
+      Gene labels are neutral black; color encodes study/group only.
+  - Figure 2:
+      this_study_div30_div90_mge_marker_replicate_reproducibility_* variants
+      Three side-by-side panels for NKX2.1, LHX6, and LHX8.
+      Three replicate variants are rendered:
+        no per-cell cutoff
+        per-cell inclusion cutoff expression >= 0.5 log1p(CP10K)
+        per-cell inclusion cutoff expression >= 1.0 log1p(CP10K)
+      For each replicate/sample and gene, the cutoff is applied at the cell
+      level first; the dot is then the mean expression across included cells.
+      Unfilled DIV30/DIV90 boxplots summarize those replicate-level means.
+      Gene titles are neutral black; DIV30/DIV90 colors encode group only.
+  - Expression scale:
+      Values remain the existing log1p(CP10K) values from the marker tables.
+      No log10 conversion or rescaling is applied.
+  - Positive-cell/reference threshold:
+      expression >= 0.5 log1p(CP10K).
+  - Violin rendering uses a deterministic capped draw per sample/gene for
+    shape speed, while medians, quartile marks, percentages, and output tables
+    use all visualization-filtered cells.
+  - Render command:
+      PYTHONPATH=python_notebooks/src:python_notebooks/scripts /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python python_notebooks/scripts/render_cross_study_integrated_marker_publication_figures.py --project-root /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder --run-label cross_study_marker_expression_v12_pv_precursors_final_candidate_plus_vipr2 --fresh
+  - 2026-06-29 rerender:
+      Added TAC1, VIPR2, ZEB2, SST, and PVALB to Figure 1 while leaving the
+      Figure 2 replicate reproducibility gene set unchanged.
+      Increased Figure 1 height dynamically so the 9 paired gene rows remain
+      legible.
+  - 2026-06-29 annotation update:
+      Added small rounded percentage labels above every Figure 1 sample-level
+      positive-fraction bar for every gene.
+```
+
+### Final Figure Package
+
+```text
+README.md
+code/render_cross_study_integrated_marker_publication_figures.py
+figures/png/
+figures/pdf/
+figures/svg/
+tables/integrated_marker_output_manifest.tsv
+tables/integrated_marker_plot_filter_summary.tsv
+tables/integrated_marker_replicate_reproducibility_summary.tsv
+tables/integrated_marker_sample_summary.tsv
+tables/integrated_marker_study_summary.tsv
+provenance/
+```
+
+### Validation
+
+```text
+PNG dimensions:
+  cross_study_canonical_mge_marker_expression_violin_positive_matrix.png:
+    8811 x 11117
+  each this_study_div30_div90_mge_marker_replicate_reproducibility_*.png:
+    4051 x 1772
+
+SVG editable text check:
+  Figure 1: 618 <text> tags
+  Figure 2 variants: 19 <text> tags each
+
+Summary table checks:
+  integrated_marker_sample_summary.tsv: 441 rows
+  integrated_marker_study_summary.tsv: 63 rows
+  integrated_marker_replicate_reproducibility_summary.tsv: 108 rows
+  49 samples per Figure 1 gene.
+  Figure 2 variants have six DIV30 and six DIV90 replicate/sample points per
+  gene/cell-cutoff.
+  Figure 2 has six DIV30 and six DIV90 replicate/sample points per gene.
 ```
 
 ## Figure: fig_cross_study_shi_label_transfer_v1_umap_score_grids
