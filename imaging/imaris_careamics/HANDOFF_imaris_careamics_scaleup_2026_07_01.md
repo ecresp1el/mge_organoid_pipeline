@@ -59,6 +59,39 @@ Post-run validation artifacts:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/scaleup_denoised_midz_contact_sheet.png
 ```
 
+## Trim-Z Fix Rerun
+
+On 2026-07-02, the failed `cl32_bive4_pv_reporter_40x_F0-F3` jobs were
+resubmitted to separate output directories so the failed outputs remain intact.
+
+Fix settings:
+
+```text
+TRIM_EMPTY_Z=true
+DISABLE_BATCH_NORM=true
+NORMALIZATION=mean_std
+TILE_OVERLAP_Z=8
+TILE_OVERLAP_YX=32
+```
+
+The fix excludes leading/trailing all-zero Z planes from training/prediction,
+then pads the denoised output back to the original Z size with zeros. For these
+files, the nonzero Z range is `0-360`, with trailing zero planes `361-383`.
+
+| Job ID | Sample | Output directory |
+| --- | --- | --- |
+| `52759673` | `cl32_bive4_pv_reporter_40x_F0` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F0_trimz_fix` |
+| `52759674` | `cl32_bive4_pv_reporter_40x_F1` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F1_trimz_fix` |
+| `52759675` | `cl32_bive4_pv_reporter_40x_F2` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F2_trimz_fix` |
+| `52759676` | `cl32_bive4_pv_reporter_40x_F3` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F3_trimz_fix` |
+
+Status command:
+
+```bash
+squeue -j 52759673,52759674,52759675,52759676 \
+  -o '%.18i %.9P %.35j %.8u %.2t %.12M %.6D %.12b %.10m %R'
+```
+
 Current status command:
 
 ```bash

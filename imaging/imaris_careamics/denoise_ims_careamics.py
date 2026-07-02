@@ -54,6 +54,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--patch-size-z", type=int, default=16, help="N2V patch size in Z.")
     parser.add_argument("--patch-size-yx", type=int, default=64, help="N2V patch size in Y and X.")
     parser.add_argument(
+        "--trim-empty-z",
+        action="store_true",
+        help=(
+            "Exclude leading/trailing Z planes that are all zero across both channels "
+            "from training/prediction, then pad denoised outputs back to the original Z size."
+        ),
+    )
+    parser.add_argument(
+        "--disable-batch-norm",
+        action="store_true",
+        help="Disable U-Net batch normalization. Useful for low-signal stacks or batch size 1.",
+    )
+    parser.add_argument(
+        "--normalization",
+        choices=("mean_std", "min_max", "quantile", "none"),
+        default="mean_std",
+        help="CAREamics input normalization.",
+    )
+    parser.add_argument(
         "--tile-overlap-z",
         type=int,
         default=None,
@@ -298,6 +317,8 @@ def create_n2v_config_for_channel(
     epochs: int,
     num_steps: int | None,
     seed: int,
+    normalization: str,
+    disable_batch_norm: bool,
 ) -> Any:
     from careamics.config import create_advanced_n2v_config
 
@@ -309,7 +330,10 @@ def create_n2v_config_for_channel(
         "batch_size": batch_size,
         "num_epochs": epochs,
         "seed": seed,
+        "normalization": normalization,
     }
+    if disable_batch_norm:
+        kwargs["model_params"] = {"use_batch_norm": False}
     if num_steps is not None:
         kwargs["num_steps"] = num_steps
         kwargs["n_val_patches"] = 2
@@ -326,12 +350,23 @@ def train_and_predict_channel(
     num_steps: int | None,
     seed: int,
     tile_overlap: tuple[int, int, int],
+    normalization: str,
+    disable_batch_norm: bool,
 ) -> np.ndarray:
     from careamics import CAREamist
 
     model_dir.mkdir(parents=True, exist_ok=True)
     train_data = [np.asarray(raw_tzyx[t], dtype=np.float32) for t in range(raw_tzyx.shape[0])]
-    config = create_n2v_config_for_channel(channel_name, patch_size, batch_size, epochs, num_steps, seed)
+    config = create_n2v_config_for_channel(
+        channel_name,
+        patch_size,
+        batch_size,
+        epochs,
+        num_steps,
+        seed,
+        normalization,
+        disable_batch_norm,
+    )
 
     print_header(f"Training {channel_name} N2V")
     print(f"Model directory: {model_dir}", flush=True)
@@ -339,6 +374,8 @@ def train_and_predict_channel(
     print(f"Patch size ZYX: {patch_size}", flush=True)
     print(f"Epochs: {epochs}", flush=True)
     print(f"Batch size: {batch_size}", flush=True)
+    print(f"Normalization: {normalization}", flush=True)
+    print(f"Disable batch norm: {disable_batch_norm}", flush=True)
     if num_steps is not None:
         print(f"Steps per epoch: {num_steps}", flush=True)
 
@@ -373,6 +410,41 @@ def train_and_predict_channel(
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def nonempty_z_slice(data_tczyx: np.ndarray) -> tuple[slice, dict[str, Any]]:
+    """Return the leading/trailing Z range with any nonzero signal across T/C/Y/X."""
+    nonzero_by_z = np.any(data_tczyx != 0, axis=(0, 1, 3, 4))
+    indices = np.flatnonzero(nonzero_by_z)
+    if indices.size == 0:
+        metadata = {
+            "trim_applied": False,
+            "reason": "all_z_planes_empty",
+            "original_z": int(data_tczyx.shape[2]),
+            "kept_z": 0,
+        }
+        return slice(0, data_tczyx.shape[2]), metadata
+    start = int(indices[0])
+    stop = int(indices[-1]) + 1
+    metadata = {
+        "trim_applied": bool(start != 0 or stop != data_tczyx.shape[2]),
+        "original_z": int(data_tczyx.shape[2]),
+        "z_slice": [start, stop],
+        "kept_z": int(stop - start),
+        "trimmed_leading_z": int(start),
+        "trimmed_trailing_z": int(data_tczyx.shape[2] - stop),
+    }
+    return slice(start, stop), metadata
+
+
+def pad_z_to_shape(
+    cropped_tzyx: np.ndarray,
+    original_shape_tzyx: tuple[int, int, int, int],
+    z_slice: slice,
+) -> np.ndarray:
+    padded = np.zeros(original_shape_tzyx, dtype=cropped_tzyx.dtype)
+    padded[:, z_slice, :, :] = cropped_tzyx
+    return padded
 
 
 def save_ome_tiff(path: Path, arr: np.ndarray, axes: str) -> None:
@@ -605,6 +677,24 @@ def main() -> int:
     print(f"Internal shape TCZYX: {data.shape}", flush=True)
     print(f"Input dtype: {data.dtype}", flush=True)
 
+    z_slice = slice(0, data.shape[2])
+    trim_metadata: dict[str, Any] = {
+        "trim_empty_z_requested": bool(args.trim_empty_z),
+        "trim_applied": False,
+        "original_z": int(data.shape[2]),
+        "z_slice": [0, int(data.shape[2])],
+        "kept_z": int(data.shape[2]),
+        "trimmed_leading_z": 0,
+        "trimmed_trailing_z": 0,
+    }
+    if args.trim_empty_z:
+        z_slice, trim_metadata = nonempty_z_slice(data)
+        trim_metadata["trim_empty_z_requested"] = True
+        print_header("Empty Z trim")
+        print(json.dumps(trim_metadata, indent=2, sort_keys=True), flush=True)
+        if trim_metadata.get("kept_z", 0) <= 0:
+            raise RuntimeError("Cannot run denoising: all Z planes are empty.")
+
     write_json(
         outdir / "run_metadata.json",
         {
@@ -616,6 +706,7 @@ def main() -> int:
             "ims_metadata": ims.metadata,
             "internal_shape_tczyx": list(map(int, data.shape)),
             "dtype": str(data.dtype),
+            "empty_z_trim": trim_metadata,
         },
     )
 
@@ -623,13 +714,16 @@ def main() -> int:
         "green": np.asarray(data[:, 0, :, :, :]),
         "red": np.asarray(data[:, 1, :, :, :]),
     }
+    train_channels = {
+        name: np.asarray(arr[:, z_slice, :, :]) for name, arr in raw_channels.items()
+    }
 
     print_header("Saving raw channel OME-TIFFs")
     save_ome_tiff(outdir / "green_raw.ome.tif", raw_channels["green"], axes="TZYX")
     save_ome_tiff(outdir / "red_raw.ome.tif", raw_channels["red"], axes="TZYX")
 
     requested_patch = (args.patch_size_z, args.patch_size_yx, args.patch_size_yx)
-    patch_size = adjusted_patch_size(tuple(map(int, raw_channels["green"].shape[1:])), requested_patch)
+    patch_size = adjusted_patch_size(tuple(map(int, train_channels["green"].shape[1:])), requested_patch)
     if patch_size != requested_patch:
         print(f"WARNING: adjusted patch size from {requested_patch} to {patch_size} for data shape.", flush=True)
     requested_overlap = (
@@ -644,9 +738,9 @@ def main() -> int:
 
     denoised_channels: dict[str, np.ndarray] = {}
     for _channel_index, name in CHANNELS:
-        denoised_channels[name] = train_and_predict_channel(
+        denoised_cropped = train_and_predict_channel(
             channel_name=name,
-            raw_tzyx=raw_channels[name],
+            raw_tzyx=train_channels[name],
             model_dir=model_root / f"{name}_n2v",
             patch_size=patch_size,
             batch_size=args.batch_size,
@@ -654,7 +748,17 @@ def main() -> int:
             num_steps=num_steps,
             seed=args.seed,
             tile_overlap=tile_overlap,
+            normalization=args.normalization,
+            disable_batch_norm=args.disable_batch_norm,
         )
+        if args.trim_empty_z:
+            denoised_channels[name] = pad_z_to_shape(
+                denoised_cropped,
+                tuple(map(int, raw_channels[name].shape)),
+                z_slice,
+            )
+        else:
+            denoised_channels[name] = denoised_cropped
 
     validate_denoised_outputs(outdir, denoised_channels)
 

@@ -38,6 +38,9 @@ PATCH_SIZE_Z="${PATCH_SIZE_Z:-16}"
 PATCH_SIZE_YX="${PATCH_SIZE_YX:-64}"
 TILE_OVERLAP_Z="${TILE_OVERLAP_Z:-8}"
 TILE_OVERLAP_YX="${TILE_OVERLAP_YX:-32}"
+TRIM_EMPTY_Z="${TRIM_EMPTY_Z:-false}"
+DISABLE_BATCH_NORM="${DISABLE_BATCH_NORM:-false}"
+NORMALIZATION="${NORMALIZATION:-mean_std}"
 REQUIRE_GPU="${REQUIRE_GPU:-true}"
 
 if [[ -z "${IMS_INPUT}" ]]; then
@@ -78,6 +81,16 @@ if [[ "${REQUIRE_GPU}" == "true" ]]; then
   gpu_arg+=(--require-gpu)
 fi
 
+trim_arg=()
+if [[ "${TRIM_EMPTY_Z}" == "true" ]]; then
+  trim_arg+=(--trim-empty-z)
+fi
+
+batch_norm_arg=()
+if [[ "${DISABLE_BATCH_NORM}" == "true" ]]; then
+  batch_norm_arg+=(--disable-batch-norm)
+fi
+
 python "${REPO_ROOT}/imaging/imaris_careamics/denoise_ims_careamics.py" \
   --input "${IMS_INPUT}" \
   --output-dir "${OUTPUT_DIR}" \
@@ -88,6 +101,9 @@ python "${REPO_ROOT}/imaging/imaris_careamics/denoise_ims_careamics.py" \
   --patch-size-yx "${PATCH_SIZE_YX}" \
   --tile-overlap-z "${TILE_OVERLAP_Z}" \
   --tile-overlap-yx "${TILE_OVERLAP_YX}" \
+  --normalization "${NORMALIZATION}" \
+  "${trim_arg[@]}" \
+  "${batch_norm_arg[@]}" \
   "${gpu_arg[@]}"
 
 echo "Imaris CAREamics full denoising finished: $(date)"
