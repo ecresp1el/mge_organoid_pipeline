@@ -41,6 +41,8 @@ TILE_OVERLAP_YX="${TILE_OVERLAP_YX:-32}"
 TRIM_EMPTY_Z="${TRIM_EMPTY_Z:-false}"
 DISABLE_BATCH_NORM="${DISABLE_BATCH_NORM:-false}"
 NORMALIZATION="${NORMALIZATION:-mean_std}"
+PREDICT_CHECKPOINT="${PREDICT_CHECKPOINT:-best}"
+MODEL_SOURCE_DIR="${MODEL_SOURCE_DIR:-}"
 REQUIRE_GPU="${REQUIRE_GPU:-true}"
 
 if [[ -z "${IMS_INPUT}" ]]; then
@@ -91,6 +93,11 @@ if [[ "${DISABLE_BATCH_NORM}" == "true" ]]; then
   batch_norm_arg+=(--disable-batch-norm)
 fi
 
+model_source_arg=()
+if [[ -n "${MODEL_SOURCE_DIR}" ]]; then
+  model_source_arg+=(--model-source-dir "${MODEL_SOURCE_DIR}")
+fi
+
 python "${REPO_ROOT}/imaging/imaris_careamics/denoise_ims_careamics.py" \
   --input "${IMS_INPUT}" \
   --output-dir "${OUTPUT_DIR}" \
@@ -102,6 +109,8 @@ python "${REPO_ROOT}/imaging/imaris_careamics/denoise_ims_careamics.py" \
   --tile-overlap-z "${TILE_OVERLAP_Z}" \
   --tile-overlap-yx "${TILE_OVERLAP_YX}" \
   --normalization "${NORMALIZATION}" \
+  --predict-checkpoint "${PREDICT_CHECKPOINT}" \
+  "${model_source_arg[@]}" \
   "${trim_arg[@]}" \
   "${batch_norm_arg[@]}" \
   "${gpu_arg[@]}"

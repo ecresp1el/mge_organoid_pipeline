@@ -73,6 +73,20 @@ def parse_args() -> argparse.Namespace:
         help="CAREamics input normalization.",
     )
     parser.add_argument(
+        "--predict-checkpoint",
+        choices=("best", "last"),
+        default="best",
+        help="Checkpoint to use for prediction after training or when reusing existing models.",
+    )
+    parser.add_argument(
+        "--model-source-dir",
+        default=None,
+        help=(
+            "Optional existing models directory containing green_n2v/ and red_n2v/. "
+            "When set, skip training and only predict from these checkpoints."
+        ),
+    )
+    parser.add_argument(
         "--tile-overlap-z",
         type=int,
         default=None,
@@ -331,6 +345,12 @@ def create_n2v_config_for_channel(
         "num_epochs": epochs,
         "seed": seed,
         "normalization": normalization,
+        "checkpoint_params": {
+            "save_top_k": 3,
+            "save_last": True,
+            "auto_insert_metric_name": False,
+            "every_n_epochs": 1,
+        },
     }
     if disable_batch_norm:
         kwargs["model_params"] = {"use_batch_norm": False}
@@ -338,6 +358,80 @@ def create_n2v_config_for_channel(
         kwargs["num_steps"] = num_steps
         kwargs["n_val_patches"] = 2
     return create_advanced_n2v_config(**kwargs)
+
+
+def checkpoint_score_from_name(path: Path) -> float | None:
+    match = re.search(r"_([0-9]+(?:\.[0-9]+)?|nan)\.ckpt$", path.name)
+    if not match:
+        return None
+    value = match.group(1)
+    if value == "nan":
+        return None
+    return float(value)
+
+
+def select_prediction_checkpoint(
+    model_dir: Path,
+    channel_name: str,
+    mode: str,
+    careamist: Any | None = None,
+) -> Path | None:
+    checkpoint_dir = model_dir / "checkpoints" / f"{channel_name}_n2v_0"
+    if mode == "last":
+        last = checkpoint_dir / f"{channel_name}_n2v_last.ckpt"
+        return last if last.exists() else None
+
+    if careamist is not None:
+        checkpoint_callback = getattr(careamist.trainer, "checkpoint_callback", None)
+        best_model_path = getattr(checkpoint_callback, "best_model_path", "")
+        if best_model_path:
+            best_path = Path(best_model_path)
+            if best_path.exists():
+                return best_path
+
+    scored = [
+        (score, path)
+        for path in checkpoint_dir.glob("*.ckpt")
+        if not path.stem.endswith("_last")
+        for score in [checkpoint_score_from_name(path)]
+        if score is not None
+    ]
+    if not scored:
+        return None
+    return min(scored, key=lambda item: item[0])[1]
+
+
+def predict_channel(
+    careamist: Any,
+    channel_name: str,
+    raw_tzyx: np.ndarray,
+    patch_size: tuple[int, int, int],
+    tile_overlap: tuple[int, int, int],
+) -> np.ndarray:
+    print_header(f"Predicting {channel_name}")
+    predictions = []
+    print(f"Prediction tile overlap ZYX: {tile_overlap}", flush=True)
+    for t in range(raw_tzyx.shape[0]):
+        pred = careamist.predict(
+            pred_data=[np.asarray(raw_tzyx[t], dtype=np.float32)],
+            tile_size=patch_size,
+            tile_overlap=tile_overlap,
+            batch_size=1,
+        )
+        if isinstance(pred, tuple):
+            pred = pred[0]
+        if isinstance(pred, list):
+            pred_arr = np.asarray(pred[0])
+        else:
+            pred_arr = np.asarray(pred)
+        pred_arr = np.squeeze(pred_arr).astype(np.float32, copy=False)
+        if pred_arr.shape != raw_tzyx[t].shape:
+            raise RuntimeError(
+                f"{channel_name} prediction for T={t} has shape {pred_arr.shape}, "
+                f"expected {raw_tzyx[t].shape}."
+            )
+        predictions.append(pred_arr)
+    return np.stack(predictions, axis=0)
 
 
 def train_and_predict_channel(
@@ -352,7 +446,8 @@ def train_and_predict_channel(
     tile_overlap: tuple[int, int, int],
     normalization: str,
     disable_batch_norm: bool,
-) -> np.ndarray:
+    predict_checkpoint: str,
+) -> tuple[np.ndarray, Path | None]:
     from careamics import CAREamist
 
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -382,30 +477,40 @@ def train_and_predict_channel(
     careamist = CAREamist(config=config, work_dir=model_dir)
     careamist.train(train_data=train_data)
 
-    print_header(f"Predicting {channel_name}")
-    predictions = []
-    print(f"Prediction tile overlap ZYX: {tile_overlap}", flush=True)
-    for t in range(raw_tzyx.shape[0]):
-        pred = careamist.predict(
-            pred_data=[np.asarray(raw_tzyx[t], dtype=np.float32)],
-            tile_size=patch_size,
-            tile_overlap=tile_overlap,
-            batch_size=1,
+    checkpoint_path = select_prediction_checkpoint(model_dir, channel_name, predict_checkpoint, careamist)
+    if checkpoint_path is not None:
+        print(f"Prediction checkpoint ({predict_checkpoint}): {checkpoint_path}", flush=True)
+        careamist = CAREamist(checkpoint_path=checkpoint_path, work_dir=model_dir)
+    else:
+        print(
+            f"WARNING: no {predict_checkpoint} checkpoint found for {channel_name}; "
+            "predicting with the in-memory final model.",
+            flush=True,
         )
-        if isinstance(pred, tuple):
-            pred = pred[0]
-        if isinstance(pred, list):
-            pred_arr = np.asarray(pred[0])
-        else:
-            pred_arr = np.asarray(pred)
-        pred_arr = np.squeeze(pred_arr).astype(np.float32, copy=False)
-        if pred_arr.shape != raw_tzyx[t].shape:
-            raise RuntimeError(
-                f"{channel_name} prediction for T={t} has shape {pred_arr.shape}, "
-                f"expected {raw_tzyx[t].shape}."
-            )
-        predictions.append(pred_arr)
-    return np.stack(predictions, axis=0)
+
+    return predict_channel(careamist, channel_name, raw_tzyx, patch_size, tile_overlap), checkpoint_path
+
+
+def predict_channel_from_existing_model(
+    channel_name: str,
+    raw_tzyx: np.ndarray,
+    source_model_dir: Path,
+    patch_size: tuple[int, int, int],
+    tile_overlap: tuple[int, int, int],
+    predict_checkpoint: str,
+) -> tuple[np.ndarray, Path]:
+    from careamics import CAREamist
+
+    checkpoint_path = select_prediction_checkpoint(source_model_dir, channel_name, predict_checkpoint)
+    if checkpoint_path is None:
+        raise RuntimeError(
+            f"No {predict_checkpoint} checkpoint found for {channel_name} in {source_model_dir}."
+        )
+    print_header(f"Loading existing {channel_name} model")
+    print(f"Source model directory: {source_model_dir}", flush=True)
+    print(f"Prediction checkpoint ({predict_checkpoint}): {checkpoint_path}", flush=True)
+    careamist = CAREamist(checkpoint_path=checkpoint_path, work_dir=source_model_dir)
+    return predict_channel(careamist, channel_name, raw_tzyx, patch_size, tile_overlap), checkpoint_path
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -648,6 +753,7 @@ def main() -> int:
     run_mode = "smoke_test" if args.subset else "full_run"
     outdir = Path(args.output_dir).expanduser().resolve() / run_mode
     model_root = outdir / "models"
+    model_source_dir = Path(args.model_source_dir).expanduser().resolve() if args.model_source_dir else None
     outdir.mkdir(parents=True, exist_ok=True)
     (outdir / "qc").mkdir(exist_ok=True)
     model_root.mkdir(exist_ok=True)
@@ -663,6 +769,11 @@ def main() -> int:
     print(f"Input .ims: {input_path}", flush=True)
     print(f"Output directory: {outdir}", flush=True)
     print(f"Run mode: {run_mode}", flush=True)
+    print(f"Prediction checkpoint mode: {args.predict_checkpoint}", flush=True)
+    if model_source_dir is not None:
+        print(f"Model source directory: {model_source_dir}", flush=True)
+        if not model_source_dir.exists():
+            raise SystemExit(f"Model source directory does not exist: {model_source_dir}")
     print("Raw .ims policy: read only; file is not modified.", flush=True)
 
     set_seeds(args.seed)
@@ -707,6 +818,7 @@ def main() -> int:
             "internal_shape_tczyx": list(map(int, data.shape)),
             "dtype": str(data.dtype),
             "empty_z_trim": trim_metadata,
+            "model_source_dir": str(model_source_dir) if model_source_dir is not None else None,
         },
     )
 
@@ -737,20 +849,33 @@ def main() -> int:
     print(f"Prediction tile overlap ZYX: {tile_overlap}", flush=True)
 
     denoised_channels: dict[str, np.ndarray] = {}
+    prediction_checkpoints: dict[str, str | None] = {}
     for _channel_index, name in CHANNELS:
-        denoised_cropped = train_and_predict_channel(
-            channel_name=name,
-            raw_tzyx=train_channels[name],
-            model_dir=model_root / f"{name}_n2v",
-            patch_size=patch_size,
-            batch_size=args.batch_size,
-            epochs=epochs,
-            num_steps=num_steps,
-            seed=args.seed,
-            tile_overlap=tile_overlap,
-            normalization=args.normalization,
-            disable_batch_norm=args.disable_batch_norm,
-        )
+        if model_source_dir is not None:
+            denoised_cropped, checkpoint_path = predict_channel_from_existing_model(
+                channel_name=name,
+                raw_tzyx=train_channels[name],
+                source_model_dir=model_source_dir / f"{name}_n2v",
+                patch_size=patch_size,
+                tile_overlap=tile_overlap,
+                predict_checkpoint=args.predict_checkpoint,
+            )
+        else:
+            denoised_cropped, checkpoint_path = train_and_predict_channel(
+                channel_name=name,
+                raw_tzyx=train_channels[name],
+                model_dir=model_root / f"{name}_n2v",
+                patch_size=patch_size,
+                batch_size=args.batch_size,
+                epochs=epochs,
+                num_steps=num_steps,
+                seed=args.seed,
+                tile_overlap=tile_overlap,
+                normalization=args.normalization,
+                disable_batch_norm=args.disable_batch_norm,
+                predict_checkpoint=args.predict_checkpoint,
+            )
+        prediction_checkpoints[name] = str(checkpoint_path) if checkpoint_path is not None else None
         if args.trim_empty_z:
             denoised_channels[name] = pad_z_to_shape(
                 denoised_cropped,
@@ -759,6 +884,14 @@ def main() -> int:
             )
         else:
             denoised_channels[name] = denoised_cropped
+
+    write_json(
+        outdir / "prediction_checkpoints.json",
+        {
+            "predict_checkpoint": args.predict_checkpoint,
+            "checkpoints": prediction_checkpoints,
+        },
+    )
 
     validate_denoised_outputs(outdir, denoised_channels)
 
