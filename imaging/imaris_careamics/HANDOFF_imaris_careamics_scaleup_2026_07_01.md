@@ -1,7 +1,7 @@
 # Handoff: Imaris CAREamics N2V Scale-Up
 
 Date: 2026-07-01 15:40 EDT
-Updated: 2026-07-02
+Updated: 2026-07-02 post-run validation
 
 This handoff covers the non-scRNA imaging branch for two-channel Imaris `.ims`
 confocal stacks. The raw `.ims` files are read only and are never modified.
@@ -20,7 +20,11 @@ The pilot/full run already completed for:
 `cl32_bive4_pv_reporter_40x_realbive4_F1`
 
 The other seven full denoising jobs were submitted as separate Slurm jobs and
-all completed successfully with Slurm exit code `0:0`.
+all completed with Slurm exit code `0:0`. Post-run file validation found that
+the `cl32_bive4_pv_reporter_40x_F0-F3` denoised outputs are invalid because
+their denoised OME-TIFFs contain `NaN` values. The
+`cl32_bive4_pv_reporter_40x_realbive4_F0-F3` denoised outputs are valid finite
+image data.
 
 ## Submitted Jobs
 
@@ -28,20 +32,32 @@ Submitted from:
 
 `/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline`
 
-| Job ID | Sample | Final status | Elapsed | Output directory |
-| --- | --- | --- | --- |
-| `52693455` | `cl32_bive4_pv_reporter_40x_F0` | `COMPLETED`, exit `0:0` | `00:31:10` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F0` |
-| `52693456` | `cl32_bive4_pv_reporter_40x_F1` | `COMPLETED`, exit `0:0` | `00:31:06` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F1` |
-| `52693458` | `cl32_bive4_pv_reporter_40x_F2` | `COMPLETED`, exit `0:0` | `00:31:22` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F2` |
-| `52693459` | `cl32_bive4_pv_reporter_40x_F3` | `COMPLETED`, exit `0:0` | `00:33:17` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F3` |
-| `52693460` | `cl32_bive4_pv_reporter_40x_realbive4_F0` | `COMPLETED`, exit `0:0` | `00:51:39` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F0` |
-| `52693461` | `cl32_bive4_pv_reporter_40x_realbive4_F2` | `COMPLETED`, exit `0:0` | `00:51:38` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F2` |
-| `52693462` | `cl32_bive4_pv_reporter_40x_realbive4_F3` | `COMPLETED`, exit `0:0` | `00:51:31` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F3` |
+| Job ID | Sample | Slurm status | Output validation | Elapsed | Output directory |
+| --- | --- | --- | --- | --- | --- |
+| `52693455` | `cl32_bive4_pv_reporter_40x_F0` | `COMPLETED`, exit `0:0` | Invalid: denoised outputs are `NaN` | `00:31:10` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F0` |
+| `52693456` | `cl32_bive4_pv_reporter_40x_F1` | `COMPLETED`, exit `0:0` | Invalid: denoised outputs are `NaN` | `00:31:06` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F1` |
+| `52693458` | `cl32_bive4_pv_reporter_40x_F2` | `COMPLETED`, exit `0:0` | Invalid: denoised outputs are `NaN` | `00:31:22` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F2` |
+| `52693459` | `cl32_bive4_pv_reporter_40x_F3` | `COMPLETED`, exit `0:0` | Invalid: denoised outputs are `NaN` | `00:33:17` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F3` |
+| `52693460` | `cl32_bive4_pv_reporter_40x_realbive4_F0` | `COMPLETED`, exit `0:0` | Valid finite denoised data | `00:51:39` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F0` |
+| `52693461` | `cl32_bive4_pv_reporter_40x_realbive4_F2` | `COMPLETED`, exit `0:0` | Valid finite denoised data | `00:51:38` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F2` |
+| `52693462` | `cl32_bive4_pv_reporter_40x_realbive4_F3` | `COMPLETED`, exit `0:0` | Valid finite denoised data | `00:51:31` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F3` |
 
 The logs contain Python multiprocessing/NFS temporary-directory cleanup warnings
 (`OSError: [Errno 16] Device or resource busy`) after prediction, as seen in the
 pilot run. The Slurm jobs still completed with exit code `0:0` and wrote the
 expected outputs.
+
+The first `cl32_bive4_pv_reporter_40x_F0-F3` set also contains 23 trailing
+all-zero Z planes in the raw channel stacks. In the logs, N2V training loss turns
+to `nan` during epoch 0, and the final denoised OME-TIFFs are all `NaN`. These
+outputs should be treated as failed denoising runs despite Slurm success.
+
+Post-run validation artifacts:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/scaleup_postrun_validation.tsv
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/scaleup_denoised_midz_contact_sheet.png
+```
 
 Current status command:
 

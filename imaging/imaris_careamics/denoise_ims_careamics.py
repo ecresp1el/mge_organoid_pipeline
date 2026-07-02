@@ -459,6 +459,39 @@ def write_saturation_report(outdir: Path, arrays: dict[str, np.ndarray]) -> None
     (outdir / "qc" / "clipping_saturation_warnings.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def validate_denoised_outputs(outdir: Path, arrays: dict[str, np.ndarray]) -> None:
+    """Fail loudly if prediction produced NaN/Inf values instead of image data."""
+    lines = ["Denoised output finite-value validation", ""]
+    failed = False
+    for name, arr in arrays.items():
+        n_total = int(arr.size)
+        n_finite = int(np.count_nonzero(np.isfinite(arr)))
+        n_nan = int(np.count_nonzero(np.isnan(arr)))
+        n_inf = int(np.count_nonzero(np.isinf(arr)))
+        lines.extend(
+            [
+                f"{name}:",
+                f"  shape: {list(arr.shape)}",
+                f"  dtype: {arr.dtype}",
+                f"  finite_pixels: {n_finite} / {n_total}",
+                f"  nan_pixels: {n_nan}",
+                f"  inf_pixels: {n_inf}",
+                "",
+            ]
+        )
+        if n_finite != n_total:
+            failed = True
+    qc_dir = outdir / "qc"
+    qc_dir.mkdir(parents=True, exist_ok=True)
+    report = qc_dir / "denoised_finite_validation.txt"
+    report.write_text("\n".join(lines), encoding="utf-8")
+    if failed:
+        raise RuntimeError(
+            "Denoised prediction contains NaN/Inf values. "
+            f"See validation report: {report}"
+        )
+
+
 def save_qc_figures(
     outdir: Path,
     raw_channels: dict[str, np.ndarray],
@@ -622,6 +655,8 @@ def main() -> int:
             seed=args.seed,
             tile_overlap=tile_overlap,
         )
+
+    validate_denoised_outputs(outdir, denoised_channels)
 
     print_header("Saving denoised OME-TIFFs and previews")
     save_ome_tiff(outdir / "green_denoised.ome.tif", denoised_channels["green"], axes="TZYX")

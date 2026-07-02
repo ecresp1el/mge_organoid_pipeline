@@ -47,8 +47,7 @@ def ordered_pv_precursor_specs(specs):
 
 def pv_precursor_genes_with_vipr2() -> list[str]:
     genes = list(PV_PRECURSOR_MARKER_PANEL.genes)
-    if "VIPR2" in genes:
-        return genes
+    genes = [gene for gene in genes if gene != "VIPR2"]
     tac1_index = genes.index("TAC1") if "TAC1" in genes else len(PV_PRECURSOR_MARKER_PANEL.on_genes)
     genes.insert(tac1_index + 1, "VIPR2")
     return genes
