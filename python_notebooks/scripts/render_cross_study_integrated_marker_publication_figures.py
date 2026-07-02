@@ -50,7 +50,7 @@ PROJECT_ROOT_DEFAULT = Path("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_project
 RUN_LABEL_DEFAULT = "cross_study_marker_expression_v12_pv_precursors_final_candidate_plus_vipr2"
 FINAL_FOLDER_DEFAULT = "fig_cross_study_integrated_mge_marker_expression_v7_overlay_zero_baseline_candidate"
 THRESHOLD_DEFAULT = 0.5
-FIGURE1_GENES_DEFAULT = ["NKX2.1", "LHX6", "LHX8", "CRABP1", "TAC1", "VIPR2", "ZEB2", "SST", "PVALB"]
+FIGURE1_GENES_DEFAULT = ["NKX2.1", "LHX6", "LHX8", "CRABP1", "TAC1", "VIPR2", "SLC6A1", "ZEB2", "SST", "PVALB"]
 FIGURE2_GENES_DEFAULT = ["NKX2.1", "LHX6", "LHX8"]
 FIGURE1_STEM = "cross_study_canonical_mge_marker_expression_violin_positive_matrix"
 FIGURE2_STEM = "this_study_div30_div90_mge_marker_replicate_reproducibility"
@@ -63,6 +63,7 @@ GENE_LABELS = {
     "CRABP1": "CRABP1",
     "TAC1": "TAC1",
     "VIPR2": "VIPR2",
+    "SLC6A1": "SLC6A1",
     "ZEB2": "ZEB2",
     "SST": "SST",
     "PVALB": "PVALB",
