@@ -346,6 +346,8 @@ def create_n2v_config_for_channel(
         "seed": seed,
         "normalization": normalization,
         "checkpoint_params": {
+            "monitor": "val_loss",
+            "mode": "min",
             "save_top_k": 3,
             "save_last": True,
             "auto_insert_metric_name": False,

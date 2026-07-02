@@ -1,7 +1,7 @@
 # Handoff: Imaris CAREamics N2V Scale-Up
 
 Date: 2026-07-01 15:40 EDT
-Updated: 2026-07-02 post-run validation
+Updated: 2026-07-02 post-run validation and best-checkpoint reruns
 
 This handoff covers the non-scRNA imaging branch for two-channel Imaris `.ims`
 confocal stacks. The raw `.ims` files are read only and are never modified.
@@ -22,9 +22,11 @@ The pilot/full run already completed for:
 The other seven full denoising jobs were submitted as separate Slurm jobs and
 all completed with Slurm exit code `0:0`. Post-run file validation found that
 the `cl32_bive4_pv_reporter_40x_F0-F3` denoised outputs are invalid because
-their denoised OME-TIFFs contain `NaN` values. The
-`cl32_bive4_pv_reporter_40x_realbive4_F0-F3` denoised outputs are valid finite
-image data.
+their denoised OME-TIFFs contain `NaN` values. The original
+`cl32_bive4_pv_reporter_40x_realbive4_F0-F3` denoised outputs are finite image
+data, but F0/F2/F3 showed visible restoration artifacts after visual QC. Those
+finite-but-bad outputs should not be used as final clean data until the
+best-checkpoint reprediction outputs are reviewed.
 
 ## Submitted Jobs
 
@@ -70,6 +72,7 @@ Fix settings:
 TRIM_EMPTY_Z=true
 DISABLE_BATCH_NORM=true
 NORMALIZATION=mean_std
+PREDICT_CHECKPOINT=best
 TILE_OVERLAP_Z=8
 TILE_OVERLAP_YX=32
 ```
@@ -78,17 +81,62 @@ The fix excludes leading/trailing all-zero Z planes from training/prediction,
 then pads the denoised output back to the original Z size with zeros. For these
 files, the nonzero Z range is `0-360`, with trailing zero planes `361-383`.
 
+| Job ID | Sample | Status | Output directory |
+| --- | --- | --- | --- |
+| `52759673` | `cl32_bive4_pv_reporter_40x_F0` | Canceled after starting before best-checkpoint patch | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F0_trimz_fix` |
+| `52759674` | `cl32_bive4_pv_reporter_40x_F1` | Failed fast: checkpoint monitor config bug | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F1_trimz_fix` |
+| `52759675` | `cl32_bive4_pv_reporter_40x_F2` | Failed fast: checkpoint monitor config bug | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F2_trimz_fix` |
+| `52759676` | `cl32_bive4_pv_reporter_40x_F3` | Failed fast: checkpoint monitor config bug | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F3_trimz_fix` |
+| `52760969` | `cl32_bive4_pv_reporter_40x_F0` | Resubmitted after patch | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F0_trimz_bestckpt_fix` |
+| `52761073` | `cl32_bive4_pv_reporter_40x_F1` | Resubmitted after monitor fix | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F1_trimz_bestckpt_fix` |
+| `52761074` | `cl32_bive4_pv_reporter_40x_F2` | Resubmitted after monitor fix | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F2_trimz_bestckpt_fix` |
+| `52761075` | `cl32_bive4_pv_reporter_40x_F3` | Resubmitted after monitor fix | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F3_trimz_bestckpt_fix` |
+
+## RealBiVe4 Visual QC Issue
+
+After visual review on 2026-07-02, the original finite `realbive4` outputs were
+not all acceptable. F1 looked usable, but F0/F2/F3 showed visible artifacts,
+especially in green-channel denoising and max projections.
+
+Diagnosis:
+
+- The jobs trained one N2V model per field of view and predicted from the final
+  epoch.
+- Several field/channel models overtrained: their best validation loss occurred
+  much earlier than epoch 49.
+- Examples from the original runs:
+  - `realbive4_F2` green: best saved checkpoint `0.3407` at epoch 9, final
+    checkpoint `1.1929` at epoch 49.
+  - `realbive4_F3` red: best saved checkpoint `0.4559` at epoch 9, final
+    checkpoint `0.9536` at epoch 49.
+  - `realbive4_F0` red: best saved checkpoint `0.2254` at epoch 29, final
+    checkpoint `0.5287` at epoch 49.
+- Because N2V has no ground-truth target, validation loss is a self-supervised
+  blind-spot loss. A finite output can still be visually poor if the selected
+  checkpoint is bad.
+
+Pipeline patch:
+
+- `denoise_ims_careamics.py` now defaults to `--predict-checkpoint best`.
+- New training saves the top validation checkpoints instead of relying on the
+  final epoch.
+- `--model-source-dir` allows prediction-only reruns from existing trained
+  models.
+- `prediction_checkpoints.json` records the checkpoint used for each channel.
+
+Best-checkpoint reprediction jobs were submitted without retraining:
+
 | Job ID | Sample | Output directory |
 | --- | --- | --- |
-| `52759673` | `cl32_bive4_pv_reporter_40x_F0` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F0_trimz_fix` |
-| `52759674` | `cl32_bive4_pv_reporter_40x_F1` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F1_trimz_fix` |
-| `52759675` | `cl32_bive4_pv_reporter_40x_F2` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F2_trimz_fix` |
-| `52759676` | `cl32_bive4_pv_reporter_40x_F3` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F3_trimz_fix` |
+| `52760972` | `cl32_bive4_pv_reporter_40x_realbive4_F0` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F0_bestckpt_repredict` |
+| `52760975` | `cl32_bive4_pv_reporter_40x_realbive4_F1` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F1_bestckpt_repredict` |
+| `52760976` | `cl32_bive4_pv_reporter_40x_realbive4_F2` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F2_bestckpt_repredict` |
+| `52760977` | `cl32_bive4_pv_reporter_40x_realbive4_F3` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F3_bestckpt_repredict` |
 
 Status command:
 
 ```bash
-squeue -j 52759673,52759674,52759675,52759676 \
+squeue -j 52760969,52760972,52760975,52760976,52760977,52761073,52761074,52761075 \
   -o '%.18i %.9P %.35j %.8u %.2t %.12M %.6D %.12b %.10m %R'
 ```
 
@@ -124,6 +172,7 @@ Expected full-run files:
 | `max_projection_preview.mp4` | Quick max-projection preview movie |
 | `models/green_n2v/` | Green-channel N2V model/checkpoints |
 | `models/red_n2v/` | Red-channel N2V model/checkpoints |
+| `prediction_checkpoints.json` | Checkpoint selected for green/red prediction |
 | `qc/raw_vs_denoised_example_slices.png` | Slice-level raw vs denoised QC |
 | `qc/raw_vs_denoised_max_projections.png` | Max-projection raw vs denoised QC |
 | `qc/intensity_histograms.png` | Raw/denoised intensity distributions |
@@ -163,6 +212,7 @@ CAREamics mode:
 - full-run epochs: `50`
 - full-run steps per epoch: `200`
 - batch size: `1`
+- prediction checkpoint: `best`
 
 The prediction overlap was increased to half the patch size to reduce possible
 patch-boundary/grid artifacts during tiled prediction. This does not modify raw

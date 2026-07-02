@@ -82,6 +82,7 @@ python imaging/imaris_careamics/denoise_ims_careamics.py \
   --patch-size-yx 64 \
   --tile-overlap-z 8 \
   --tile-overlap-yx 32 \
+  --predict-checkpoint best \
   --require-gpu
 ```
 
@@ -102,6 +103,25 @@ python imaging/imaris_careamics/denoise_ims_careamics.py \
 
 Smoke outputs are written to `<output-dir>/smoke_test/`.
 Full outputs are written to `<output-dir>/full_run/`.
+
+By default, prediction uses the best validation-loss checkpoint
+(`--predict-checkpoint best`) instead of the final epoch. This is important for
+N2V runs because the model can overtrain even when outputs remain finite.
+
+Prediction-only rerun from existing trained models:
+
+```bash
+python imaging/imaris_careamics/denoise_ims_careamics.py \
+  --input /path/to/sample.ims \
+  --output-dir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/sample_001_bestckpt_repredict \
+  --model-source-dir /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/sample_001/full_run/models \
+  --predict-checkpoint best \
+  --patch-size-z 16 \
+  --patch-size-yx 64 \
+  --tile-overlap-z 8 \
+  --tile-overlap-yx 32 \
+  --require-gpu
+```
 
 Native-resolution denoised panel movie:
 
@@ -161,9 +181,19 @@ sbatch slurm/run_full_denoising.sbatch
 Useful Slurm environment overrides:
 
 ```bash
-EPOCHS=100 BATCH_SIZE=4 PATCH_SIZE_Z=16 PATCH_SIZE_YX=96 \
+EPOCHS=100 BATCH_SIZE=4 PATCH_SIZE_Z=16 PATCH_SIZE_YX=96 PREDICT_CHECKPOINT=best \
 IMS_INPUT=/path/to/sample.ims \
 OUTPUT_DIR=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/sample_001 \
+sbatch slurm/run_full_denoising.sbatch
+```
+
+Slurm prediction-only rerun from existing models:
+
+```bash
+IMS_INPUT=/path/to/sample.ims \
+OUTPUT_DIR=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/sample_001_bestckpt_repredict \
+MODEL_SOURCE_DIR=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/sample_001/full_run/models \
+PREDICT_CHECKPOINT=best \
 sbatch slurm/run_full_denoising.sbatch
 ```
 
