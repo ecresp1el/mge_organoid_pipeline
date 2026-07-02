@@ -140,6 +140,98 @@ squeue -j 52760969,52760972,52760975,52760976,52760977,52761073,52761074,5276107
   -o '%.18i %.9P %.35j %.8u %.2t %.12M %.6D %.12b %.10m %R'
 ```
 
+Do not cancel these jobs just because the optimization plan below exists. Let
+the already-submitted best-checkpoint and trim-Z outputs finish so they can be
+used as baseline candidates in the QC comparison.
+
+## Parameter Optimization Plan
+
+The next decision point is not "did Slurm finish?" but "which denoising
+parameters preserve real biology while removing noise without creating shading,
+grid, edge, or over-smoothing artifacts?" N2V is self-supervised, so there is no
+ground-truth target. Final parameter agreement must combine model diagnostics
+with visual QC.
+
+### Candidate knobs to compare
+
+Start with a small controlled sweep before any broad rerun:
+
+| Knob | Baseline | Candidate values | Why it matters |
+| --- | --- | --- | --- |
+| Prediction checkpoint | `best` | `best`, possibly selected earlier checkpoint if visual QC prefers it | Avoids overtrained final-epoch models |
+| Epochs/checkpoint timing | `50` epochs, best checkpoint | `10`, `20`, `35`, `50` or existing saved checkpoints | N2V can look best before final epoch |
+| Patch size | `16 x 64 x 64` | `16 x 64 x 64`, `24 x 96 x 96`, `32 x 128 x 128` if memory allows | Larger context may preserve 3D structures better |
+| Prediction overlap | `8 x 32 x 32` | `8 x 32 x 32`, `12 x 48 x 48`, `16 x 64 x 64` | More overlap can reduce tile/grid artifacts |
+| Batch norm | disabled for fragile runs | enabled vs disabled only if batch size supports it | Batch norm with batch size 1 can be unstable |
+| Normalization | `mean_std` | `mean_std`, `min_max`, `quantile` | Weak/sparse green channel may be sensitive |
+| Training scope | per-FOV model | per-FOV vs shared model across F0-F3 for each channel | Shared models may reduce field-specific failures |
+
+### Recommended first sweep
+
+Use one visually acceptable FOV and one visually bad FOV, not all eight files.
+Recommended initial pair:
+
+- acceptable/reference: `cl32_bive4_pv_reporter_40x_realbive4_F1`
+- problematic: `cl32_bive4_pv_reporter_40x_realbive4_F2` or `F3`
+
+Run small representative crops first. Do not use full-stack reruns to tune
+parameters unless a candidate already passes crop-level QC.
+
+Initial candidate set:
+
+```text
+A: best checkpoint, patch 16x64x64, overlap 8x32x32
+B: best checkpoint, patch 24x96x96, overlap 12x48x48
+C: best checkpoint, patch 32x128x128, overlap 16x64x64
+D: shared F0-F3 channel model, patch 24x96x96, overlap 12x48x48
+```
+
+### Required QC assets for agreement
+
+For every parameter candidate, generate the same fixed-scale review assets:
+
+| Asset | Required content |
+| --- | --- |
+| Slice contact sheet | Raw, denoised, residual/difference, merged for selected Z slices |
+| Max-projection contact sheet | Raw vs denoised vs residual for green and magenta/red |
+| Z-scroll movie | 1x3 panel: `BiVe3-dTom` magenta, `PV-mNG` green, merged |
+| Display metadata | Percentile limits fixed across the full stack/movie, not per slice |
+| Quantitative summary | Finite check, intensity percentiles, residual percentiles, saturation report |
+| Model summary | Checkpoint used, val loss, epochs, patch size, overlap, normalization, batch norm |
+
+The residual/difference image is mandatory because it shows whether the model is
+removing mostly noise or erasing real structures / inventing low-frequency
+background.
+
+### Agreement criteria
+
+Before declaring final parameters, the chosen setting should satisfy all of the
+following:
+
+- No non-finite denoised pixels.
+- No obvious tile/grid artifact in slices, max projections, or movies.
+- No recurring autoscale changes in QC movies; display limits must be fixed.
+- Green and red/magenta biological structures remain visible and spatially
+  plausible.
+- Background noise is reduced without flattening the whole green channel into a
+  smooth field.
+- Bright puncta/processes are not erased or strongly hallucinated.
+- Residual images look noise-like, not structure-like.
+- The same setting performs acceptably on both the good/reference FOV and a
+  bad/problem FOV.
+
+### Decision workflow
+
+1. Let the currently submitted best-checkpoint and trim-Z jobs finish.
+2. Build a QC comparison panel for the completed baseline outputs.
+3. Select one good and one bad FOV for tuning.
+4. Run the small candidate sweep on representative crops.
+5. Generate fixed-scale QC panels and movies for all candidates.
+6. Review side by side and choose the smallest set of acceptable parameters.
+7. Run full-stack denoising only for the chosen parameter set.
+8. Generate final publication/QC movies from the selected outputs.
+9. Record the final agreed parameter set in this handoff and in the README.
+
 Current status command:
 
 ```bash
