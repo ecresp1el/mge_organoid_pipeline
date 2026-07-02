@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Smoke-test the Fiji Grid/Collection Stitching macro on four tiny synthetic
-# TIFF tiles before attempting the large Imaris IMS montage.
+# Smoke-test the Fiji Grid/Collection Stitching direct Java runner on four tiny
+# synthetic TIFF tiles before attempting the large Imaris IMS montage.
 
 #SBATCH --job-name=fiji-stitch-smoke
 #SBATCH --account=parent0

@@ -327,16 +327,28 @@ Actual batch stitching job:
 sbatch slurm/run_fiji_grid_stitching_realbive4.sbatch
 ```
 
-The batch stitching job runs Fiji under `xvfb-run` and writes the fused image to
-disk under:
+This runs Fiji's Grid/Collection Stitching classes directly through the Java
+runner, so no Fiji GUI or macro dialog is required. The completed trusted XML
+coordinate run is:
 
 ```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_compute_overlap/
+52782973  fiji-stitch-realbive4  COMPLETED, exit 0:0, elapsed 00:14:39, MaxRSS 41808488K
 ```
 
-For the batch run, `Image_output` is `Write to disk` so the result survives the
-Slurm session. The interactive first-test setting below remains `Fuse and
-display`.
+Output:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_trusted/
+```
+
+The output directory contains 736 fused 16-bit TIFF planes for channel 1 and
+736 fused 16-bit TIFF planes for channel 2. The first/last planes are
+1938 x 1893 pixels.
+
+The compute-overlap test was also run, but it failed phase-correlation on these
+IMS tiles (`No correlated tiles found`) and was canceled. Its partial output was
+renamed with `FAILED_DO_NOT_USE_52782853`. The current stitched output trusts
+the XML coordinates instead of the failed optimized registration.
 
 The expected XML-derived layout is:
 
@@ -351,23 +363,13 @@ cl32_bive4_pv_reporter_40x_realbive4_F2.ims; ; (0.0, 897.0, 0.0)
 cl32_bive4_pv_reporter_40x_realbive4_F1.ims; ; (918.0, 897.0, 0.0)
 ```
 
-Launch Fiji from the Great Lakes desktop session:
+If an interactive visual check is needed later, launch Fiji from the Great Lakes
+desktop session:
 
 ```bash
 module load fiji/1.5.4
 /sw/pkgs/med/fiji/1.5.4/ImageJ-linux64 &
 ```
-
-In Fiji, use `Plugins -> Stitching -> Grid/Collection Stitching`:
-
-- Type: `Positions from file`
-- Layout file: generated `TileConfiguration.txt`
-- Fusion method: `Linear Blending`
-- Compute overlap: checked for the first test
-- Regression threshold: `0.30`
-- Max/avg displacement threshold: `2.50`
-- Absolute displacement threshold: `3.50`
-- Image output: `Fuse and display`
 
 Do not use the FusionStitcher stitched output, and do not split channels before
 stitching.

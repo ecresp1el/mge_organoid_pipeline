@@ -41,10 +41,10 @@ As of 2026-07-02 15:28 EDT, all eight corrected baseline outputs also have
 8-bit display/QC exports under `full_run/display_8bit/`. These are derived
 copies only. The quantitative denoised float32 OME-TIFFs remain unchanged.
 
-As of 2026-07-02, the BC43/realbive4 2x2 montage has a reproducible Fiji
-Grid/Collection Stitching tile-configuration prep step. The parser reads the
-TeraStitcher XML `Stack` entries and preserves the XML order rather than
-guessing from F0-F3 filenames.
+As of 2026-07-02 18:28 EDT, the BC43/realbive4 2x2 montage has been stitched
+with Fiji Grid/Collection Stitching on Great Lakes. The final successful run
+used the TeraStitcher XML coordinates directly; it did not use FusionStitcher,
+did not split channels, and did not require a Fiji GUI.
 
 Generated layout file:
 
@@ -54,15 +54,17 @@ Repo helpers:
 
 ```text
 imaging/imaris_careamics/terastitcher_to_fiji_tile_config.py
-imaging/imaris_careamics/fiji_grid_collection_stitching.ijm
+imaging/imaris_careamics/java/plugin/FijiGridCollectionStitcher.java
 slurm/prepare_fiji_stitching_tile_config.sbatch
+slurm/smoke_fiji_grid_stitching.sbatch
 slurm/run_fiji_grid_stitching_realbive4.sbatch
 ```
 
-Submitted prep smoke job:
+Prep and smoke jobs:
 
 ```text
 52781973  fiji-tilecfg  COMPLETED, exit 0:0, elapsed 00:00:02
+52782850  fiji-stitch-smoke  COMPLETED, exit 0:0, elapsed 00:00:09
 ```
 
 The layout generated from
@@ -79,55 +81,73 @@ cl32_bive4_pv_reporter_40x_realbive4_F2.ims; ; (0.0, 897.0, 0.0)
 cl32_bive4_pv_reporter_40x_realbive4_F1.ims; ; (918.0, 897.0, 0.0)
 ```
 
-Run Fiji from a Great Lakes desktop session, not from a headless Slurm batch:
-
-```bash
-module load fiji/1.5.4
-/sw/pkgs/med/fiji/1.5.4/ImageJ-linux64 &
-```
-
-Fiji settings:
-
-- `Plugins -> Stitching -> Grid/Collection Stitching`
-- Type: `Positions from file`
-- Layout file: generated `TileConfiguration.txt`
-- Fusion method: `Linear Blending`
-- Compute overlap: checked for the first test
-- Regression threshold: `0.30`
-- Max/avg displacement threshold: `2.50`
-- Absolute displacement threshold: `3.50`
-- Image output: `Fuse and display`
-
-Important constraints: do not use the FusionStitcher stitched output, do not
-manually guess F0-F3 order, trust the XML coordinates, and do not split channels
-before stitching.
-
-Actual batch stitch status:
+Final batch stitch status:
 
 ```text
 52782611  fiji-stitch-realbive4  CANCELLED before start; 180G request was too conservative for scheduling
-52782628  fiji-stitch-realbive4  PENDING at last check; 96G, 8 CPU, 12h, Fiji heap 72g
+52782628  fiji-stitch-realbive4  CANCELLED before useful output; replaced by direct Java runner
+52782853  fiji-stitch-realbive4  CANCELLED after compute-overlap failed; do not use output
+52782973  fiji-stitch-realbive4  COMPLETED, exit 0:0, elapsed 00:14:39, MaxRSS 41808488K
 ```
 
-The queued batch run uses `Image_output=[Write to disk]` instead of the
-interactive `Fuse and display` setting so the Slurm run leaves durable output
-files. It still uses Fiji Grid/Collection Stitching with `Positions from file`,
-`Defined by TileConfiguration`, linear blending, compute-overlap enabled, and
-the requested displacement thresholds.
-
-Expected output directory:
+Final output directory:
 
 ```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_compute_overlap/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_trusted/
+```
+
+Final output inventory:
+
+```text
+736 files matching img_*_c1
+736 files matching img_*_c2
+6.6G total
+16-bit TIFF planes, 1938 x 1893 pixels
 ```
 
 Log paths:
 
 ```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/fiji-stitch-realbive4-52782628.out
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/fiji-stitch-realbive4-52782628.err
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_compute_overlap/logs/run_fiji_grid_stitching_52782628.log
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/fiji-stitch-realbive4-52782973.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/fiji-stitch-realbive4-52782973.err
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_trusted/logs/run_fiji_grid_stitching_52782973.log
 ```
+
+Final Fiji run settings:
+
+```text
+Grid/Collection Stitching direct Java runner
+Type: Positions from file / TileConfiguration.txt
+Fusion method: Linear Blending
+Compute overlap: false
+Regression threshold: 0.30
+Max/avg displacement threshold: 2.50
+Absolute displacement threshold: 3.50
+Output: Write fused TIFF planes to disk
+Virtual input: false
+```
+
+The completed log confirms all four IMS tiles opened through Bio-Formats as
+`1020x996x736 channels=2 frames=1`, `Dimensionality: 3`, and `Registered tiles:
+4` with the XML coordinates above.
+
+The compute-overlap attempt (`52782853`) produced low/invalid phase-correlation
+matches and logged `No correlated tiles found`, then wrote an all-zero
+`TileConfiguration.registered.txt`. That bad registered file was preserved as:
+
+```text
+/nfs/turbo/umms-parent/andor_micropscope_data_dump/exp17_pv_reporter_with_biver3and4/20x/TileConfiguration.compute_overlap_failed_52782853.registered.txt
+```
+
+The partial failed output directory was preserved as:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_compute_overlap_FAILED_DO_NOT_USE_52782853/
+```
+
+Important constraints remain: do not use the FusionStitcher stitched output, do
+not manually guess F0-F3 order, trust the XML coordinates, and do not split
+channels before stitching.
 
 Status check:
 
