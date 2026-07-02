@@ -1,7 +1,7 @@
 # Handoff: Imaris CAREamics N2V Scale-Up
 
 Date: 2026-07-01 15:40 EDT
-Updated: 2026-07-02 post-run validation and best-checkpoint reruns
+Updated: 2026-07-02 corrected baseline complete; 8-bit display exports complete; QC review next
 
 This handoff covers the non-scRNA imaging branch for two-channel Imaris `.ims`
 confocal stacks. The raw `.ims` files are read only and are never modified.
@@ -25,8 +25,116 @@ the `cl32_bive4_pv_reporter_40x_F0-F3` denoised outputs are invalid because
 their denoised OME-TIFFs contain `NaN` values. The original
 `cl32_bive4_pv_reporter_40x_realbive4_F0-F3` denoised outputs are finite image
 data, but F0/F2/F3 showed visible restoration artifacts after visual QC. Those
-finite-but-bad outputs should not be used as final clean data until the
-best-checkpoint reprediction outputs are reviewed.
+finite-but-bad outputs should not be used as final clean data.
+
+As of 2026-07-02 15:00 EDT, all eight corrected baseline outputs completed:
+
+- `cl32_bive4_pv_reporter_40x_F0-F3`: trim empty Z, disable batch norm, predict
+  from best checkpoint.
+- `cl32_bive4_pv_reporter_40x_realbive4_F0-F3`: repredict from existing models
+  using best checkpoint.
+
+The next required step is QC review/comparison before any additional parameter
+sweep or final movie generation.
+
+As of 2026-07-02 15:28 EDT, all eight corrected baseline outputs also have
+8-bit display/QC exports under `full_run/display_8bit/`. These are derived
+copies only. The quantitative denoised float32 OME-TIFFs remain unchanged.
+
+As of 2026-07-02, the BC43/realbive4 2x2 montage has a reproducible Fiji
+Grid/Collection Stitching tile-configuration prep step. The parser reads the
+TeraStitcher XML `Stack` entries and preserves the XML order rather than
+guessing from F0-F3 filenames.
+
+Generated layout file:
+
+`/nfs/turbo/umms-parent/andor_micropscope_data_dump/exp17_pv_reporter_with_biver3and4/20x/TileConfiguration.txt`
+
+Repo helpers:
+
+```text
+imaging/imaris_careamics/terastitcher_to_fiji_tile_config.py
+imaging/imaris_careamics/fiji_grid_collection_stitching.ijm
+slurm/prepare_fiji_stitching_tile_config.sbatch
+slurm/run_fiji_grid_stitching_realbive4.sbatch
+```
+
+Submitted prep smoke job:
+
+```text
+52781973  fiji-tilecfg  COMPLETED, exit 0:0, elapsed 00:00:02
+```
+
+The layout generated from
+`cl32_bive4_pv_reporter_40x_realbive4.xml` is:
+
+```text
+# Define the number of dimensions we are working on
+dim = 3
+
+# Define the image coordinates
+cl32_bive4_pv_reporter_40x_realbive4_F3.ims; ; (0.0, 0.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F0.ims; ; (918.0, 0.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F2.ims; ; (0.0, 897.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F1.ims; ; (918.0, 897.0, 0.0)
+```
+
+Run Fiji from a Great Lakes desktop session, not from a headless Slurm batch:
+
+```bash
+module load fiji/1.5.4
+/sw/pkgs/med/fiji/1.5.4/ImageJ-linux64 &
+```
+
+Fiji settings:
+
+- `Plugins -> Stitching -> Grid/Collection Stitching`
+- Type: `Positions from file`
+- Layout file: generated `TileConfiguration.txt`
+- Fusion method: `Linear Blending`
+- Compute overlap: checked for the first test
+- Regression threshold: `0.30`
+- Max/avg displacement threshold: `2.50`
+- Absolute displacement threshold: `3.50`
+- Image output: `Fuse and display`
+
+Important constraints: do not use the FusionStitcher stitched output, do not
+manually guess F0-F3 order, trust the XML coordinates, and do not split channels
+before stitching.
+
+Actual batch stitch status:
+
+```text
+52782611  fiji-stitch-realbive4  CANCELLED before start; 180G request was too conservative for scheduling
+52782628  fiji-stitch-realbive4  PENDING at last check; 96G, 8 CPU, 12h, Fiji heap 72g
+```
+
+The queued batch run uses `Image_output=[Write to disk]` instead of the
+interactive `Fuse and display` setting so the Slurm run leaves durable output
+files. It still uses Fiji Grid/Collection Stitching with `Positions from file`,
+`Defined by TileConfiguration`, linear blending, compute-overlap enabled, and
+the requested displacement thresholds.
+
+Expected output directory:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_compute_overlap/
+```
+
+Log paths:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/fiji-stitch-realbive4-52782628.out
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/fiji-stitch-realbive4-52782628.err
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_compute_overlap/logs/run_fiji_grid_stitching_52782628.log
+```
+
+Status check:
+
+```bash
+squeue -j 52782628 -o '%.18i %.9P %.28j %.8u %.2t %.12M %.6D %.10m %R'
+sacct -j 52782628 --format=JobID,JobName%28,State,ExitCode,Elapsed,MaxRSS
+```
 
 ## Submitted Jobs
 
@@ -87,10 +195,10 @@ files, the nonzero Z range is `0-360`, with trailing zero planes `361-383`.
 | `52759674` | `cl32_bive4_pv_reporter_40x_F1` | Failed fast: checkpoint monitor config bug | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F1_trimz_fix` |
 | `52759675` | `cl32_bive4_pv_reporter_40x_F2` | Failed fast: checkpoint monitor config bug | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F2_trimz_fix` |
 | `52759676` | `cl32_bive4_pv_reporter_40x_F3` | Failed fast: checkpoint monitor config bug | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F3_trimz_fix` |
-| `52760969` | `cl32_bive4_pv_reporter_40x_F0` | Resubmitted after patch | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F0_trimz_bestckpt_fix` |
-| `52761073` | `cl32_bive4_pv_reporter_40x_F1` | Resubmitted after monitor fix | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F1_trimz_bestckpt_fix` |
-| `52761074` | `cl32_bive4_pv_reporter_40x_F2` | Resubmitted after monitor fix | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F2_trimz_bestckpt_fix` |
-| `52761075` | `cl32_bive4_pv_reporter_40x_F3` | Resubmitted after monitor fix | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F3_trimz_bestckpt_fix` |
+| `52760969` | `cl32_bive4_pv_reporter_40x_F0` | Completed, exit `0:0`, elapsed `00:30:05` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F0_trimz_bestckpt_fix` |
+| `52761073` | `cl32_bive4_pv_reporter_40x_F1` | Completed, exit `0:0`, elapsed `00:30:09` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F1_trimz_bestckpt_fix` |
+| `52761074` | `cl32_bive4_pv_reporter_40x_F2` | Completed, exit `0:0`, elapsed `00:30:25` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F2_trimz_bestckpt_fix` |
+| `52761075` | `cl32_bive4_pv_reporter_40x_F3` | Completed, exit `0:0`, elapsed `00:30:02` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F3_trimz_bestckpt_fix` |
 
 ## RealBiVe4 Visual QC Issue
 
@@ -124,25 +232,37 @@ Pipeline patch:
   models.
 - `prediction_checkpoints.json` records the checkpoint used for each channel.
 
-Best-checkpoint reprediction jobs were submitted without retraining:
+Best-checkpoint reprediction jobs were submitted without retraining and all
+completed:
 
-| Job ID | Sample | Output directory |
-| --- | --- | --- |
-| `52760972` | `cl32_bive4_pv_reporter_40x_realbive4_F0` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F0_bestckpt_repredict` |
-| `52760975` | `cl32_bive4_pv_reporter_40x_realbive4_F1` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F1_bestckpt_repredict` |
-| `52760976` | `cl32_bive4_pv_reporter_40x_realbive4_F2` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F2_bestckpt_repredict` |
-| `52760977` | `cl32_bive4_pv_reporter_40x_realbive4_F3` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F3_bestckpt_repredict` |
+| Job ID | Sample | Status | Output directory |
+| --- | --- | --- | --- |
+| `52760972` | `cl32_bive4_pv_reporter_40x_realbive4_F0` | Completed, exit `0:0`, elapsed `00:40:28` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F0_bestckpt_repredict` |
+| `52760975` | `cl32_bive4_pv_reporter_40x_realbive4_F1` | Completed, exit `0:0`, elapsed `00:40:28` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F1_bestckpt_repredict` |
+| `52760976` | `cl32_bive4_pv_reporter_40x_realbive4_F2` | Completed, exit `0:0`, elapsed `00:41:15` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F2_bestckpt_repredict` |
+| `52760977` | `cl32_bive4_pv_reporter_40x_realbive4_F3` | Completed, exit `0:0`, elapsed `00:40:26` | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F3_bestckpt_repredict` |
 
-Status command:
+Status command for corrected jobs:
 
 ```bash
 squeue -j 52760969,52760972,52760975,52760976,52760977,52761073,52761074,52761075 \
   -o '%.18i %.9P %.35j %.8u %.2t %.12M %.6D %.12b %.10m %R'
 ```
 
-Do not cancel these jobs just because the optimization plan below exists. Let
-the already-submitted best-checkpoint and trim-Z outputs finish so they can be
-used as baseline candidates in the QC comparison.
+At the time of this update, this queue is empty for the corrected job IDs.
+
+Corrected output directories to review:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F0_trimz_bestckpt_fix/full_run/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F1_trimz_bestckpt_fix/full_run/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F2_trimz_bestckpt_fix/full_run/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F3_trimz_bestckpt_fix/full_run/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F0_bestckpt_repredict/full_run/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F1_bestckpt_repredict/full_run/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F2_bestckpt_repredict/full_run/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F3_bestckpt_repredict/full_run/
+```
 
 ## Parameter Optimization Plan
 
@@ -151,6 +271,43 @@ parameters preserve real biology while removing noise without creating shading,
 grid, edge, or over-smoothing artifacts?" N2V is self-supervised, so there is no
 ground-truth target. Final parameter agreement must combine model diagnostics
 with visual QC.
+
+### Immediate QC review
+
+Before running any parameter sweep, review the corrected baseline outputs that
+already exist. Open these first for each corrected sample:
+
+| File | How to use it |
+| --- | --- |
+| `qc/raw_vs_denoised_example_slices.png` | Fast first look for over-smoothing, artifacts, and preserved structures |
+| `qc/raw_vs_denoised_max_projections.png` | Check whether structures are preserved across Z |
+| `merged_green_red_preview.ome.tif` | Fiji-friendly preview-scaled OME-TIFF |
+| `green_denoised.ome.tif` and `red_denoised.ome.tif` | Full float32 denoised outputs; autoscale display in Fiji before judging |
+| `max_projection_preview.mp4` | Quick preview only; not a final z-scroll movie |
+| `prediction_checkpoints.json` | Confirms which checkpoint was used |
+| `qc/denoised_finite_validation.txt` | Confirms no NaN/Inf values |
+
+Recommended human review order:
+
+1. Compare `realbive4_F1_bestckpt_repredict` with the earlier F1 output that
+   looked acceptable.
+2. Review `realbive4_F0`, `F2`, and `F3` best-checkpoint repredict outputs to
+   see whether the horrible artifacts improved.
+3. Review first-set `F0-F3_trimz_bestckpt_fix` to confirm the NaN/black-output
+   failure is resolved.
+4. Record pass/fail notes per field of view:
+   - acceptable as baseline
+   - improved but still artifacted
+   - unusable / needs parameter sweep
+5. Only after this review, choose whether to run the small parameter sweep below.
+
+Do not judge final quality from the old invalid folders or from raw float32
+OME-TIFFs opened in Fiji without display autoscaling. Prefer the QC PNGs and
+`merged_green_red_preview.ome.tif` for the first pass.
+
+For easier Fiji review, the corrected folders now also contain 8-bit display
+exports in `full_run/display_8bit/`. These are useful for visual QC and sharing,
+but they should not replace the quantitative denoised OME-TIFFs for analysis.
 
 ### Candidate knobs to compare
 
@@ -270,6 +427,66 @@ Expected full-run files:
 | `qc/intensity_histograms.png` | Raw/denoised intensity distributions |
 | `qc/clipping_saturation_warnings.txt` | Saturation/non-finite warning report |
 | `run_metadata.json` | Input, internal dimensions, args, reader metadata |
+
+Optional post-N2V 8-bit display exports live under:
+
+`<OUTPUT_DIR>/full_run/display_8bit/`
+
+| Path | Meaning |
+| --- | --- |
+| `green_denoised_8bit_display.ome.tif` | Green denoised channel converted to uint8 for display/QC |
+| `red_denoised_8bit_display.ome.tif` | Red denoised channel converted to uint8 for display/QC |
+| `merged_green_magenta_8bit_display.ome.tif` | RGB display stack with red channel shown as magenta and green as green |
+| `denoised_8bit_green_max_projection.png` | Green 8-bit max-projection quicklook |
+| `denoised_8bit_red_as_magenta_max_projection.png` | Red channel shown as magenta max-projection quicklook |
+| `denoised_8bit_merged_green_magenta_max_projection.png` | Merged green/magenta max-projection quicklook |
+| `display_scaling_8bit.json` | Reproducibility sidecar with input paths, dtype, axes, display limits, and clipping counts |
+
+The 8-bit conversion is performed by:
+
+`imaging/imaris_careamics/convert_denoised_to_8bit.py`
+
+Default conversion command:
+
+```bash
+python imaging/imaris_careamics/convert_denoised_to_8bit.py \
+  --input-dir /path/to/full_run \
+  --overwrite
+```
+
+Default scaling is fixed per channel across a deterministic whole-stack sample:
+
+```text
+lower percentile: 0.5
+upper percentile: 99.8
+percentile z step: 2
+percentile yx step: 2
+```
+
+The sampling avoids memory failures on the large `realbive4` stacks while still
+using a fixed stack-wide display transform. Use `--percentile-z-step 1
+--percentile-yx-step 1` only when exact all-pixel limits are required and enough
+memory is available.
+
+Great Lakes/Slurm wrapper:
+
+```bash
+FULL_RUN_DIR=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/<sample>/full_run \
+sbatch slurm/convert_denoised_to_8bit.sbatch
+```
+
+Corrected baseline directories already converted to 8-bit display outputs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F0_trimz_bestckpt_fix/full_run/display_8bit/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F1_trimz_bestckpt_fix/full_run/display_8bit/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F2_trimz_bestckpt_fix/full_run/display_8bit/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_F3_trimz_bestckpt_fix/full_run/display_8bit/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F0_bestckpt_repredict/full_run/display_8bit/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F1_bestckpt_repredict/full_run/display_8bit/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F2_bestckpt_repredict/full_run/display_8bit/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/cl32_bive4_pv_reporter_40x_realbive4_F3_bestckpt_repredict/full_run/display_8bit/
+```
 
 Expected logs:
 

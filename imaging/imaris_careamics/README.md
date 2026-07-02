@@ -143,6 +143,33 @@ python imaging/imaris_careamics/create_denoised_panel_movie.py \
   --export-stills
 ```
 
+8-bit display conversion after N2V:
+
+```bash
+python imaging/imaris_careamics/convert_denoised_to_8bit.py \
+  --input-dir /path/to/full_run \
+  --overwrite
+```
+
+This writes display/QC copies into `/path/to/full_run/display_8bit/`:
+
+```text
+green_denoised_8bit_display.ome.tif
+red_denoised_8bit_display.ome.tif
+merged_green_magenta_8bit_display.ome.tif
+denoised_8bit_green_max_projection.png
+denoised_8bit_red_as_magenta_max_projection.png
+denoised_8bit_merged_green_magenta_max_projection.png
+display_scaling_8bit.json
+```
+
+The 8-bit files are for Fiji/QC/display. They are not the quantitative N2V
+outputs. The original `green_denoised.ome.tif` and `red_denoised.ome.tif` remain
+unchanged. Display scaling uses fixed 0.5 to 99.8 percentile limits per channel
+from a deterministic whole-stack sample by default
+(`--percentile-z-step 2 --percentile-yx-step 2`), and the exact limits are saved
+in `display_scaling_8bit.json`.
+
 ## Slurm Commands
 
 Copy or submit from the repo root on Great Lakes:
@@ -197,6 +224,13 @@ PREDICT_CHECKPOINT=best \
 sbatch slurm/run_full_denoising.sbatch
 ```
 
+Slurm 8-bit display conversion after a completed full run:
+
+```bash
+FULL_RUN_DIR=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/imaris_careamics/sample_001/full_run \
+sbatch slurm/convert_denoised_to_8bit.sbatch
+```
+
 ## Outputs
 
 Each sample writes outputs under:
@@ -218,6 +252,16 @@ Each full run directory contains:
 - `qc/intensity_histograms.png`
 - `qc/clipping_saturation_warnings.txt`
 - `run_metadata.json`
+
+Optional 8-bit display exports under `full_run/display_8bit/`:
+
+- `green_denoised_8bit_display.ome.tif`
+- `red_denoised_8bit_display.ome.tif`
+- `merged_green_magenta_8bit_display.ome.tif`
+- `denoised_8bit_green_max_projection.png`
+- `denoised_8bit_red_as_magenta_max_projection.png`
+- `denoised_8bit_merged_green_magenta_max_projection.png`
+- `display_scaling_8bit.json`
 
 Logs are written to:
 
@@ -254,6 +298,79 @@ for d in /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imagi
   ls -lh "$d/full_run"/{green_denoised.ome.tif,red_denoised.ome.tif,max_projection_preview.mp4} 2>/dev/null || true
 done
 ```
+
+## Fiji Grid/Collection Stitching
+
+Use the TeraStitcher XML coordinates to generate Fiji's
+`TileConfiguration.txt`; do not infer the F0-F3 montage order by filename.
+
+Current BC43/realbive4 montage:
+
+```bash
+python3 imaging/imaris_careamics/terastitcher_to_fiji_tile_config.py \
+  --xml /nfs/turbo/umms-parent/andor_micropscope_data_dump/exp17_pv_reporter_with_biver3and4/20x/cl32_bive4_pv_reporter_40x_realbive4.xml \
+  --output /nfs/turbo/umms-parent/andor_micropscope_data_dump/exp17_pv_reporter_with_biver3and4/20x/TileConfiguration.txt
+```
+
+Great Lakes Slurm prep job:
+
+```bash
+INPUT_DIR=/nfs/turbo/umms-parent/andor_micropscope_data_dump/exp17_pv_reporter_with_biver3and4/20x \
+XML_NAME=cl32_bive4_pv_reporter_40x_realbive4.xml \
+OUTPUT_NAME=TileConfiguration.txt \
+sbatch slurm/prepare_fiji_stitching_tile_config.sbatch
+```
+
+Actual batch stitching job:
+
+```bash
+sbatch slurm/run_fiji_grid_stitching_realbive4.sbatch
+```
+
+The batch stitching job runs Fiji under `xvfb-run` and writes the fused image to
+disk under:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_compute_overlap/
+```
+
+For the batch run, `Image_output` is `Write to disk` so the result survives the
+Slurm session. The interactive first-test setting below remains `Fuse and
+display`.
+
+The expected XML-derived layout is:
+
+```text
+# Define the number of dimensions we are working on
+dim = 3
+
+# Define the image coordinates
+cl32_bive4_pv_reporter_40x_realbive4_F3.ims; ; (0.0, 0.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F0.ims; ; (918.0, 0.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F2.ims; ; (0.0, 897.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F1.ims; ; (918.0, 897.0, 0.0)
+```
+
+Launch Fiji from the Great Lakes desktop session:
+
+```bash
+module load fiji/1.5.4
+/sw/pkgs/med/fiji/1.5.4/ImageJ-linux64 &
+```
+
+In Fiji, use `Plugins -> Stitching -> Grid/Collection Stitching`:
+
+- Type: `Positions from file`
+- Layout file: generated `TileConfiguration.txt`
+- Fusion method: `Linear Blending`
+- Compute overlap: checked for the first test
+- Regression threshold: `0.30`
+- Max/avg displacement threshold: `2.50`
+- Absolute displacement threshold: `3.50`
+- Image output: `Fuse and display`
+
+Do not use the FusionStitcher stitched output, and do not split channels before
+stitching.
 
 ## Workflow
 
