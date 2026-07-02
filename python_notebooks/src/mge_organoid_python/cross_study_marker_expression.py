@@ -103,6 +103,7 @@ PV_PRECURSOR_ON_TARGET_GENES = [
     "ETV1",
     "CRABP1",
     "TAC1",
+    "SLC6A1",
     "ZEB2",
     "PVALB",
 ]
