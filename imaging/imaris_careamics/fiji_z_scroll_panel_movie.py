@@ -88,6 +88,24 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="White text stroke width for thicker panel labels.",
     )
+    parser.add_argument(
+        "--scale-bar-um",
+        type=float,
+        default=0.0,
+        help="Draw a bottom-right scale bar of this length in microns. Use 0 to disable.",
+    )
+    parser.add_argument(
+        "--xy-um-per-pixel",
+        type=float,
+        default=None,
+        help="XY physical pixel size in microns/pixel for scale-bar rendering.",
+    )
+    parser.add_argument("--scale-bar-label", default=None, help="Scale bar label; defaults to '<um> um'.")
+    parser.add_argument("--scale-bar-margin", type=int, default=100)
+    parser.add_argument("--scale-bar-height", type=int, default=16)
+    parser.add_argument("--scale-bar-font-size", type=int, default=72)
+    parser.add_argument("--scale-bar-font-stroke-width", type=int, default=3)
+    parser.add_argument("--scale-bar-text-gap", type=int, default=16)
     parser.add_argument("--codec", default="libx264", help="FFmpeg codec for MP4 output.")
     parser.add_argument("--pixelformat", default="yuv420p", help="FFmpeg output pixel format.")
     parser.add_argument("--quality", type=int, default=6, help="ImageIO ffmpeg quality, 0-10.")
@@ -360,6 +378,57 @@ def concatenate_panels(panels: Iterable[np.ndarray], border: int) -> np.ndarray:
     return np.concatenate(pieces, axis=1)
 
 
+def add_scale_bar(
+    rgb: np.ndarray,
+    scale_bar_um: float,
+    xy_um_per_pixel: float | None,
+    render_scale: float,
+    label: str | None,
+    margin: int,
+    bar_height: int,
+    font: ImageFont.ImageFont,
+    font_stroke_width: int,
+    text_gap: int,
+) -> np.ndarray:
+    """Overlay a bottom-right physical scale bar after RGB rendering."""
+    if scale_bar_um <= 0:
+        return rgb
+    if xy_um_per_pixel is None or xy_um_per_pixel <= 0:
+        raise ValueError("--xy-um-per-pixel must be > 0 when --scale-bar-um is used")
+    if render_scale <= 0:
+        raise ValueError("--scale must be > 0")
+
+    image = Image.fromarray(rgb)
+    draw = ImageDraw.Draw(image)
+    bar_length = int(round((scale_bar_um / xy_um_per_pixel) * render_scale))
+    bar_length = max(1, min(bar_length, image.width - 2 * margin))
+    label_text = label if label is not None else f"{scale_bar_um:g} um"
+
+    x1 = image.width - margin
+    x0 = x1 - bar_length
+    y1 = image.height - margin
+    y0 = y1 - bar_height
+
+    text_bbox = draw.textbbox((0, 0), label_text, font=font, stroke_width=font_stroke_width)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_height = text_bbox[3] - text_bbox[1]
+    text_x = x0 + (bar_length - text_width) // 2
+    text_y = y0 - text_gap - text_height
+
+    # Draw a black outline under the white bar/text so it remains legible on bright signal.
+    draw.rectangle((x0 - 3, y0 - 3, x1 + 3, y1 + 3), fill="black")
+    draw.rectangle((x0, y0, x1, y1), fill="white")
+    draw.text(
+        (text_x, text_y),
+        label_text,
+        fill="white",
+        font=font,
+        stroke_width=font_stroke_width,
+        stroke_fill="black",
+    )
+    return np.asarray(image)
+
+
 def validate_z_counts(stacks: list[FijiStack]) -> int:
     z_counts = {stack.data.shape[0] for stack in stacks}
     if len(z_counts) != 1:
@@ -444,6 +513,14 @@ def render_panel_frame(
     header_height: int,
     font: ImageFont.ImageFont,
     font_stroke_width: int,
+    scale_bar_um: float,
+    xy_um_per_pixel: float | None,
+    scale_bar_label: str | None,
+    scale_bar_margin: int,
+    scale_bar_height: int,
+    scale_bar_font: ImageFont.ImageFont,
+    scale_bar_font_stroke_width: int,
+    scale_bar_text_gap: int,
 ) -> np.ndarray:
     """Render one Z slice as the final labeled 1x3 RGB panel frame."""
     green_rgb = render_channel_rgb(green.data[z_index, 0], green_range, green_lut)
@@ -462,7 +539,19 @@ def render_panel_frame(
         add_header(resize_if_requested(magenta_rgb, scale), LABELS[1], header_height, font, font_stroke_width),
         add_header(resize_if_requested(merge_rgb, scale), LABELS[2], header_height, font, font_stroke_width),
     ]
-    return concatenate_panels(panels, border)
+    frame = concatenate_panels(panels, border)
+    return add_scale_bar(
+        frame,
+        scale_bar_um,
+        xy_um_per_pixel,
+        scale,
+        scale_bar_label,
+        scale_bar_margin,
+        scale_bar_height,
+        scale_bar_font,
+        scale_bar_font_stroke_width,
+        scale_bar_text_gap,
+    )
 
 
 def main() -> int:
@@ -487,6 +576,18 @@ def main() -> int:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     font = load_font(args.font_size)
+    scale_bar_font = load_font(args.scale_bar_font_size)
+    if args.scale_bar_um > 0:
+        if args.xy_um_per_pixel is None or args.xy_um_per_pixel <= 0:
+            raise ValueError("--xy-um-per-pixel must be > 0 when --scale-bar-um is used")
+        scale_bar_pixels = int(round((args.scale_bar_um / args.xy_um_per_pixel) * args.scale))
+        print(
+            "Scale bar: "
+            f"{args.scale_bar_um:g} um, xy_um_per_pixel={args.xy_um_per_pixel}, "
+            f"render_scale={args.scale}, pixel_length={scale_bar_pixels}, "
+            f"label={args.scale_bar_label or f'{args.scale_bar_um:g} um'}",
+            flush=True,
+        )
 
     def frame_at(z_index: int) -> np.ndarray:
         return render_panel_frame(
@@ -507,6 +608,14 @@ def main() -> int:
             args.header_height,
             font,
             args.font_stroke_width,
+            args.scale_bar_um,
+            args.xy_um_per_pixel,
+            args.scale_bar_label,
+            args.scale_bar_margin,
+            args.scale_bar_height,
+            scale_bar_font,
+            args.scale_bar_font_stroke_width,
+            args.scale_bar_text_gap,
         )
 
     first_frame = frame_at(0)
