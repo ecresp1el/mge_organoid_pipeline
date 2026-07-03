@@ -1,5 +1,28 @@
 #!/usr/bin/env python3
-"""Make max-projection stitched QC images for a small IMS montage."""
+"""Make max-projection stitched QC images for a small IMS montage.
+
+Purpose:
+  Run this before full-volume fusion when XML, stage, or filename ordering might
+  disagree. It reads each IMS tile directly, generates per-channel max
+  projections, and writes candidate stitched MIP images for visual inspection.
+
+Inputs:
+  --xml: TeraStitcher-style XML with Stack records.
+  --input-dir: directory containing the IMS tile files referenced by the XML.
+  --output-dir: QC directory for per-tile MIPs, stitched MIPs, RGB displays,
+    and position TSVs.
+
+Outputs:
+  stitched_mip_xml_*.tif: direct XML ABS_H/ABS_V placement.
+  stitched_mip_imaris_extent_*.tif: placement derived from IMS physical extents.
+  stitched_mip_corrected_stage_*.tif: candidate that preserves stage spacing
+    but flips the row orientation used for BC43/realbive4.
+  positions.tsv / positions_corrected_stage.tsv: numeric audit trail.
+
+This script is QC/audit code, not the full Fiji stitcher. The selected layout
+must still be written to a Fiji TileConfiguration file and used by the Slurm
+stitching job.
+"""
 
 import argparse
 from dataclasses import dataclass
@@ -15,7 +38,12 @@ DATASET_TEMPLATE = "DataSet/ResolutionLevel {level}/TimePoint 0/Channel {channel
 
 
 def sanitize_hdf5_plugin_path() -> None:
-    """Drop missing HDF5 plugin paths that can make h5py fail on Great Lakes."""
+    """Point HDF5 at a valid plugin path before importing h5py.
+
+    Great Lakes may expose a missing default plugin directory. Imaris IMS files
+    can require hdf5plugin filters, so each read function imports hdf5plugin
+    before h5py after this environment cleanup.
+    """
     plugin_path = os.environ.get("HDF5_PLUGIN_PATH")
     existing = []
     if plugin_path:
@@ -114,6 +142,12 @@ def read_metadata(path: Path) -> ImsMetadata:
 
 
 def max_project(path: Path, level: int, channel: int, size_y: int, size_x: int, z_step: int):
+    """Read one IMS channel and return a Z max projection.
+
+    The raw HDF5 arrays can be padded to 1024 x 1024, while IMS metadata and
+    Bio-Formats report the valid image size as 1020 x 996 for this sample.
+    size_y/size_x crop the projection to that valid extent.
+    """
     try:
         import hdf5plugin  # noqa: F401
     except ImportError:
@@ -138,6 +172,7 @@ def normalize_positions(positions):
 
 
 def xml_positions(tiles):
+    """Candidate layout using the XML ABS_H/ABS_V values literally."""
     return normalize_positions({tile.image: (tile.xml_h, tile.xml_v) for tile in tiles})
 
 
@@ -166,6 +201,12 @@ def extent_positions(tiles, metadata):
 
 
 def corrected_stage_positions(tiles, metadata):
+    """Candidate layout used for the corrected BC43/realbive4 stitch.
+
+    This keeps the left/right correction implied by IMS ExtMin0 and uses ExtMin1
+    increasing downward in the display image. For this sample, that visual row
+    orientation best preserved the expected organoid morphology in MIP QC.
+    """
     px = np.median(
         [
             (meta.ext_max0 - meta.ext_min0) / meta.size_x
@@ -201,6 +242,11 @@ def stitch(mips, positions, tile_shape):
 
 
 def scale_to_u8(image):
+    """Display-only scaling for MIP contact sheets.
+
+    This percentile scaling is only for QC PNG/RGB previews from this script.
+    It is not used for the final requested 8-bit filtered stacks.
+    """
     lo, hi = np.percentile(image[image > 0], [0.5, 99.8]) if np.any(image > 0) else (0, 1)
     if hi <= lo:
         hi = lo + 1

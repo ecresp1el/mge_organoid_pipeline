@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
-"""Convert a TeraStitcher XML Stack layout to Fiji TileConfiguration.txt."""
+"""Convert TeraStitcher XML Stack entries to Fiji TileConfiguration.txt.
+
+Input:
+  A TeraStitcher-style XML file with <Stack> entries containing IMG_REGEX,
+  ABS_H, ABS_V, and ABS_D attributes.
+
+Output:
+  A Fiji Grid/Collection Stitching TileConfiguration.txt file next to the IMS
+  files, unless --output is provided.
+
+Important:
+  This is a literal XML-to-Fiji conversion helper. It does not decide whether
+  the XML coordinate frame is the correct display orientation for a montage.
+  For BC43/realbive4, MIP QC showed the XML positions were not directly usable
+  as the final Fiji layout. Use the coordinate audit and corrected tile config
+  for that sample.
+"""
 
 import argparse
 from pathlib import Path
@@ -59,6 +75,11 @@ TileRecord = Tuple[str, float, float, float]
 
 
 def read_stacks(xml_path: Path) -> List[TileRecord]:
+    """Read Stack records in XML order.
+
+    XML order is preserved deliberately so this helper does not infer F0-F3
+    order from filenames. Filename order is not a reliable montage layout.
+    """
     tree = ET.parse(xml_path)
     root = tree.getroot()
     stacks = root.findall(".//Stack")
@@ -80,6 +101,12 @@ def format_coord(value: float) -> str:
 
 
 def render_tile_configuration(records: List[TileRecord]) -> str:
+    """Render Fiji's plain-text tile layout format.
+
+    Fiji's Grid/Collection Stitching plugin expects one image per line:
+      filename; ; (x, y, z)
+    with `dim = 3` for the full IMS volumes.
+    """
     lines = [
         "# Define the number of dimensions we are working on",
         "dim = 3",

@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 # Smoke-test the Fiji Grid/Collection Stitching direct Java runner on four tiny
-# synthetic TIFF tiles before attempting the large Imaris IMS montage.
+# synthetic TIFF tiles before attempting a large Imaris IMS montage.
+#
+# Inputs:
+#   None from the user. The job creates synthetic overlapping uint16 TIFF tiles
+#   and a tiny TileConfiguration.txt under SMOKE_ROOT.
+#
+# Output:
+#   SMOKE_ROOT/stitched/img_t1_z1_c1, proving the Java runner can compile,
+#   load Fiji jars, read a layout file, compute overlap, and write fused output.
+#
+# This is a code/environment smoke test only. It does not validate the real
+# BC43/realbive4 tile orientation.
 
 #SBATCH --job-name=fiji-stitch-smoke
 #SBATCH --account=parent0

@@ -8,7 +8,23 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Comparator;
 
-/** Apply ImageJ/Fiji median filtering to Fiji stitch plane files. */
+/**
+ * Apply ImageJ/Fiji median filtering to Fiji stitch plane files.
+ *
+ * Inputs:
+ *   args[0] directory containing unfiltered Fiji stitch planes named img_t*_z*_c*
+ *   args[1] output directory for median-filtered 16-bit planes
+ *   args[2] output directory for median-filtered 8-bit planes
+ *   args[3] median radius in pixels; current production value is 1.0
+ *
+ * Outputs:
+ *   16-bit planes preserve the filtered uint16 signal.
+ *   8-bit planes use ImageJ conversion with min/max fixed at 0..65535, not
+ *   percentile scaling.
+ *
+ * The Slurm wrapper packages these plane directories into single-series
+ * OME-TIFF stacks with fiji_planes_to_tiff_stacks.py.
+ */
 public class FijiMedianFilterPlanes {
     public static void main(final String[] args) {
         if (args.length < 4) {
@@ -48,12 +64,17 @@ public class FijiMedianFilterPlanes {
                 );
             }
 
+            // This is Fiji/ImageJ's built-in Process > Filters > Median path via
+            // RankFilters, applied independently to each XY plane.
             final ImageProcessor filtered = input.getProcessor().duplicate();
             filters.rank(filtered, radius, RankFilters.MEDIAN);
 
             final File output16 = new File(output16Dir, plane.getName());
             IJ.saveAsTiff(new ImagePlus(plane.getName(), filtered), output16.getAbsolutePath());
 
+            // Requested 8-bit output is a normal full-range conversion from
+            // 16-bit display range 0..65535 to 0..255. No percentile/autoscale
+            // display limits are used here.
             final ImageProcessor byteProcessor = filtered.duplicate();
             byteProcessor.setMinAndMax(0.0, 65535.0);
             final ImageProcessor output8Processor = byteProcessor.convertToByte(true);
@@ -68,5 +89,6 @@ public class FijiMedianFilterPlanes {
         }
 
         System.out.println("Median filtering finished: " + count + " planes");
+        System.exit(0);
     }
 }

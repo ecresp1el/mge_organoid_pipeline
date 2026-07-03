@@ -18,6 +18,19 @@ import net.imglib2.type.numeric.integer.UnsignedShortType;
  *
  * This intentionally uses the same Fiji Stitching classes as the GUI plugin,
  * but sets parameters directly so it can run from Slurm without desktop dialogs.
+ *
+ * Inputs:
+ *   args[0] input directory containing IMS/TIFF tiles and TileConfiguration.
+ *   args[1] layout filename inside the input directory.
+ *   args[2] output directory for Fiji fused plane files.
+ *   args[3] optional compute-overlap flag. For BC43/realbive4 final output,
+ *           this is false because phase correlation failed on the IMS tiles.
+ *   args[4] optional virtual-input flag. Current Slurm jobs pass false.
+ *
+ * Output:
+ *   Fiji plane-per-file TIFFs named img_t*_z*_c* in the output directory.
+ *   Use fiji_planes_to_tiff_stacks.py afterward to make proper single-series
+ *   OME-TIFF stacks.
  */
 public class FijiGridCollectionStitcher extends Stitching_Grid {
     public static void main(final String[] args) {
@@ -39,7 +52,7 @@ public class FijiGridCollectionStitcher extends Stitching_Grid {
 
         final FijiGridCollectionStitcher runner = new FijiGridCollectionStitcher();
         final StitchingParameters params = new StitchingParameters();
-        params.fusionMethod = 0; // Linear Blending in CommonFunctions.fusionMethodListGrid
+        params.fusionMethod = 0; // Linear Blending in CommonFunctions.fusionMethodListGrid.
         params.computeOverlap = computeOverlap;
         params.regThreshold = 0.30;
         params.relativeThreshold = 2.50;
@@ -96,6 +109,8 @@ public class FijiGridCollectionStitcher extends Stitching_Grid {
                 System.out.println(point.getImagePlus().getTitle() + ": " + point.getModel());
             }
 
+            // Force unsigned 16-bit fused output. ImageJ/Fiji describes this as
+            // "16-bit"; the numeric interpretation is uint16, not signed int16.
             Fusion.fuse(
                 new UnsignedShortType(),
                 images,
@@ -134,6 +149,9 @@ public class FijiGridCollectionStitcher extends Stitching_Grid {
                 throw new IllegalStateException("Could not open " + element.getFile());
             }
 
+            // Bio-Formats opens the valid IMS image extent here. For
+            // BC43/realbive4 this was 1020 x 996 x 736 even though the raw HDF5
+            // dataset is padded to 1024 x 1024 x 736.
             final int currentDimensionality = imp.getNSlices() > 1 ? 3 : 2;
             if (dimensionality >= 0 && currentDimensionality != dimensionality) {
                 throw new IllegalStateException("Mixed 2D/3D tiles are not supported.");

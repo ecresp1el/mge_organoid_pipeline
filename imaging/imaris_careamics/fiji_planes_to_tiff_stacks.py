@@ -1,5 +1,22 @@
 #!/usr/bin/env python3
-"""Convert Fiji plane-per-file stitch output into per-channel TIFF stacks."""
+"""Convert Fiji plane-per-file output into per-channel OME-TIFF stacks.
+
+Inputs:
+  --input-dir: directory containing Fiji plane files named like
+    img_t1_z001_c1 or img_t1_z001_c1.tif.
+  --channels: channel numbers to package, usually 1 2 for Fiji output.
+  --dtype: expected plane dtype, either uint16 or uint8.
+
+Outputs:
+  One BigTIFF OME-TIFF stack per channel:
+    <prefix>_c<channel>_stitched_stack.ome.tif
+
+Important:
+  The writer uses ome=True, axes=ZYX, and a known shape so Bio-Formats sees one
+  stack series with 736 Z pages. Do not change this back to per-page writer
+  calls; that created 736 Bio-Formats series and made Fiji ask for "series list"
+  during open.
+"""
 
 import argparse
 from pathlib import Path
@@ -8,7 +25,7 @@ import re
 import tifffile
 
 
-PLANE_RE = re.compile(r"img_t(?P<t>\d+)_z(?P<z>\d+)_c(?P<c>\d+)$")
+PLANE_RE = re.compile(r"img_t(?P<t>\d+)_z(?P<z>\d+)_c(?P<c>\d+)(?:\.tif)?$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,6 +42,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def channel_planes(input_dir: Path, channel: int) -> list[tuple[int, Path]]:
+    """Return all planes for one channel sorted by numeric Z index."""
     planes = []
     for path in input_dir.iterdir():
         if not path.is_file():
@@ -43,6 +61,12 @@ def write_stack(
     compression: str | None,
     expected_dtype: str,
 ) -> None:
+    """Write a single-series OME-TIFF Z stack from plane files.
+
+    This streams planes from disk rather than loading the whole channel into
+    memory. It also checks shape and dtype on every plane so partial or mixed
+    outputs fail loudly.
+    """
     if not planes:
         raise ValueError(f"No planes found for {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)

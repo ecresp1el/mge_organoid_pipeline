@@ -1,9 +1,30 @@
 #!/usr/bin/env bash
 # Stitch the BC43/realbive4 2x2 Imaris montage with Fiji Grid/Collection
-# Stitching. This uses the XML-derived TileConfiguration.txt and does not use
-# FusionStitcher output or pre-split channels.
+# Stitching through the dialog-free Java runner.
+#
+# Inputs:
+#   INPUT_DIR: directory containing the .ims tiles and the selected
+#     TileConfiguration file.
+#   LAYOUT_NAME: Fiji TileConfiguration file inside INPUT_DIR. For the corrected
+#     BC43/realbive4 full stitch, use:
+#       TileConfiguration.corrected_stage_mip_qc.txt
+#   GENERATE_LAYOUT: true regenerates LAYOUT_NAME from XML; false uses an
+#     existing reviewed layout. For corrected production output, use false.
+#
+# Output:
+#   OUTPUT_DIR: Fiji plane-per-file fused output named img_t*_z*_c*.
+#   This is an intermediate format. Run stack_fiji_stitched_planes.sbatch after
+#   this if you need two single-series OME-TIFF stacks.
+#
+# Important:
+#   This does not use FusionStitcher output and does not split channels before
+#   stitching. Do not blindly use XML ABS_H/ABS_V for future montages without
+#   checking MIP QC first.
 #
 # Submit:
+#   GENERATE_LAYOUT=false \
+#   LAYOUT_NAME=TileConfiguration.corrected_stage_mip_qc.txt \
+#   OUTPUT_LABEL=cl32_bive4_pv_reporter_40x_realbive4_corrected_stage_full \
 #   sbatch slurm/run_fiji_grid_stitching_realbive4.sbatch
 
 #SBATCH --job-name=fiji-stitch-realbive4
@@ -50,6 +71,8 @@ echo "JAVA_HEAP=${JAVA_HEAP}"
 echo "CLASS_DIR=${CLASS_DIR}"
 
 if [[ "${GENERATE_LAYOUT}" == "true" ]]; then
+  # Literal XML conversion. This is useful for quick prep, but final production
+  # layouts should usually come from a reviewed MIP QC/audit step.
   python3 "${REPO_ROOT}/imaging/imaris_careamics/terastitcher_to_fiji_tile_config.py" \
     --xml "${INPUT_DIR}/${XML_NAME}" \
     --output "${INPUT_DIR}/${LAYOUT_NAME}"
@@ -61,12 +84,16 @@ echo
 echo "Tile configuration:"
 sed -n '1,120p' "${INPUT_DIR}/${LAYOUT_NAME}"
 
+# Compile the Java runner inside the job so the Slurm node uses the same Fiji
+# jars that will execute the stitch.
 mkdir -p "${CLASS_DIR}"
 FIJI_CP="$(find /sw/pkgs/med/fiji/1.5.4/jars /sw/pkgs/med/fiji/1.5.4/plugins -name '*.jar' | paste -sd: -)"
 javac -cp "${FIJI_CP}" \
   -d "${CLASS_DIR}" \
   "${REPO_ROOT}/imaging/imaris_careamics/java/plugin/FijiGridCollectionStitcher.java"
 
+# Runs Fiji Grid/Collection Stitching directly. The last argument disables
+# virtual input so Bio-Formats opens each IMS normally.
 "${JAVA_BIN}" \
   -Djava.awt.headless=true \
   -Xmx"${JAVA_HEAP}" \

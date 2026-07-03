@@ -1,6 +1,25 @@
 #!/usr/bin/env bash
-# Apply Fiji/ImageJ median radius 1 to corrected stitched planes, then package
-# filtered 16-bit and 8-bit outputs as single-series OME-TIFF stacks.
+# Apply Fiji/ImageJ median radius 1 to corrected stitched planes.
+#
+# Inputs:
+#   INPUT_DIR: Fiji plane-per-file directory from the corrected stitch
+#     containing img_t*_z*_c* files.
+#   RADIUS: median filter radius in pixels. Production value is 1.0.
+#
+# Outputs:
+#   OUTPUT_ROOT/planes_16bit: median-filtered uint16 plane files.
+#   OUTPUT_ROOT/planes_8bit: median-filtered uint8 plane files. These are
+#     converted from 16-bit with fixed ImageJ min/max 0..65535, not percentile
+#     scaling.
+#   OUTPUT_ROOT/tiff_stacks_16bit and tiff_stacks_8bit: intended final stack
+#     directories if this wrapper reaches packaging.
+#
+# Operational note:
+#   During the 2026-07-03 run, Fiji completed all filtered planes but the wrapper
+#   was canceled before packaging because the Java process stayed alive. The
+#   Java runner now calls System.exit(0); if packaging still needs to be run
+#   separately, submit stack_fiji_stitched_planes.sbatch on planes_16bit and
+#   planes_8bit.
 
 #SBATCH --job-name=fiji-median-realbive4
 #SBATCH --account=parent0
@@ -46,12 +65,16 @@ find "${INPUT_DIR}" -maxdepth 1 -type f -name 'img_*_c1' | wc -l
 printf 'input channel 2 planes: '
 find "${INPUT_DIR}" -maxdepth 1 -type f -name 'img_*_c2' | wc -l
 
+# Compile the Fiji/ImageJ median runner against the module jars available on the
+# Slurm node.
 mkdir -p "${CLASS_DIR}"
 FIJI_CP="$(find /sw/pkgs/med/fiji/1.5.4/jars /sw/pkgs/med/fiji/1.5.4/plugins -name '*.jar' | paste -sd: -)"
 javac -cp "${FIJI_CP}" \
   -d "${CLASS_DIR}" \
   "${REPO_ROOT}/imaging/imaris_careamics/java/plugin/FijiMedianFilterPlanes.java"
 
+# Applies ImageJ RankFilters.MEDIAN plane-by-plane and writes both 16-bit and
+# 8-bit filtered intermediate planes.
 "${JAVA_BIN}" \
   -Djava.awt.headless=true \
   -Xmx"${JAVA_HEAP}" \
@@ -65,6 +88,7 @@ javac -cp "${FIJI_CP}" \
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV}"
 
+# Package 16-bit filtered planes into two single-series OME-TIFF stacks.
 python "${REPO_ROOT}/imaging/imaris_careamics/fiji_planes_to_tiff_stacks.py" \
   --input-dir "${PLANES_16}" \
   --output-dir "${STACKS_16}" \
@@ -72,6 +96,7 @@ python "${REPO_ROOT}/imaging/imaris_careamics/fiji_planes_to_tiff_stacks.py" \
   --channels 1 2 \
   --dtype uint16
 
+# Package 8-bit filtered planes into two single-series OME-TIFF stacks.
 python "${REPO_ROOT}/imaging/imaris_careamics/fiji_planes_to_tiff_stacks.py" \
   --input-dir "${PLANES_8}" \
   --output-dir "${STACKS_8}" \

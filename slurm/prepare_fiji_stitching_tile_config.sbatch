@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
-# Generate Fiji Grid/Collection Stitching TileConfiguration.txt from a
+# Generate a Fiji Grid/Collection Stitching TileConfiguration.txt from a
 # TeraStitcher-style XML file.
+#
+# Input:
+#   INPUT_DIR/XML_NAME points at the XML and referenced IMS tiles.
+#
+# Output:
+#   INPUT_DIR/OUTPUT_NAME, usually TileConfiguration.txt.
+#
+# Important:
+#   This is a literal XML conversion/prep job. It does not prove that the XML
+#   coordinate frame is the correct display orientation. For BC43/realbive4, use
+#   the corrected audited layout instead of blindly trusting this output.
 #
 # Submit on Great Lakes:
 #   INPUT_DIR=/nfs/turbo/umms-parent/andor_micropscope_data_dump/exp17_pv_reporter_with_biver3and4/20x \
@@ -60,5 +71,6 @@ echo "  Max/avg displacement threshold: 2.50"
 echo "  Absolute displacement threshold: 3.50"
 echo "  Image output: Fuse and display"
 echo
-echo "Do not use FusionStitcher output, do not split channels first, and trust XML tile order."
+echo "Do not use FusionStitcher output and do not split channels first."
+echo "For production, verify XML-derived layouts with MIP QC before full-volume fusion."
 echo "Fiji tile configuration prep finished: $(date)"
