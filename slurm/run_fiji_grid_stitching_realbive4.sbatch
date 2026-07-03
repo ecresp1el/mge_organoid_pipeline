@@ -24,6 +24,7 @@ PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projec
 INPUT_DIR="${INPUT_DIR:-/nfs/turbo/umms-parent/andor_micropscope_data_dump/exp17_pv_reporter_with_biver3and4/20x}"
 XML_NAME="${XML_NAME:-cl32_bive4_pv_reporter_40x_realbive4.xml}"
 LAYOUT_NAME="${LAYOUT_NAME:-TileConfiguration.txt}"
+GENERATE_LAYOUT="${GENERATE_LAYOUT:-true}"
 COMPUTE_OVERLAP="${COMPUTE_OVERLAP:-false}"
 OUTPUT_LABEL="${OUTPUT_LABEL:-cl32_bive4_pv_reporter_40x_realbive4_xml_coords_trusted}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_ROOT}/results/imaging/fiji_stitching/${OUTPUT_LABEL}}"
@@ -41,15 +42,20 @@ echo "REPO_ROOT=${REPO_ROOT}"
 echo "INPUT_DIR=${INPUT_DIR}"
 echo "XML_NAME=${XML_NAME}"
 echo "LAYOUT_NAME=${LAYOUT_NAME}"
+echo "GENERATE_LAYOUT=${GENERATE_LAYOUT}"
 echo "COMPUTE_OVERLAP=${COMPUTE_OVERLAP}"
 echo "OUTPUT_DIR=${OUTPUT_DIR}"
 echo "JAVA_BIN=${JAVA_BIN}"
 echo "JAVA_HEAP=${JAVA_HEAP}"
 echo "CLASS_DIR=${CLASS_DIR}"
 
-python3 "${REPO_ROOT}/imaging/imaris_careamics/terastitcher_to_fiji_tile_config.py" \
-  --xml "${INPUT_DIR}/${XML_NAME}" \
-  --output "${INPUT_DIR}/${LAYOUT_NAME}"
+if [[ "${GENERATE_LAYOUT}" == "true" ]]; then
+  python3 "${REPO_ROOT}/imaging/imaris_careamics/terastitcher_to_fiji_tile_config.py" \
+    --xml "${INPUT_DIR}/${XML_NAME}" \
+    --output "${INPUT_DIR}/${LAYOUT_NAME}"
+else
+  echo "Using existing tile configuration: ${INPUT_DIR}/${LAYOUT_NAME}"
+fi
 
 echo
 echo "Tile configuration:"

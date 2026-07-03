@@ -41,10 +41,10 @@ As of 2026-07-02 15:28 EDT, all eight corrected baseline outputs also have
 8-bit display/QC exports under `full_run/display_8bit/`. These are derived
 copies only. The quantitative denoised float32 OME-TIFFs remain unchanged.
 
-As of 2026-07-02 18:28 EDT, the BC43/realbive4 2x2 montage has been stitched
-with Fiji Grid/Collection Stitching on Great Lakes. The final successful run
-used the TeraStitcher XML coordinates directly; it did not use FusionStitcher,
-did not split channels, and did not require a Fiji GUI.
+As of 2026-07-03, MIP QC showed the first completed BC43/realbive4 2x2 Fiji
+stitch used the wrong tile orientation. Do not use the XML-trusted full 3D
+output from job `52782973`; it was preserved under a `WRONG_LAYOUT_DO_NOT_USE`
+directory.
 
 Generated layout file:
 
@@ -87,22 +87,34 @@ Final batch stitch status:
 52782611  fiji-stitch-realbive4  CANCELLED before start; 180G request was too conservative for scheduling
 52782628  fiji-stitch-realbive4  CANCELLED before useful output; replaced by direct Java runner
 52782853  fiji-stitch-realbive4  CANCELLED after compute-overlap failed; do not use output
-52782973  fiji-stitch-realbive4  COMPLETED, exit 0:0, elapsed 00:14:39, MaxRSS 41808488K
+52782973  fiji-stitch-realbive4  COMPLETED, exit 0:0, elapsed 00:14:39, MaxRSS 41808488K; output later marked wrong-layout/do-not-use
 ```
 
-Final output directory:
+Wrong full-volume output directory:
 
 ```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_trusted/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_WRONG_LAYOUT_DO_NOT_USE_52782973/
 ```
 
-Final output inventory:
+Corrected MIP QC output directory:
 
 ```text
-736 files matching img_*_c1
-736 files matching img_*_c2
-6.6G total
-16-bit TIFF planes, 1938 x 1893 pixels
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_mip_qc/
+```
+
+The corrected-stage MIP placement that best matches the organoid shape is:
+
+```text
+cl32_bive4_pv_reporter_40x_realbive4_F1.ims; ; (0.0, 0.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F2.ims; ; (918.0, 0.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F0.ims; ; (0.0, 896.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F3.ims; ; (918.0, 896.0, 0.0)
+```
+
+This corrected full-volume tile config has been written to:
+
+```text
+/nfs/turbo/umms-parent/andor_micropscope_data_dump/exp17_pv_reporter_with_biver3and4/20x/TileConfiguration.corrected_stage_mip_qc.txt
 ```
 
 Log paths:
@@ -110,10 +122,10 @@ Log paths:
 ```text
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/fiji-stitch-realbive4-52782973.out
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/fiji-stitch-realbive4-52782973.err
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_trusted/logs/run_fiji_grid_stitching_52782973.log
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_WRONG_LAYOUT_DO_NOT_USE_52782973/logs/run_fiji_grid_stitching_52782973.log
 ```
 
-Final Fiji run settings:
+Wrong-layout Fiji run settings:
 
 ```text
 Grid/Collection Stitching direct Java runner
@@ -127,9 +139,9 @@ Output: Write fused TIFF planes to disk
 Virtual input: false
 ```
 
-The completed log confirms all four IMS tiles opened through Bio-Formats as
+The wrong-layout completed log confirms all four IMS tiles opened through Bio-Formats as
 `1020x996x736 channels=2 frames=1`, `Dimensionality: 3`, and `Registered tiles:
-4` with the XML coordinates above.
+4`, but the tile orientation was wrong for the organoid.
 
 The compute-overlap attempt (`52782853`) produced low/invalid phase-correlation
 matches and logged `No correlated tiles found`, then wrote an all-zero

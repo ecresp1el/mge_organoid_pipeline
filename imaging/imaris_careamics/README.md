@@ -328,27 +328,41 @@ sbatch slurm/run_fiji_grid_stitching_realbive4.sbatch
 ```
 
 This runs Fiji's Grid/Collection Stitching classes directly through the Java
-runner, so no Fiji GUI or macro dialog is required. The completed trusted XML
-coordinate run is:
+runner, so no Fiji GUI or macro dialog is required. The first completed XML
+coordinate run was later found to use the wrong tile orientation and is not a
+valid final stitch:
 
 ```text
 52782973  fiji-stitch-realbive4  COMPLETED, exit 0:0, elapsed 00:14:39, MaxRSS 41808488K
 ```
 
-Output:
+Do not use:
 
 ```text
-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_trusted/
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_xml_coords_WRONG_LAYOUT_DO_NOT_USE_52782973/
 ```
 
-The output directory contains 736 fused 16-bit TIFF planes for channel 1 and
-736 fused 16-bit TIFF planes for channel 2. The first/last planes are
-1938 x 1893 pixels.
+MIP QC showed the XML layout had the wrong display orientation. The corrected
+MIP QC layout is:
+
+```text
+cl32_bive4_pv_reporter_40x_realbive4_F1.ims; ; (0.0, 0.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F2.ims; ; (918.0, 0.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F0.ims; ; (0.0, 896.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F3.ims; ; (918.0, 896.0, 0.0)
+```
+
+Corrected MIP QC outputs:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_mip_qc/
+```
 
 The compute-overlap test was also run, but it failed phase-correlation on these
 IMS tiles (`No correlated tiles found`) and was canceled. Its partial output was
-renamed with `FAILED_DO_NOT_USE_52782853`. The current stitched output trusts
-the XML coordinates instead of the failed optimized registration.
+renamed with `FAILED_DO_NOT_USE_52782853`. Do not use the failed compute-overlap
+output or the XML-trusted full 3D output. Use the corrected-stage MIP QC before
+launching the corrected full-volume stitch.
 
 The expected XML-derived layout is:
 
