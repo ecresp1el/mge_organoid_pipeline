@@ -38,7 +38,8 @@ from PIL import Image, ImageDraw, ImageFont
 import tifffile
 
 
-LABELS = ("PV-mNG", "BiVe3-dTom", "Merge")
+LABELS = ("PV-mNG", "BiVe3-dTom", "Merged")
+LABEL_COLORS = ((0, 255, 0), (255, 0, 255), (255, 255, 255))
 
 
 @dataclass
@@ -338,6 +339,7 @@ def resize_if_requested(rgb: np.ndarray, scale: float) -> np.ndarray:
 def add_header(
     rgb: np.ndarray,
     label: str,
+    color: tuple[int, int, int],
     header_height: int,
     font: ImageFont.ImageFont,
     font_stroke_width: int,
@@ -354,10 +356,10 @@ def add_header(
     draw.text(
         (x, y),
         label,
-        fill="white",
+        fill=color,
         font=font,
         stroke_width=font_stroke_width,
-        stroke_fill="white",
+        stroke_fill=color,
     )
     return np.asarray(frame)
 
@@ -535,9 +537,30 @@ def render_panel_frame(
     )
 
     panels = [
-        add_header(resize_if_requested(green_rgb, scale), LABELS[0], header_height, font, font_stroke_width),
-        add_header(resize_if_requested(magenta_rgb, scale), LABELS[1], header_height, font, font_stroke_width),
-        add_header(resize_if_requested(merge_rgb, scale), LABELS[2], header_height, font, font_stroke_width),
+        add_header(
+            resize_if_requested(green_rgb, scale),
+            LABELS[0],
+            LABEL_COLORS[0],
+            header_height,
+            font,
+            font_stroke_width,
+        ),
+        add_header(
+            resize_if_requested(magenta_rgb, scale),
+            LABELS[1],
+            LABEL_COLORS[1],
+            header_height,
+            font,
+            font_stroke_width,
+        ),
+        add_header(
+            resize_if_requested(merge_rgb, scale),
+            LABELS[2],
+            LABEL_COLORS[2],
+            header_height,
+            font,
+            font_stroke_width,
+        ),
     ]
     frame = concatenate_panels(panels, border)
     return add_scale_bar(
