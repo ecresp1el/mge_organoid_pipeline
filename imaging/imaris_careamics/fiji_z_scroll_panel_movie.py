@@ -38,7 +38,7 @@ from PIL import Image, ImageDraw, ImageFont
 import tifffile
 
 
-LABELS = ("PV-mNG", "BiVe3-dTom", "Merged")
+LABELS = ("PV-mNG", "BiVe4-dTom", "Merged")
 LABEL_COLORS = ((0, 255, 0), (255, 0, 255), (255, 255, 255))
 
 
