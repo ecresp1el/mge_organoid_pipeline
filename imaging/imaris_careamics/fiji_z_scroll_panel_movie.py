@@ -24,7 +24,10 @@ Important:
 from __future__ import annotations
 
 import argparse
+import contextlib
 from dataclasses import dataclass
+import math
+import os
 from pathlib import Path
 import re
 from typing import Iterable
@@ -43,10 +46,21 @@ class FijiStack:
     path: Path
     data: np.ndarray
     axes: str
+    source_shape: tuple[int, ...]
+    source_axes: str
     metadata: dict
     description: str
     ranges: list[tuple[float, float]]
     luts: list[np.ndarray]
+
+
+@dataclass
+class Mp4Metadata:
+    width: int
+    height: int
+    fps: float | None
+    codec: str | None
+    frame_count: int | None
 
 
 def parse_args() -> argparse.Namespace:
@@ -192,11 +206,12 @@ def open_tiff_stack(path: Path) -> FijiStack:
         with tifffile.TiffFile(path) as tif:
             data = tif.asarray()
     data = np.asarray(data)
+    source_shape = tuple(int(axis_size) for axis_size in data.shape)
     data_zcyx, axes_zcyx = to_zcyx(data, axes, metadata)
     channel_count = data_zcyx.shape[1]
     ranges = imagej_metadata_ranges(metadata, description, channel_count)
     luts = imagej_metadata_luts(metadata, channel_count)
-    return FijiStack(path, data_zcyx, axes_zcyx, metadata, description, ranges, luts)
+    return FijiStack(path, data_zcyx, axes_zcyx, source_shape, axes, metadata, description, ranges, luts)
 
 
 def int_metadata(metadata: dict, key: str, default: int) -> int:
@@ -352,6 +367,65 @@ def validate_z_counts(stacks: list[FijiStack]) -> int:
     return z_counts.pop()
 
 
+def finite_metadata_int(value) -> int | None:
+    try:
+        as_float = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(as_float):
+        return None
+    return int(round(as_float))
+
+
+def probe_mp4_metadata(path: Path) -> Mp4Metadata:
+    """Read the encoded MP4 stream metadata through imageio/FFmpeg."""
+    reader = imageio.get_reader(path)
+    try:
+        metadata = reader.get_meta_data()
+        frame_count = finite_metadata_int(metadata.get("nframes"))
+        if frame_count is None:
+            try:
+                frame_count = int(reader.count_frames())
+            except Exception as exc:
+                print(f"MP4 frame count unavailable: {exc}", flush=True)
+                frame_count = None
+    finally:
+        with open(os.devnull, "w") as devnull:
+            with contextlib.redirect_stdout(devnull), contextlib.redirect_stderr(devnull):
+                reader.close()
+
+    width_height = metadata.get("source_size") or metadata.get("size")
+    if width_height is None or len(width_height) != 2:
+        raise RuntimeError(f"Could not read MP4 dimensions from metadata for {path}")
+
+    return Mp4Metadata(
+        width=int(width_height[0]),
+        height=int(width_height[1]),
+        fps=metadata.get("fps"),
+        codec=metadata.get("codec"),
+        frame_count=frame_count,
+    )
+
+
+def print_tiff_stack_shape(label: str, stack: FijiStack) -> None:
+    print(
+        f"Original TIFF stack shape [{label}]: "
+        f"path={stack.path} source_shape={stack.source_shape} "
+        f"source_axes={stack.source_axes!r} normalized_shape={stack.data.shape} "
+        f"normalized_axes={stack.axes} dtype={stack.data.dtype}",
+        flush=True,
+    )
+
+
+def print_mp4_metadata(metadata: Mp4Metadata) -> None:
+    print(
+        "MP4 metadata after writing: "
+        f"width={metadata.width} height={metadata.height} fps={metadata.fps} "
+        f"codec={metadata.codec} frames={metadata.frame_count}",
+        flush=True,
+    )
+
+
 def render_panel_frame(
     z_index: int,
     green: FijiStack,
@@ -397,6 +471,9 @@ def main() -> int:
     magenta = open_tiff_stack(args.magenta)
     composite = open_tiff_stack(args.composite)
     z_count = validate_z_counts([green, magenta, composite])
+    print_tiff_stack_shape("green", green)
+    print_tiff_stack_shape("magenta", magenta)
+    print_tiff_stack_shape("composite", composite)
 
     green_range = require_range(green, 0, args.green_min, args.green_max, "green_display")
     magenta_range = require_range(magenta, 0, args.magenta_min, args.magenta_max, "magenta_display")
@@ -432,6 +509,14 @@ def main() -> int:
             args.font_stroke_width,
         )
 
+    first_frame = frame_at(0)
+    input_frame_height, input_frame_width = first_frame.shape[:2]
+    print(
+        f"Rendered RGB frame shape before writing video: "
+        f"shape={first_frame.shape} width={input_frame_width} height={input_frame_height} dtype={first_frame.dtype}",
+        flush=True,
+    )
+
     writer = imageio.get_writer(
         args.output,
         fps=args.fps,
@@ -450,8 +535,15 @@ def main() -> int:
         ffmpeg_log_level="info",
     )
     try:
-        for z_index in range(z_count):
+        writer.append_data(first_frame)
+        print(f"Rendered 1 / {z_count} Z slices", flush=True)
+        for z_index in range(1, z_count):
             frame = frame_at(z_index)
+            if frame.shape != first_frame.shape:
+                raise ValueError(
+                    f"Rendered frame shape changed at Z index {z_index}: "
+                    f"expected {first_frame.shape}, got {frame.shape}"
+                )
             writer.append_data(frame)
             if (z_index + 1) % 25 == 0 or z_index + 1 == z_count:
                 print(f"Rendered {z_index + 1} / {z_count} Z slices", flush=True)
@@ -459,19 +551,33 @@ def main() -> int:
         writer.close()
 
     print(f"Wrote MP4: {args.output}", flush=True)
+    mp4_metadata = probe_mp4_metadata(args.output)
+    print_mp4_metadata(mp4_metadata)
+    if mp4_metadata.width != input_frame_width or mp4_metadata.height != input_frame_height:
+        raise RuntimeError(
+            "MP4 dimensions differ from rendered RGB frame dimensions: "
+            f"input_frame_width={input_frame_width} input_frame_height={input_frame_height} "
+            f"output_width={mp4_metadata.width} output_height={mp4_metadata.height}"
+        )
+    print(
+        "MP4 dimension check passed: "
+        f"output_width={mp4_metadata.width} == input_frame_width={input_frame_width}, "
+        f"output_height={mp4_metadata.height} == input_frame_height={input_frame_height}",
+        flush=True,
+    )
+
     if args.rgb_tiff is not None:
         args.rgb_tiff.parent.mkdir(parents=True, exist_ok=True)
-        first = frame_at(0)
 
         def frames():
-            yield first
+            yield first_frame
             for z_index in range(1, z_count):
                 yield frame_at(z_index)
 
         tifffile.imwrite(
             args.rgb_tiff,
             frames(),
-            shape=(z_count,) + first.shape,
+            shape=(z_count,) + first_frame.shape,
             dtype=np.uint8,
             bigtiff=True,
             ome=True,

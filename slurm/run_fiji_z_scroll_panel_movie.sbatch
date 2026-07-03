@@ -11,6 +11,7 @@
 #
 # Output:
 #   OUTPUT: MP4 movie with panels PV-mNG | BiVe3-dTom | Merge.
+#   RGB_TIFF: optional rendered RGB TIFF stack of the exact video frames.
 
 #SBATCH --job-name=fiji-zmovie
 #SBATCH --account=parent0
@@ -31,6 +32,7 @@ CONDA_BASE="${CONDA_BASE:-/home/elcrespo/miniconda3}"
 CONDA_ENV="${CONDA_ENV:-imaris-careamics}"
 STACK_DIR="${STACK_DIR:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_corrected_stage_full/z025_z430_stacks}"
 OUTPUT="${OUTPUT:-${STACK_DIR}/panel_movie_10fps_bigtext.mp4}"
+RGB_TIFF="${RGB_TIFF:-}"
 FPS="${FPS:-10}"
 BORDER="${BORDER:-10}"
 SCALE="${SCALE:-1.0}"
@@ -48,6 +50,7 @@ echo "Host: $(hostname)"
 echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
 echo "STACK_DIR=${STACK_DIR}"
 echo "OUTPUT=${OUTPUT}"
+echo "RGB_TIFF=${RGB_TIFF}"
 echo "FPS=${FPS}"
 echo "SCALE=${SCALE}"
 echo "HEADER_HEIGHT=${HEADER_HEIGHT}"
@@ -58,11 +61,15 @@ echo "PRESET=${PRESET}"
 echo "FFMPEG_THREADS=${FFMPEG_THREADS}"
 
 rm -f "${OUTPUT}"
+if [[ -n "${RGB_TIFF}" ]]; then
+  rm -f "${RGB_TIFF}"
+fi
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV}"
 
-python "${REPO_ROOT}/imaging/imaris_careamics/fiji_z_scroll_panel_movie.py" \
+CMD=(
+  python "${REPO_ROOT}/imaging/imaris_careamics/fiji_z_scroll_panel_movie.py"
   --green "${STACK_DIR}/green_display.tif" \
   --magenta "${STACK_DIR}/magenta_display.tif" \
   --composite "${STACK_DIR}/composite_display.tif" \
@@ -76,6 +83,16 @@ python "${REPO_ROOT}/imaging/imaris_careamics/fiji_z_scroll_panel_movie.py" \
   --preset "${PRESET}" \
   --ffmpeg-threads "${FFMPEG_THREADS}" \
   --output "${OUTPUT}"
+)
+
+if [[ -n "${RGB_TIFF}" ]]; then
+  CMD+=(--rgb-tiff "${RGB_TIFF}")
+fi
+
+"${CMD[@]}"
 
 echo "Fiji Z-scroll panel movie finished: $(date)"
 ls -lh "${OUTPUT}"
+if [[ -n "${RGB_TIFF}" ]]; then
+  ls -lh "${RGB_TIFF}"
+fi
