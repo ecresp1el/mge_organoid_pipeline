@@ -20,6 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prefix", required=True)
     parser.add_argument("--channels", type=int, nargs="+", default=[1, 2])
     parser.add_argument("--compression", default=None, choices=[None, "deflate"])
+    parser.add_argument("--dtype", default="uint16", choices=["uint16", "uint8"])
     return parser.parse_args()
 
 
@@ -36,14 +37,19 @@ def channel_planes(input_dir: Path, channel: int) -> list[tuple[int, Path]]:
     return sorted(planes)
 
 
-def write_stack(planes: list[tuple[int, Path]], output_path: Path, compression: str | None) -> None:
+def write_stack(
+    planes: list[tuple[int, Path]],
+    output_path: Path,
+    compression: str | None,
+    expected_dtype: str,
+) -> None:
     if not planes:
         raise ValueError(f"No planes found for {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     first = tifffile.imread(planes[0][1])
-    if first.dtype.name != "uint16":
-        raise ValueError(f"{planes[0][1]} is {first.dtype}, expected uint16")
+    if first.dtype.name != expected_dtype:
+        raise ValueError(f"{planes[0][1]} is {first.dtype}, expected {expected_dtype}")
     shape = (len(planes),) + first.shape
 
     def image_iter():
@@ -81,7 +87,7 @@ def main() -> int:
             raise ValueError(f"Channel {channel} has missing z planes: {missing[:20]}")
         output_path = args.output_dir / f"{args.prefix}_c{channel}_stitched_stack.ome.tif"
         print(f"Writing channel {channel}: {len(planes)} planes -> {output_path}", flush=True)
-        write_stack(planes, output_path, args.compression)
+        write_stack(planes, output_path, args.compression, args.dtype)
         print(f"Wrote {output_path}", flush=True)
     return 0
 
