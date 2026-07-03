@@ -53,11 +53,15 @@ Generated layout file:
 Repo helpers:
 
 ```text
+imaging/imaris_careamics/STITCHING_COORDINATE_AUDIT_realbive4.md
 imaging/imaris_careamics/terastitcher_to_fiji_tile_config.py
+imaging/imaris_careamics/mip_stitch_ims_montage_qc.py
 imaging/imaris_careamics/java/plugin/FijiGridCollectionStitcher.java
+imaging/imaris_careamics/fiji_planes_to_tiff_stacks.py
 slurm/prepare_fiji_stitching_tile_config.sbatch
 slurm/smoke_fiji_grid_stitching.sbatch
 slurm/run_fiji_grid_stitching_realbive4.sbatch
+slurm/stack_fiji_stitched_planes.sbatch
 ```
 
 Prep and smoke jobs:
@@ -117,6 +121,17 @@ This corrected full-volume tile config has been written to:
 /nfs/turbo/umms-parent/andor_micropscope_data_dump/exp17_pv_reporter_with_biver3and4/20x/TileConfiguration.corrected_stage_mip_qc.txt
 ```
 
+Coordinate audit:
+
+```text
+imaging/imaris_careamics/STITCHING_COORDINATE_AUDIT_realbive4.md
+```
+
+Short interpretation: the IMS metadata was not simply corrupt. Its physical
+extents were internally consistent and identified the left/right correction, but
+the XML `ABS_H/ABS_V` layout was not directly usable as Fiji display
+coordinates. MIP QC was required to select the final row orientation.
+
 Log paths:
 
 ```text
@@ -158,8 +173,8 @@ The partial failed output directory was preserved as:
 ```
 
 Important constraints remain: do not use the FusionStitcher stitched output, do
-not manually guess F0-F3 order, trust the XML coordinates, and do not split
-channels before stitching.
+not blindly trust XML `ABS_H/ABS_V` as Fiji display coordinates without MIP QC,
+and do not split channels before stitching.
 
 Status check:
 

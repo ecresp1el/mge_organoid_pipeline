@@ -358,6 +358,17 @@ Corrected MIP QC outputs:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/imaging/fiji_stitching/cl32_bive4_pv_reporter_40x_realbive4_mip_qc/
 ```
 
+Coordinate audit and rationale:
+
+```text
+imaging/imaris_careamics/STITCHING_COORDINATE_AUDIT_realbive4.md
+```
+
+The IMS metadata was not treated as simply wrong. Its physical extents were
+internally consistent and helped identify the left/right correction. The XML
+`ABS_H/ABS_V` layout was not directly usable as Fiji display coordinates, and
+the final row orientation was selected by MIP QC against the organoid shape.
+
 The compute-overlap test was also run, but it failed phase-correlation on these
 IMS tiles (`No correlated tiles found`) and was canceled. Its partial output was
 renamed with `FAILED_DO_NOT_USE_52782853`. Do not use the failed compute-overlap
@@ -385,8 +396,9 @@ module load fiji/1.5.4
 /sw/pkgs/med/fiji/1.5.4/ImageJ-linux64 &
 ```
 
-Do not use the FusionStitcher stitched output, and do not split channels before
-stitching.
+Do not use the FusionStitcher stitched output. Do not split channels before
+stitching. Do not launch full-volume fusion for future montages until a MIP QC
+layout has been checked.
 
 ## Workflow
 
