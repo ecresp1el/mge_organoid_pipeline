@@ -40,17 +40,32 @@ def write_stack(planes: list[tuple[int, Path]], output_path: Path, compression: 
     if not planes:
         raise ValueError(f"No planes found for {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with tifffile.TiffWriter(output_path, bigtiff=True, imagej=False) as writer:
-        for z, path in planes:
+
+    first = tifffile.imread(planes[0][1])
+    if first.dtype.name != "uint16":
+        raise ValueError(f"{planes[0][1]} is {first.dtype}, expected uint16")
+    shape = (len(planes),) + first.shape
+
+    def image_iter():
+        for _, path in planes:
             image = tifffile.imread(path)
-            if image.dtype.name != "uint16":
-                raise ValueError(f"{path} is {image.dtype}, expected uint16")
-            writer.write(
-                image,
-                photometric="minisblack",
-                compression=compression,
-                metadata={"axes": "YX", "z_index": z},
-            )
+            if image.dtype != first.dtype:
+                raise ValueError(f"{path} is {image.dtype}, expected {first.dtype}")
+            if image.shape != first.shape:
+                raise ValueError(f"{path} has shape {image.shape}, expected {first.shape}")
+            yield image
+
+    tifffile.imwrite(
+        output_path,
+        image_iter(),
+        shape=shape,
+        dtype=first.dtype,
+        bigtiff=True,
+        ome=True,
+        metadata={"axes": "ZYX"},
+        photometric="minisblack",
+        compression=compression,
+    )
 
 
 def main() -> int:
