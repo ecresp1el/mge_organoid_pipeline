@@ -1,0 +1,8 @@
+# Corrected and visually reviewed BC43/realbive4 layout.
+# Do not replace this with the literal XML ABS_H/ABS_V layout.
+dim = 3
+
+cl32_bive4_pv_reporter_40x_realbive4_F1.ims; ; (0.0, 0.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F2.ims; ; (918.0, 0.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F0.ims; ; (0.0, 896.0, 0.0)
+cl32_bive4_pv_reporter_40x_realbive4_F3.ims; ; (918.0, 896.0, 0.0)
