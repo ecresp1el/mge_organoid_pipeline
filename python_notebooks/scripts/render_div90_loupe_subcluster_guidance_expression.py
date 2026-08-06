@@ -67,16 +67,16 @@ GENES = [
 GENE_DISPLAY_NAMES = {"ACKR3": "CXCR7 (ACKR3)"}
 SETS = ["cortical_only", "subpallial_only"]
 SET_TITLES = {
-    "cortical_only": "Cortical-only Loupe subclusters",
-    "subpallial_only": "Subpallial-only Loupe subclusters",
+    "cortical_only": "Cortical lineage subclusters",
+    "subpallial_only": "Subpallial lineage subclusters",
 }
 ATLAS_STEMS = {
-    "cortical_only": "div90_loupe_cortical_guidance_feature_umaps",
-    "subpallial_only": "div90_loupe_subpallial_guidance_feature_umaps",
+    "cortical_only": "div90_cortical_guidance_feature_umaps",
+    "subpallial_only": "div90_subpallial_guidance_feature_umaps",
 }
-DOTPLOT_STEM = "div90_loupe_guidance_subcluster_dotplots"
-PAIRWISE_STEM = "div90_loupe_guidance_pairwise_coexpression"
-PLXNA2_STEM = "div90_loupe_plxna2_subcluster_coexpression"
+DOTPLOT_STEM = "div90_guidance_subcluster_dotplots"
+PAIRWISE_STEM = "div90_guidance_pairwise_coexpression"
+PLXNA2_STEM = "div90_plxna2_subcluster_coexpression"
 
 
 def gene_display_name(gene: str) -> str:
@@ -101,6 +101,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--figure-id", default=FIGURE_ID_DEFAULT)
     parser.add_argument("--csv-dir", type=Path, default=None)
     parser.add_argument("--membership", type=Path, default=None)
+    parser.add_argument(
+        "--outdir",
+        type=Path,
+        default=None,
+        help="Optional output root; defaults to project-root/final_figures/figure-id.",
+    )
     parser.add_argument("--dpi", type=int, default=600)
     return parser.parse_args()
 
@@ -417,7 +423,7 @@ def render_dotplots(
         fontsize=5.4, title_fontsize=5.7, loc="lower center",
         bbox_to_anchor=(0.52, 0.015), ncol=4, handletextpad=0.5, columnspacing=1.1,
     )
-    fig.suptitle("DIV90 Loupe subcluster guidance-gene expression", fontsize=9.2, fontweight="bold", y=0.98)
+    fig.suptitle("DIV90 subcluster guidance-gene expression", fontsize=9.2, fontweight="bold", y=0.98)
     fig.subplots_adjust(left=0.22, right=0.88, bottom=0.21, top=0.90, wspace=0.54)
     return save_figure(fig, outdir, DOTPLOT_STEM, dpi)
 
@@ -442,7 +448,7 @@ def coexpression_summary(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
     available = data.loc[data["expression_available"]]
     for set_id in SETS:
         family = available.loc[available["set_id"] == set_id]
-        groups = [("pooled_family", np.nan, "All Loupe subclusters pooled", family)]
+        groups = [("pooled_family", np.nan, "All subclusters pooled", family)]
         groups += [
             ("within_subcluster", label_index, label, frame)
             for (label_index, label), frame in family.groupby(
@@ -543,7 +549,7 @@ def render_pairwise_coexpression(
     cbar2 = fig.colorbar(high_image, ax=axes[1, :], orientation="vertical", fraction=0.025, pad=0.025)
     cbar2.set_label("log2 enrichment", fontsize=6)
     cbar2.ax.tick_params(labelsize=5.5, length=2)
-    fig.suptitle("DIV90 Loupe guidance-gene co-expression", fontsize=9.2, fontweight="bold", y=0.98)
+    fig.suptitle("DIV90 guidance-gene co-expression", fontsize=9.2, fontweight="bold", y=0.98)
     fig.subplots_adjust(left=0.13, right=0.88, bottom=0.13, top=0.91, wspace=0.28, hspace=0.34)
     return save_figure(fig, outdir, PAIRWISE_STEM, dpi)
 
@@ -636,7 +642,7 @@ def render_plxna2_subcluster_coexpression(
     cbar2.set_label("log2(observed/expected)", fontsize=6)
     cbar2.ax.tick_params(labelsize=5.5, length=2)
     fig.suptitle(
-        "PLXNA2 co-expression within DIV90 Loupe subclusters",
+        "PLXNA2 co-expression within DIV90 subclusters",
         fontsize=9.2, fontweight="bold", y=0.98,
     )
     fig.subplots_adjust(left=0.20, right=0.88, bottom=0.13, top=0.90, wspace=0.48, hspace=0.38)
@@ -727,7 +733,7 @@ def write_manifest(
 def main() -> None:
     args = parse_args()
     project_root = args.project_root.resolve()
-    outdir = project_root / "final_figures" / args.figure_id
+    outdir = (args.outdir or project_root / "final_figures" / args.figure_id).resolve()
     csv_dir = (args.csv_dir or project_root / CSV_DIR_RELATIVE).resolve()
     membership_path = (args.membership or project_root / MEMBERSHIP_RELATIVE).resolve()
     setup_dirs(outdir)

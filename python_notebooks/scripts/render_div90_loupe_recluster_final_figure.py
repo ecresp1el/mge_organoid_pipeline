@@ -634,7 +634,7 @@ def plot_main_panel(data: dict[str, dict[str, object]], obs: pd.DataFrame, palet
             pad=12,
             color=color,
         )
-        format_axes(ax, "Loupe recluster UMAP 1", "Loupe recluster UMAP 2")
+        format_axes(ax, "Recluster UMAP 1", "Recluster UMAP 2")
         ax.text(
             0.015,
             0.015,
@@ -653,13 +653,13 @@ def plot_main_panel(data: dict[str, dict[str, object]], obs: pd.DataFrame, palet
     fig.text(
         0.5,
         -0.01,
-        "Colors are grouped by recluster family; shades distinguish Loupe-reassigned subclusters within each family.",
+        "Colors are grouped by recluster family; shades distinguish manually curated subclusters within each family.",
         ha="center",
         va="top",
         fontsize=13.0,
         color="#404040",
     )
-    save_figure(fig, dirs, "div90_loupe_recluster_final_panel", dpi)
+    save_figure(fig, dirs, "div90_recluster_final_panel", dpi)
     plt.close(fig)
 
 
@@ -800,13 +800,13 @@ def plot_callout_panel(data: dict[str, dict[str, object]], dirs: dict[str, Path]
     fig.text(
         0.5,
         -0.012,
-        "Colors are grouped by recluster family; shades distinguish Loupe-reassigned subclusters within each family.",
+        "Colors are grouped by recluster family; shades distinguish manually curated subclusters within each family.",
         ha="center",
         va="top",
         fontsize=13.0,
         color="#404040",
     )
-    save_figure(fig, dirs, "div90_loupe_recluster_final_panel_callouts", dpi)
+    save_figure(fig, dirs, "div90_recluster_final_panel_callouts", dpi)
     plt.close(fig)
 
 
@@ -819,9 +819,9 @@ def plot_loupe_background_panel(data: dict[str, dict[str, object]], dirs: dict[s
         selected = bg["cell_id"].isin(set(local["cell_id"]))
         ax.scatter(bg.loc[~selected, "loupe_x"], bg.loc[~selected, "loupe_y"], s=6.0, c="#D1D1D1", lw=0, alpha=0.4)
         ax.scatter(bg.loc[selected, "loupe_x"], bg.loc[selected, "loupe_y"], s=10.8, c=str(spec["color"]), lw=0, alpha=0.88)
-        ax.set_title(f"{spec['title']}\non Loupe exported projection", fontsize=9, fontweight="bold")
-        format_axes(ax, "Loupe projection 1", "Loupe projection 2")
-    save_figure(fig, dirs, "div90_loupe_recluster_membership_on_loupe_projection", dpi)
+        ax.set_title(f"{spec['title']}\non full source projection", fontsize=9, fontweight="bold")
+        format_axes(ax, "Projection 1", "Projection 2")
+    save_figure(fig, dirs, "div90_recluster_membership_on_source_projection", dpi)
     plt.close(fig)
 
 
@@ -831,9 +831,9 @@ def plot_local_grid(data: dict[str, dict[str, object]], palette: dict[str, str],
         local = data[str(spec["set_id"])]["local"]
         for label, sub in local.groupby("loupe_label", observed=False):
             ax.scatter(sub["loupe_x"], sub["loupe_y"], s=14.4, c=str(sub["loupe_color"].iloc[0]), lw=0, alpha=0.86)
-        ax.set_title(f"{spec['title']}\nLoupe recluster layout", fontsize=9, fontweight="bold")
-        format_axes(ax, "Loupe UMAP 1", "Loupe UMAP 2")
-    save_figure(fig, dirs, "div90_loupe_recluster_local_layouts_by_loupe_annotation", dpi)
+        ax.set_title(f"{spec['title']}\nrecluster layout", fontsize=9, fontweight="bold")
+        format_axes(ax, "Recluster UMAP 1", "Recluster UMAP 2")
+    save_figure(fig, dirs, "div90_recluster_local_layouts_by_annotation", dpi)
     plt.close(fig)
 
 
