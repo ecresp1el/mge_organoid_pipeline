@@ -1,0 +1,11 @@
+cluster_id	annotation	biology_name	n_cells
+1	1. Multi-lineage MGE Progenitors	Multi-lineage MGE Progenitors	2283
+2	2. CRABP1+/PV Precursors	CRABP1+/PV Precursors	3503
+3	3. MGE Thalamic GABAergic	MGE Thalamic GABAergic	3601
+4	4. LHX8+/GBX1+ Subpallial	LHX8+/GBX1+ Subpallial	1924
+5	5. LHX8+/TAC1+ Subpallial	LHX8+/TAC1+ Subpallial	922
+6	6. PV Basket Precursors	PV Basket Precursors	425
+7	7. SST+ Cortical GABAergic	SST+ Cortical GABAergic	3548
+8	8. Radial Glia/Pre-Astrocytes/Astrocytes	Radial Glia/Pre-Astrocytes/Astrocytes	2570
+9	9. Dividing cells	Dividing cells	358
+10	10. Pre-OPCs/OPCs	Pre-OPCs/OPCs	915

@@ -1,0 +1,16 @@
+display_order	gene	display_label	color_min_log1p_cp10k	expression_color_floor	color_max_log1p_cp10k	vmax_rule	shared_scale
+1	HES1	HES1	0	1	3.07597573543924	q0.99 positive expression; full unpruned URD tree cells	FALSE
+2	NKX2-1	NKX2-1	0	1	3.48947966204963	q0.99 positive expression; full unpruned URD tree cells	FALSE
+3	LHX6	LHX6	0	1	3.47353621770262	q0.99 positive expression; full unpruned URD tree cells	FALSE
+4	LHX8	LHX8	0	1	3.48278000900038	q0.99 positive expression; full unpruned URD tree cells	FALSE
+5	CRABP1	CRABP1	0	1	4.55540717107067	q0.99 positive expression; full unpruned URD tree cells	FALSE
+6	KCNC1	KCNC1	0	1	2.70778659836394	q0.99 positive expression; full unpruned URD tree cells	FALSE
+7	PLXNA2	PLXNA2	0	1	3.25046788511211	q0.99 positive expression; full unpruned URD tree cells	FALSE
+8	NRP1	NRP1	0	1	3.07260301399069	q0.99 positive expression; full unpruned URD tree cells	FALSE
+9	NRP2	NRP2	0	1	3.27835586325886	q0.99 positive expression; full unpruned URD tree cells	FALSE
+10	ROBO1	ROBO1	0	1	3.10261646963782	q0.99 positive expression; full unpruned URD tree cells	FALSE
+11	ERBB4	ERBB4	0	1	4.11200898521502	q0.99 positive expression; full unpruned URD tree cells	FALSE
+12	CXCR4	CXCR4	0	1	3.81212539929449	q0.99 positive expression; full unpruned URD tree cells	FALSE
+13	ACKR3	CXCR7 (ACKR3)	0	1	3.34358677600179	q0.99 positive expression; full unpruned URD tree cells	FALSE
+14	SEMA3A	SEMA3A	0	1	2.84601325523526	q0.99 positive expression; full unpruned URD tree cells	FALSE
+15	SEMA3F	SEMA3F	0	1	2.55917111805588	q0.99 positive expression; full unpruned URD tree cells	FALSE

@@ -1,0 +1,11 @@
+published_cluster_id	cluster_label	expected_hex	umap_points_hex	umap_number_labels_hex	urd_points_hex	urd_text_labels_hex	all_components_match
+1	Multi-lineage MGE Progenitors	#CA827C	#CA827C	#CA827C	#CA827C	#CA827C	TRUE
+2	CRABP1+/PV Precursors	#C3A06C	#C3A06C	#C3A06C	#C3A06C	#C3A06C	TRUE
+3	MGE Thalamic GABAergic	#DDD9A3	#DDD9A3	#DDD9A3	#DDD9A3	#DDD9A3	TRUE
+4	LHX8+/GBX1+ Subpallial	#A7C776	#A7C776	#A7C776	#A7C776	#A7C776	TRUE
+5	LHX8+/TAC1+ Subpallial	#7BA976	#7BA976	#7BA976	#7BA976	#7BA976	TRUE
+6	PV Basket Precursors	#81A9CC	#81A9CC	#81A9CC	#81A9CC	#81A9CC	TRUE
+7	SST+ Cortical GABAergic	#B08DB0	#B08DB0	#B08DB0	#B08DB0	#B08DB0	TRUE
+8	Radial Glia/Pre-Astrocytes/Astrocytes	#9392B6	#9392B6	#9392B6	#9392B6	#9392B6	TRUE
+9	Dividing cells	#B96490	#B96490	#B96490	#B96490	#B96490	TRUE
+10	Pre-OPCs/OPCs	#815385	#815385	#815385	#815385	#815385	TRUE

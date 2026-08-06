@@ -1,0 +1,28 @@
+field	value
+rendered_at	2026-08-06 13:13:51 EDT
+tree_rds	/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1/lineage_tree_jia_endpoint_tips_v1/div30_urd_lineage_tree_object.rds
+annotation_col	cluster_number_name
+pseudotime_name	div90_jia_rootscore_root
+marker_panel	HES1,NKX2-1,LHX6,LHX8,CRABP1,KCNC1,PLXNA2,NRP1,NRP2,ROBO1,ERBB4,CXCR4,CXCR7 (ACKR3),SEMA3A,SEMA3F
+marker_grid	module 1: 2 rows x 3 columns; module 2: 5 genes in row 1 and 4 centered genes in row 2
+module_layout	single lower row; module 1 width 42%; module 2 width 58%; vertical black module strips; bordered module containers
+layout_style	grant_side_by_side
+module_definition	Module 1: HES1,NKX2-1,LHX6,LHX8,CRABP1,KCNC1; Module 2: PLXNA2,NRP1,NRP2,ROBO1,ERBB4,CXCR4,ACKR3,SEMA3A,SEMA3F
+marker_tree_scope	neuronal-only marker display; published clusters 8,10 hidden; full tree retained in top context panels
+lineage_guides	subtle brackets: cortical tips 3-5; subpallial/striatal tips 1-2
+top_row_layout	cluster UMAP; published-cluster URD; simplified lineage URD; pseudotime UMAP; pseudotime URD; relative widths 0.75,1.65,1.25,1.05,1.15
+published_tree_fate_bars	black vertical bars: Neurogenesis clusters 1-7 and 9; Gliogenesis clusters 8 and 10
+simplified_lineage_context	cluster 7 cortical; clusters 1-6 other neuronal; clusters 8 and 10 light grey below topology-derived dashed divider; cluster 9 neutral context
+cluster_style	figure4_submission
+output_formats	png,pdf,svg
+marker_color_map	log1p(CP10K), cross-study-compatible grey floor to #0000ff blue
+expression_color_floor	1
+vmax_rule	q0.99 positive expression per gene
+expression_scale_reference	full unpruned URD tree cells
+cluster_palette	exact manually curated Figure 4 colors supplied for clusters 1-10
+cluster_recode	manually curated Figure 4 labels applied to existing published IDs only; no cell reassignment
+umap_orientation	published plotting orientation: UMAP_1 unchanged, UMAP_2 multiplied by -1
+tree_orientation	left-to-right rotated tree; tips at right
+pseudotime_scale	shared UMAP/tree limits 0 to 0.5531
+cluster_tree_tip_labels	cluster number and wrapped cluster name labels drawn at cluster tree tips
+editable_vector_outputs	pdf,svg via svglite

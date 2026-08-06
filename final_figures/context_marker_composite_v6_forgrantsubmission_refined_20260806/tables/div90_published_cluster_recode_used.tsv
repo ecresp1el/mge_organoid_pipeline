@@ -1,0 +1,14 @@
+raw_cluster_id	published_cluster_id	published_cluster_name	published_cluster_label
+0	3	MGE Thalamic GABAergic	3. MGE Thalamic GABAergic
+1	7	SST+ Cortical GABAergic	7. SST+ Cortical GABAergic
+2	2	CRABP1+/PV Precursors	2. CRABP1+/PV Precursors
+3	1	Multi-lineage MGE Progenitors	1. Multi-lineage MGE Progenitors
+4	8	Radial Glia/Pre-Astrocytes/Astrocytes	8. Radial Glia/Pre-Astrocytes/Astrocytes
+5	4	LHX8+/GBX1+ Subpallial	4. LHX8+/GBX1+ Subpallial
+6		Stressed Cells	EXCLUDED - Stressed Cells
+7		Stressed Cells	EXCLUDED - Stressed Cells
+8	5	LHX8+/TAC1+ Subpallial	5. LHX8+/TAC1+ Subpallial
+9	10	Pre-OPCs/OPCs	10. Pre-OPCs/OPCs
+10	8	Radial Glia/Pre-Astrocytes/Astrocytes	8. Radial Glia/Pre-Astrocytes/Astrocytes
+11	6	PV Basket Precursors	6. PV Basket Precursors
+12	9	Dividing cells	9. Dividing cells

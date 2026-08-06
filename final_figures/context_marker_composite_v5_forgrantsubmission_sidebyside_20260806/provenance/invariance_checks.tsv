@@ -1,0 +1,19 @@
+check	result	detail
+source_urd_tree	PASS	same corrected DIV90 seven-tip URD RDS as v4
+top_context_sequence	PASS	same five-panel order and relative widths as v4
+module_layout	PASS	one lower row; Module 1 42%; Module 2 58%
+module_1_grid	PASS	2 x 3 in the requested gene order
+module_2_grid	PASS	5 genes above 4 centered genes in the requested order
+cluster_mapping	PASS	curated mapping and cluster cell counts identical to v4
+cell_reassignment	PASS	none
+umap_coordinates	PASS	unchanged
+urd_topology	PASS	unchanged
+pseudotime	PASS	unchanged existing div90_jia_rootscore_root values
+marker_gene_order	PASS	identical to v4
+marker_expression_summary	PASS	identical to v4
+marker_tree_scope	PASS	neuronal branches retained; gliogenic terminal branches 8 and 10 excluded
+expression_scales	PASS	15 gene-specific limits; shared_scale FALSE for every gene
+expression_values	PASS	unchanged log1p(CP10K) workflow using full unpruned tree cells for scale calculation
+vector_text	PASS	SVG contains editable text and a valid closing element
+png_export	PASS	4800 x 3900 pixels at 300 dpi
+nfs_png_match	PASS	workspace and NFS PNG SHA-256 checksums are identical

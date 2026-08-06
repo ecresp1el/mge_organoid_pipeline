@@ -1,0 +1,21 @@
+module purge
+module load R/4.5.1
+export R_LIBS="/home/elcrespo/R/x86_64-pc-linux-gnu-library/4.4:/home/elcrespo/R/x86_64-pc-linux-gnu-library/4.5:${R_LIBS:-}"
+Rscript --vanilla scripts/39_div90_urd_context_marker_composite.R \
+  --tree-rds /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1/lineage_tree_jia_endpoint_tips_v1/div30_urd_lineage_tree_object.rds \
+  --outdir /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/final_figures/context_marker_composite_v5_forgrantsubmission_sidebyside_20260806 \
+  --genes "HES1,NKX2-1,LHX6,LHX8,CRABP1,KCNC1,PLXNA2,NRP1,NRP2,ROBO1,ERBB4,CXCR4,ACKR3,SEMA3A,SEMA3F" \
+  --gene-labels "HES1,NKX2-1,LHX6,LHX8,CRABP1,KCNC1,PLXNA2,NRP1,NRP2,ROBO1,ERBB4,CXCR4,CXCR7 (ACKR3),SEMA3A,SEMA3F" \
+  --annotation-col cluster_number_name \
+  --pseudotime-name div90_jia_rootscore_root \
+  --expression-color-floor 1 \
+  --vmax-quantile 0.99 \
+  --point-size 0.26 \
+  --marker-ncol 3 \
+  --plot-width 16 \
+  --plot-height 13 \
+  --dpi 300 \
+  --cluster-style figure4_submission \
+  --layout-style grant_side_by_side \
+  --marker-exclude-clusters "8,10" \
+  --output-formats png,pdf,svg

@@ -1,0 +1,19 @@
+check	result	detail
+source_urd_tree	PASS	same corrected DIV90 seven-tip URD RDS as v5
+module_spacing	PASS	2.5% white figure-width gap inserted between bordered modules
+cluster_8_label	PASS	anchored to native radial-glia terminal segment 6
+gliogenesis_bar	PASS	spans native gliogenic terminal segments 6 and 7
+simplified_lineage_context	PASS	neutral cells; subpallial/thalamic/striatal and cortical brackets; gliogenic branches light gray
+gene_panel_lineage_labels	PASS	omitted from all gene panels
+gene_color_bars	PASS	compact vertical bars with 0 and gene-specific maximum only; no title
+cluster_mapping	PASS	curated mapping and cluster cell counts identical to v5
+cell_reassignment	PASS	none
+umap_coordinates	PASS	unchanged
+urd_topology	PASS	unchanged
+pseudotime	PASS	unchanged existing div90_jia_rootscore_root values
+marker_gene_order	PASS	identical to v5
+marker_expression_summary	PASS	identical to v5
+marker_tree_scope	PASS	neuronal branches retained; gliogenic terminal branches 8 and 10 excluded
+expression_scales	PASS	15 gene-specific limits; shared_scale FALSE for every gene
+vector_text	PASS	SVG contains editable text and a valid closing element
+png_export	PASS	4800 x 3900 pixels at 300 dpi
