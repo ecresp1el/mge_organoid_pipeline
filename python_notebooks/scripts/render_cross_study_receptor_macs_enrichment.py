@@ -83,6 +83,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-umap-cells-per-study", type=int, default=15000)
     parser.add_argument("--random-state", type=int, default=1729)
     parser.add_argument("--dpi", type=int, default=400)
+    parser.add_argument("--output-stem", default=OUTPUT_STEM)
+    parser.add_argument("--panel-labels", nargs=3, default=["a", "b", "c"])
+    parser.add_argument("--suppress-main-title", action="store_true")
     parser.add_argument("--fresh", action="store_true")
     return parser.parse_args()
 
@@ -469,6 +472,8 @@ def render_figure(
     random_state: int,
     sensitivity: float,
     background: float,
+    panel_labels: list[str],
+    show_main_title: bool,
 ) -> tuple[plt.Figure, pd.DataFrame]:
     figure = plt.figure(figsize=(17.2, 15.8), facecolor="white")
     outer = figure.add_gridspec(
@@ -478,7 +483,7 @@ def render_figure(
         left=0.055,
         right=0.985,
         bottom=0.055,
-        top=0.875,
+        top=0.875 if show_main_title else 0.950,
         hspace=0.46,
     )
     umap_grid = outer[0, 0].subgridspec(2, 4, wspace=0.30, hspace=0.50)
@@ -515,25 +520,26 @@ def render_figure(
         legend_ax.set_axis_off()
         legend_ax.legend(legend_handles, legend_labels, loc="center left", frameon=False, fontsize=7.4)
 
-    figure.text(0.055, 0.982, "Cross-study receptor-guided enrichment framework", fontsize=16, fontweight="bold", ha="left", va="top")
-    figure.text(
-        0.055,
-        0.956,
-        "RNA-expression proxy for comparing ERBB4, CXCR4 and PLXNA2 capture—not surface-protein or antibody validation",
-        fontsize=9.2,
-        color="#50565B",
-        ha="left",
-        va="top",
-    )
+    if show_main_title:
+        figure.text(0.055, 0.982, "Cross-study receptor-guided enrichment framework", fontsize=16, fontweight="bold", ha="left", va="top")
+        figure.text(
+            0.055,
+            0.956,
+            "RNA-expression proxy for comparing ERBB4, CXCR4 and PLXNA2 capture—not surface-protein or antibody validation",
+            fontsize=9.2,
+            color="#50565B",
+            ha="left",
+            va="top",
+        )
     panel_a_y = outer[0, 0].get_position(figure).y1 + 0.018
     panel_b_y = outer[1, 0].get_position(figure).y1 + 0.018
     panel_c_y = outer[2, 0].get_position(figure).y1 + 0.018
-    figure.text(0.035, panel_a_y, "a", fontsize=13, fontweight="bold")
+    figure.text(0.035, panel_a_y, panel_labels[0], fontsize=13, fontweight="bold")
     figure.text(0.055, panel_a_y, "Cross-study UMAPs by sample", fontsize=11.2, fontweight="bold")
     figure.text(0.213, panel_a_y, "S# labels map to full sample names in the sample-key table", fontsize=7.4, color="#555B61")
-    figure.text(0.035, panel_b_y, "b", fontsize=13, fontweight="bold")
+    figure.text(0.035, panel_b_y, panel_labels[1], fontsize=13, fontweight="bold")
     figure.text(0.055, panel_b_y, "Theoretical capture performance", fontsize=11.2, fontweight="bold")
-    figure.text(0.035, panel_c_y, "c", fontsize=13, fontweight="bold")
+    figure.text(0.035, panel_c_y, panel_labels[2], fontsize=13, fontweight="bold")
     figure.text(
         0.055,
         panel_c_y,
@@ -552,10 +558,10 @@ def render_figure(
     return figure, pd.DataFrame(sample_key_rows)
 
 
-def save_figure(fig: plt.Figure, final_dir: Path, dpi: int) -> list[Path]:
+def save_figure(fig: plt.Figure, final_dir: Path, dpi: int, output_stem: str) -> list[Path]:
     outputs = []
     for ext, ext_dpi in [("png", dpi), ("pdf", 300), ("svg", dpi)]:
-        path = final_dir / "figures" / ext / f"{OUTPUT_STEM}.{ext}"
+        path = final_dir / "figures" / ext / f"{output_stem}.{ext}"
         path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(path, dpi=ext_dpi, bbox_inches="tight", facecolor="white")
         outputs.append(path)
@@ -571,6 +577,12 @@ def write_readme(final_dir: Path, args: argparse.Namespace) -> Path:
 This final-figure candidate compares the theoretical cell populations retained by
 ERBB4, CXCR4, or PLXNA2 positive selection across seven organoid study/protocol
 cohorts.
+
+The expanded primary composite is
+`figures/png/cross_study_marker_context_and_receptor_macs_enrichment.png`. It
+places the established ON/OFF-target UMAP atlas and canonical sample-level MGE
+expression matrix above the receptor/MACS panels. The standalone MACS-only
+figure is retained separately.
 
 ## Model contract
 
@@ -649,8 +661,10 @@ def main() -> None:
         args.random_state,
         args.capture_sensitivity,
         args.background_retention,
+        args.panel_labels,
+        not args.suppress_main_title,
     )
-    outputs = save_figure(fig, final_dir, args.dpi)
+    outputs = save_figure(fig, final_dir, args.dpi, args.output_stem)
 
     tables = {
         "cross_study_receptor_capture_summary.tsv": summary,

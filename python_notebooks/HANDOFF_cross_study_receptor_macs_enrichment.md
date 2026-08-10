@@ -26,6 +26,19 @@ figures/pdf/cross_study_receptor_macs_enrichment.pdf
 figures/svg/cross_study_receptor_macs_enrichment.svg
 ```
 
+Expanded context-plus-MACS figure:
+
+```text
+figures/png/cross_study_marker_context_and_receptor_macs_enrichment.png
+figures/pdf/cross_study_marker_context_and_receptor_macs_enrichment.pdf
+```
+
+The expanded figure adds the full PV-precursor ON/OFF-target UMAP atlas as
+panel a and the canonical sample-level MGE expression matrix as panel b. The
+receptor/MACS framework follows as panels c-e. The two upstream context panels
+are raster source figures, so the expanded PDF is a high-resolution raster
+assembly; use the standalone source packages for editable vector versions.
+
 ## Source data
 
 Existing marker/state genes and UMAP/sample metadata:
