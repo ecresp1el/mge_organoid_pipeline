@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# Extract CXCR4/PLXNA2 from canonical cross-study Seurat objects and render the
+# receptor-guided in-silico MACS enrichment final-figure candidate.
+
+#SBATCH --job-name=receptor-macs
+#SBATCH --account=parent0
+#SBATCH --partition=standard
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --time=06:00:00
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/receptor-macs-%j.out
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/receptor-macs-%j.err
+
+set -euo pipefail
+
+module load Bioinformatics
+SEURAT5_MODULE="${SEURAT5_MODULE:-r-seurat/5.1.0-R-4.4.1-c3m7yfq}"
+module load "${SEURAT5_MODULE}"
+
+REPO_ROOT="${REPO_ROOT:-/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline}"
+PROJECT_ROOT="${PROJECT_ROOT:-/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder}"
+CONDA_ENV_BIN="${CONDA_ENV_BIN:-/home/elcrespo/miniconda3/envs/mge-organoid-python/bin}"
+BASE_RUN_LABEL="${BASE_RUN_LABEL:-cross_study_marker_expression_v12_pv_precursors_final_candidate_plus_vipr2}"
+RECEPTOR_RUN_LABEL="${RECEPTOR_RUN_LABEL:-cross_study_marker_expression_v13_receptor_macs}"
+FINAL_FOLDER="${FINAL_FOLDER:-fig_cross_study_receptor_macs_enrichment_v1_candidate}"
+
+BASE_TABLE_DIR="${PROJECT_ROOT}/results/cross_study_marker_expression/${BASE_RUN_LABEL}/tables"
+RECEPTOR_RUN_DIR="${PROJECT_ROOT}/results/cross_study_marker_expression/${RECEPTOR_RUN_LABEL}"
+RECEPTOR_TABLE_DIR="${RECEPTOR_RUN_DIR}/tables"
+PER_STUDY_DIR="${RECEPTOR_TABLE_DIR}/per_study"
+STUDY_TABLE="${RECEPTOR_TABLE_DIR}/cross_study_marker_expression_studies.tsv"
+GENE_TABLE="${RECEPTOR_TABLE_DIR}/cross_study_receptor_macs_genes.tsv"
+FINAL_DIR="${PROJECT_ROOT}/final_figures/${FINAL_FOLDER}"
+
+mkdir -p "${PROJECT_ROOT}/logs" "${PROJECT_ROOT}/jobs" "${PER_STUDY_DIR}"
+cd "${REPO_ROOT}"
+
+cp -p "${BASE_TABLE_DIR}/cross_study_marker_expression_studies.tsv" "${STUDY_TABLE}"
+cp -p config/cross_study_receptor_macs_genes.tsv "${GENE_TABLE}"
+
+echo "Job started: $(date)"
+echo "Host: $(hostname)"
+echo "Receptor run: ${RECEPTOR_RUN_LABEL}"
+echo "Final dir: ${FINAL_DIR}"
+
+Rscript scripts/12_export_cross_study_marker_expression_tables.R \
+  --project-root "${PROJECT_ROOT}" \
+  --study-table "${STUDY_TABLE}" \
+  --gene-table "${GENE_TABLE}" \
+  --outdir "${PER_STUDY_DIR}" \
+  --study-id "siebert_2026,walsh,bershteyn_2025,bershteyn_2023,samarasinghe_2021"
+
+export PYTHONPATH="${REPO_ROOT}/python_notebooks/src:${PYTHONPATH:-}"
+"${CONDA_ENV_BIN}/python" \
+  python_notebooks/scripts/extract_cross_study_receptor_genes_from_h5ad.py \
+  --project-root "${PROJECT_ROOT}" \
+  --outdir "${PER_STUDY_DIR}"
+
+"${CONDA_ENV_BIN}/python" -m py_compile \
+  python_notebooks/scripts/extract_cross_study_receptor_genes_from_h5ad.py \
+  python_notebooks/scripts/render_cross_study_receptor_macs_enrichment.py
+
+"${CONDA_ENV_BIN}/python" \
+  python_notebooks/scripts/render_cross_study_receptor_macs_enrichment.py \
+  --project-root "${PROJECT_ROOT}" \
+  --base-run-label "${BASE_RUN_LABEL}" \
+  --receptor-run-label "${RECEPTOR_RUN_LABEL}" \
+  --final-dir "${FINAL_DIR}" \
+  --fresh
+
+cp -p slurm_templates/63_cross_study_receptor_macs_enrichment.sbatch.template \
+  "${FINAL_DIR}/code/"
+
+echo "Job finished: $(date)"
+echo "Primary figure: ${FINAL_DIR}/figures/png/cross_study_receptor_macs_enrichment.png"

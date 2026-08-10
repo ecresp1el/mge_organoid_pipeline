@@ -1,0 +1,3 @@
+gene	gene_order	gene_group	schema_version
+CXCR4	1	candidate_capture_receptor	cross_study_receptor_macs_v1
+PLXNA2	2	candidate_capture_receptor	cross_study_receptor_macs_v1
