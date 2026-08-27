@@ -1,0 +1,8 @@
+study_id	raw_cluster_id	display_cluster_id	display_cluster_name	mapping_source
+varela_div30	0	1	Radial glia	DIV30 paper/manual cluster mapping used by existing cross-study final figures
+varela_div30	3	1	Radial glia	DIV30 paper/manual cluster mapping used by existing cross-study final figures
+varela_div30	7	1	Radial glia	DIV30 paper/manual cluster mapping used by existing cross-study final figures
+varela_div30	6	2	Inhibitory progenitors	DIV30 paper/manual cluster mapping used by existing cross-study final figures
+varela_div30	1	3	SST+ cIN	DIV30 paper/manual cluster mapping used by existing cross-study final figures
+varela_div30	4	4	PV neuron precursor	DIV30 paper/manual cluster mapping used by existing cross-study final figures
+varela_div30	2	5	MGE subpallial neurons	DIV30 paper/manual cluster mapping used by existing cross-study final figures

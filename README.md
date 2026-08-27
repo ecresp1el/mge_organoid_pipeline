@@ -1,5 +1,13 @@
 # mge_organoid_pipeline
 
+## Paper 2 workstream
+
+The cross-study in-vitro MGE organoid atlas workstream is maintained inside
+this repository at [`paper2_mge_organoid_atlas/`](paper2_mge_organoid_atlas/).
+Its operational scope, independent step numbering, Turbo locations, and resume
+instructions are recorded in
+[`paper2_mge_organoid_atlas/HANDOFF.md`](paper2_mge_organoid_atlas/HANDOFF.md).
+
 Status snapshot (Feb 2026)
 - Walsh (GSE250482): processed; Seurat objects and plots in `results/walsh_day75/`.
 - Bershteyn 2025 (GSE283775): canonical Seurat object + plots now in `results/bershteyn_2025/` (`bershteyn_2025_seurat.rds`, `plots/umap_by_cluster.{png,pdf}`); raw GEO object remains in `data/raw/bershteyn_2025_geo_files/suppl/`.
