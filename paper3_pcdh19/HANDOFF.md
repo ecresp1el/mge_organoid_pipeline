@@ -153,6 +153,112 @@ analysis object.
   input, output column, validation, and permitted biological use in the locked
   probe audit.
 
+## Locked Pcdh19 probe identities and genomic targets
+
+These are the three and only three Pcdh19 probes present in the delivered
+Chromium Mouse Transcriptome Probe Set v2.0.0, GRCm39, reference 2024-A. The
+full ID—not only the seven-character suffix—is the identity used for every
+join and validation. Coordinates below are GRCm39 BED convention: 0-based,
+half-open. The corresponding 1-based inclusive interval is provided to avoid
+coordinate-system ambiguity.
+
+### A: exon-1 probe `a3f4e22`
+
+- Full ID: `ENSMUSG00000051323|Pcdh19|a3f4e22`
+- Probe sequence: `TGTAGGTCCGGATCTCTTTGTTGTCACGCTTGCATTTGATTGCCACGAAG`
+- 10x annotation: `region=unspliced`; this label is retained verbatim and is
+  not interpreted as meaning intronic.
+- BED target: `chrX:132585873-132585923`, `+` BED strand; equivalently
+  `chrX:132585874-132585923` in 1-based inclusive coordinates.
+- BED12 blocks: one 50-bp block; `blockCount=1`, `blockSizes=50`,
+  `blockStarts=0`.
+- `transcript_id_set`: `ENSMUST00000060309`, `ENSMUST00000149154`, and
+  `ENSMUST00000167944`.
+- GTF intersection: the full 50-bp target lies within exon 1 of every targeted
+  transcript. It is entirely exonic.
+- Position along Pcdh19: first of the three probes in 5-prime-to-3-prime gene
+  order.
+
+### B: downstream probe `8215225`
+
+- Full ID: `ENSMUSG00000051323|Pcdh19|8215225`
+- Probe sequence: `AAGTAAGGGAGGAGCAACTGACAACATTCATCTTGTCTGTCTCCTCCACG`
+- 10x annotation: `region=unspliced`; this does not mean intronic.
+- BED target: `chrX:132582020-132582070`, `+` BED strand; equivalently
+  `chrX:132582021-132582070` in 1-based inclusive coordinates.
+- BED12 blocks: one 50-bp block; `blockCount=1`, `blockSizes=50`,
+  `blockStarts=0`.
+- `transcript_id_set`: `ENSMUST00000060309`, `ENSMUST00000149154`, and
+  `ENSMUST00000167944`.
+- GTF intersection: the full target lies within exon 2 of
+  `ENSMUST00000060309`, exon 3 of `ENSMUST00000149154`, and exon 2 of
+  `ENSMUST00000167944`. It is entirely exonic for every targeted transcript.
+- Additional annotation detail: the interval has a 2-bp overlap with exon 3
+  of non-targeted Pcdh19 transcript `ENSMUST00000193485`; that transcript is
+  not in the matching 10x `transcript_id_set` and does not change the target
+  assignment above.
+- Position along Pcdh19: second of the three probes in 5-prime-to-3-prime gene
+  order.
+
+### C: downstream probe `d013e0b`
+
+- Full ID: `ENSMUSG00000051323|Pcdh19|d013e0b`
+- Probe sequence: `AAGTCACACTGGTGTTCAGGACATCATTCACAGCAGTATCGCAGTACAGG`
+- 10x annotation: `region=unspliced`; this does not mean intronic.
+- BED target: `chrX:132526044-132526094`, `+` BED strand; equivalently
+  `chrX:132526045-132526094` in 1-based inclusive coordinates.
+- BED12 blocks: one 50-bp block; `blockCount=1`, `blockSizes=50`,
+  `blockStarts=0`.
+- `transcript_id_set`: `ENSMUST00000060309`, `ENSMUST00000149154`, and
+  `ENSMUST00000167944`.
+- GTF intersection: the full target lies within exon 4 of
+  `ENSMUST00000060309`, exon 5 of `ENSMUST00000149154`, and exon 4 of
+  `ENSMUST00000167944`. It is entirely exonic for every targeted transcript.
+- Position along Pcdh19: third of the three probes in 5-prime-to-3-prime gene
+  order.
+
+Pcdh19 is annotated on the `-` gene strand in the GRCm39-2024-A GTF, whereas
+the 10x BED records `+` in its strand column for each probe. Both values are
+preserved as supplied. Because the gene is negative-strand, decreasing GRCm39
+coordinate gives the validated 5-prime-to-3-prime order `A -> B -> C`.
+
+### How the target assignments were established
+
+1. The delivered `probe_set.csv` header was required to match panel name
+   `Chromium Mouse Transcriptome Probe Set v2.0.0`, genome `GRCm39`, and
+   reference version `2024-A`.
+2. Rows with `gene_id=ENSMUSG00000051323` were extracted. The program required
+   the resulting full-ID set to equal exactly the three IDs above—no missing,
+   additional, or duplicate Pcdh19 probes.
+3. The exact matching 10x v2.0.0/GRCm39/2024-A BED and metadata TSV were
+   checksum-validated. Their Pcdh19 full-ID sets were independently required
+   to equal the delivered three-probe set exactly.
+4. Sequences and `region` values were required to agree between the delivered
+   panel and 10x metadata; coordinates and BED12 blocks came only from the
+   matching BED; `transcript_id_set` came only from the matching metadata.
+5. Each 50-bp BED interval was intersected with Pcdh19 exons in the exact
+   GRCm39-2024-A GTF. For every transcript named by 10x, the workflow required
+   the entire probe interval to fall inside exactly one exon and required the
+   observed exon number to match the frozen lock.
+6. The 5-prime order was derived from genomic coordinates plus the GTF Pcdh19
+   `-` strand and was required to equal the frozen `A`, `B`, `C` order.
+
+The exact reference inputs and SHA-256 values are:
+
+| Input | Resolved path | SHA-256 |
+| --- | --- | --- |
+| Delivered `probe_set.csv` | `/nfs/turbo/umms-ziobroj/Ziobro Lab/MGE scRNA-seq/10x_analysis_15662-JZ/Sample_15662-JZ-P01/probe_set.csv` | `70368b977ffd3d7ce183ebf82581d4bf0357c3c4c4bb18d8a99b013f9c77b8f1` |
+| Matching 10x BED | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/inputs/pcdh19_probe_audit/references/Chromium_Mouse_Transcriptome_Probe_Set_v2.0.0_GRCm39-2024-A.bed` | `2e6ac3b6029ae2aa7478f9da5cb44e27611bb9e9fde8f2bf307d07a8e6302440` |
+| Matching 10x metadata | `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/inputs/pcdh19_probe_audit/references/Chromium_Mouse_Transcriptome_Probe_Set_v2.0.0_GRCm39-2024-A.probe_metadata.tsv` | `68d720efa907394ec3dddc5a8b503cf5917d720b911225fefaf28af387c09c54` |
+| GRCm39 GTF | `/nfs/turbo/agc-data/refs/Mus_musculus/GRCm39/refdata-gex-GRCm39-2024-A/genes/genes.gtf.gz` | `dfc17ee4c85f3d7665f48fe758f9a1109c3cc4c38a4185943e9e9678fae45fe6` |
+| GRCm39 `reference.json` | `/nfs/turbo/agc-data/refs/Mus_musculus/GRCm39/refdata-gex-GRCm39-2024-A/reference.json` | `300f0ad96009d483c66c09841d3816375b077cba96a68ca36bbb2b14b6c0c614` |
+
+The canonical machine-readable results are
+`results/pcdh19_probe_audit/references/pcdh19_probe_coordinates.tsv` and
+`reference_manifest.tsv` under the Paper 3 Turbo output root. The coordinate
+table SHA-256 is
+`05c40f1f9f04fd9a6252e09c6efb868004f4b3f5171ec1d73b2050d4d5bdbe1c`.
+
 ## Independent Paper 3 steps
 
 ### Current workstream and step numbering
