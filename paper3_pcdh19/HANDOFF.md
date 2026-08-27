@@ -151,6 +151,16 @@ analysis object.
 
 ## Independent Paper 3 steps
 
+### Current workstream and step numbering
+
+`00_source_discovery` is the completed read-only discovery step that found the
+correct Ziobro allocation and the `15662-JZ` delivery. It is not the Pcdh19
+probe audit. The locked cross-sample probe work is the independent technical
+substep `02a_pcdh19_probe_audit`. Step `01_sample_key` remains the next
+biological gate, while the broader Step `02_input_audit` has not yet been run.
+The completed `02a` audit does not replace either missing step and must not be
+used to infer biological labels from sample order.
+
 | Step | Status | Purpose |
 | --- | --- | --- |
 | `00_source_discovery` | Completed | Locate the correct Ziobro Turbo allocation and inventory the `15662-JZ` delivery read-only. |
@@ -163,12 +173,51 @@ analysis object.
 | `20_validation` | Not designed | Evaluate robustness, replicate structure, PCDH19 biology, and reference mappings. |
 | `30_final_figures` | Not designed | Create provenance-complete, versioned Paper 3 figure packages. |
 
+## Cross-sample Pcdh19 probe-pattern snapshot
+
+The completed `02a_pcdh19_probe_audit` gives the following technical-only
+breakdown. `A` is exon-1 probe `a3f4e22`; `B` and `C` are downstream probes
+`8215225` and `d013e0b`. `B+C / A-negative` is the observed `B+C` binary
+pattern, not a mutant-cell label. The final column uses all cells with any
+downstream detection (`B or C`) as its denominator.
+
+| Technical sample | Filtered cells | Any Pcdh19, % | A+B+C, n | B+C / A-negative, n | Downstream A-negative, % |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `15662-JZ-1` | 51,229 | 18.595 | 207 | 291 | 74.282 |
+| `15662-JZ-2` | 37,553 | 15.961 | 108 | 182 | 75.928 |
+| `15662-JZ-3` | 25,354 | 12.357 | 55 | 75 | 75.679 |
+| `15662-JZ-4` | 21,440 | 17.397 | 73 | 116 | 75.176 |
+| `15662-JZ-5` | 41,878 | 17.773 | 139 | 230 | 75.800 |
+| `15662-JZ-6` | 56,099 | 19.403 | 220 | 330 | 74.943 |
+| `15662-JZ-7` | 19,623 | 18.738 | 32 | 319 | 94.908 |
+| `15662-JZ-8` | 20,799 | 18.770 | 52 | 219 | 90.386 |
+| `15662-JZ-9` | 60,680 | 20.840 | 135 | 1,193 | 92.300 |
+| `15662-JZ-10` | 52,753 | 20.932 | 2 | 1,319 | 99.946 |
+| `15662-JZ-11` | 52,295 | 21.759 | 2 | 1,505 | 99.903 |
+| `15662-JZ-12` | 11,085 | 19.684 | 0 | 277 | 99.908 |
+
+The notable technical result is a sharp shift in probe combination rather
+than a loss of Pcdh19 detection overall. Samples 1--6 have 24--26% exon-1
+positivity among downstream-positive cells; samples 7--9 have only 5--10%;
+and samples 10--12 have approximately 0.1% or less. Triple-probe detections
+are 55--220 cells in samples 1--6 but only 2, 2, and 0 cells in samples
+10--12. Meanwhile, any-Pcdh19 detection remains 18.7--21.8% in samples
+7--12, so there is no corresponding global disappearance of Pcdh19 signal.
+
+This separation is worth following up once the sample key is recovered, but
+it currently supports no genotype, condition, or mutant-cell inference. It
+could reflect the intended experimental design, sample identity, technical
+panel behavior, or another unregistered factor. Preserve the observation as
+probe-pattern evidence only.
+
 ## Next action
 
 Find the biological key for samples `15662-JZ-1` through `15662-JZ-12`.
 Likely places to check are the AGC submission records, a lab spreadsheet, email
 handoff, or another directory under `Ziobro Lab`. Until that key is recovered,
 the correct next task is metadata discovery rather than Seurat processing.
+Step `00_source_discovery` should remain closed unless the delivered source
+changes; do not rename the completed probe audit as Step 00.
 
 The independent technical Pcdh19 probe audit may be run without the sample key
 because it preserves only `15662-JZ-1` through `15662-JZ-12`. Its single local
