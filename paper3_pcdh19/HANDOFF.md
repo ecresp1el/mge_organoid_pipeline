@@ -94,7 +94,9 @@ metadata found:
   replicate, or other biological sample identities.
 
 Therefore the `.cloupe` files are useful for viewing the vendor expression and
-clustering results, but they do not replace the missing biological sample key.
+clustering results, but they were not the source of the biological sample key.
+The key was subsequently supplied by the user and is registered separately in
+[`config/sample_key.csv`](config/sample_key.csv).
 
 ## Preliminary technical metrics
 
@@ -118,26 +120,41 @@ and 5,387,237,349 analyzed reads. Sample-level values transcribed into
 | `15662-JZ-12` | `B-D04` | 11,085 | 4,453 | 2,804 |
 
 These are vendor pipeline calls, not final analysis-QC decisions. The wide
-cell-count range, especially sample 12, must be evaluated after the biological
-design is known.
+cell-count range, especially sample 12, must be evaluated against the
+registered biological design during formal QC.
 
-## Missing biological metadata
+## Registered biological sample key
 
 The inspected AGC configuration and QC files map technical sample IDs to probe
-barcodes but leave `Sample description` blank. They do not establish:
+barcodes but leave `Sample description` blank. On 2026-08-27, the user supplied
+the biological mapping below. Its canonical machine-readable registration is
+[`config/sample_key.csv`](config/sample_key.csv); its provenance is recorded
+there as `user_provided_in_codex_thread`, not as metadata recovered from the
+AGC delivery.
 
-- PCDH19 genotype or mosaic fraction;
-- control versus experimental group;
-- cell line, clone, donor, sex, or reporter;
-- dorsal/ventral or other regional identity;
-- organoid age/time point;
-- differentiation batch;
-- biological replicate structure; or
-- intended primary comparisons.
+| Technical sample | Submitted name | Target cells | Organism | Tissue/region | Genotype | Sex | Design group |
+| --- | --- | ---: | --- | --- | --- | --- | --- |
+| `15662-JZ-1` | `Sample 1.1` | 20,000 | Mouse | Embryonic brain, MGE | WT | M | `WT_M` |
+| `15662-JZ-2` | `Sample 1.7` | 20,000 | Mouse | Embryonic brain, MGE | WT | M | `WT_M` |
+| `15662-JZ-3` | `Sample 2.1` | 20,000 | Mouse | Embryonic brain, MGE | WT | M | `WT_M` |
+| `15662-JZ-4` | `Sample 1.4` | 20,000 | Mouse | Embryonic brain, MGE | WT | F | `WT_F` |
+| `15662-JZ-5` | `Sample 1.5` | 20,000 | Mouse | Embryonic brain, MGE | WT | F | `WT_F` |
+| `15662-JZ-6` | `Sample 2.5` | 20,000 | Mouse | Embryonic brain, MGE | WT | F | `WT_F` |
+| `15662-JZ-7` | `Sample 1.3` | 20,000 | Mouse | Embryonic brain, MGE | HET | F | `HET_F` |
+| `15662-JZ-8` | `Sample 1.6` | 20,000 | Mouse | Embryonic brain, MGE | HET | F | `HET_F` |
+| `15662-JZ-9` | `Sample 2.4` | 20,000 | Mouse | Embryonic brain, MGE | HET | F | `HET_F` |
+| `15662-JZ-10` | `Sample 1.2` | 20,000 | Mouse | Embryonic brain, MGE | KO | M | `KO_M` |
+| `15662-JZ-11` | `Sample 1.8` | 20,000 | Mouse | Embryonic brain, MGE | KO | M | `KO_M` |
+| `15662-JZ-12` | `Sample 2.2` | 20,000 | Mouse | Embryonic brain, MGE | KO | M | `KO_M` |
 
-Do not infer these fields from sample order. Obtain the experiment submission
-sheet, lab sample key, or confirmation from Julia Ziobro before building the
-analysis object.
+The group-level allocation is three WT males, three WT females, three HET
+females, and three KO males. This gives two direct sex-matched genotype
+contrasts: HET female versus WT female, and KO male versus WT male. It is not a
+complete genotype-by-sex factorial because HET males and KO females are absent.
+Do not yet assume that the three submitted samples per group are independent
+biological replicates: donor/embryo/litter, cell line, differentiation batch,
+age/time point, mosaic fraction, and the meaning of the `1.x`/`2.x` submitted
+names still require confirmation.
 
 ## Authoritative configuration
 
@@ -145,6 +162,11 @@ analysis object.
   correct source root and technical format.
 - [`config/sample_manifest_draft.tsv`](config/sample_manifest_draft.tsv)
   contains only verified technical IDs, probe barcodes, and vendor QC metrics.
+- [`config/sample_key.csv`](config/sample_key.csv) is the authoritative
+  user-provided mapping from technical IDs to submitted names, target cells,
+  organism, tissue/region, genotype, sex, and four design groups. Its current
+  SHA-256 is
+  `5b20e8596c28f95b6adedcb0fe17019d2a6db46384f18f02d4bfdc58803f1dc8`.
 - [`config/greatlakes.env`](config/greatlakes.env) keeps the source on the
   Ziobro allocation and points Paper 3 outputs to the existing `umms-parent`
   MGE project.
@@ -265,16 +287,16 @@ table SHA-256 is
 
 `00_source_discovery` is the completed read-only discovery step that found the
 correct Ziobro allocation and the `15662-JZ` delivery. It is not the Pcdh19
-probe audit. The locked cross-sample probe work is the independent technical
-substep `02a_pcdh19_probe_audit`. Step `01_sample_key` remains the next
-biological gate, while the broader Step `02_input_audit` has not yet been run.
-The completed `02a` audit does not replace either missing step and must not be
-used to infer biological labels from sample order.
+probe audit. Step `01_sample_key` is now complete from the user-provided
+mapping. The locked cross-sample probe work is the independent technical
+substep `02a_pcdh19_probe_audit`, while the broader Step `02_input_audit` has
+not yet been run. The completed technical audit remains unchanged; biological
+labels enter only through the separate sample-key join in later work.
 
 | Step | Status | Purpose |
 | --- | --- | --- |
 | `00_source_discovery` | Completed | Locate the correct Ziobro Turbo allocation and inventory the `15662-JZ` delivery read-only. |
-| `01_sample_key` | Waiting for metadata | Register biological identities, experimental units, and intended comparisons for all 12 samples. |
+| `01_sample_key` | Completed; experimental-unit details remain | Registered submitted name, target cells, organism, tissue/region, genotype, sex, and design group for all 12 samples. Donor/embryo/litter/batch structure still requires confirmation. |
 | `02_input_audit` | Not started | Verify MD5s, choose one authoritative matrix location, audit features/barcodes/QC, and record exact inputs. |
 | `02a_pcdh19_probe_audit` | Completed | Checksum-lock the v2.0.0/GRCm39-2024-A probe references and reproduce raw three-probe Pcdh19 counts and binary patterns for all 12 technical samples without biological labels. |
 | `03_canonical_inputs` | Not started | Create and validate a minimal analysis-ready object without altering source files. |
@@ -285,26 +307,28 @@ used to infer biological labels from sample order.
 
 ## Cross-sample Pcdh19 probe-pattern snapshot
 
-The completed `02a_pcdh19_probe_audit` gives the following technical-only
-breakdown. `A` is exon-1 probe `a3f4e22`; `B` and `C` are downstream probes
-`8215225` and `d013e0b`. `B+C / A-negative` is the observed `B+C` binary
-pattern, not a mutant-cell label. The final column uses all cells with any
-downstream detection (`B or C`) as its denominator.
+The completed `02a_pcdh19_probe_audit` gives the following technical
+measurements. `Design group` is shown by a descriptive join to the separately
+registered sample key; it was not an input to the frozen audit. `A` is exon-1
+probe `a3f4e22`; `B` and `C` are downstream probes `8215225` and `d013e0b`.
+`B+C / A-negative` is the observed `B+C` binary pattern, not a mutant-cell
+label. The final column uses all cells with any downstream detection (`B or C`)
+as its denominator.
 
-| Technical sample | Filtered cells | Any Pcdh19, % | A+B+C, n | B+C / A-negative, n | Downstream A-negative, % |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `15662-JZ-1` | 51,229 | 18.595 | 207 | 291 | 74.282 |
-| `15662-JZ-2` | 37,553 | 15.961 | 108 | 182 | 75.928 |
-| `15662-JZ-3` | 25,354 | 12.357 | 55 | 75 | 75.679 |
-| `15662-JZ-4` | 21,440 | 17.397 | 73 | 116 | 75.176 |
-| `15662-JZ-5` | 41,878 | 17.773 | 139 | 230 | 75.800 |
-| `15662-JZ-6` | 56,099 | 19.403 | 220 | 330 | 74.943 |
-| `15662-JZ-7` | 19,623 | 18.738 | 32 | 319 | 94.908 |
-| `15662-JZ-8` | 20,799 | 18.770 | 52 | 219 | 90.386 |
-| `15662-JZ-9` | 60,680 | 20.840 | 135 | 1,193 | 92.300 |
-| `15662-JZ-10` | 52,753 | 20.932 | 2 | 1,319 | 99.946 |
-| `15662-JZ-11` | 52,295 | 21.759 | 2 | 1,505 | 99.903 |
-| `15662-JZ-12` | 11,085 | 19.684 | 0 | 277 | 99.908 |
+| Technical sample | Design group | Filtered cells | Any Pcdh19, % | A+B+C, n | B+C / A-negative, n | Downstream A-negative, % |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `15662-JZ-1` | `WT_M` | 51,229 | 18.595 | 207 | 291 | 74.282 |
+| `15662-JZ-2` | `WT_M` | 37,553 | 15.961 | 108 | 182 | 75.928 |
+| `15662-JZ-3` | `WT_M` | 25,354 | 12.357 | 55 | 75 | 75.679 |
+| `15662-JZ-4` | `WT_F` | 21,440 | 17.397 | 73 | 116 | 75.176 |
+| `15662-JZ-5` | `WT_F` | 41,878 | 17.773 | 139 | 230 | 75.800 |
+| `15662-JZ-6` | `WT_F` | 56,099 | 19.403 | 220 | 330 | 74.943 |
+| `15662-JZ-7` | `HET_F` | 19,623 | 18.738 | 32 | 319 | 94.908 |
+| `15662-JZ-8` | `HET_F` | 20,799 | 18.770 | 52 | 219 | 90.386 |
+| `15662-JZ-9` | `HET_F` | 60,680 | 20.840 | 135 | 1,193 | 92.300 |
+| `15662-JZ-10` | `KO_M` | 52,753 | 20.932 | 2 | 1,319 | 99.946 |
+| `15662-JZ-11` | `KO_M` | 52,295 | 21.759 | 2 | 1,505 | 99.903 |
+| `15662-JZ-12` | `KO_M` | 11,085 | 19.684 | 0 | 277 | 99.908 |
 
 The notable technical result is a sharp shift in probe combination rather
 than a loss of Pcdh19 detection overall. Samples 1--6 have 24--26% exon-1
@@ -314,23 +338,28 @@ are 55--220 cells in samples 1--6 but only 2, 2, and 0 cells in samples
 10--12. Meanwhile, any-Pcdh19 detection remains 18.7--21.8% in samples
 7--12, so there is no corresponding global disappearance of Pcdh19 signal.
 
-This separation is worth following up once the sample key is recovered, but
-it currently supports no genotype, condition, or mutant-cell inference. It
-could reflect the intended experimental design, sample identity, technical
-panel behavior, or another unregistered factor. Preserve the observation as
-probe-pattern evidence only.
+The registered sample key shows that this technical separation follows the
+four supplied design groups: both WT male and WT female samples have 74--76%
+downstream-positive/A-negative cells (unweighted sample means 75.296% and
+75.306%, respectively), HET female samples have 90--95% (mean 92.532%), and KO
+male samples have approximately 99.9% (mean 99.919%). The appropriate future genotype
+contrasts are HET female versus WT female and KO male versus WT male. This is
+a strong descriptive correspondence, not yet a statistical result, and it
+does not make an A-negative downstream-positive barcode a mutant cell. Probe
+non-detection remains subject to sampling and assay efficiency.
 
 ## Next action
 
-Find the biological key for samples `15662-JZ-1` through `15662-JZ-12`.
-Likely places to check are the AGC submission records, a lab spreadsheet, email
-handoff, or another directory under `Ziobro Lab`. Until that key is recovered,
-the correct next task is metadata discovery rather than Seurat processing.
-Step `00_source_discovery` should remain closed unless the delivered source
-changes; do not rename the completed probe audit as Step 00.
+Preserve [`config/sample_key.csv`](config/sample_key.csv) as the biological
+annotation layer and confirm the experimental-unit structure behind the
+submitted names: donor/embryo/litter, batch, age, and whether the three samples
+per group are independent biological replicates. Then complete the broader
+Step `02_input_audit` before canonical-object construction and formal
+sample-level comparisons. Step `00_source_discovery` remains closed unless the
+delivered source changes; do not rename the completed probe audit as Step 00.
 
-The independent technical Pcdh19 probe audit may be run without the sample key
-because it preserves only `15662-JZ-1` through `15662-JZ-12`. Its single local
+The independent technical Pcdh19 probe audit does not ingest the sample key and
+preserves only `15662-JZ-1` through `15662-JZ-12`. Its single local
 entry point is `paper3_pcdh19/bin/run_pcdh19_probe_audit_all.sh`; the matching
 batch entry is `paper3_pcdh19/slurm/pcdh19_probe_audit_all.sbatch`. The runner
 must reproduce the frozen JZ-1 barcode table SHA-256 before it can advance to

@@ -23,7 +23,8 @@ the existing `umms-parent` MGE project.
 Directory roles:
 
 - `inputs/`: selected and validated input registrations or canonical copies;
-  initially empty until the sample key is confirmed.
+  the canonical biological sample key is version controlled in the repository
+  at `paper3_pcdh19/config/sample_key.csv`.
 - `results/`: versioned major analysis packages.
 - `logs/`: run-specific or linked scheduler logs.
 - `jobs/`: exact submitted scheduler scripts.
@@ -39,6 +40,7 @@ in the repository at:
 /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/paper3_pcdh19/PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md
 ```
 
-The current probe-audit outputs contain technical sample IDs and observed raw
-probe counts only. They do not establish genotype, condition, or mutant-cell
-identity.
+The frozen probe-audit outputs contain technical sample IDs and observed raw
+probe counts only. Genotype and sex are supplied by the separate registered
+sample key; neither that mapping nor an A-negative probe pattern by itself
+establishes an individual cell's genotype or mutant-cell identity.

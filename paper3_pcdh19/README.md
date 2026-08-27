@@ -48,6 +48,8 @@ counts range from 11,085 to 60,680.
 - Source registry: [`config/input_candidates.tsv`](config/input_candidates.tsv)
 - Technical sample inventory:
   [`config/sample_manifest_draft.tsv`](config/sample_manifest_draft.tsv)
+- Registered biological sample key:
+  [`config/sample_key.csv`](config/sample_key.csv)
 - Operational handoff: [`HANDOFF.md`](HANDOFF.md)
 - Complete pipeline I/O and interpretation contract:
   [`PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md`](PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md)
@@ -83,15 +85,27 @@ files are also duplicated in the AGC Dropbox delivery directory.
 Inspection of the embedded Loupe v9 metadata found a blank run description,
 no custom cell-data tables, and no PCDH19 genotype or condition labels. The
 files contain the expression matrices, vendor UMAP/t-SNE, graph and k-means
-clusters, and technical Cell Ranger metadata, but not the missing biological
-sample key.
+clusters, and technical Cell Ranger metadata. The biological sample key was
+subsequently supplied by the user and is registered separately in
+[`config/sample_key.csv`](config/sample_key.csv); it was not recovered from
+the Loupe or AGC delivery.
 
-## Current stop point
+## Registered experimental groups
 
-The technical dataset is identified, but the biological sample key is not yet
-present in the files inspected. Before QC or clustering, obtain the mapping
-from `15662-JZ-1` through `15662-JZ-12` to genotype, line, condition, time
-point, differentiation batch, replicate, and any PCDH19 mosaic design fields.
+The user-provided sample key maps the 12 technical samples to four equal-sized
+groups:
+
+- `15662-JZ-1` through `-3`: WT male;
+- `15662-JZ-4` through `-6`: WT female;
+- `15662-JZ-7` through `-9`: HET female; and
+- `15662-JZ-10` through `-12`: KO male.
+
+All are recorded as mouse embryonic brain, MGE, with a submitted target of
+20,000 cells. Each group contains three submitted samples. The design supports
+the sex-matched contrasts HET female versus WT female and KO male versus WT
+male, but it is not a complete genotype-by-sex factorial. The submitted names
+(`Sample 1.1`, `Sample 1.7`, and so on) must not be interpreted as donor,
+litter, batch, or biological-replicate structure without additional metadata.
 
 ## Locked Pcdh19 probe audit
 
@@ -140,8 +154,9 @@ The lock is
 [`config/pcdh19_probe_audit.lock.json`](config/pcdh19_probe_audit.lock.json),
 and the implementation is
 [`scripts/pcdh19_probe_audit.py`](scripts/pcdh19_probe_audit.py). This step
-contains technical sample IDs only and must not be joined to genotype, sex,
-condition, or other biological annotations until the sample key is recovered.
+contains technical sample IDs only by design. The registered sample key is a
+separate downstream annotation layer; it does not retroactively alter the
+frozen probe-audit files or their checksums.
 
 For the exact role of every shell, SLURM, configuration, Python input, output
 column, validation, and biological boundary, read
