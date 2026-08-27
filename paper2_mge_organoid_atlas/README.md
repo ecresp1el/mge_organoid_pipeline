@@ -71,6 +71,39 @@ To inspect the completed jobs and markers:
   /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas/inputs/canonical
 ```
 
+## Step 02 gene-identifier reports: review stop
+
+The report-only feature/gene harmonization audit completed as job `58978281`:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas/results/02_harmonize_genes/02_harmonize_genes_20260827_171616_2483850
+```
+
+Five datasets use gene-symbol feature IDs; Siebert 2026 uses a mixture of
+22,413 symbol-like IDs and 9,718 Ensembl gene IDs. Features were mapped to
+versionless GENCODE 50 Ensembl gene IDs using exact GENCODE matches followed by
+uniquely resolvable HGNC approved, previous, and alias symbols. Ambiguous,
+unresolved, and duplicate-to-one mappings were reported without guessing.
+
+The six-way exact raw-feature intersection is 14,152. Mapping produces 14,483
+common identities present across all six; applying a strict one-source-feature
+to-one-common-gene rule yields 14,112. These are reports only—no matrix was
+subset, collapsed, concatenated, normalized, HVG-selected, or integrated, and
+the canonical inputs were not modified.
+
+The workflow is stopped for review. Before Step 03, choose the strict 14,112
+intersection or define a validated duplicate-resolution policy for the 14,483
+identity-level set, and decide whether unresolved historical lncRNA symbols
+need a separate legacy-reference mapping pass. See [`HANDOFF.md`](HANDOFF.md)
+for the complete counts and review questions.
+
+The reproducible submission entrypoint for a new versioned report run is:
+
+```bash
+./bin/submit_gene_harmonization.sh --dry-run
+./bin/submit_gene_harmonization.sh
+```
+
 ## Initialize and run the first audit
 
 On Great Lakes:

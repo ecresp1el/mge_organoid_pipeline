@@ -24,6 +24,12 @@ checksums, commands, SLURM information/logs, provenance, validation tables,
 figures when applicable, a README, and a terminal `SUCCESS.txt` or
 `FAILED.txt` marker.
 
+Current workflow state: Step `02_harmonize_genes` completed as a report-only
+audit under `results/02_harmonize_genes/02_harmonize_genes_20260827_171616_2483850`.
+The workflow is stopped for review of the strict one-to-one versus
+duplicate-resolution gene-intersection policy. No common matrix, metadata
+harmonization, normalization, HVG selection, or integration has begun.
+
 The operational handoff is copied into this directory as `HANDOFF.md`. Its
 canonical version-controlled source is:
 

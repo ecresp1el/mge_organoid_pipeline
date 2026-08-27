@@ -121,8 +121,8 @@ the historical top-level pipeline numbering.
 | --- | --- | --- |
 | `00_input_audit` | Completed, replaced in place, and visually checked; current job `58956196` | Registered and checksummed the six processed objects; inventoried assays, layers, features, metadata, reductions, and saved UMAP/cluster labels; regenerated all-cell UMAP inventory figures. Job `58956196` replaced the original job `58955368` package in the same run directory. |
 | `01_canonical_inputs` | Completed and frozen; array job `58958446`, finalizer `58958447` | Created minimal current Seurat RDS and AnnData H5AD pairs for all six audited studies, with exact expression/ID/metadata equivalence and no integration or harmonization. |
-| `02_harmonize_genes` | Planned | Resolve gene identifiers, duplicates, shared/union feature policies, and method-compatible matrices without integration. |
-| `03_harmonize_metadata` | Planned | Create a documented common schema for study, dataset, sample, replicate, age/time point, cell labels, and QC provenance. |
+| `02_harmonize_genes` | Report-only audit completed; job `58978281`; STOP FOR REVIEW | Mapped feature identifiers to versionless GENCODE 50 Ensembl gene IDs and reported namespaces, ambiguities, unresolved features, duplicate mappings, pairwise overlaps, and two six-way-intersection definitions. No matrix was changed or created. |
+| `03_harmonize_metadata` | Planned; blocked pending Step 02 review | Create a documented common schema for study, dataset, sample, replicate, age/time point, cell labels, and QC provenance. |
 | `04_freeze_preintegration` | Planned | Produce and validate the immutable six-study pre-integration master object/package. |
 | `10_scvi` | Planned | Run scVI from the frozen input. |
 | `11_liger` | Planned | Run LIGER from the frozen input. |
@@ -364,6 +364,88 @@ manifests detect changes. Turbo's NFS export preserves project-group write
 bits even after a successful `chmod`, so POSIX mode bits alone must not be
 interpreted as the freeze guarantee.
 
+## Step 02 gene-identifier audit: completed, review required
+
+The completed report package is:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas/results/02_harmonize_genes/02_harmonize_genes_20260827_171616_2483850
+```
+
+SLURM job `58978281` completed with exit `0:0` in 50 seconds and peak batch RSS
+of approximately 2.2 GiB. It read only H5AD `/var` feature metadata after
+verifying the six canonical H5AD checksums. It did not load expression
+matrices, modify canonical inputs, concatenate datasets, normalize, select
+HVGs, create a cross-study object, or integrate anything.
+
+The common human identity is a versionless Ensembl gene ID from GENCODE release
+50 (GRCh38.p14). Mapping used exact Ensembl IDs and exact GENCODE symbols first,
+then uniquely resolvable HGNC approved, previous, and alias symbols. No
+case-insensitive or heuristic mapping was allowed. The package freezes the
+exact GENCODE GTF and HGNC complete-set snapshot with SHA-256 checksums:
+
+| Reference | SHA-256 |
+| --- | --- |
+| GENCODE 50 comprehensive GTF | `83fba3e9b03f0b8c958f3595c6c350adc55f468abf8b0e47b6d5284cfe13a453` |
+| HGNC complete set retrieved 2026-08-27 | `0615a070f1628e6727953f67ad9248dd0f0ddbb16d41a7b40e06aa852fc3f448` |
+
+### Observed feature namespaces
+
+| Study | Input features | Namespace |
+| --- | ---: | --- |
+| Varela DIV30 | 18,082 | gene symbols |
+| Varela DIV90 | 18,082 | gene symbols |
+| Walsh | 20,194 | gene symbols |
+| Bershteyn 2025 | 45,068 | 45,067 symbol-like IDs plus `THRA1/BTR` |
+| Bershteyn 2023 | 45,068 | 45,067 symbol-like IDs plus `THRA1/BTR` |
+| Siebert 2026 | 32,131 | mixed: 22,413 symbol-like IDs and 9,718 Ensembl gene IDs |
+
+### Mapping outcomes
+
+| Study | Mapped features | Unique common IDs | Ambiguous | Unresolved | Duplicate common IDs | Strict one-to-one IDs |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Varela DIV30 | 17,976 | 17,975 | 37 | 69 | 1 | 17,974 |
+| Varela DIV90 | 17,976 | 17,975 | 37 | 69 | 1 | 17,974 |
+| Walsh | 16,702 | 16,680 | 37 | 3,455 | 21 | 16,659 |
+| Bershteyn 2025 | 24,318 | 23,577 | 80 | 20,670 | 729 | 22,848 |
+| Bershteyn 2023 | 24,318 | 23,577 | 80 | 20,670 | 729 | 22,848 |
+| Siebert 2026 | 31,195 | 31,113 | 194 | 742 | 78 | 31,035 |
+
+Many unresolved Bershteyn/Walsh features are historical `AL*`/`AC*`
+lncRNA-style symbols absent from current GENCODE 50 and not uniquely rescued by
+the frozen HGNC aliases. They remain unresolved rather than being guessed.
+Duplicate groups commonly pair a current approved symbol with a previous
+symbol retained as a separate source feature, such as `MCUB|CCDC109B` mapping
+to the same Ensembl identity.
+
+### Six-way overlap reports
+
+| Definition | Genes |
+| --- | ---: |
+| Exact raw source-feature-ID intersection | 14,152 |
+| Mapped common identity present in all six | 14,483 |
+| Strict one-to-one common identity present in all six | 14,112 |
+
+The identity-level result includes any mapped Ensembl identity present in all
+six even if one dataset has multiple source features mapping to it. The strict
+result excludes such identities in every dataset. There are 371 six-way common
+identities present in the identity-level report but excluded by the strict
+duplicate rule. No matrix has been collapsed or subset under either policy.
+
+The full per-feature map, ambiguity list, unresolved list, duplicate groups,
+gene-presence matrix, pairwise overlaps, and both six-way intersection tables
+are under `tables/`. Every package checksum passes. The run's `SUCCESS.txt`
+sets `review_stop=YES`.
+
+### Required review decision
+
+Before any common matrix is created, choose whether downstream work should use
+the 14,112 strict one-to-one intersection or define and validate an explicit
+duplicate-collapse/resolution policy for the larger 14,483 identity-level
+intersection. Also decide whether historical unresolved lncRNA symbols require
+a separately versioned legacy-reference mapping pass. Do not advance to Step
+03 until these points are reviewed.
+
 ## Resume point
 
 Current state as of 2026-08-27:
@@ -393,10 +475,15 @@ Current state as of 2026-08-27:
 - Twelve permanent analysis-input files (six minimal Seurat RDS and six
   equivalent AnnData H5AD) are published and frozen under
   `inputs/canonical/` with exact pairwise equivalence marked `PASS`.
+- Step `02_harmonize_genes` report job `58978281` completed successfully and
+  produced verified namespace, mapping, ambiguity, unresolved-feature,
+  duplicate, and six-way-overlap reports without touching expression data.
+- The reported six-way intersections are 14,483 mapped identity-level genes
+  and 14,112 strict one-to-one genes; no choice between them has been applied.
 - No cross-study master dataset has yet been created or frozen.
 - No integration method has been run for Paper 2.
 
-The next safe action is Step `02_harmonize_genes`, using only the frozen
-canonical inputs and citing the completed assay/layer and feature-overlap
-evidence. Do not implement integration-specific preprocessing until the
-expression-layer and gene-identity decisions are documented.
+The next safe action is review of the completed Step 02 reports. The workflow
+must remain stopped until the strict-vs-duplicate-resolution intersection
+policy and any legacy-reference mapping pass are decided. Do not create a
+common matrix or begin Step `03_harmonize_metadata` yet.
