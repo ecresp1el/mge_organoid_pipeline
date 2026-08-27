@@ -170,6 +170,7 @@ JOB_ID="$(sbatch --parsable \
   --export="ALL,PAPER2_LEGACY_RUN_DIR=${RUN_DIR},CONDA_ENV_BIN=${CONDA_ENV_BIN}" \
   "${JOB_FILE}")"
 printf '%s\n' "${JOB_ID}" > "${RUN_DIR}/provenance/slurm_job_id.txt"
+cp -p "${RUN_DIR}/provenance/slurm_job_id.txt" "${RUN_DIR}/provenance/job_id.txt"
 
 echo "Submitted job ${JOB_ID}"
 echo "Run directory: ${RUN_DIR}"

@@ -33,6 +33,14 @@ Plot-only job `58981144` added four 300-dpi PNG/PDF overlap visualizations to
 the completed Step 02 package from cached mapping tables only; the review stop
 remains active.
 
+Step `02b_legacy_gene_id_recovery` completed as job `58986448` under
+`results/02b_legacy_gene_id_recovery/02b_legacy_gene_id_recovery_20260827_181028_fd488f5`.
+It used confirmed Varela source feature tables plus GENCODE 27/32/35/44/50
+candidate comparisons, proposed IDs for 22,947 additional study-feature rows,
+and reported proposed intersections of 14,496 identity-level and 14,122 strict
+genes. All candidate mappings are `REPORT_ONLY_NOT_APPLIED`; canonical inputs
+and Step 02 remain unchanged, and Step 03 remains blocked for review.
+
 The operational handoff is copied into this directory as `HANDOFF.md`. Its
 canonical version-controlled source is:
 

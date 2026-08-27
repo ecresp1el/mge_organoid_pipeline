@@ -114,9 +114,9 @@ The reproducible submission entrypoint for a new versioned report run is:
 ./bin/submit_gene_harmonization.sh
 ```
 
-### Step 02b: legacy gene-ID recovery extension
+### Step 02b: completed legacy gene-ID recovery extension
 
-The unresolved-ID question is being handled as a separately versioned,
+The unresolved-ID question was handled as a separately versioned,
 report-only extension rather than by rewriting Step 02. Step 02b searches for
 original source feature tables and compares exact symbols across GENCODE 27,
 32, 35, 44, and 50. Varela DIV30/DIV90 have confirmed original Cell Ranger
@@ -129,6 +129,18 @@ unresolved/ambiguous names. Historical consensus is not treated as proof of a
 study's original reference bundle. All proposed mappings and revised overlap
 counts remain `REPORT_ONLY_NOT_APPLIED`; canonical inputs and Step 02 are read
 only, and the Step 02 review stop remains active.
+
+Job `58986448` completed successfully. It proposed IDs for 22,947 additional
+study-feature rows. The proposed identity-level six-way intersection is 14,496
+(versus 14,483 in Step 02), and the proposed strict intersection is 14,122
+(versus 14,112). These small net gains occur because most recovered historical
+features are not shared by all six studies, and confirmed Varela source IDs
+also replace some non-original current-symbol assignments. All 34 package
+checksums pass; nothing was applied to the canonical objects or Step 02.
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas/results/02b_legacy_gene_id_recovery/02b_legacy_gene_id_recovery_20260827_181028_fd488f5
+```
 
 ```bash
 ./bin/submit_legacy_gene_id_recovery.sh --dry-run

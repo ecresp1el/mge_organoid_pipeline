@@ -122,7 +122,7 @@ the historical top-level pipeline numbering.
 | `00_input_audit` | Completed, replaced in place, and visually checked; current job `58956196` | Registered and checksummed the six processed objects; inventoried assays, layers, features, metadata, reductions, and saved UMAP/cluster labels; regenerated all-cell UMAP inventory figures. Job `58956196` replaced the original job `58955368` package in the same run directory. |
 | `01_canonical_inputs` | Completed and frozen; array job `58958446`, finalizer `58958447` | Created minimal current Seurat RDS and AnnData H5AD pairs for all six audited studies, with exact expression/ID/metadata equivalence and no integration or harmonization. |
 | `02_harmonize_genes` | Report-only audit completed; job `58978281`; STOP FOR REVIEW | Mapped feature identifiers to versionless GENCODE 50 Ensembl gene IDs and reported namespaces, ambiguities, unresolved features, duplicate mappings, pairwise overlaps, and two six-way-intersection definitions. No matrix was changed or created. |
-| `02b_legacy_gene_id_recovery` | Authorized and being run as a report-only Step 02 extension; STOP FOR REVIEW remains active | Uses confirmed original Cell Ranger feature tables when found and otherwise labels mappings from GENCODE 27/32/35/44/50 as historical-reference candidates. It must not rewrite canonical inputs or Step 02. |
+| `02b_legacy_gene_id_recovery` | Report-only audit completed; job `58986448`; STOP FOR REVIEW remains active | Used confirmed original Varela Cell Ranger feature tables and otherwise labeled mappings from GENCODE 27/32/35/44/50 as historical-reference candidates. It did not rewrite canonical inputs or Step 02. |
 | `03_harmonize_metadata` | Planned; blocked pending Step 02 review | Create a documented common schema for study, dataset, sample, replicate, age/time point, cell labels, and QC provenance. |
 | `04_freeze_preintegration` | Planned | Produce and validate the immutable six-study pre-integration master object/package. |
 | `10_scvi` | Planned | Run scVI from the frozen input. |
@@ -523,6 +523,59 @@ the frozen canonical inputs, overwrite Step 02, concatenate studies, normalize,
 select HVGs, or integrate. Step 03 remains blocked until the resulting evidence
 tiers and duplicate/intersection policy are reviewed.
 
+### Step 02b completed evidence and results
+
+The completed report package is:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas/results/02b_legacy_gene_id_recovery/02b_legacy_gene_id_recovery_20260827_181028_fd488f5
+```
+
+SLURM job `58986448` completed with exit `0:0` in 59 seconds and peak batch
+RSS of approximately 1.0 GiB. All 34 package checksums pass. The job did not
+open canonical objects or expression matrices and did not modify Step 02.
+
+The audit proposed candidate IDs for 22,947 additional study-feature rows:
+
+| Study | Newly recovered candidates | Confirmed source-table assignments | Historical consensus | Historical single-release | Remaining ambiguous | Remaining unresolved |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Varela DIV30 | 102 | 18,073 total mapped from source table | 0 | 0 | 1 | 3 |
+| Varela DIV90 | 102 | 18,073 total mapped from source table | 0 | 0 | 1 | 3 |
+| Walsh | 3,107 | 0 | 2,709 | 398 | 343 | 42 |
+| Bershteyn 2025 | 9,455 | 0 | 8,040 | 1,415 | 866 | 10,429 |
+| Bershteyn 2023 | 9,455 | 0 | 8,040 | 1,415 | 866 | 10,429 |
+| Siebert 2026 | 726 | 0 | 721 | 5 | 194 | 16 |
+
+The two Varela source tables exactly agree. Of the 18,082 canonical features
+in each Varela dataset, 18,073 have a unique exact symbol-to-Ensembl match in
+the source feature table. Five features retain a Step 02 current-reference
+fallback because their source symbols map to more than one original Ensembl
+ID; `GOLGA8M` remains source-ambiguous; and the suffixed feature names
+`TBCE.1`, `HSPA14.1`, and `TMSB15B.1` remain unresolved because the symbol-only
+Seurat representation no longer retains which duplicate source row they came
+from.
+
+Seventeen mapped Varela feature names per dataset point to a different
+original Ensembl ID than the same symbol does in GENCODE 50. These are reported
+as `reassigned_by_confirmed_source_table`, not silently applied. This directly
+demonstrates why current-symbol matching alone cannot always reconstruct an
+older feature identity.
+
+The proposed six-way overlap changes are modest despite the large number of
+recovered study-feature rows:
+
+| Definition | Step 02 | Step 02b proposed | Net change |
+| --- | ---: | ---: | ---: |
+| Identity-level intersection | 14,483 | 14,496 | +13 |
+| Strict one-to-one intersection | 14,112 | 14,122 | +10 |
+
+At identity level, 21 Ensembl IDs enter and 8 leave because confirmed Varela
+source identities supersede some current-symbol assignments, for a net gain of
+13. Under the strict rule, 20 enter and 10 leave, for a net gain of 10. Most of
+the 22,947 recovered rows are not present in every study, so they improve
+per-study identity recovery without materially enlarging the six-way overlap.
+Neither proposed intersection has been adopted.
+
 ## Resume point
 
 Current state as of 2026-08-27:
@@ -557,10 +610,17 @@ Current state as of 2026-08-27:
   duplicate, and six-way-overlap reports without touching expression data.
 - The reported six-way intersections are 14,483 mapped identity-level genes
   and 14,112 strict one-to-one genes; no choice between them has been applied.
+- Step `02b_legacy_gene_id_recovery` job `58986448` completed successfully and
+  produced a fully checksummed, report-only candidate map from confirmed
+  Varela feature tables and five historical GENCODE releases.
+- Step 02b proposes 14,496 identity-level and 14,122 strict six-way genes, but
+  explicitly marks both sets `REPORT_ONLY_NOT_APPLIED`; the canonical inputs
+  and parent Step 02 mapping remain unchanged.
 - No cross-study master dataset has yet been created or frozen.
 - No integration method has been run for Paper 2.
 
-The next safe action is review of the completed Step 02 reports. The workflow
-must remain stopped until the strict-vs-duplicate-resolution intersection
-policy and any legacy-reference mapping pass are decided. Do not create a
-common matrix or begin Step `03_harmonize_metadata` yet.
+The next safe action is review of the completed Step 02 and Step 02b reports.
+The workflow must remain stopped until the confirmed-source versus historical-
+candidate evidence tiers and the strict-vs-duplicate-resolution intersection
+policy are explicitly chosen. Do not create a common matrix or begin Step
+`03_harmonize_metadata` yet.
