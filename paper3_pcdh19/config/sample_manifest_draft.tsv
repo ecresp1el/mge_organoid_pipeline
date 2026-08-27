@@ -1,0 +1,13 @@
+candidate_id	experiment_id	sample_id	probe_barcode_id	vendor_called_cells	median_umi_counts_per_cell	median_genes_per_cell	n_features_in_delivered_matrix	biological_identity_status
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-1	B-A03	51229	4076	2622	19071	missing_sample_key
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-2	B-B03	37553	3529	2373	19071	missing_sample_key
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-3	B-C03	25354	2978	2042	19071	missing_sample_key
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-4	B-D03	21440	3895	2542	19071	missing_sample_key
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-5	B-E03	41878	4050	2611	19071	missing_sample_key
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-6	B-F03	56099	4227	2696	19071	missing_sample_key
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-7	B-G03	19623	3828	2486	19071	missing_sample_key
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-8	B-H03	20799	3686	2432	19071	missing_sample_key
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-9	B-A04	60680	4591	2867	19071	missing_sample_key
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-10	B-B04	52753	4050	2637	19071	missing_sample_key
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-11	B-C04	52295	4366	2782	19071	missing_sample_key
+ziobro_pcdh19_15662_jz	15662-JZ	15662-JZ-12	B-D04	11085	4453	2804	19071	missing_sample_key

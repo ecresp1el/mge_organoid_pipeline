@@ -1,5 +1,14 @@
 # mge_organoid_pipeline
 
+## Paper 3 workstream
+
+The Ziobro PCDH19 single-cell RNA-seq workstream is maintained at
+[`paper3_pcdh19/`](paper3_pcdh19/). The correct source is the 12-sample
+`15662-JZ` mouse 10x Flex v2 delivery under the separate `umms-ziobroj` Turbo
+allocation. The workstream contains a read-only source inventory, technical
+sample manifest, and operational handoff; biological sample identities are
+still awaiting the lab sample key.
+
 ## Paper 2 workstream
 
 The cross-study in-vitro MGE organoid atlas workstream is maintained inside
