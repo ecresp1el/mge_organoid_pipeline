@@ -39,8 +39,9 @@ be used later as independent references for mapping and biological evaluation.
 4. Do not let individual integration methods receive different starting cells,
    genes, or harmonized covariates unless a method-specific requirement is
    explicitly documented and evaluated.
-5. Do not overwrite a frozen input or selected atlas. Create a new versioned
-   package and document why it supersedes the prior version.
+5. Do not overwrite a frozen input or selected atlas. Active working packages
+   may use the explicit replacement mode described below; frozen milestones
+   require a new versioned package documenting what they supersede.
 
 ## Canonical locations
 
@@ -82,6 +83,32 @@ frozen pre-integration input only after the following are reviewed:
   valid shared integration inputs;
 - per-study cell identifiers and a collision-safe atlas cell ID plan.
 
+### Step 00 UMAP visualization contract
+
+Step 00 does not recompute UMAP embeddings. It reads each processed object's
+saved UMAP coordinates and regenerates publication-quality cluster inventory
+plots in PNG, PDF, and editable-text SVG at 300 dpi.
+
+- Every registered cell with finite saved UMAP coordinates is shown.
+- No study-level QC is rerun.
+- DIV90 current clusters 6/7 are retained in the input-audit plots even though
+  they were excluded from some prior publication-style final figures.
+- DIV90 receives the established plotting-only transform
+  `UMAP1_plot = UMAP1_original`, `UMAP2_plot = -UMAP2_original`.
+- Original coordinates are retained unchanged in the per-cell audit tables.
+- DIV30 uses the documented seven-raw-cluster to five-paper/manual-class
+  mapping used by the existing cross-study final figures. Both raw and
+  displayed cluster counts are reported.
+- DIV90 uses `cluster_number_name` from the object when present, while also
+  retaining `seurat_clusters` as the raw ID.
+- Other studies use the first available documented cluster-name metadata
+  field; if none exists, the plot and tables state that only raw IDs were
+  available.
+
+Required UMAP outputs include a six-study grid, a dedicated DIV30/DIV90 grid,
+one figure per study, cluster-count and label-source tables, a figure manifest,
+and the per-cell original-coordinate tables.
+
 ## Independent Paper 2 step numbering
 
 Step numbers are local to `paper2_mge_organoid_atlas/`; they do not continue
@@ -89,7 +116,7 @@ the historical top-level pipeline numbering.
 
 | Step | Status | Purpose |
 | --- | --- | --- |
-| `00_input_audit` | Implemented, not yet submitted | Register and checksum the six processed objects; inventory assays, layers, features, metadata, and reductions. |
+| `00_input_audit` | Completed and visually checked; job `58955368` | Registered and checksummed the six processed objects; inventoried assays, layers, features, metadata, reductions, and saved UMAP/cluster labels; regenerated all-cell UMAP inventory figures. |
 | `01_harmonize_genes` | Planned | Resolve gene identifiers, duplicates, shared/union feature policies, and method-compatible matrices without integration. |
 | `02_harmonize_metadata` | Planned | Create a documented common schema for study, dataset, sample, replicate, age/time point, cell labels, and QC provenance. |
 | `03_freeze_preintegration` | Planned | Produce and validate the immutable six-study pre-integration master object/package. |
@@ -114,7 +141,7 @@ code/                     exact submitted scripts/wrappers used for this run
 config/                   submitted and resolved configuration/input registry
 figures/png/              high-resolution raster exports when applicable
 figures/pdf/              publication/vector exports when applicable
-figures/svg/              editable SVG exports when applicable
+figures/svg/              optional editable SVG exports when enabled
 tables/                   machine-readable results and validation summaries
 logs/                     SLURM stdout/stderr and pipeline logs
 provenance/               command, job ID, Git state, environment, checksums
@@ -124,6 +151,20 @@ SUCCESS.txt or FAILED.txt unambiguous terminal state
 For expensive analyses, figure formatting must use cached, validated tables or
 objects through a plot-only step. A cosmetic change must not silently rerun or
 replace the integration.
+
+There are two explicit output modes:
+
+- Default versioned mode creates a new timestamped run directory and is used
+  for frozen milestones.
+- Working replacement mode uses `--replace-run RUN_ID`, clears and regenerates
+  that exact completed run directory, and does not create another results
+  folder. It is refused for targets outside the step directory and while the
+  prior job is pending or running. The replacement records the prior job ID.
+
+PNG and PDF are mandatory for UMAP renders. SVG is controlled by
+`--svg true|false` and defaults to false to reduce asset accumulation. When
+enabled, SVG rasterized point layers are fixed at 300 dpi; SVG text remains
+editable. PNG and PDF rasterized layers are also fixed at 300 dpi.
 
 ## SLURM submission and monitoring
 
@@ -146,11 +187,28 @@ Submit:
 ./bin/submit.sh 00_input_audit
 ```
 
-Submission creates a new timestamped output package, snapshots code and
-configuration, copies the exact submitted `.sbatch` into the Paper 2 `jobs/`
-directory, records the current Git commit and working-tree status, and captures
-the parsable SLURM job ID. The printed run directory is the durable handle for
-monitoring:
+Replace the existing completed working audit instead of making a new folder:
+
+```bash
+./bin/submit.sh 00_input_audit \
+  --replace-run 00_input_audit_20260827_130337_6ce39f6 \
+  --svg false
+```
+
+Enable SVG when it is specifically needed:
+
+```bash
+./bin/submit.sh 00_input_audit \
+  --replace-run 00_input_audit_20260827_130337_6ce39f6 \
+  --svg true
+```
+
+Versioned submission creates a new timestamped output package; replacement
+submission reuses only the explicitly named completed working directory. Both
+snapshot code and configuration, copy the exact submitted `.sbatch` into the
+Paper 2 `jobs/` directory, record the current Git commit and working-tree
+status, and capture the parsable SLURM job ID. The printed run directory is the
+durable handle for monitoring:
 
 ```bash
 ./bin/status.sh <run_directory>
@@ -171,6 +229,12 @@ versioned package will include:
 - assay/layer inventory;
 - metadata-column type, missingness, cardinality, and example-value inventory;
 - reduction inventory;
+- all-cell UMAP source/cluster-label inventory and raw/display cluster counts;
+- six-study, Varela-paired, and per-study cluster UMAP figures in mandatory
+  PNG/PDF and optional SVG;
+- per-cell saved UMAP coordinates with original IDs, collision-safe candidate
+  atlas IDs, sample provenance, raw cluster IDs, displayed names, and mapping
+  sources;
 - per-study default-assay feature lists;
 - pairwise and six-way feature-overlap summaries;
 - R/Seurat session information;
@@ -187,10 +251,29 @@ Current state as of 2026-08-27:
 - Paper 2 scope is defined.
 - Six candidate processed objects are registered and exist on Turbo.
 - The code and Turbo directory scaffold are established.
-- Step `00_input_audit` is implemented but has not been submitted.
+- Step `00_input_audit` was successfully replaced in place from the six source
+  objects as SLURM job `58956196` (`COMPLETED`, exit `0:0`, elapsed
+  `00:05:44`, peak batch RSS approximately 60.3 GiB).
+- Its current completed run directory is
+  `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas/results/00_input_audit/00_input_audit_20260827_130337_6ce39f6`.
+- The replacement configuration records `OUTPUT_MODE=replace`,
+  `REPLACED_PREVIOUS_JOB_ID=58955368`, `PNG_DPI=300`, `PDF_DPI=300`,
+  `SVG_DPI=300`, and `MAKE_SVG=false`.
+- The run has a `SUCCESS.txt` marker, complete audit tables, 8 PNG files,
+  8 PDF files, no SVG files, and 49 verified package checksum entries.
+- All eight PNG files report embedded resolution of approximately
+  299.9994 dpi, and every figure-manifest row records PNG/PDF at 300 dpi.
+- Exactly one Step 00 results directory exists; the replacement did not create
+  another timestamped output directory.
+- The Varela paired UMAP was visually checked: DIV30 contains 90,631 cells,
+  seven raw clusters mapped to five paper/manual classes; DIV90 contains
+  22,338 cells and all 13 current `cluster_number_name` clusters, including
+  clusters 6/7, with the documented plotting-only vertical flip.
 - No master dataset has been created or frozen.
 - No integration method has been run for Paper 2.
 
-The next safe action is to dry-run, submit, monitor, and review
-`00_input_audit`. Do not implement integration-specific preprocessing until
-that audit has established the available expression and metadata contract.
+The next safe action is to review the completed assay/layer, feature-overlap,
+metadata, and cluster-label evidence and use it to specify Step
+`01_harmonize_genes`. Do not implement integration-specific preprocessing
+until the expression-layer and gene-identity decisions are documented from
+this audit.
