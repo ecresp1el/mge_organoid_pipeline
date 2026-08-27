@@ -31,3 +31,14 @@ Directory roles:
 
 The operational handoff is copied here as `HANDOFF.md`; its canonical source is
 the version-controlled file in the repository.
+
+The complete input/output and biological-interpretation contract is maintained
+in the repository at:
+
+```text
+/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/paper3_pcdh19/PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md
+```
+
+The current probe-audit outputs contain technical sample IDs and observed raw
+probe counts only. They do not establish genotype, condition, or mutant-cell
+identity.

@@ -148,6 +148,10 @@ analysis object.
 - [`config/greatlakes.env`](config/greatlakes.env) keeps the source on the
   Ziobro allocation and points Paper 3 outputs to the existing `umms-parent`
   MGE project.
+- [`PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md`](PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md)
+  is the authoritative file-by-file contract for every executable, scientific
+  input, output column, validation, and permitted biological use in the locked
+  probe audit.
 
 ## Independent Paper 3 steps
 
@@ -235,3 +239,9 @@ The completed result root is:
 ```text
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/pcdh19_probe_audit
 ```
+
+The production package records Python implementation SHA-256
+`731edca099bcbca8fb5e968ed621c2e5d8e31e3f25b6209b5008d2eb082d7b43`.
+The computational file remains frozen at that checksum; expanded explanatory
+documentation is maintained separately so the existing provenance remains
+truthful.

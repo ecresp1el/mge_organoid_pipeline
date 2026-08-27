@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Step 00 metadata-only source access inventory.
+# Inputs, stdout schema, side effects, and biological limitations are defined
+# in ../PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md. This script does not inspect
+# expression values or establish biological sample identities.
 set -Eeuo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -86,4 +90,3 @@ printf 'candidate_id\texperiment_id\texists\treadable\ttraversable\tobject_type\
       "${source_root}"
   done
 } < "${MANIFEST}"
-

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Great Lakes scheduler wrapper for the exact local Step 02a runner.
+# It adds no analysis logic. See ../PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md for
+# scientific inputs, outputs, validation, and biological interpretation limits.
 #SBATCH --job-name=pcdh19_probe_audit
 #SBATCH --account=parent0
 #SBATCH --partition=standard

@@ -49,6 +49,8 @@ counts range from 11,085 to 60,680.
 - Technical sample inventory:
   [`config/sample_manifest_draft.tsv`](config/sample_manifest_draft.tsv)
 - Operational handoff: [`HANDOFF.md`](HANDOFF.md)
+- Complete pipeline I/O and interpretation contract:
+  [`PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md`](PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md)
 - Paper 3 output root:
   `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19`
 
@@ -140,3 +142,10 @@ and the implementation is
 [`scripts/pcdh19_probe_audit.py`](scripts/pcdh19_probe_audit.py). This step
 contains technical sample IDs only and must not be joined to genotype, sex,
 condition, or other biological annotations until the sample key is recovered.
+
+For the exact role of every shell, SLURM, configuration, Python input, output
+column, validation, and biological boundary, read
+[`PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md`](PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md).
+The validated production files record the SHA-256 of the frozen Python
+implementation; documentation changes must not be represented as having
+generated those existing results.

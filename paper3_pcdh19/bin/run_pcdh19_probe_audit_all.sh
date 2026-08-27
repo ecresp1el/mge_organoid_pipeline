@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Supported Step 02a entry point for the locked 12-sample Pcdh19 probe audit.
+# Exact scientific inputs, output tables, validation gates, restart behavior,
+# and interpretation limits are defined in
+# ../PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md. Outputs are technical probe-pattern
+# measurements and do not assign genotype, condition, or cell identity.
 set -Eeuo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
