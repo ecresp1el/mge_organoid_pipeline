@@ -156,6 +156,7 @@ analysis object.
 | `00_source_discovery` | Completed | Locate the correct Ziobro Turbo allocation and inventory the `15662-JZ` delivery read-only. |
 | `01_sample_key` | Waiting for metadata | Register biological identities, experimental units, and intended comparisons for all 12 samples. |
 | `02_input_audit` | Not started | Verify MD5s, choose one authoritative matrix location, audit features/barcodes/QC, and record exact inputs. |
+| `02a_pcdh19_probe_audit` | Completed | Checksum-lock the v2.0.0/GRCm39-2024-A probe references and reproduce raw three-probe Pcdh19 counts and binary patterns for all 12 technical samples without biological labels. |
 | `03_canonical_inputs` | Not started | Create and validate a minimal analysis-ready object without altering source files. |
 | `04_qc_and_filtering` | Not designed | Define sample-aware cell/gene QC after the biological design and expected cell types are known. |
 | `10_primary_analysis` | Not designed | Normalize, integrate only if justified, cluster, annotate, and test approved comparisons. |
@@ -168,3 +169,20 @@ Find the biological key for samples `15662-JZ-1` through `15662-JZ-12`.
 Likely places to check are the AGC submission records, a lab spreadsheet, email
 handoff, or another directory under `Ziobro Lab`. Until that key is recovered,
 the correct next task is metadata discovery rather than Seurat processing.
+
+The independent technical Pcdh19 probe audit may be run without the sample key
+because it preserves only `15662-JZ-1` through `15662-JZ-12`. Its single local
+entry point is `paper3_pcdh19/bin/run_pcdh19_probe_audit_all.sh`; the matching
+batch entry is `paper3_pcdh19/slurm/pcdh19_probe_audit_all.sbatch`. The runner
+must reproduce the frozen JZ-1 barcode table SHA-256 before it can advance to
+samples 2 through 12.
+
+The locked runner completed all 12 technical samples on 2026-08-27. All
+per-sample and combined validation rows are `PASS`; the JZ-1 barcode table is
+byte-equivalent to the validated prototype; and the final output manifest
+covers every published reference, per-sample, combined, and environment file.
+The completed result root is:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/pcdh19_probe_audit
+```

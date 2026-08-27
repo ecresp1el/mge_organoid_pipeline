@@ -90,3 +90,53 @@ The technical dataset is identified, but the biological sample key is not yet
 present in the files inspected. Before QC or clustering, obtain the mapping
 from `15662-JZ-1` through `15662-JZ-12` to genotype, line, condition, time
 point, differentiation batch, replicate, and any PCDH19 mosaic design fields.
+
+## Locked Pcdh19 probe audit
+
+The technical Pcdh19 Flex audit is implemented as a biological-metadata-free,
+version-locked pipeline step. It checks the delivered panel, exact 10x v2.0.0
+BED and metadata, and GRCm39-2024-A GTF by SHA-256 before extracting the three
+validated Pcdh19 probes from every technical sample.
+
+Run all 12 samples locally or in an interactive Great Lakes allocation:
+
+```bash
+cd /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline
+./paper3_pcdh19/bin/run_pcdh19_probe_audit_all.sh
+```
+
+Submit the same entry point through SLURM:
+
+```bash
+sbatch paper3_pcdh19/slurm/pcdh19_probe_audit_all.sbatch
+```
+
+The runner always validates `15662-JZ-1` against the frozen prototype before
+processing samples 2 through 12. Existing validated outputs are checksum-
+verified and retained; incomplete or different outputs cause a hard failure.
+Final products are written to:
+
+```text
+results/pcdh19_probe_audit/
+  references/
+    pcdh19_probe_coordinates.tsv
+    reference_manifest.tsv
+  per_sample/<technical_sample_id>/
+    pcdh19_probe_patterns.tsv
+    pcdh19_probe_summary.tsv
+    validation.tsv
+    checksums.sha256
+  combined/
+    all_samples_pcdh19_probe_summary.tsv
+    all_samples_pcdh19_pattern_summary.tsv
+    all_samples_validation.tsv
+  software_environment.tsv
+  output_manifest.tsv
+```
+
+The lock is
+[`config/pcdh19_probe_audit.lock.json`](config/pcdh19_probe_audit.lock.json),
+and the implementation is
+[`scripts/pcdh19_probe_audit.py`](scripts/pcdh19_probe_audit.py). This step
+contains technical sample IDs only and must not be joined to genotype, sex,
+condition, or other biological annotations until the sample key is recovered.

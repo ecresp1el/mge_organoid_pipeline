@@ -1,0 +1,134 @@
+{
+  "pipeline_name": "paper3_pcdh19_probe_audit",
+  "pipeline_version": "1.0.0",
+  "panel": {
+    "probe_set_file_format": "3.0",
+    "panel_name": "Chromium Mouse Transcriptome Probe Set v2.0.0",
+    "reference_genome": "GRCm39",
+    "reference_version": "2024-A",
+    "gene_id": "ENSMUSG00000051323",
+    "gene_name": "Pcdh19",
+    "gene_strand": "-"
+  },
+  "reference_inputs": {
+    "delivered_probe_set": {
+      "basename": "probe_set.csv",
+      "sha256": "70368b977ffd3d7ce183ebf82581d4bf0357c3c4c4bb18d8a99b013f9c77b8f1"
+    },
+    "tenx_bed": {
+      "basename": "Chromium_Mouse_Transcriptome_Probe_Set_v2.0.0_GRCm39-2024-A.bed",
+      "url": "https://cf.10xgenomics.com/supp/cell-exp/probeset/Chromium_Mouse_Transcriptome_Probe_Set_v2.0.0_GRCm39-2024-A.bed",
+      "sha256": "2e6ac3b6029ae2aa7478f9da5cb44e27611bb9e9fde8f2bf307d07a8e6302440"
+    },
+    "tenx_metadata": {
+      "basename": "Chromium_Mouse_Transcriptome_Probe_Set_v2.0.0_GRCm39-2024-A.probe_metadata.tsv",
+      "url": "https://cf.10xgenomics.com/supp/cell-exp/probeset/Chromium_Mouse_Transcriptome_Probe_Set_v2.0.0_GRCm39-2024-A.probe_metadata.tsv",
+      "sha256": "68d720efa907394ec3dddc5a8b503cf5917d720b911225fefaf28af387c09c54"
+    },
+    "grcm39_gtf": {
+      "basename": "genes.gtf.gz",
+      "sha256": "dfc17ee4c85f3d7665f48fe758f9a1109c3cc4c38a4185943e9e9678fae45fe6"
+    },
+    "grcm39_reference_json": {
+      "basename": "reference.json",
+      "sha256": "300f0ad96009d483c66c09841d3816375b077cba96a68ca36bbb2b14b6c0c614",
+      "version": "2024-A",
+      "mkref_version": "8.0.0",
+      "input_gtf": "gencode.vM33.primary_assembly.annotation.gtf.filtered"
+    }
+  },
+  "probes": [
+    {
+      "label": "A",
+      "suffix": "a3f4e22",
+      "probe_id": "ENSMUSG00000051323|Pcdh19|a3f4e22",
+      "probe_seq": "TGTAGGTCCGGATCTCTTTGTTGTCACGCTTGCATTTGATTGCCACGAAG",
+      "region": "unspliced",
+      "chrom": "chrX",
+      "start": 132585873,
+      "end": 132585923,
+      "bed_strand": "+",
+      "transcript_id_set": [
+        "ENSMUST00000060309",
+        "ENSMUST00000149154",
+        "ENSMUST00000167944"
+      ],
+      "expected_exons": {
+        "ENSMUST00000060309": 1,
+        "ENSMUST00000149154": 1,
+        "ENSMUST00000167944": 1
+      },
+      "five_prime_order": 1
+    },
+    {
+      "label": "B",
+      "suffix": "8215225",
+      "probe_id": "ENSMUSG00000051323|Pcdh19|8215225",
+      "probe_seq": "AAGTAAGGGAGGAGCAACTGACAACATTCATCTTGTCTGTCTCCTCCACG",
+      "region": "unspliced",
+      "chrom": "chrX",
+      "start": 132582020,
+      "end": 132582070,
+      "bed_strand": "+",
+      "transcript_id_set": [
+        "ENSMUST00000060309",
+        "ENSMUST00000149154",
+        "ENSMUST00000167944"
+      ],
+      "expected_exons": {
+        "ENSMUST00000060309": 2,
+        "ENSMUST00000149154": 3,
+        "ENSMUST00000167944": 2
+      },
+      "five_prime_order": 2
+    },
+    {
+      "label": "C",
+      "suffix": "d013e0b",
+      "probe_id": "ENSMUSG00000051323|Pcdh19|d013e0b",
+      "probe_seq": "AAGTCACACTGGTGTTCAGGACATCATTCACAGCAGTATCGCAGTACAGG",
+      "region": "unspliced",
+      "chrom": "chrX",
+      "start": 132526044,
+      "end": 132526094,
+      "bed_strand": "+",
+      "transcript_id_set": [
+        "ENSMUST00000060309",
+        "ENSMUST00000149154",
+        "ENSMUST00000167944"
+      ],
+      "expected_exons": {
+        "ENSMUST00000060309": 4,
+        "ENSMUST00000149154": 5,
+        "ENSMUST00000167944": 4
+      },
+      "five_prime_order": 3
+    }
+  ],
+  "prototype": {
+    "sample_id": "15662-JZ-1",
+    "filtered_cells": 51229,
+    "pcdh19_total_umi": 13036,
+    "pattern_table_sha256": "a1b98f73ec4baa0ed7074785b0976993443edf599884349620aea6ab0af9587d",
+    "probe_total_umi": {
+      "A": 6200,
+      "B": 2833,
+      "C": 4003
+    },
+    "probe_detected_cells": {
+      "A": 5286,
+      "B": 2615,
+      "C": 3591
+    },
+    "pattern_counts": {
+      "A+B+C": 207,
+      "A+B": 501,
+      "A+C": 760,
+      "A only": 3818,
+      "B+C": 291,
+      "B only": 1616,
+      "C only": 2333,
+      "none": 41703
+    }
+  }
+}
