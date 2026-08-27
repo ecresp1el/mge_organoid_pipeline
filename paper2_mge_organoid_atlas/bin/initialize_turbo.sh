@@ -9,6 +9,7 @@ source "${CONFIG}"
 : "${PAPER2_ROOT:?PAPER2_ROOT is required}"
 
 mkdir -p \
+  "${PAPER2_ROOT}/inputs" \
   "${PAPER2_ROOT}/results" \
   "${PAPER2_ROOT}/logs" \
   "${PAPER2_ROOT}/jobs" \

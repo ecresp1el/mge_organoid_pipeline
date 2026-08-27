@@ -11,6 +11,8 @@ Canonical code and configuration are version controlled at:
 
 Directory roles:
 
+- `inputs/canonical/`: frozen, read-only minimal RDS/H5AD pairs; the only
+  permitted input layer for downstream Paper 2 workflows after it is built.
 - `results/`: immutable, versioned major analysis packages.
 - `logs/`: convenient links to run-specific SLURM logs.
 - `jobs/`: exact timestamped `.sbatch` files submitted to SLURM.
