@@ -122,6 +122,7 @@ the historical top-level pipeline numbering.
 | `00_input_audit` | Completed, replaced in place, and visually checked; current job `58956196` | Registered and checksummed the six processed objects; inventoried assays, layers, features, metadata, reductions, and saved UMAP/cluster labels; regenerated all-cell UMAP inventory figures. Job `58956196` replaced the original job `58955368` package in the same run directory. |
 | `01_canonical_inputs` | Completed and frozen; array job `58958446`, finalizer `58958447` | Created minimal current Seurat RDS and AnnData H5AD pairs for all six audited studies, with exact expression/ID/metadata equivalence and no integration or harmonization. |
 | `02_harmonize_genes` | Report-only audit completed; job `58978281`; STOP FOR REVIEW | Mapped feature identifiers to versionless GENCODE 50 Ensembl gene IDs and reported namespaces, ambiguities, unresolved features, duplicate mappings, pairwise overlaps, and two six-way-intersection definitions. No matrix was changed or created. |
+| `02b_legacy_gene_id_recovery` | Authorized and being run as a report-only Step 02 extension; STOP FOR REVIEW remains active | Uses confirmed original Cell Ranger feature tables when found and otherwise labels mappings from GENCODE 27/32/35/44/50 as historical-reference candidates. It must not rewrite canonical inputs or Step 02. |
 | `03_harmonize_metadata` | Planned; blocked pending Step 02 review | Create a documented common schema for study, dataset, sample, replicate, age/time point, cell labels, and QC provenance. |
 | `04_freeze_preintegration` | Planned | Produce and validate the immutable six-study pre-integration master object/package. |
 | `10_scvi` | Planned | Run scVI from the frozen input. |
@@ -488,6 +489,39 @@ duplicate-collapse/resolution policy for the larger 14,483 identity-level
 intersection. Also decide whether historical unresolved lncRNA symbols require
 a separately versioned legacy-reference mapping pass. Do not advance to Step
 03 until these points are reviewed.
+
+### Step 02b legacy-ID recovery decision and evidence rules
+
+The legacy-reference mapping pass has now been explicitly authorized, but it
+is an extension of the Step 02 review—not approval to change the data. It is
+implemented as `02b_legacy_gene_id_recovery` with its own versioned result
+package, exact evidence registry, checksums, code/config snapshot, SLURM logs,
+candidate maps, and README.
+
+Original Cell Ranger `features.tsv.gz` files were found for Varela DIV30 and
+DIV90. Both contain 37,143 rows, have the same SHA-256 checksum
+`51f263c7ce685617100bb30d201411372c4494e73bd2d90f2e74942dd132c164`,
+and retain stable Ensembl IDs beside symbols. Unique exact matches to these
+tables can therefore be labeled `confirmed_source_feature_table`.
+
+No exact original feature table/reference bundle has yet been found locally
+for Walsh, Bershteyn 2025, Bershteyn 2023, or Siebert 2026. Available GEO/NeMO
+metadata establish broad Cell Ranger/GRCh38 provenance but not the exact gene
+annotation. For these datasets, exact-symbol comparisons across GENCODE 27,
+32, 35, 44, and 50 are candidate recovery evidence only:
+
+- one identical Ensembl ID across at least two releases is
+  `historical_consensus_unique`;
+- a unique match in only one tested release is lower-confidence
+  `historical_single_release_unique`;
+- multiple IDs remain `historical_reference_ambiguous`;
+- names absent from all tested references remain unresolved.
+
+Every proposed mapping and any recalculated six-way intersection is marked
+`REPORT_ONLY_NOT_APPLIED`. Step 02b must not open expression matrices, modify
+the frozen canonical inputs, overwrite Step 02, concatenate studies, normalize,
+select HVGs, or integrate. Step 03 remains blocked until the resulting evidence
+tiers and duplicate/intersection policy are reviewed.
 
 ## Resume point
 

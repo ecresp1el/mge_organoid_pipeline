@@ -114,6 +114,27 @@ The reproducible submission entrypoint for a new versioned report run is:
 ./bin/submit_gene_harmonization.sh
 ```
 
+### Step 02b: legacy gene-ID recovery extension
+
+The unresolved-ID question is being handled as a separately versioned,
+report-only extension rather than by rewriting Step 02. Step 02b searches for
+original source feature tables and compares exact symbols across GENCODE 27,
+32, 35, 44, and 50. Varela DIV30/DIV90 have confirmed original Cell Ranger
+feature tables; Walsh, Bershteyn 2025, Bershteyn 2023, and Siebert 2026 do not
+currently have an exact original feature table/reference bundle locally.
+
+Consequently, Step 02b distinguishes three evidence classes: confirmed source
+feature-table mappings, historical-reference consensus candidates, and
+unresolved/ambiguous names. Historical consensus is not treated as proof of a
+study's original reference bundle. All proposed mappings and revised overlap
+counts remain `REPORT_ONLY_NOT_APPLIED`; canonical inputs and Step 02 are read
+only, and the Step 02 review stop remains active.
+
+```bash
+./bin/submit_legacy_gene_id_recovery.sh --dry-run
+./bin/submit_legacy_gene_id_recovery.sh
+```
+
 ## Initialize and run the first audit
 
 On Great Lakes:
