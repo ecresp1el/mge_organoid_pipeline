@@ -87,7 +87,8 @@ frozen pre-integration input only after the following are reviewed:
 
 Step 00 does not recompute UMAP embeddings. It reads each processed object's
 saved UMAP coordinates and regenerates publication-quality cluster inventory
-plots in PNG, PDF, and editable-text SVG at 300 dpi.
+plots in mandatory PNG/PDF and optional editable-text SVG. Rasterized layers
+in every enabled format are fixed at 300 dpi.
 
 - Every registered cell with finite saved UMAP coordinates is shown.
 - No study-level QC is rerun.
@@ -116,7 +117,7 @@ the historical top-level pipeline numbering.
 
 | Step | Status | Purpose |
 | --- | --- | --- |
-| `00_input_audit` | Completed and visually checked; job `58955368` | Registered and checksummed the six processed objects; inventoried assays, layers, features, metadata, reductions, and saved UMAP/cluster labels; regenerated all-cell UMAP inventory figures. |
+| `00_input_audit` | Completed, replaced in place, and visually checked; current job `58956196` | Registered and checksummed the six processed objects; inventoried assays, layers, features, metadata, reductions, and saved UMAP/cluster labels; regenerated all-cell UMAP inventory figures. Job `58956196` replaced the original job `58955368` package in the same run directory. |
 | `01_harmonize_genes` | Planned | Resolve gene identifiers, duplicates, shared/union feature policies, and method-compatible matrices without integration. |
 | `02_harmonize_metadata` | Planned | Create a documented common schema for study, dataset, sample, replicate, age/time point, cell labels, and QC provenance. |
 | `03_freeze_preintegration` | Planned | Produce and validate the immutable six-study pre-integration master object/package. |
@@ -243,6 +244,70 @@ versioned package will include:
 
 The audit does not decide which expression layer should be used. That decision
 belongs to `01_harmonize_genes` and must cite the audit evidence.
+
+## Step 00 completed evidence and findings
+
+The current completed audit package is:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas/results/00_input_audit/00_input_audit_20260827_130337_6ce39f6
+```
+
+The replacement run loaded all six registered objects and found 404,789 cells
+with saved UMAP coordinates:
+
+| Study | Cells | Default assay | Raw cluster IDs | Display groups in audit |
+| --- | ---: | --- | ---: | ---: |
+| Varela DIV30 | 90,631 | RNA | 7 | 5 paper/manual classes |
+| Varela DIV90 | 22,338 | RNA | 13 | 13 `cluster_number_name` classes |
+| Walsh | 4,519 | RNA | 24 | 156 observed raw-cluster/`walsh_group` combinations |
+| Bershteyn 2025 | 124,583 | RNA | 9 | 9 raw IDs; no candidate name column was present |
+| Bershteyn 2023 | 98,042 | RNA | 6 | 9 observed raw-cluster/`celltype` combinations |
+| Siebert 2026 | 64,676 | SCT | 28 | 28 raw IDs; no candidate name column was present |
+
+All registered cells with finite saved UMAP coordinates were retained in the
+audit plots. In particular, the DIV90 audit includes current clusters 6 and 7;
+their exclusion from some older published-style figures is not an input-audit
+filter.
+
+The default-assay feature union contains 54,746 genes, of which 13,965 occur
+in all six objects. The two Varela objects have sample-split Seurat v5 RNA
+count/data layers. Siebert defaults to SCT while the other five objects default
+to RNA. These are completed audit observations, not harmonization decisions;
+the expression layer, feature-identity policy, and method-compatible matrix
+must be decided in Step 01.
+
+### Varela DIV30 raw-cluster gap
+
+The DIV30 object contains 90,631 cells and exactly seven observed raw Seurat
+cluster IDs: `0, 1, 2, 3, 4, 6, 7`. Both `seurat_clusters` and
+`RNA_snn_res.0.2` contain those same values and agree for all cells. There are
+no missing cluster assignments. Raw cluster ID `5` is absent from the source
+object and from the derived AnnData categorical levels; it was not removed by
+the Paper 2 plotting code.
+
+Do not confuse the absent raw cluster ID `5` with publication/display class 5.
+Publication class `5 - MGE subpallial neurons` is present and contains 17,287
+cells from raw Seurat cluster `2`. The full DIV30 mapping is:
+
+| Raw Seurat cluster | Cells | Paper/manual display class |
+| ---: | ---: | --- |
+| 0 | 19,148 | 1 - Radial glia |
+| 1 | 18,907 | 3 - SST+ cIN |
+| 2 | 17,287 | 5 - MGE subpallial neurons |
+| 3 | 15,932 | 1 - Radial glia |
+| 4 | 13,750 | 4 - PV neuron precursor |
+| 5 | 0 / absent | not present in the registered source object |
+| 6 | 3,696 | 2 - Inhibitory progenitors |
+| 7 | 1,911 | 1 - Radial glia |
+
+The nonconsecutive raw IDs are consistent with an upstream removal, merge, or
+manual relabeling before the legacy `Day30.rds` was saved, but the current
+repository and Turbo legacy directory do not contain a pre-change object or
+source script that establishes which event occurred or why. This unresolved
+history must remain an explicit provenance limitation. Do not manufacture a
+cluster 5 or infer its biology without locating an earlier object or original
+analysis record.
 
 ## Resume point
 
