@@ -19,9 +19,9 @@ benchmarking references.
 
 The workstream does not repeat study-level QC. It starts from the registered
 processed objects in [`config/input_objects.tsv`](config/input_objects.tsv),
-audits their expression representations and metadata, harmonizes them, and
-then freezes a pre-integration input used identically by all integration
-methods.
+audits their expression representations and metadata, creates clean canonical
+copies, harmonizes them, and then freezes a pre-integration input used
+identically by all integration methods.
 
 Step 00 also regenerates all-cell cluster UMAP inventories for all six inputs,
 including dedicated Varela DIV30/DIV90 panels with cluster numbers and names.
@@ -36,6 +36,40 @@ cells from the audit.
 - Great Lakes/Turbo output root:
   `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas`
 - Operational handoff: [`HANDOFF.md`](HANDOFF.md)
+
+## Frozen canonical inputs
+
+Step `01_canonical_inputs` is complete. The permanent input layer is:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas/inputs/canonical
+```
+
+It contains six minimal Seurat `.rds` files and six equivalent AnnData `.h5ad`
+files. They preserve the same QC'd cells, genes, counts, available source RNA
+normalized data, and selected provenance metadata as the registered objects.
+They contain no old PCA/UMAP reductions, graphs, neighbors, integration/SCT
+artifacts, scaled matrices, or command history. No cells or genes were
+filtered, and no integration, normalization, gene harmonization, or cell-type
+harmonization was performed during this step.
+
+All six RDS/H5AD pairs passed exact expression, identifier, and metadata
+equivalence validation. The build used R 4.4.1, Seurat 5.1.0, SeuratObject
+5.0.2, Python 3.11.15, Scanpy 1.11.5, and AnnData 0.12.14. Array job `58958446`
+and finalizer job `58958447` both completed successfully. Future Paper 2
+workflows must read only from this canonical directory.
+
+The canonical layer is protected by an overwrite refusal in the launcher, a
+`FROZEN.txt` marker, and SHA-256 manifests. Turbo preserves project-group write
+mode bits despite `chmod`, so the workflow safeguards and checksums—not POSIX
+mode bits—define the freeze.
+
+To inspect the completed jobs and markers:
+
+```bash
+./bin/canonical_status.sh \
+  /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas/inputs/canonical
+```
 
 ## Initialize and run the first audit
 

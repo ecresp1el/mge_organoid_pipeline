@@ -19,6 +19,7 @@ The initial workflow is:
 ```text
 six processed organoid objects
   -> audit expression layers and metadata
+  -> create paired clean Seurat/AnnData canonical inputs
   -> harmonize genes and metadata
   -> freeze one pre-integration master input
   -> compare integration methods on that same input
@@ -59,9 +60,10 @@ Paper 2 Turbo root:
 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas
 ```
 
-The Paper 2 Turbo root owns its own `results/`, `logs/`, `jobs/`, and
-`final_figures/`. Existing processed objects remain read-only upstream inputs;
-they are not copied or altered merely to establish the workstream.
+The Paper 2 Turbo root owns its own `inputs/`, `results/`, `logs/`, `jobs/`,
+and `final_figures/`. Existing processed objects remain read-only upstream
+provenance; the six cleaned copies under `inputs/canonical/` are the only
+objects downstream Paper 2 workflows are allowed to read.
 
 ## Registered input objects
 
@@ -118,9 +120,10 @@ the historical top-level pipeline numbering.
 | Step | Status | Purpose |
 | --- | --- | --- |
 | `00_input_audit` | Completed, replaced in place, and visually checked; current job `58956196` | Registered and checksummed the six processed objects; inventoried assays, layers, features, metadata, reductions, and saved UMAP/cluster labels; regenerated all-cell UMAP inventory figures. Job `58956196` replaced the original job `58955368` package in the same run directory. |
-| `01_harmonize_genes` | Planned | Resolve gene identifiers, duplicates, shared/union feature policies, and method-compatible matrices without integration. |
-| `02_harmonize_metadata` | Planned | Create a documented common schema for study, dataset, sample, replicate, age/time point, cell labels, and QC provenance. |
-| `03_freeze_preintegration` | Planned | Produce and validate the immutable six-study pre-integration master object/package. |
+| `01_canonical_inputs` | Completed and frozen; array job `58958446`, finalizer `58958447` | Created minimal current Seurat RDS and AnnData H5AD pairs for all six audited studies, with exact expression/ID/metadata equivalence and no integration or harmonization. |
+| `02_harmonize_genes` | Planned | Resolve gene identifiers, duplicates, shared/union feature policies, and method-compatible matrices without integration. |
+| `03_harmonize_metadata` | Planned | Create a documented common schema for study, dataset, sample, replicate, age/time point, cell labels, and QC provenance. |
+| `04_freeze_preintegration` | Planned | Produce and validate the immutable six-study pre-integration master object/package. |
 | `10_scvi` | Planned | Run scVI from the frozen input. |
 | `11_liger` | Planned | Run LIGER from the frozen input. |
 | `12_scpoli` | Planned | Run scPoli from the frozen input. |
@@ -243,7 +246,8 @@ versioned package will include:
   commit/status, package checksum manifest, and logs.
 
 The audit does not decide which expression layer should be used. That decision
-belongs to `01_harmonize_genes` and must cite the audit evidence.
+belongs to `02_harmonize_genes` and must cite the audit and canonical-input
+evidence.
 
 ## Step 00 completed evidence and findings
 
@@ -309,6 +313,57 @@ history must remain an explicit provenance limitation. Do not manufacture a
 cluster 5 or infer its biology without locating an earlier object or original
 analysis record.
 
+## Step 01 canonical inputs: completed evidence
+
+The permanent canonical input layer was successfully published at:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper2_mge_organoid_atlas/inputs/canonical
+```
+
+Downstream Paper 2 workflows must read only from this directory, not directly
+from the historical source objects. For each study, it contains a minimal
+current Seurat RDS and an equivalent AnnData H5AD. The H5AD `X` and Seurat RNA
+`counts` layers contain the source RNA counts. Existing source RNA normalized
+data are preserved as H5AD `layers["lognorm"]` and the Seurat RNA `data` layer;
+no normalization was calculated. Siebert 2026 had no normalized RNA data layer
+to preserve and therefore contains counts only.
+
+| Study | Cells | Genes | Preserved expression |
+| --- | ---: | ---: | --- |
+| Varela DIV30 | 90,631 | 18,082 | counts + source RNA normalized data |
+| Varela DIV90 | 22,338 | 18,082 | counts + source RNA normalized data |
+| Walsh | 4,519 | 20,194 | counts + source RNA normalized data |
+| Bershteyn 2025 | 124,583 | 45,068 | counts + source RNA normalized data |
+| Bershteyn 2023 | 98,042 | 45,068 | counts + source RNA normalized data |
+| Siebert 2026 | 64,676 | 32,131 | counts only |
+
+Every pair passed exact checks for ordered cell IDs, ordered gene IDs, sparse
+counts, optional normalized expression, selected cell metadata, selected gene
+metadata, and absence of analysis embeddings/pairwise arrays. The Seurat files
+contain only the RNA assay and have no reductions, graphs, neighbors, command
+history, tools, images, scaled matrices, SCT assay, or integrated assay. No
+cell/gene subsetting, normalization, gene harmonization, or cell-type
+harmonization was performed.
+
+The recorded environments are R 4.4.1, Seurat 5.1.0, SeuratObject 5.0.2,
+Python 3.11.15, Scanpy 1.11.5, and AnnData 0.12.14. Exact source and canonical
+file SHA-256 checksums, code/config snapshots, SLURM logs, session information,
+and validation reports are stored within `inputs/canonical/`.
+
+The successful jobs were array job `58958446` and dependent finalizer job
+`58958447`; all tasks and the finalizer completed with exit `0:0`. Two earlier
+tasks (`58958104` and `58958105`) were canceled before publication after the
+RDS representation was clarified to require actual Seurat objects. Their
+incomplete staging directory was removed; they did not publish or alter the
+canonical layer.
+
+`inputs/canonical/` is logically frozen: the build launcher refuses to
+overwrite it, the `FROZEN.txt` marker records the terminal state, and checksum
+manifests detect changes. Turbo's NFS export preserves project-group write
+bits even after a successful `chmod`, so POSIX mode bits alone must not be
+interpreted as the freeze guarantee.
+
 ## Resume point
 
 Current state as of 2026-08-27:
@@ -334,11 +389,14 @@ Current state as of 2026-08-27:
   seven raw clusters mapped to five paper/manual classes; DIV90 contains
   22,338 cells and all 13 current `cluster_number_name` clusters, including
   clusters 6/7, with the documented plotting-only vertical flip.
-- No master dataset has been created or frozen.
+- Step `01_canonical_inputs` completed successfully for all six studies.
+- Twelve permanent analysis-input files (six minimal Seurat RDS and six
+  equivalent AnnData H5AD) are published and frozen under
+  `inputs/canonical/` with exact pairwise equivalence marked `PASS`.
+- No cross-study master dataset has yet been created or frozen.
 - No integration method has been run for Paper 2.
 
-The next safe action is to review the completed assay/layer, feature-overlap,
-metadata, and cluster-label evidence and use it to specify Step
-`01_harmonize_genes`. Do not implement integration-specific preprocessing
-until the expression-layer and gene-identity decisions are documented from
-this audit.
+The next safe action is Step `02_harmonize_genes`, using only the frozen
+canonical inputs and citing the completed assay/layer and feature-overlap
+evidence. Do not implement integration-specific preprocessing until the
+expression-layer and gene-identity decisions are documented.

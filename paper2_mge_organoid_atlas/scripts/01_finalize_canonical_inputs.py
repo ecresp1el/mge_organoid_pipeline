@@ -55,12 +55,17 @@ def compare_summaries(study_dir: Path) -> None:
                     raise ValueError(f"{study_dir.name} {matrix_name} {column} mismatch")
 
 
-def remove_write_bits(root: Path) -> None:
+def attempt_remove_write_bits(root: Path) -> bool:
+    """Best-effort POSIX hardening; some Turbo NFS exports restore rw modes."""
     for path in sorted(root.rglob("*"), reverse=True):
         mode = stat.S_IMODE(path.stat().st_mode)
         path.chmod(mode & ~0o222)
     mode = stat.S_IMODE(root.stat().st_mode)
     root.chmod(mode & ~0o222)
+    return not any(
+        stat.S_IMODE(path.stat().st_mode) & 0o222
+        for path in [root, *root.rglob("*")]
+    )
 
 
 def main() -> None:
@@ -213,8 +218,11 @@ are under `provenance/`.
 
 Frozen at: `{completed}`
 
-This directory is intentionally read-only. Historical source objects remain
-provenance records and must not be read directly by downstream Paper 2
+This directory is logically frozen. The build launcher refuses to overwrite
+an existing `inputs/canonical/`, and checksums detect content changes. POSIX
+write-bit removal is attempted as additional hardening, but the Turbo NFS
+export may preserve project-group write modes. Historical source objects
+remain provenance records and must not be read directly by downstream Paper 2
 workflows.
 """
     (staging / "README.md").write_text(readme, encoding="utf-8")
@@ -248,7 +256,13 @@ workflows.
     pd.DataFrame(package_rows).to_csv(provenance / "supporting_file_checksums.tsv", sep="\t", index=False)
 
     os.replace(staging, canonical)
-    remove_write_bits(canonical)
+    permissions_hardened = attempt_remove_write_bits(canonical)
+    if not permissions_hardened:
+        print(
+            "WARNING: Turbo retained write bits; freeze is enforced by the "
+            "launcher overwrite guard, FROZEN marker, and checksums.",
+            flush=True,
+        )
     print(f"Frozen canonical input directory published: {canonical}", flush=True)
 
 
