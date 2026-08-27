@@ -97,6 +97,16 @@ identity-level set, and decide whether unresolved historical lncRNA symbols
 need a separate legacy-reference mapping pass. See [`HANDOFF.md`](HANDOFF.md)
 for the complete counts and review questions.
 
+A plot-only extension completed as job `58981144` using only the cached Step 02
+tables. It added four 300-dpi PNG/PDF figure pairs: identity-level and strict
+UpSet-style intersection diagrams, pairwise overlap/Jaccard heatmaps, and a
+mapping-coverage/non-overlap dashboard. SVG remained disabled. The figures
+show that 14,483 identities are shared by all six, while 10,569 are unique to
+Siebert's mapped feature catalog. The Varela pair has identical mapped feature
+sets, as does the Bershteyn pair; Varela–Siebert is the least-overlapping
+non-identical pair by mapped Jaccard (0.513). These are feature-catalog
+relationships, not expression or biological-similarity results.
+
 The reproducible submission entrypoint for a new versioned report run is:
 
 ```bash

@@ -432,6 +432,49 @@ result excludes such identities in every dataset. There are 371 six-way common
 identities present in the identity-level report but excluded by the strict
 duplicate rule. No matrix has been collapsed or subset under either policy.
 
+### Plot-only overlap visualization extension
+
+Plot-only job `58981144` completed with exit `0:0` in 19 seconds and peak batch
+RSS below 1 GiB. It used only the cached Step 02 mapping/presence tables and did
+not reopen canonical objects or read expression matrices. It added four
+mandatory PNG/PDF figure pairs at 300 dpi; SVG was disabled:
+
+- `gene_overlap_upset_identity_level`: exact study-presence patterns for all
+  mapped common identities;
+- `gene_overlap_upset_strict_one_to_one`: the same view after duplicate-to-one
+  exclusions;
+- `gene_overlap_pairwise_heatmaps`: mapped and strict pairwise intersection
+  counts plus Jaccard overlap;
+- `gene_mapping_coverage_and_nonoverlap`: mapping coverage, strict-set losses,
+  and the distribution of identities across one through six studies.
+
+The figures make the main catalog relationships explicit:
+
+- 14,483 mapped identities occur in all six studies.
+- 10,569 mapped identities occur only in Siebert 2026.
+- 2,154 occur in both Varela datasets, both Bershteyn datasets, and Siebert,
+  but not Walsh.
+- 2,068 occur in Walsh, both Bershteyn datasets, and Siebert, but not either
+  Varela dataset.
+- 1,823 occur in both Bershteyn datasets and Siebert only.
+- 1,665 occur only in the two Bershteyn datasets.
+- 1,255 occur in both Varela and both Bershteyn datasets, but not Walsh or
+  Siebert.
+
+The Varela DIV30/DIV90 mapped feature sets are identical to each other
+(Jaccard 1.000), as are the Bershteyn 2023/2025 sets. Among non-identical
+pairs, mapped Jaccard overlap is lowest for Varela–Siebert (0.513), followed by
+Walsh–Siebert (0.530) and Bershteyn–Siebert (0.601). Varela–Bershteyn is 0.760,
+Varela–Walsh is 0.722, and Walsh–Bershteyn is 0.707. These values describe
+reference feature catalogs after identifier mapping—not expressed-gene overlap
+or biological similarity between cell populations.
+
+Exact plotted pattern counts are stored in
+`intersection_pattern_counts_identity_level.tsv` and
+`intersection_pattern_counts_strict_one_to_one.tsv`. The figure manifest and
+all refreshed package checksums pass. `FIGURES_SUCCESS.txt` retains
+`review_stop=YES`.
+
 The full per-feature map, ambiguity list, unresolved list, duplicate groups,
 gene-presence matrix, pairwise overlaps, and both six-way intersection tables
 are under `tables/`. Every package checksum passes. The run's `SUCCESS.txt`

@@ -29,6 +29,9 @@ audit under `results/02_harmonize_genes/02_harmonize_genes_20260827_171616_24838
 The workflow is stopped for review of the strict one-to-one versus
 duplicate-resolution gene-intersection policy. No common matrix, metadata
 harmonization, normalization, HVG selection, or integration has begun.
+Plot-only job `58981144` added four 300-dpi PNG/PDF overlap visualizations to
+the completed Step 02 package from cached mapping tables only; the review stop
+remains active.
 
 The operational handoff is copied into this directory as `HANDOFF.md`. Its
 canonical version-controlled source is:
