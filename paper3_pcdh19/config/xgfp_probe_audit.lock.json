@@ -1,0 +1,101 @@
+{
+  "pipeline_name": "paper3_xgfp_probe_compatibility_audit",
+  "pipeline_version": "1.0.0",
+  "delivered_panel": {
+    "basename": "probe_set.csv",
+    "sha256": "70368b977ffd3d7ce183ebf82581d4bf0357c3c4c4bb18d8a99b013f9c77b8f1",
+    "probe_set_file_format": "3.0",
+    "panel_name": "Chromium Mouse Transcriptome Probe Set v2.0.0",
+    "reference_genome": "GRCm39",
+    "reference_version": "2024-A",
+    "custom_panel_path_recorded_by_cell_ranger": "/nfs/turbo/agc-data/refs/Mus_musculus/GRCm39/custom/15662-JZ/Chromium_Mouse_Transcriptome_Probe_Set_v2.0.0_GRCm39-2024-A_EGFP.csv",
+    "custom_panel_path_access_status": "permission_denied_from_current_workspace",
+    "delivered_copy_role": "authoritative_accessible_copy_emitted_with_cell_ranger_run"
+  },
+  "reporter_line": {
+    "symbol": "Tg(CAG-EGFP)D4Nagy",
+    "common_name": "D4/XEGFP",
+    "mgi_id": "MGI:3055027",
+    "jax_stock": "003116",
+    "chromosome": "X",
+    "construct": "pCX-EGFP",
+    "construct_description": "Clontech enhanced GFP cDNA driven by the CMV immediate-early enhancer/chicken beta-actin promoter and followed by rabbit beta-globin polyadenylation sequence",
+    "integrated_allele_sequence_status": "full concatemer and integration-junction sequence not deposited in cited line records"
+  },
+  "egfp_sequence_reference": {
+    "accession": "U55762.1",
+    "record_name": "Cloning vector pEGFP-N1",
+    "submitter": "CLONTECH Laboratories, Inc.",
+    "efetch_url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=U55762&rettype=fasta&retmode=text",
+    "record_length": 4733,
+    "record_sequence_sha256": "63918e4dcae6eed7f21a2d430f8b24a7172acc9a174e307d933550034189efde",
+    "egfp_cds_start_1based": 679,
+    "egfp_cds_end_1based": 1398,
+    "egfp_cds_length": 720,
+    "egfp_cds_sha256": "e8d734949c2b74ac68d9ecd5aa1016aa75d496d292b124db7d4993f2e5409449"
+  },
+  "expected_probes": [
+    {
+      "probe_id": "EGFP|EGFP|probe01",
+      "probe_seq": "GGTAGTGGTCGGCGAGCTGCACGCTGCCGTCCTCGATGTTGTGGCGGATC",
+      "included": "TRUE",
+      "region": "unspliced"
+    },
+    {
+      "probe_id": "EGFP|EGFP|probe02",
+      "probe_seq": "AGGGTGTCGCCCTCGAACTTCACCTCGGCGCGGGTCTTGTAGTTGCCGTC",
+      "included": "TRUE",
+      "region": "unspliced"
+    },
+    {
+      "probe_id": "EGFP|EGFP|probe03",
+      "probe_seq": "ATGGTGCGCTCCTGGACGTAGCCTTCGGGCATGGCGGACTTGAAGAAGTC",
+      "included": "TRUE",
+      "region": "unspliced"
+    }
+  ],
+  "evidence_sources": [
+    {
+      "source_id": "mgi_line_record",
+      "role": "authoritative line identity and construct description",
+      "citation": "Mouse Genome Informatics MGI:3055027",
+      "url": "https://www.informatics.jax.org/allele/MGI:3055027"
+    },
+    {
+      "source_id": "jax_strain_record",
+      "role": "authoritative strain and stock identity",
+      "citation": "The Jackson Laboratory strain 003116",
+      "url": "https://www.jax.org/strain/003116"
+    },
+    {
+      "source_id": "original_x_linked_line",
+      "role": "original D4/XEGFP line report",
+      "citation": "Hadjantonakis et al. 1998, Nature Genetics 19:220-222, doi:10.1038/893",
+      "url": "https://doi.org/10.1038/893"
+    },
+    {
+      "source_id": "original_construct_use",
+      "role": "original report that D4 derives from pCX-EGFP-expressing R1 ES cells and identifies Clontech EGFP",
+      "citation": "Hadjantonakis et al. 1998, Mechanisms of Development 76:79-90, doi:10.1016/S0925-4773(98)00093-8",
+      "url": "https://doi.org/10.1016/S0925-4773(98)00093-8"
+    },
+    {
+      "source_id": "pcx_egfp_reference",
+      "role": "pCX-EGFP construct description",
+      "citation": "Okabe et al. 1997, FEBS Letters 407:313-319, doi:10.1016/S0014-5793(97)00313-X",
+      "url": "https://doi.org/10.1016/S0014-5793(97)00313-X"
+    },
+    {
+      "source_id": "kalantry_xgfp_identity",
+      "role": "Kalantry laboratory identification of X-GFP as the previously described D4/XEGFP line",
+      "citation": "Kalantry et al. 2009, Nature supplementary information, doi:10.1038/nature08161",
+      "url": "https://websites.umich.edu/~kalantry/Kalantry_Lab/Publications_files/Supplement.pdf"
+    },
+    {
+      "source_id": "clontech_egfp_sequence",
+      "role": "authoritative nucleotide sequence used for exact reporter-CDS alignment",
+      "citation": "NCBI GenBank U55762.1, submitted by CLONTECH Laboratories",
+      "url": "https://www.ncbi.nlm.nih.gov/nuccore/U55762.1"
+    }
+  ]
+}

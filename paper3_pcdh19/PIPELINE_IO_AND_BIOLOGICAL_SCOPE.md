@@ -34,6 +34,8 @@ version and a newly validated output package.
   experimental-unit details still to confirm.
 - `02_input_audit`: broader delivery and canonical-input audit; not complete.
 - `02a_pcdh19_probe_audit`: this locked, technical-only workflow; complete.
+- `02b_xgfp_probe_compatibility_audit`: exact construct-level alignment of the
+  custom Flex EGFP probes to the Nagy/Kalantry D4/XEGFP reporter; complete.
 
 Step `02a` intentionally runs without ingesting the sample key because it uses
 only technical IDs. This keeps the validated assay audit separate from later
@@ -181,6 +183,30 @@ The GTF and `reference.json` paths are supplied through
 
 The program uses temporary files/directories, validates before publication,
 uses atomic renames, and refuses to overwrite different existing artifacts.
+
+### `bin/run_xgfp_probe_audit.sh` and `scripts/xgfp_probe_compatibility_audit.py`
+
+Purpose: separate Step `02b` sequence-compatibility gate before GFP count
+interpretation.
+
+- Inputs: the delivered `probe_set.csv`,
+  `config/xgfp_probe_audit.lock.json`, and checksum-locked NCBI GenBank
+  `U55762.1` Clontech EGFP sequence.
+- Validations: exact panel version/checksum; exactly three expected EGFP IDs,
+  sequences, inclusion flags, and 10x annotations; exact reference/CDS
+  checksums; and unique 50-base alignments in both tested orientations.
+- Outputs: exact alignment, source manifest, EGFP CDS FASTA, validations,
+  conclusion, software environment, and output checksums under
+  `results/xgfp_probe_audit/`.
+- Interpretation: three exact matches establish theoretical construct-level
+  sequence compatibility. The step does not read GFP counts or establish
+  expression in any cell.
+
+The D4/XEGFP line records do not deposit the complete integrated concatemer
+and junction sequence. The frozen alignment therefore uses the exact Clontech
+EGFP reporter CDS specified by the original pCX-EGFP construct references, not
+an unverified colony-specific allele sequence. Full details and citations are
+in [`XGFP_PROBE_COMPATIBILITY_AUDIT.md`](XGFP_PROBE_COMPATIBILITY_AUDIT.md).
 
 ## Output files and data meaning
 

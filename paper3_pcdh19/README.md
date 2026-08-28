@@ -53,6 +53,8 @@ counts range from 11,085 to 60,680.
 - Operational handoff: [`HANDOFF.md`](HANDOFF.md)
 - Complete pipeline I/O and interpretation contract:
   [`PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md`](PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md)
+- X-GFP construct/Flex compatibility audit:
+  [`XGFP_PROBE_COMPATIBILITY_AUDIT.md`](XGFP_PROBE_COMPATIBILITY_AUDIT.md)
 - Paper 3 output root:
   `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19`
 
@@ -164,3 +166,23 @@ column, validation, and biological boundary, read
 The validated production files record the SHA-256 of the frozen Python
 implementation; documentation changes must not be represented as having
 generated those existing results.
+
+## Locked X-GFP sequence-compatibility audit
+
+Before any GFP count interpretation, Step `02b` tests whether the custom Flex
+EGFP probes could recognize the Nagy/Kalantry D4/XEGFP reporter sequence. The
+delivered panel contains three included EGFP probes, and all three are unique
+exact 50/50 reverse-complement matches to the Clontech EGFP CDS specified for
+the original pCX-EGFP construct. Sequence compatibility therefore passes.
+
+Run or verify the idempotent audit with:
+
+```bash
+./paper3_pcdh19/bin/run_xgfp_probe_audit.sh
+```
+
+See [`XGFP_PROBE_COMPATIBILITY_AUDIT.md`](XGFP_PROBE_COMPATIBILITY_AUDIT.md)
+for the exact probes, sequence coordinates, evidence chain, limitations, and
+machine-readable output paths. This result establishes theoretical probe
+compatibility only; it does not establish reporter expression or observed GFP
+UMIs in any sample or cell.

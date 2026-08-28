@@ -174,6 +174,64 @@ names still require confirmation.
   is the authoritative file-by-file contract for every executable, scientific
   input, output column, validation, and permitted biological use in the locked
   probe audit.
+- [`XGFP_PROBE_COMPATIBILITY_AUDIT.md`](XGFP_PROBE_COMPATIBILITY_AUDIT.md)
+  records the separate construct-level forensic audit of the custom Flex EGFP
+  probes against the Nagy/Kalantry D4/XEGFP reporter.
+
+## Locked X-GFP/Flex sequence-compatibility result
+
+Before GFP counts or biological interpretation, Step
+`02b_xgfp_probe_compatibility_audit` established whether the exact custom Flex
+panel could recognize Julie's Nagy/Kalantry X-GFP reporter by sequence.
+
+The reporter is the Kalantry laboratory X-GFP line identified in their methods
+as D4/XEGFP: `Tg(CAG-EGFP)D4Nagy`, MGI `3055027`, JAX stock `003116`. The
+original line derives from pCX-EGFP-expressing R1 ES cells. That construct uses
+Clontech enhanced GFP cDNA under the CMV immediate-early enhancer/chicken
+beta-actin promoter with rabbit beta-globin polyadenylation sequence.
+
+The delivered `probe_set.csv` contains exactly three included EGFP probes. The
+full delivered IDs, sequences, and exact construct-reference alignments are:
+
+| EGFP 5-prime order | Full probe ID | Probe sequence, 5-prime to 3-prime | Clontech EGFP CDS interval | Alignment |
+| ---: | --- | --- | ---: | --- |
+| 1 | `EGFP|EGFP|probe03` | `ATGGTGCGCTCCTGGACGTAGCCTTCGGGCATGGCGGACTTGAAGAAGTC` | 247--296 | Unique reverse-complement match; 50/50 bases, 0 mismatches, 0 gaps |
+| 2 | `EGFP|EGFP|probe02` | `AGGGTGTCGCCCTCGAACTTCACCTCGGCGCGGGTCTTGTAGTTGCCGTC` | 310--359 | Unique reverse-complement match; 50/50 bases, 0 mismatches, 0 gaps |
+| 3 | `EGFP|EGFP|probe01` | `GGTAGTGGTCGGCGAGCTGCACGCTGCCGTCCTCGATGTTGTGGCGGATC` | 501--550 | Unique reverse-complement match; 50/50 bases, 0 mismatches, 0 gaps |
+
+All three delivered rows have `included=TRUE` and the 10x annotation
+`region=unspliced`. The exact reference is the Clontech-submitted EGFP CDS in
+NCBI GenBank `U55762.1`, bases 679--1398. The 720-base CDS SHA-256 is
+`e8d734949c2b74ac68d9ecd5aa1016aa75d496d292b124db7d4993f2e5409449`.
+
+The defensible conclusion is that sequence compatibility passes: the custom
+Flex panel was theoretically capable of detecting RNA from this reporter.
+Sequence incompatibility cannot explain absent GFP counts. This does not prove
+reporter transcription, RNA preservation, probe efficiency, or an observed
+GFP UMI in any sample or cell.
+
+The exact full D4/XEGFP integrated concatemer and mouse/transgene junction
+sequence is not deposited in the cited line records; MGI lists the precise
+insertion location as unknown. The exact-match claim is therefore at the
+original construct reporter-CDS level, not colony-specific resequencing of
+every integrated copy.
+
+Reproduce or verify with:
+
+```bash
+./paper3_pcdh19/bin/run_xgfp_probe_audit.sh
+```
+
+Validated machine-readable results are under:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/xgfp_probe_audit
+```
+
+The output manifest SHA-256 is
+`72b5a4df241b6b2c38e2f57d80a49969235f7c3a745c813d798041c56e2b3d3d`.
+No GFP counts, barcodes, UMAP, or cell classification were analyzed in this
+step.
 
 ## Locked Pcdh19 probe identities and genomic targets
 
@@ -289,9 +347,11 @@ table SHA-256 is
 correct Ziobro allocation and the `15662-JZ` delivery. It is not the Pcdh19
 probe audit. Step `01_sample_key` is now complete from the user-provided
 mapping. The locked cross-sample probe work is the independent technical
-substep `02a_pcdh19_probe_audit`, while the broader Step `02_input_audit` has
-not yet been run. The completed technical audit remains unchanged; biological
-labels enter only through the separate sample-key join in later work.
+substep `02a_pcdh19_probe_audit`; the construct-level X-GFP compatibility gate
+is completed as Step `02b_xgfp_probe_compatibility_audit`. The broader Step
+`02_input_audit` has not yet been run. The completed technical audits remain
+unchanged; biological labels enter only through the separate sample-key join
+in later work.
 
 | Step | Status | Purpose |
 | --- | --- | --- |
@@ -299,6 +359,7 @@ labels enter only through the separate sample-key join in later work.
 | `01_sample_key` | Completed; experimental-unit details remain | Registered submitted name, target cells, organism, tissue/region, genotype, sex, and design group for all 12 samples. Donor/embryo/litter/batch structure still requires confirmation. |
 | `02_input_audit` | Not started | Verify MD5s, choose one authoritative matrix location, audit features/barcodes/QC, and record exact inputs. |
 | `02a_pcdh19_probe_audit` | Completed | Checksum-lock the v2.0.0/GRCm39-2024-A probe references and reproduce raw three-probe Pcdh19 counts and binary patterns for all 12 technical samples without biological labels. |
+| `02b_xgfp_probe_compatibility_audit` | Completed | Validate the exact three custom Flex EGFP probes against the original Nagy/Kalantry D4/XEGFP construct-level reporter sequence before any GFP count interpretation. |
 | `03_canonical_inputs` | Not started | Create and validate a minimal analysis-ready object without altering source files. |
 | `04_qc_and_filtering` | Not designed | Define sample-aware cell/gene QC after the biological design and expected cell types are known. |
 | `10_primary_analysis` | Not designed | Normalize, integrate only if justified, cluster, annotate, and test approved comparisons. |
@@ -342,8 +403,8 @@ The registered sample key shows that this technical separation follows the
 four supplied design groups: both WT male and WT female samples have 74--76%
 downstream-positive/A-negative cells (unweighted sample means 75.296% and
 75.306%, respectively), HET female samples have 90--95% (mean 92.532%), and KO
-male samples have approximately 99.9% (mean 99.919%). The appropriate future genotype
-contrasts are HET female versus WT female and KO male versus WT male. This is
+male samples have approximately 99.9% (mean 99.919%). The appropriate future
+genotype contrasts are HET female versus WT female and KO male versus WT male. This is
 a strong descriptive correspondence, not yet a statistical result, and it
 does not make an A-negative downstream-positive barcode a mutant cell. Probe
 non-detection remains subject to sampling and assay efficiency.
@@ -357,6 +418,8 @@ per group are independent biological replicates. Then complete the broader
 Step `02_input_audit` before canonical-object construction and formal
 sample-level comparisons. Step `00_source_discovery` remains closed unless the
 delivered source changes; do not rename the completed probe audit as Step 00.
+The X-GFP sequence gate is complete, but GFP UMI extraction remains a separate
+future action and must not be represented as part of Step `02b`.
 
 The independent technical Pcdh19 probe audit does not ingest the sample key and
 preserves only `15662-JZ-1` through `15662-JZ-12`. Its single local

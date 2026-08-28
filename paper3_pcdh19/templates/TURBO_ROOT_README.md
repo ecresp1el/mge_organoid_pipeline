@@ -44,3 +44,8 @@ The frozen probe-audit outputs contain technical sample IDs and observed raw
 probe counts only. Genotype and sex are supplied by the separate registered
 sample key; neither that mapping nor an A-negative probe pattern by itself
 establishes an individual cell's genotype or mutant-cell identity.
+
+The separate `results/xgfp_probe_audit/` package validates whether the custom
+Flex EGFP probe sequences match the Nagy/Kalantry D4/XEGFP construct-level
+reporter sequence. It establishes sequence compatibility, not reporter
+expression or individual-cell identity.
