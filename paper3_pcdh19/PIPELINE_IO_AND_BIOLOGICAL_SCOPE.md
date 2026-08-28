@@ -1,9 +1,10 @@
-# Paper 3 Pcdh19 probe audit: inputs, outputs, and biological scope
+# Paper 3 locked probe audits: inputs, outputs, and biological scope
 
-This document is the I/O contract for the locked `02a_pcdh19_probe_audit`
-workflow. It describes every executable used by this step, the meaning of its
-files, and the boundary between an observed probe pattern and a biological
-interpretation.
+This document is the I/O contract for the locked probe-audit steps:
+`02a_pcdh19_probe_audit`, `02b_xgfp_probe_compatibility_audit`, and
+`02c_egfp_probe_audit`. It describes every executable used by these steps, the
+meaning of their files, and the boundary between an observed probe pattern and
+a biological interpretation.
 
 The registered source tissue is mouse embryonic brain, MGE, and the dataset was
 generated with 10x Flex v2. This audit asks a deliberately narrow question:
@@ -36,10 +37,17 @@ version and a newly validated output package.
 - `02a_pcdh19_probe_audit`: this locked, technical-only workflow; complete.
 - `02b_xgfp_probe_compatibility_audit`: exact construct-level alignment of the
   custom Flex EGFP probes to the Nagy/Kalantry D4/XEGFP reporter; complete.
+- `02c_egfp_probe_audit`: locked raw counts and eight binary patterns for the
+  three validated EGFP probes across all 12 samples; complete.
 
 Step `02a` intentionally runs without ingesting the sample key because it uses
 only technical IDs. This keeps the validated assay audit separate from later
 biological annotation. It does not replace the broader Step `02`.
+
+Step `02c` also keeps genotype out of all per-barcode calculations. It reads
+the checksum-locked sample key only when producing the explicitly descriptive
+`all_samples_egfp_design_summary.tsv`. Counts, barcode inclusion, detection
+patterns, and validation results are identical regardless of those labels.
 
 ## Registered biological annotation layer
 
@@ -207,6 +215,83 @@ and junction sequence. The frozen alignment therefore uses the exact Clontech
 EGFP reporter CDS specified by the original pCX-EGFP construct references, not
 an unverified colony-specific allele sequence. Full details and citations are
 in [`XGFP_PROBE_COMPATIBILITY_AUDIT.md`](XGFP_PROBE_COMPATIBILITY_AUDIT.md).
+
+### `bin/run_egfp_probe_audit_all.sh` and `scripts/egfp_probe_audit.py`
+
+Purpose: Step `02c`, the raw-count counterpart to the Step `02b` sequence gate.
+
+- Scientific inputs per sample:
+  `sample_raw_probe_bc_matrix.h5` supplies individual-probe raw UMIs;
+  `sample_filtered_feature_bc_matrix.h5` supplies the independent Cell Ranger
+  EGFP feature used only for reconstruction checks; and
+  `sample_filtered_barcodes.csv` supplies the exact denominator/order.
+- Locked reference inputs: delivered `probe_set.csv`; Step `02b` lock,
+  alignment, validation, and output manifest; and the exact helper-script and
+  sample-key checksums recorded in `config/egfp_probe_audit.lock.json`.
+- Computation: extracts `probe01`, `probe02`, and `probe03` for every existing
+  vendor-filtered barcode; calculates their integer sum; and assigns one of
+  eight presence/absence patterns using only `UMI > 0`.
+- Validation: exact panel/probe/chemistry identity; barcode equality and no
+  duplicates; per-barcode and sample-total equality to Cell Ranger EGFP;
+  eight-pattern partition and marginals; serialized-table checks; frozen JZ-1
+  totals/patterns/table checksum; and SHA-256 protection of all outputs.
+- Restart behavior: writes to temporary paths, validates before atomic
+  publication, retains byte-identical validated outputs, and fails rather than
+  overwriting a different or incomplete result.
+- Environment: Python 3.6, `h5py==3.1.0`, and `numpy==1.19.5` are installed in
+  a step-specific immutable package directory if absent and version-checked on
+  every run.
+
+`bin/run_egfp_probe_audit_all.sh` is the single local entry point. The matching
+Great Lakes wrapper is `slurm/egfp_probe_audit_all.sbatch`; it contains no
+scientific logic. The frozen implementation SHA-256 is
+`8e60173fa613d356193bed571b6f1b9b30641af04de390878e81572d45e60939` and
+the lock SHA-256 is
+`395c84807f4b71c12064623c6fcde7f8458721a1a58a7e2285e4daad839fed01`.
+
+### Step `02c` outputs and biological meaning
+
+Production root:
+
+```text
+/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/egfp_probe_audit
+```
+
+`references/egfp_probe_reference.tsv` carries the three exact probe IDs and
+sequences, 10x annotation, U55762.1 EGFP-CDS coordinates, alignment
+orientation, 50/50 match result, and EGFP 5-prime order. Its companion
+`reference_manifest.tsv` records every locked upstream path, role, size, and
+SHA-256.
+
+`per_sample/<sample_id>/egfp_probe_patterns.tsv` has one row per existing
+Cell Ranger filtered barcode:
+
+| Column | Non-technical meaning |
+| --- | --- |
+| `barcode` | Cell Ranger's technical barcode identifier; no cell type or biological class is assigned. |
+| `probe01_UMI`, `probe02_UMI`, `probe03_UMI` | Raw deduplicated molecule count observed for each exact EGFP probe. |
+| `EGFP_total_UMI` | Exact integer sum of the three probe counts, required to equal Cell Ranger's EGFP feature for that barcode. |
+| `detection_pattern` | One of the eight `E01/E02/E03` combinations or `none`, based only on count greater than zero. |
+
+`egfp_probe_summary.tsv` contains per-probe total UMI, detected-barcode count,
+fraction/percent of the vendor-filtered denominator, mean among detected
+barcodes, and maximum; an EGFP reconstruction row; and all eight patterns with
+count, all-barcode percentage, percentage among EGFP-detected barcodes, and
+median/mean/maximum EGFP UMI. `validation.tsv` and `checksums.sha256` make the
+per-sample gates and file identities machine-readable.
+
+The combined directory contains concatenated probe, pattern, and validation
+tables plus `all_samples_egfp_design_summary.tsv`. That last table is a
+descriptive join to the registered technical-sample mapping; it does not alter
+or classify any barcode. `software_environment.tsv` records versions and code
+checksums; `output_manifest.tsv` covers every final file.
+
+The workflow uses raw UMIs only. It performs no normalization, log transform,
+imputation, ambient-RNA correction, UMAP, clustering, cell-type calling,
+genotype inference, reporter-positive classification, or statistical test.
+“Filtered barcode” means Cell Ranger's already delivered barcode set, not a
+new cell call made by this pipeline. An isolated one-probe UMI is an observed
+technical event, not proof that a cell expresses a functional GFP reporter.
 
 ## Output files and data meaning
 

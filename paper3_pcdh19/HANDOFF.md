@@ -348,10 +348,11 @@ correct Ziobro allocation and the `15662-JZ` delivery. It is not the Pcdh19
 probe audit. Step `01_sample_key` is now complete from the user-provided
 mapping. The locked cross-sample probe work is the independent technical
 substep `02a_pcdh19_probe_audit`; the construct-level X-GFP compatibility gate
-is completed as Step `02b_xgfp_probe_compatibility_audit`. The broader Step
-`02_input_audit` has not yet been run. The completed technical audits remain
-unchanged; biological labels enter only through the separate sample-key join
-in later work.
+is completed as Step `02b_xgfp_probe_compatibility_audit`; and the raw EGFP
+count audit is completed as Step `02c_egfp_probe_audit`. The broader Step
+`02_input_audit` has not yet been run. Step `02c` uses the registered sample
+key only to create a clearly labeled descriptive sample-design table; it does
+not use those fields to alter counts or classify cells.
 
 | Step | Status | Purpose |
 | --- | --- | --- |
@@ -360,6 +361,7 @@ in later work.
 | `02_input_audit` | Not started | Verify MD5s, choose one authoritative matrix location, audit features/barcodes/QC, and record exact inputs. |
 | `02a_pcdh19_probe_audit` | Completed | Checksum-lock the v2.0.0/GRCm39-2024-A probe references and reproduce raw three-probe Pcdh19 counts and binary patterns for all 12 technical samples without biological labels. |
 | `02b_xgfp_probe_compatibility_audit` | Completed | Validate the exact three custom Flex EGFP probes against the original Nagy/Kalantry D4/XEGFP construct-level reporter sequence before any GFP count interpretation. |
+| `02c_egfp_probe_audit` | Completed | Extract raw UMI counts for the same three exact EGFP probes from every vendor-filtered barcode, reproduce Cell Ranger's EGFP row, and report all eight detection patterns across all 12 samples. |
 | `03_canonical_inputs` | Not started | Create and validate a minimal analysis-ready object without altering source files. |
 | `04_qc_and_filtering` | Not designed | Define sample-aware cell/gene QC after the biological design and expected cell types are known. |
 | `10_primary_analysis` | Not designed | Normalize, integrate only if justified, cluster, annotate, and test approved comparisons. |
@@ -409,6 +411,52 @@ a strong descriptive correspondence, not yet a statistical result, and it
 does not make an A-negative downstream-positive barcode a mutant cell. Probe
 non-detection remains subject to sampling and assay efficiency.
 
+## Cross-sample EGFP probe-count result
+
+Step `02c_egfp_probe_audit` used the exact Step `02b`-validated probes:
+`E01=EGFP|EGFP|probe01`, `E02=EGFP|EGFP|probe02`, and
+`E03=EGFP|EGFP|probe03`. Each per-barcode count is a raw integer UMI extracted
+from `sample_raw_probe_bc_matrix.h5`. The denominator is Cell Ranger's existing
+vendor-filtered barcode set; the pipeline did not make new cell calls. For
+every barcode in all 12 samples, `E01 + E02 + E03` exactly equals the filtered
+Cell Ranger EGFP feature count.
+
+| Technical sample | Design group | Filtered cells | EGFP UMIs | EGFP-positive barcodes | Detected, % | E01 | E02 | E03 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `15662-JZ-1` | `WT_M` | 51,229 | 3 | 3 | 0.005856 | 3 | 0 | 0 |
+| `15662-JZ-2` | `WT_M` | 37,553 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `15662-JZ-3` | `WT_M` | 25,354 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `15662-JZ-4` | `WT_F` | 21,440 | 2 | 2 | 0.009328 | 2 | 0 | 0 |
+| `15662-JZ-5` | `WT_F` | 41,878 | 2 | 2 | 0.004776 | 1 | 0 | 1 |
+| `15662-JZ-6` | `WT_F` | 56,099 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `15662-JZ-7` | `HET_F` | 19,623 | 2 | 2 | 0.010192 | 2 | 0 | 0 |
+| `15662-JZ-8` | `HET_F` | 20,799 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `15662-JZ-9` | `HET_F` | 60,680 | 3 | 3 | 0.004944 | 2 | 1 | 0 |
+| `15662-JZ-10` | `KO_M` | 52,753 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `15662-JZ-11` | `KO_M` | 52,295 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `15662-JZ-12` | `KO_M` | 11,085 | 0 | 0 | 0 | 0 | 0 | 0 |
+| **Total** |  | **450,788** | **12** | **12** | **0.002662** | **10** | **1** | **1** |
+
+All 12 detected barcodes have exactly one EGFP UMI. No barcode has two or
+three EGFP probes detected: the only nonzero patterns are ten `E01 only`, one
+`E02 only`, and one `E03 only`. Thus the apparent lack of GFP is not a
+gene-visualization artifact hiding a moderate joint-probe signal. The audit
+finds an extremely sparse, non-concordant trace signal. Five of the 12 events
+occur in HET-female samples (two in JZ-7 and three in JZ-9; JZ-8 has zero), but
+that is not enough evidence to use EGFP as a reporter-based cell classifier or
+to test concordance with Pcdh19 probe patterns. No EGFP/Pcdh19 cell label was
+created.
+
+The production result is
+`/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/egfp_probe_audit`.
+It contains 221 validation rows, all `PASS`. The output-manifest SHA-256 is
+`ee81480aed00d8f9c86bba1044cc8d2ae66bd5a95a12deb269151ae2f9849f1d`.
+The JZ-1 barcode table was recreated from source and matched the independently
+frozen SHA-256
+`a6e773d19d6ea7f796848dad770c72f2f540e2205413f55f7a2dc25c0722fa4c`.
+An immediate full rerun verified every existing checksum and published no
+replacement files.
+
 ## Next action
 
 Preserve [`config/sample_key.csv`](config/sample_key.csv) as the biological
@@ -418,8 +466,12 @@ per group are independent biological replicates. Then complete the broader
 Step `02_input_audit` before canonical-object construction and formal
 sample-level comparisons. Step `00_source_discovery` remains closed unless the
 delivered source changes; do not rename the completed probe audit as Step 00.
-The X-GFP sequence gate is complete, but GFP UMI extraction remains a separate
-future action and must not be represented as part of Step `02b`.
+The X-GFP sequence gate and the separate EGFP raw-count audit are both
+complete. Do not merge Step `02c` into Step `02b`: Step `02b` establishes
+sequence compatibility, whereas Step `02c` measures observed UMIs. Because
+Step `02c` found only 12 isolated single-probe events, defer EGFP/Pcdh19
+cell-level concordance and any reporter-based cell recovery unless an
+independent reason and explicit low-count interpretation plan are established.
 
 The independent technical Pcdh19 probe audit does not ingest the sample key and
 preserves only `15662-JZ-1` through `15662-JZ-12`. Its single local
@@ -427,6 +479,14 @@ entry point is `paper3_pcdh19/bin/run_pcdh19_probe_audit_all.sh`; the matching
 batch entry is `paper3_pcdh19/slurm/pcdh19_probe_audit_all.sbatch`. The runner
 must reproduce the frozen JZ-1 barcode table SHA-256 before it can advance to
 samples 2 through 12.
+
+The analogous EGFP entry point is
+`paper3_pcdh19/bin/run_egfp_probe_audit_all.sh`; its scheduler wrapper is
+`paper3_pcdh19/slurm/egfp_probe_audit_all.sbatch`. It first checksum-validates
+the delivered panel and completed Step `02b`, then requires the independent
+JZ-1 prototype before advancing. Its descriptive design summary is the only
+Step `02c` output that joins `config/sample_key.csv`; all per-barcode tables
+retain only technical sample IDs and raw counts.
 
 The locked runner completed all 12 technical samples on 2026-08-27. All
 per-sample and combined validation rows are `PASS`; the JZ-1 barcode table is

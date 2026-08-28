@@ -186,3 +186,38 @@ for the exact probes, sequence coordinates, evidence chain, limitations, and
 machine-readable output paths. This result establishes theoretical probe
 compatibility only; it does not establish reporter expression or observed GFP
 UMIs in any sample or cell.
+
+## Locked EGFP raw-count audit
+
+Step `02c` applies the same frozen per-probe machinery used for Pcdh19 to the
+three Step `02b`-validated EGFP probes. It reads raw probe UMIs for every
+Cell Ranger filtered barcode, requires the three-probe sum to equal Cell
+Ranger's EGFP feature for every barcode, and emits all eight binary patterns.
+It does not normalize, create new cell calls, label cells, infer genotype, or
+perform an EGFP/Pcdh19 concordance analysis.
+
+Run all 12 samples locally:
+
+```bash
+./paper3_pcdh19/bin/run_egfp_probe_audit_all.sh
+```
+
+Or submit the identical entry point:
+
+```bash
+sbatch paper3_pcdh19/slurm/egfp_probe_audit_all.sbatch
+```
+
+JZ-1 is always checked against an independently frozen barcode-table checksum
+before the remaining samples can run. Existing validated outputs are verified
+and retained; different artifacts are never silently overwritten. Outputs are
+written beneath `results/egfp_probe_audit/` as per-sample barcode/summary/
+validation files, combined probe and eight-pattern summaries, a descriptive
+sample-design join, exact probe-reference provenance, environment versions,
+and a complete SHA-256 output manifest.
+
+The completed audit found 12 raw EGFP UMIs in 12 of 450,788 filtered barcodes:
+10 from `probe01`, one from `probe02`, and one from `probe03`. Every detected
+barcode has one UMI and only one probe; no joint two- or three-probe pattern is
+observed. This is an extremely sparse trace signal, not a hidden moderate GFP
+population, and it is not used for reporter-positive cell classification.

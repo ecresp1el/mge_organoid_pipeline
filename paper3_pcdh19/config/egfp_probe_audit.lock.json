@@ -1,0 +1,90 @@
+{
+  "pipeline_name": "paper3_egfp_probe_count_audit",
+  "pipeline_version": "1.0.0",
+  "panel": {
+    "probe_set_file_format": "3.0",
+    "panel_name": "Chromium Mouse Transcriptome Probe Set v2.0.0",
+    "reference_genome": "GRCm39",
+    "reference_version": "2024-A",
+    "gene_id": "EGFP",
+    "gene_name": "EGFP",
+    "chemistry_description": "GEM-X Flex v2"
+  },
+  "reference_inputs": {
+    "delivered_probe_set": {
+      "basename": "probe_set.csv",
+      "sha256": "70368b977ffd3d7ce183ebf82581d4bf0357c3c4c4bb18d8a99b013f9c77b8f1"
+    },
+    "xgfp_lock": {
+      "relative_path": "config/xgfp_probe_audit.lock.json",
+      "sha256": "9892205558c4c3551112dad4b0fd8c708c801043a4ab09b9113bb0bc68421fa3"
+    },
+    "xgfp_alignment": {
+      "relative_path": "results/xgfp_probe_audit/gfp_probe_alignment.tsv",
+      "sha256": "dd9247fa7442aae31a5236c0858c6e1958d133d2a1ca6685d55919511fde9085"
+    },
+    "xgfp_validation": {
+      "relative_path": "results/xgfp_probe_audit/validation.tsv",
+      "sha256": "587dc9c084586ac2575cf757dabf083bdd64d6eec8cbaab4bd8007a1a7887c8f"
+    },
+    "xgfp_output_manifest": {
+      "relative_path": "results/xgfp_probe_audit/output_manifest.tsv",
+      "sha256": "3d4a3affc77aa844cc779ce947ba8805a06261360b0ec4513435833d5d540912"
+    },
+    "sample_key": {
+      "relative_path": "config/sample_key.csv",
+      "sha256": "5b20e8596c28f95b6adedcb0fe17019d2a6db46384f18f02d4bfdc58803f1dc8"
+    },
+    "shared_helper": {
+      "relative_path": "scripts/pcdh19_probe_audit.py",
+      "sha256": "731edca099bcbca8fb5e968ed621c2e5d8e31e3f25b6209b5008d2eb082d7b43"
+    }
+  },
+  "probes": [
+    {
+      "label": "E01",
+      "probe_id": "EGFP|EGFP|probe01",
+      "probe_seq": "GGTAGTGGTCGGCGAGCTGCACGCTGCCGTCCTCGATGTTGTGGCGGATC",
+      "region": "unspliced",
+      "egfp_cds_start_1based": 501,
+      "egfp_cds_end_1based": 550,
+      "egfp_5prime_order": 3
+    },
+    {
+      "label": "E02",
+      "probe_id": "EGFP|EGFP|probe02",
+      "probe_seq": "AGGGTGTCGCCCTCGAACTTCACCTCGGCGCGGGTCTTGTAGTTGCCGTC",
+      "region": "unspliced",
+      "egfp_cds_start_1based": 310,
+      "egfp_cds_end_1based": 359,
+      "egfp_5prime_order": 2
+    },
+    {
+      "label": "E03",
+      "probe_id": "EGFP|EGFP|probe03",
+      "probe_seq": "ATGGTGCGCTCCTGGACGTAGCCTTCGGGCATGGCGGACTTGAAGAAGTC",
+      "region": "unspliced",
+      "egfp_cds_start_1based": 247,
+      "egfp_cds_end_1based": 296,
+      "egfp_5prime_order": 1
+    }
+  ],
+  "prototype": {
+    "sample_id": "15662-JZ-1",
+    "filtered_cells": 51229,
+    "egfp_total_umi": 3,
+    "pattern_table_sha256": "a6e773d19d6ea7f796848dad770c72f2f540e2205413f55f7a2dc25c0722fa4c",
+    "probe_total_umi": {"E01": 3, "E02": 0, "E03": 0},
+    "probe_detected_cells": {"E01": 3, "E02": 0, "E03": 0},
+    "pattern_counts": {
+      "E01+E02+E03": 0,
+      "E01+E02": 0,
+      "E01+E03": 0,
+      "E01 only": 3,
+      "E02+E03": 0,
+      "E02 only": 0,
+      "E03 only": 0,
+      "none": 51226
+    }
+  }
+}
