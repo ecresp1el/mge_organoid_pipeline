@@ -267,3 +267,15 @@ PCDH19 WT-like/KO-like classifications were not opened or used as mapping
 features. The mapping output is an independent annotation layer joined only by
 sample and exact barcode and cannot retroactively modify the frozen genotype
 classifier.
+
+## Downstream Step 08 use
+
+Formal Step 08 consumes `GSE94641_broad_state` as an immutable annotation and
+joins it by exact sample/barcode to the frozen Step 02a A/B/C probe audit. It
+preserves every primary and all-age mapping field in a compressed joined
+per-cell table but performs biological-sample comparisons only at the three
+broad-state levels. See
+[`PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md`](PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md).
+
+This downstream use does not revise the mapping, promote cryptic `mat*`/`pro*`
+codes to cell-type names, or alter the frozen PCDH19 classifier.

@@ -1,9 +1,14 @@
 # PCDH19 genotype-classification handoff
 
-**Project state: frozen after Step 07 on 2026-08-28.** Steps 03–07 are one
-completed methodological unit. Do not create Step 08, refit a model, alter a
+**Classification state: frozen after Step 07 on 2026-08-28.** Steps 03–07 are
+one completed methodological unit. Do not refit a model, alter a
 threshold, relabel a cell, or overwrite a result package. This document is the
 entry point for resuming the PCDH19 classification work.
+
+Post-freeze Step 08 has since begun a separate biological analysis of broad
+developmental-state composition and PCDH19 probe detectability. It does not
+open Step 07 as an input or modify this methodological unit. See
+[`PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md`](PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md).
 
 ## 1. Biological goal
 
@@ -173,17 +178,17 @@ cells, 19.60% are WT-like, 0.69% are KO-like, and 79.71% are uncertain.
 
 ## 8. Exact stopping point and next analysis when resumed
 
-**The genotype-classification framework is frozen after Step 07.** There is no
-Step 08 in this methodological unit. Do not retrain, recalibrate, change the
+**The genotype-classification framework is frozen after Step 07.** Step 08 is
+not part of this methodological unit. Do not retrain, recalibrate, change the
 features, move either threshold, relabel existing cells, or regenerate the
 published result packages.
 
-When the project is resumed, the next planned biological analysis is to map
+The resumed biological analysis is to map
 the frozen HET classifications onto existing cell identities/states and ask
 how WT-like, KO-like, Uncertain, and Uncalled cells are distributed across
 biologically relevant PCDH19-expressing populations.
 
-That future analysis must consume the frozen Step 07 classifications as an
+Any such analysis must consume the frozen Step 07 classifications as an
 immutable input. Cell-type or state results must never be used to retroactively
 alter the classifier, probability model, thresholds, or Step 07 labels.
 

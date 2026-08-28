@@ -1,0 +1,60 @@
+{
+  "step_id": "08_pcdh19_developmental_state_probe_detectability",
+  "pipeline_version": "0.1.0",
+  "analysis_scope": "post_freeze_developmental_state_probe_detectability",
+  "label_transfer": {
+    "step_id": "00_gse94641_e15_5_label_transfer",
+    "manifest_sha256": "ca214c2c65d6aaac6235b7b8e66b2388fbfb2e9f1ac0369de0e9bb0e53280b11",
+    "cell_file": "gse94641_query_cell_label_transfer.tsv",
+    "cell_bytes": 197117151,
+    "cell_sha256": "fc8fead9aca1bf713e06a501ca9cca1831e740cbf05d062c1b0ca34d799feda4"
+  },
+  "probe_audit": {
+    "step_id": "02a_pcdh19_probe_audit",
+    "manifest_sha256": "4b7e8450249734f5bb7f060cf47e4342f70355b32e332c64871d5e80b73c9a1b",
+    "per_sample_file": "pcdh19_probe_patterns.tsv",
+    "samples": {
+      "15662-JZ-1": {"cells": 51229, "bytes": 2165871, "sha256": "a1b98f73ec4baa0ed7074785b0976993443edf599884349620aea6ab0af9587d"},
+      "15662-JZ-2": {"cells": 37553, "bytes": 1586416, "sha256": "09361fcf43d27bf004b6b5d8b73516d1a52b28b6350eb3539834c801027e4dd0"},
+      "15662-JZ-3": {"cells": 25354, "bytes": 1069763, "sha256": "9557b5d7574a9943147e0bc11cb36a3b6c763e5f2c69deea07ace6c42933af73"},
+      "15662-JZ-4": {"cells": 21440, "bytes": 906108, "sha256": "ea4c844827f13a5b554f90fcc032c25d221ea4bac09f6abbd152c7fccf64df63"},
+      "15662-JZ-5": {"cells": 41878, "bytes": 1770170, "sha256": "a51e42331a132cf7577c63fb5f740d8d08df602bd665bbd1c1372beaaf75755a"},
+      "15662-JZ-6": {"cells": 56099, "bytes": 2372483, "sha256": "d84b8d440027f47a861fd528dc88ee0d9f5f64f61f820ea5b544d8827c643adf"},
+      "15662-JZ-7": {"cells": 19623, "bytes": 830172, "sha256": "464f4cb3ee5cfe08a1ff1de28fa7afa36f378da1674351ff574f1804117a850e"},
+      "15662-JZ-8": {"cells": 20799, "bytes": 879971, "sha256": "2bb5e003de55388240f112b6a2f8c94b7d7ca8c28e04fc0254e7f824dae2af1c"},
+      "15662-JZ-9": {"cells": 60680, "bytes": 2568046, "sha256": "f7bd88928674e50bcc17b9aa855f0ef9752d446de0e269276c66334492e63b80"},
+      "15662-JZ-10": {"cells": 52753, "bytes": 2233800, "sha256": "17780f47b109a770a488151fb1aade5405a26c6928efcb2e05005b3dcf5e5cc8"},
+      "15662-JZ-11": {"cells": 52295, "bytes": 2214665, "sha256": "e5ed85fac13eebdc126d75e37dcbb00c77d20d15d31684e12e0ee50a7cd9f44b"},
+      "15662-JZ-12": {"cells": 11085, "bytes": 469158, "sha256": "bc15a767c05752ceb3037bf6d5f9b0f645edb8c0cf647ed18c5341488dd789a3"}
+    }
+  },
+  "sample_key": {
+    "bytes": 1414,
+    "sha256": "5b20e8596c28f95b6adedcb0fe17019d2a6db46384f18f02d4bfdc58803f1dc8"
+  },
+  "broad_state_order": [
+    "proliferating_neural_progenitor",
+    "postmitotic_immature_neuron",
+    "not_assigned_neural_state"
+  ],
+  "detection_metrics": ["A_detected", "B_detected", "C_detected", "any_PCDH19_detected"],
+  "primary_comparison": {
+    "reference_group": "WT_M",
+    "comparison_group": "KO_M",
+    "replicate_unit": "biological_sample_id",
+    "test": "exact_two_sided_sample_label_permutation",
+    "expected_samples_per_group": 3,
+    "multiple_testing": "benjamini_hochberg_within_output_family"
+  },
+  "context_groups": ["WT_F", "HET_F"],
+  "plot_dpi": 200,
+  "prohibited_operations": [
+    "classifier_refitting",
+    "threshold_modification",
+    "het_model_development",
+    "cell_as_independent_replicate",
+    "fine_subtype_biological_relabeling",
+    "probe_umi_as_transcript_count"
+  ]
+}
+

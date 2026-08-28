@@ -9,8 +9,8 @@ a biological interpretation.
 Steps 03–07 are now a completed, frozen classification unit. The concise
 resume entry point is
 [`PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md`](PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md);
-the sections below retain the detailed I/O contracts. No Step 08 or
-classification-result modification is authorized by this document.
+the sections below retain the detailed I/O contracts. Step 08 is a separately
+versioned post-freeze biological analysis and cannot modify that unit.
 
 An independent Step 00 GSE94641 reference-mapping workstream has completed
 reference validation and an E15.5-focused kNN transfer to all query cells. Its
@@ -54,6 +54,12 @@ source/result ledger and safe provenance options.
 - `00_gse94641_e15_5_label_transfer`: full-age reference PCA with E15.5-primary
   fixed-k transfer plus all-age context for all 450,788 query cells; complete.
   It uses no PCDH19 classification feature.
+- `08_pcdh19_developmental_state_probe_detectability`: joins Step 00 broad
+  states to immutable Step 02a A/B/C evidence, reports sample-level state
+  composition and probe detectability, and performs the sex-matched WT-M
+  versus KO-M exact sample-label comparison. WT-F and HET-F are descriptive
+  context. Complete; it fits no classifier and does not open or alter Steps
+  03–07.
 - `01_sample_key`: user-provided mapping registered; complete, with
   experimental-unit details still to confirm.
 - `02_input_audit`: broader delivery and canonical-input audit; not complete.
@@ -1051,3 +1057,43 @@ The output-manifest SHA-256 is
 `aec9a9cf7c8575ca453fbc61172fdd6d5c28e6c9be177d662a3c7a75cb40af9d`.
 WT-like/KO-like are inferred PCDH19 probe-evidence states, not independently
 observed DNA genotypes.
+
+## Step 08 developmental-state PCDH19 probe-detectability contract
+
+Formal Step 08 is
+`scripts/Step_08_PCDH19_Developmental_State_Probe_Detectability.py`, run through
+`bin/run_step_08_pcdh19_developmental_state_probe_detectability.sh` or the
+matching SLURM wrapper. Its lock checksum-protects the Step 00 label-transfer
+manifest and cell table, every Step 02a per-sample probe table, and the sample
+key.
+
+The modular responsibilities are separated among configuration/metadata,
+probe loading, exact barcode joining, sufficient-statistic aggregation,
+sample-level inference, plotting, validation, and atomic publication. The
+per-cell output preserves every Step 00 primary and all-age label field and
+adds raw A/B/C UMI-deduplicated probe-pair ligation counts, detection states,
+any-probe detection, and pattern.
+
+The three broad states are `proliferating_neural_progenitor`,
+`postmitotic_immature_neuron`, and `not_assigned_neural_state`. The measured
+outcomes are `% A+`, `% B+`, `% C+`, and `% any PCDH19 probe+` within each
+sample/state. WT-M versus KO-M inference uses sample ID as the replicate and
+enumerates all 20 three-versus-three label assignments. WT-F and HET-F are
+context only. Cells are never treated as independent replicates.
+
+The output root is:
+
+```text
+results/step_08_pcdh19_developmental_state_probe_detectability/
+```
+
+It contains the compressed 450,788-cell exact join, per-sample composition and
+detectability tables, group summaries, exact WT-M/KO-M comparison table, three
+figures, validation, environment, lock/requirements copies, and manifest. The
+output-manifest SHA-256 is
+`296a00caf2e11cc41ad81dddc154f77fb60d0b7b2887320a9a42ee87ba95b76b`.
+
+Step 08 has no estimator or threshold code, does not open Step 07, and cannot
+modify Steps 03–07. Probe UMIs remain probe-level ligation evidence rather than
+transcript counts. Full biological interpretation is in
+[`PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md`](PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md).

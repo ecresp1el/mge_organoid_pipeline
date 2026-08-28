@@ -17,15 +17,28 @@ coordinates retained.
 This preprocessing work is independent of the frozen PCDH19 classification
 unit below. It does not read PCDH19 classifications or alter Steps 03–07.
 
-## Resume point: frozen PCDH19 classification unit
+## Current biological analysis: developmental-state probe detectability
+
+Formal Step 08 joins the independent GSE94641 broad developmental states to
+the frozen per-cell PCDH19 probe observations. It reports sample-level state
+composition and `% A+`, `% B+`, `% C+`, and `% any PCDH19 probe+` by state and
+design group. Start with
+[`PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md`](PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md).
+
+The validated Step 08 package contains all 450,788 cells. Step 08 is downstream
+biological description: it neither opens nor modifies any classifier,
+coefficient, threshold, probability, or Step 07 classification.
+Its `output_manifest.tsv` SHA-256 is
+`296a00caf2e11cc41ad81dddc154f77fb60d0b7b2887320a9a42ee87ba95b76b`.
+
+## Frozen PCDH19 classification unit
 
 The PCDH19 genotype-classification workflow is complete and frozen after Step
 07. Start with
 [`PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md`](PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md)
-when returning to this analysis. Do not create Step 08 or modify the Step 03–07
-models, thresholds, classifications, or result packages. Any future cell-state
-analysis must consume the frozen Step 07 table without feeding results back
-into the classifier.
+when auditing the classification methods. Do not modify the Step 03–07 models,
+thresholds, classifications, or result packages. Post-freeze biological steps
+must remain downstream and cannot feed results back into the classifier.
 
 ## Correct Turbo allocation
 
@@ -78,6 +91,8 @@ counts range from 11,085 to 60,680.
   [`PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md`](PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md)
 - GSE94641 rapid MGE reference validation, transfer, and limitations:
   [`MGE_REFERENCE_MAPPING.md`](MGE_REFERENCE_MAPPING.md)
+- Step 08 developmental-state composition and PCDH19 probe detectability:
+  [`PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md`](PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md)
 - Verified generated-asset and run ledger:
   [`ASSET_AND_RUN_INVENTORY.md`](ASSET_AND_RUN_INVENTORY.md)
 - X-GFP construct/Flex compatibility audit:
@@ -630,3 +645,28 @@ four figures, validation, environment, and manifest files accompany it.
 HET cells contributed zero observations to model fitting, calibration,
 threshold selection, or validation. `WT_like` and `KO_like` describe inferred
 PCDH19 probe evidence and are not independently observed DNA genotypes.
+
+## Step 08 developmental-state PCDH19 detectability
+
+Step 08 joins all Step 00 transferred labels to the exact frozen Step 02a
+per-cell A/B/C evidence. It preserves all 450,788 cells and all primary/all-age
+annotation fields, while summarizing composition and probe detection with
+biological sample—not cell—as the replicate.
+
+```bash
+./paper3_pcdh19/bin/run_step_08_pcdh19_developmental_state_probe_detectability.sh
+sbatch paper3_pcdh19/slurm/step_08_pcdh19_developmental_state_probe_detectability.sbatch
+```
+
+The direct WT-M versus KO-M comparison uses JZ-1–3 and JZ-10–12 and all 20
+exact three-versus-three sample-label assignments. WT-F and HET-F are
+descriptive context. Progenitors, rather than immature neurons, have the
+highest PCDH19 detectability in every group. Within both assigned states, A is
+appreciable in WT, nearly absent in KO, and intermediate in HET; B/C remain
+KO-enriched. No reproducible WT-M/KO-M broad-state composition shift is
+supported by the six samples.
+
+Outputs are under
+`results/step_08_pcdh19_developmental_state_probe_detectability/`; interpretation,
+exact effects, and limitations are in
+[`PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md`](PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md).
