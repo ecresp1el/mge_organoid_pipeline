@@ -64,8 +64,8 @@ this diagnostic result. Do not silently add weighting or optimize the threshold
 inside the baseline.
 
 Step 05 still performs no final model selection, threshold optimization, or
-HET inference. Do not create Step 06 until its scientific responsibility is
-defined.
+HET inference. Step 06 now owns inference-only application of both established
+full-fit models; those responsibilities must not be moved back into Step 05.
 
 Step 05 now also owns the separately manifested descriptive module
 `a_negative_raw_bc_umi_evidence/`. It restricts the registered WT-M+F and KO-M
@@ -100,6 +100,72 @@ improvement; equally weighted mean sample accuracy decreases from 50.613% to
 49.983%. This is not proof that the count model generalizes robustly or should
 be selected for HET inference. The 15-file package manifest is
 `cf68ee398a2d3a9e19e3de05a59be50d9aed2bfe1084b3445f63ab47e556130f`.
+
+The read-only `sample_level_probe_evidence_diagnostics/` package reconciles all
+349,686 WT-M/WT-F/KO-M cells to manifested raw probe rows; no eligible cell is
+dropped and no HET table is opened. JZ-12 is modestly weaker than JZ-10/JZ-11
+in A-negative B+C evidence (mean 0.2536 versus 0.2700/0.2867; zero fraction
+80.40% versus 79.11%/78.29%), but remains biologically KO-like. The 2,373
+count-model corrections are B+C=2 (2,070) or 3+ (303); 585/587 regressions are
+B+C=1 and occur in JZ-12. This identifies a fold-specific one-UMI decision
+effect rather than a categorically anomalous JZ-12 probe distribution.
+
+The AUC audit confirms KO=`1`, P(KO) scoring, and consistent orientation.
+Reversing to P(WT) yields AUC above 0.5 but is only a diagnostic; do not replace
+the immutable stored AUCs. The 29-file diagnostic package passed 46 checks and
+has manifest SHA-256
+`ad4bb28c6fce5adea9b66916378e43c2407ef6d74d67d47d65d2f10f77ecf7fe`.
+
+Step `06_pcdh19_het_female_inference` is implemented and complete. It verifies
+the exact Step 05 expanded binary and count-informed full-fit models, loads
+only JZ-7--9 HET-female probe rows for inference, and applies both models
+unchanged. The 101,102-row per-cell output preserves sample, barcode, raw
+A/B/C probe-level UMI/ligation counts, detection states, pattern, and both
+models' WT/KO probabilities. HET rows never enter fitting, coefficient
+estimation, weighting, model selection, or threshold optimization. No cell
+type is loaded and no HET genotype call is created.
+
+Exact `000` accounts for 81.26%, 81.23%, and 79.16% of JZ-7--9 and is labeled
+`uncalled_000`. A+ fractions are 2.40%, 5.16%, and 3.99%. Among A-negative
+cells, B+C=2/3+ totals 3.45%, 2.35%, and 3.68%, intermediate between WT-F
+(1.23%) and KO-M (4.90%). Non-`000` mean count-informed P(KO) values are
+0.492, 0.403, and 0.458, versus 0.250 for WT-F and 0.570 for KO-M. Each HET
+sample shows low-P(KO) A-detected and higher-P(KO) A-negative/B/C evidence.
+That is consistent with mixed WT-like and KO-like probe evidence, but control
+overlap and Step 05's sample-level limitations prevent interpreting these
+modes as validated cellular genotypes.
+
+The Step 06 package is at
+`results/step_06_pcdh19_het_female_inference/`; all checks and immediate
+idempotent verification pass. Its output-manifest SHA-256 is
+`8d5bf77448fee3fc67991094960fa355a826def67de0e53777d712a8079d9a2a`.
+
+Step `07_pcdh19_het_female_wt_ko_like_classification` is implemented and
+complete. It selects thresholds before opening HET data, using only the exact
+Step 05 count-informed leave-one-sample-out WT-M/WT-F/KO-M probabilities. The
+prespecified target is at least 95% held-out precision with maximum coverage;
+if that is unavailable, the fallback is maximum precision then maximum
+coverage.
+
+The frozen rule is WT-like at P(KO)<=0.301037619832, KO-like at
+P(KO)>=0.911554020713, uncertain between, and `Uncalled_000` for exact `000`.
+WT-like achieves 99.684% precision and 55.042% informative-WT sensitivity.
+The KO-like 95% target is not achievable: the retained best KO-enriched tail
+has 76.316% precision, 0.471% informative-KO sensitivity, and 152 held-out
+calls. Keep this KO-like category, but always state that its validation
+confidence is lower than WT-like.
+
+The resulting HET counts are JZ-7: 471 WT-like, 26 KO-like, 3,180 uncertain,
+15,946 `000`; JZ-8: 1,074, 10, 2,820, 16,895; and JZ-9: 2,419, 104, 10,123,
+48,034. Pooled informative proportions are 19.598% WT-like, 0.692% KO-like,
+and 79.710% uncertain. These are inferred PCDH19 probe-evidence states, not
+independently observed DNA genotypes.
+
+HET rows influenced no model coefficient, feature, calibration, threshold, or
+performance estimate, and no cell type was loaded. The complete package is at
+`results/step_07_pcdh19_het_female_wt_ko_like_classification/`; its manifest
+SHA-256 is
+`aec9a9cf7c8575ca453fbc61172fdd6d5c28e6c9be177d662a3c7a75cb40af9d`.
 
 ## Correct allocation and source
 

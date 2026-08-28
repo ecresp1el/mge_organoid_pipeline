@@ -1,6 +1,6 @@
 {
   "step_id": "05_pcdh19_logistic_regression_baseline",
-  "pipeline_version": "0.5.0",
+  "pipeline_version": "0.6.0",
   "upstream_step_ids": [
     "03_pcdh19_genotype_classification_setup",
     "04_pcdh19_empirical_pattern_classifier"
@@ -184,5 +184,40 @@
       "tie_behavior": "uncalled",
       "threshold_optimized": false
     }
+  },
+  "existing_count_informed_comparison_package": {
+    "relative_directory": "count_informed_vs_binary_validation",
+    "output_manifest_sha256": "cf68ee398a2d3a9e19e3de05a59be50d9aed2bfe1084b3445f63ab47e556130f",
+    "paired_predictions_sha256": "8774c76e1b646241157202c08a1d6ff9cddff4687d644466e5b4924c18203d6e"
+  },
+  "sample_level_probe_evidence_diagnostics": {
+    "relative_directory": "sample_level_probe_evidence_diagnostics",
+    "cohort_id": "wt_male_female_vs_ko_male",
+    "source_package": "existing_count_informed_comparison_package",
+    "expected_total_cells": 349686,
+    "expected_exact_zero_cells": 284372,
+    "expected_called_cells_per_model": 65314,
+    "subsets": ["all", "A_negative", "A_positive"],
+    "measures": ["B_UMI", "C_UMI", "B_plus_C_UMI"],
+    "umi_bins": ["0", "1", "2", "3+"],
+    "selected_quantiles": [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1.0],
+    "performance_strata": [
+      "all",
+      "A_detected",
+      "A_not_detected",
+      "B_plus_C_0",
+      "B_plus_C_1",
+      "B_plus_C_2",
+      "B_plus_C_3plus",
+      "Anegative_B_plus_C_0",
+      "Anegative_B_plus_C_1",
+      "Anegative_B_plus_C_2",
+      "Anegative_B_plus_C_3plus"
+    ],
+    "normalization": "none_raw_molecule_counts",
+    "count_interpretation": "raw_probe_level_umi_ligation_evidence_not_transcript_numbers",
+    "classifier_fitting_permitted": false,
+    "prediction_changes_permitted": false,
+    "het_cells_permitted": false
   }
 }

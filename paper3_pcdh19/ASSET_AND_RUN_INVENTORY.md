@@ -17,11 +17,11 @@ column-level contract in
 | `02c_egfp_probe_audit` | Raw EGFP UMI contribution of three validated probes | Complete, 55/55 manifested non-manifest files passed byte-size and SHA-256 verification | 12 EGFP UMIs in 12 of 450,788 vendor-filtered barcodes. |
 | `03_pcdh19_genotype_classification_setup` | Registered WT-male/KO-male ground-truth cells with raw A/B/C probe features | Complete, 4/4 manifested non-manifest files passed byte-size and SHA-256 verification | Classification-ready table contains 230,269 cells; no classifier is fitted. |
 | `04_pcdh19_empirical_pattern_classifier` | Empirical WT/KO evidence for all eight binary A/B/C states | Complete, 7/7 manifested non-manifest files passed byte-size and SHA-256 verification | Eight-row probability/likelihood-ratio model and three diagnostic plots; no hard calls or HET inference. |
-| `05_pcdh19_logistic_regression_baseline` | Preserved binary logistic baselines, descriptive raw B/C evidence, and paired `A_detected + B_UMI + C_UMI` comparison | Complete: base 9/9, male-only 10/10, expanded 18/18, raw-count 10/10, and paired-comparison 15/15 manifested files passed byte-size/SHA-256 verification | Counts modestly improve pooled called-cell accuracy and KO sensitivity but not consistently across held-out samples; HET females remain withheld. |
+| `05_pcdh19_logistic_regression_baseline` | Preserved logistic packages plus raw-count, paired-model, and biological-sample diagnostics | Complete: prior packages plus sample diagnostic 29/29 manifested files passed byte-size/SHA-256 verification | JZ-12 is only modestly weaker in raw B+C evidence; its performance reversal is concentrated in one-UMI cells. HET females remain withheld. |
 | Downstream QC/cell biology | New QC calls, normalization, integration, clustering, cell types, differential expression, genotype effects | No such analysis is implemented or represented by these outputs | Not analyzed by Steps 02a-05. |
 | Figures | Publication or exploratory figures | `final_figures/` was empty at inspection | No Paper 3 figure asset is claimed. |
 
-The ten result manifests had no missing, size-mismatched, or checksum-
+The eleven result manifests had no missing, size-mismatched, or checksum-
 mismatched declared files. The original Step 05 manifest intentionally covers
 only its nine base artifacts; its two registered nested validation packages
 its raw-count evidence package, and its paired count-model comparison have
@@ -42,11 +42,11 @@ manifest is intentionally not self-listed.
 | Asset class | Files | Role |
 | --- | --- | --- |
 | Python computation | `scripts/pcdh19_probe_audit.py`, `scripts/xgfp_probe_compatibility_audit.py`, `scripts/egfp_probe_audit.py`, `scripts/Step_03_PCDH19_Genotype_Classification_Setup.py`, `scripts/Step_04_PCDH19_Empirical_Pattern_Classifier.py`, `scripts/Step_05_PCDH19_Logistic_Regression_Baseline.py` | Reference validation, count extraction/alignment, metadata joins, empirical and logistic modeling, probability comparison, plotting, validation, atomic publication, and manifests. Steps 03-05 use the object-oriented modular classification pattern. |
-| Supported shell entry points | `bin/run_pcdh19_probe_audit_all.sh`, `bin/run_xgfp_probe_audit.sh`, `bin/run_egfp_probe_audit_all.sh`, `bin/run_step_03_pcdh19_genotype_classification_setup.sh`, `bin/run_step_04_pcdh19_empirical_pattern_classifier.sh`, `bin/run_step_05_pcdh19_logistic_regression_baseline.sh` | Resolve configuration, enforce environments where needed, invoke Python, and capture timestamped logs. |
+| Supported shell entry points | `bin/run_pcdh19_probe_audit_all.sh`, `bin/run_xgfp_probe_audit.sh`, `bin/run_egfp_probe_audit_all.sh`, `bin/run_step_03_pcdh19_genotype_classification_setup.sh`, `bin/run_step_04_pcdh19_empirical_pattern_classifier.sh`, `bin/run_step_05_pcdh19_logistic_regression_baseline.sh`, `bin/run_step_06_pcdh19_het_female_inference.sh`, `bin/run_step_07_pcdh19_het_female_wt_ko_like_classification.sh` | Resolve configuration, enforce environments where needed, invoke Python, and capture timestamped logs. |
 | Discovery/initialization helpers | `bin/check_candidate_access.sh`, `bin/initialize_turbo.sh` | Metadata-only access inventory and output-directory setup; neither analyzes expression. |
-| SLURM wrappers | `slurm/pcdh19_probe_audit_all.sbatch`, `slurm/egfp_probe_audit_all.sbatch`, `slurm/step_03_pcdh19_genotype_classification_setup.sbatch`, `slurm/step_04_pcdh19_empirical_pattern_classifier.sbatch`, `slurm/step_05_pcdh19_logistic_regression_baseline.sbatch` | Allocate Great Lakes resources and invoke the same shell entry points; no scientific logic. |
-| Scientific locks | `config/*probe_audit.lock.json`, `config/step_03_pcdh19_genotype_classification_setup.lock.json`, `config/step_04_pcdh19_empirical_pattern_classifier.lock.json`, `config/step_05_pcdh19_logistic_regression_baseline.lock.json` | Freeze panel/reference/probe/prototype identities or downstream classification input/schema/model contracts. |
-| Environment pins | `config/*probe_audit.requirements.txt`, `config/step_04_pcdh19_empirical_pattern_classifier.requirements.txt`, `config/step_05_pcdh19_logistic_regression_baseline.requirements.txt` | Pin count-audit and NumPy/Matplotlib classification environments. |
+| SLURM wrappers | `slurm/pcdh19_probe_audit_all.sbatch`, `slurm/egfp_probe_audit_all.sbatch`, `slurm/step_03_pcdh19_genotype_classification_setup.sbatch`, `slurm/step_04_pcdh19_empirical_pattern_classifier.sbatch`, `slurm/step_05_pcdh19_logistic_regression_baseline.sbatch`, `slurm/step_06_pcdh19_het_female_inference.sbatch`, `slurm/step_07_pcdh19_het_female_wt_ko_like_classification.sbatch` | Allocate Great Lakes resources and invoke the same shell entry points; no scientific logic. |
+| Scientific locks | `config/*probe_audit.lock.json`, `config/step_03_pcdh19_genotype_classification_setup.lock.json`, `config/step_04_pcdh19_empirical_pattern_classifier.lock.json`, `config/step_05_pcdh19_logistic_regression_baseline.lock.json`, `config/step_06_pcdh19_het_female_inference.lock.json`, `config/step_07_pcdh19_het_female_wt_ko_like_classification.lock.json` | Freeze panel/reference/probe/prototype identities or downstream classification input/schema/model contracts. |
+| Environment pins | `config/*probe_audit.requirements.txt`, `config/step_04_pcdh19_empirical_pattern_classifier.requirements.txt`, `config/step_05_pcdh19_logistic_regression_baseline.requirements.txt`, `config/step_06_pcdh19_het_female_inference.requirements.txt`, `config/step_07_pcdh19_het_female_wt_ko_like_classification.requirements.txt` | Pin count-audit and NumPy/Matplotlib classification environments. |
 | Dataset/design registries | `input_candidates.tsv`, `sample_manifest_draft.tsv`, `sample_key.csv` | Separate source candidates, verified vendor technical metrics, and user-provided biological labels. |
 | Path configuration | `config/greatlakes.env` | Resolve source, reference, output, account, and partition paths. |
 
@@ -141,6 +141,34 @@ manifest is intentionally not self-listed.
   immutable binary comparator. Probe counts are UMI/ligation evidence, not
   transcript numbers. No HET row, count normalization, interaction, weight,
   or threshold optimization entered the comparison.
+
+### Step 06: PCDH19 HET-female inference
+
+- The exact Step 05 binary and count-informed full-fit coefficient tables were
+  loaded by checksum; no model was refit or modified.
+- Only JZ-7--9 HET-female probe tables were opened for inference. Sample,
+  barcode, raw A/B/C counts, detection states, and pattern are retained.
+- WT-M/WT-F/KO-M controls were loaded from the immutable Step 05 paired table
+  only to create reference distributions.
+- HET rows supplied no target, weight, threshold, model-selection statistic,
+  or coefficient estimate. No cell-type field was read.
+- `000` retains model probabilities for auditability but is explicitly
+  `uncalled_000`; no non-`000` cell receives a WT/KO genotype call either.
+
+### Step 07: HET-female WT-like/KO-like classification
+
+- Thresholds are selected from the immutable Step 05 count-model LOSO
+  probabilities before the Step 06 HET table is opened.
+- Candidate tails use all unique informative-control probabilities and a
+  prespecified 95% precision target with maximum coverage. The locked fallback
+  is maximum precision then maximum coverage if 95% is unavailable.
+- WT-like is P(KO)<=0.301037619832; KO-like is
+  P(KO)>=0.911554020713; the interval is uncertain; `000` is separate.
+- WT-like achieved 99.684% control precision. No KO cutoff achieved 95%; the
+  retained KO-like enriched tier achieved 76.316%. It remains usable but is
+  not documented as equivalent in confidence.
+- HET rows influenced no model, calibration, feature, threshold, or validation
+  calculation. Cell types remain out of scope.
 
 ## Cached and installed assets generated by the runs
 
@@ -406,6 +434,70 @@ fit per-additional-UMI KO:WT odds ratios are 2.143 for B and 2.329 for C. The
 package manifest SHA-256 is
 `cf68ee398a2d3a9e19e3de05a59be50d9aed2bfe1084b3445f63ab47e556130f`.
 
+The nested `sample_level_probe_evidence_diagnostics/` package has 29 manifested
+assets totaling 2,324,409 bytes: flow, overall/A-negative/A-positive summaries
+and bins, exact distributions, state-stratified performance and transitions,
+within-genotype pairwise sample comparisons, AUC audit, concise sample table,
+12 PNGs, checks, scope, environment, and provenance. All 46 checks pass. Its
+manifest SHA-256 is
+`ad4bb28c6fce5adea9b66916378e43c2407ef6d74d67d47d65d2f10f77ecf7fe`.
+
+### Step 06 result root
+
+`results/step_06_pcdh19_het_female_inference/` contains 13 manifested assets
+totaling 18,127,760 bytes: 101,102 per-cell HET probabilities, per-sample and
+pattern summaries, A-negative raw B/C distributions, control-relative
+probability summaries/histograms, frozen model identity, four PNGs,
+validation, and environment provenance.
+
+| HET sample | Cells | `000` | A+ | Mean binary P(KO), non-`000` | Mean count P(KO), non-`000` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| JZ-7 | 19,623 | 81.262% | 2.400% | 0.496 | 0.492 |
+| JZ-8 | 20,799 | 81.230% | 5.164% | 0.410 | 0.403 |
+| JZ-9 | 60,680 | 79.160% | 3.990% | 0.463 | 0.458 |
+
+The corresponding count-informed non-`000` means are 0.250 in WT-F and 0.570
+in KO-M. A-negative B+C=2/3+ evidence is also intermediate: 3.45%, 2.35%, and
+3.68% in JZ-7--9 versus 1.23% in WT-F and 4.90% in KO-M. The probability
+figures contain low-P(KO) A-detected and higher-P(KO) A-negative/B/C modes in
+each HET sample. This is compatible with mosaic probe evidence but does not
+establish validated genotype calls or prove two biological populations.
+
+All Step 06 checks pass. Publication completed at 2026-08-28 18:31:06 UTC and
+an immediate idempotent verification rerun completed at 18:31:29 UTC. The
+output-manifest SHA-256 is
+`8d5bf77448fee3fc67991094960fa355a826def67de0e53777d712a8079d9a2a`.
+
+### Step 07 result root
+
+`results/step_07_pcdh19_het_female_wt_ko_like_classification/` contains 14
+manifested assets totaling 11,171,994 bytes: the frozen calling rule, all 502
+control threshold candidates, overall/per-sample/category/confusion control
+validation, 101,102 HET cell classifications, sample/pooled HET summaries,
+four PNGs, validation, and environment provenance.
+
+The held-out rule classifies 22,631 controls: 6.472% of all and 34.650% of
+informative controls. WT-like precision is 99.684%; KO-like precision is
+76.316%. WT sensitivity is 55.042%, KO sensitivity is 0.471%, and 65.350% of
+informative controls are uncertain.
+
+| HET sample | WT-like | KO-like | Uncertain | Uncalled-000 |
+| --- | ---: | ---: | ---: | ---: |
+| JZ-7 | 471 | 26 | 3,180 | 15,946 |
+| JZ-8 | 1,074 | 10 | 2,820 | 16,895 |
+| JZ-9 | 2,419 | 104 | 10,123 | 48,034 |
+| Pooled | 3,964 | 140 | 16,123 | 80,875 |
+
+Among informative HET cells, pooled proportions are 19.598% WT-like, 0.692%
+KO-like, and 79.710% uncertain. The KO-like cells are a retained KO-enriched
+probe-evidence tier with 76.32% held-out precision, not genetically proven KO
+cells and not a 95%-precision tier.
+
+All checks and an immediate idempotent rerun pass. Publication completed at
+2026-08-28 18:46:49 UTC and verification at 18:47:55 UTC. The output-manifest
+SHA-256 is
+`aec9a9cf7c8575ca453fbc61172fdd6d5c28e6c9be177d662a3c7a75cb40af9d`.
+
 ## Run evidence and failed attempts
 
 The timestamped runner logs show direct execution on Great Lakes login hosts.
@@ -450,6 +542,13 @@ inventory does not claim that any committed SLURM wrapper was submitted.
   18:01:56 UTC. An otherwise valid preliminary package lacking the explicit
   equally weighted mean-sample metric was moved to system trash before the
   final publication and is not a scientific result asset.
+- The Step 05 biological-sample diagnostic published successfully and its
+  immediate manifest/provenance rerun completed at 2026-08-28 18:17:32 UTC.
+- Step 06 published all HET-female inference outputs successfully and passed
+  immediate manifest/provenance verification at 2026-08-28 18:31:29 UTC.
+- Step 07 published the frozen control-derived rule, held-out validation, and
+  HET classifications successfully and passed immediate manifest/provenance
+  verification at 2026-08-28 18:47:55 UTC.
 
 Failed logs are retained as provenance; they are not scientific result assets.
 
@@ -512,3 +611,21 @@ and lock SHA-256
 both recorded in its `software_environment.tsv`. The base, male-only,
 expanded, and descriptive raw-count package manifest identities remained
 unchanged.
+
+The sample diagnostic was generated from Step 05 Python SHA-256
+`a41c08dc5f1f40e28c7cbf8e3e5b67129d28116dbabb14fcd69d2297a8639afa`,
+diagnostic-module SHA-256
+`3a8cc9346b30508f1d154def1d17edb2811dfa7fd61a1898f45a89bf92b1c829`,
+and lock SHA-256
+`58de9bd5f74ce87be2b9566d5976555c51f5df96851edd88d303cba6c1dc99a6`.
+
+Step 06 was generated from Python SHA-256
+`d710e6fcbef46520768f722f6fa88f994e749c6cb56a41168ddd472ab1b5799e`
+and lock SHA-256
+`f7cba8ee1476b60c705ae48c267ca44d8f6eca6903e11fae755e7baf4de0c830`.
+
+Step 07 was generated from Python SHA-256
+`afd40992d1092520be78cc5099410b278e889d7b04f495b3cd6952549a95485d`
+and lock SHA-256
+`ff414387703c9b93f8150e633e9d4615de2f55ac1afdc4a14c7be5a9a4cf997d`.
+Both are recorded in their published `software_environment.tsv` files.

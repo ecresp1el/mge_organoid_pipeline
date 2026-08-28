@@ -25,6 +25,9 @@
 #   folds and compares it directly with the immutable binary model. Counts are
 #   not transcript numbers. No weighting, interaction, threshold change, or
 #   HET-cell loading is introduced.
+#   A final read-only sample-level diagnostic verifies the immutable paired
+#   cells against manifested raw probe rows and summarizes flow, distributions,
+#   probe-state errors, sample pairs, and AUC orientation. It changes no model.
 set -Eeuo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"

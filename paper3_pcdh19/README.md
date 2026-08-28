@@ -409,6 +409,21 @@ results/step_05_pcdh19_logistic_regression_baseline/
     step_05_count_informed_validation_checks.tsv
     software_environment.tsv
     output_manifest.tsv
+  sample_level_probe_evidence_diagnostics/
+    step_05_sample_cell_flow.tsv
+    step_05_genotype_cell_flow.tsv
+    step_05_per_sample_probe_summary.tsv
+    step_05_per_sample_Anegative_probe_summary.tsv
+    step_05_per_sample_Apositive_probe_summary.tsv
+    step_05_per_sample_probe_umi_distribution.tsv
+    three UMI-bin composition tables
+    step_05_prediction_performance_by_probe_state.tsv
+    step_05_binary_vs_count_error_transitions_by_probe_state.tsv
+    step_05_sample_pairwise_probe_comparison.tsv
+    step_05_auc_orientation_audit.tsv
+    step_05_sample_probe_interpretation.tsv
+    12 diagnostic PNGs
+    scope, validation, environment, and output-manifest TSVs
 ```
 
 All `000` cells remain in the fit, making the intercept their baseline log
@@ -478,3 +493,115 @@ detection state, but not robust biological-sample generalization or a final
 model choice. No
 weighting, threshold optimization, interaction, nonlinear term, or HET
 inference is introduced.
+
+The biological-sample diagnostic verifies all 349,686 paired cells against the
+raw manifested Step 02a rows and excludes no eligible WT/KO control. All
+284,372 exact-zero cells remain present but uncalled; both models call the
+same 65,314 cells. JZ-10/JZ-11/JZ-12 have A-negative B+C means of 0.2700,
+0.2867, and 0.2536 and exact-zero proportions of 79.11%, 78.29%, and 80.40%,
+respectively. JZ-12 is therefore modestly weaker in B+C evidence, not a
+qualitatively different KO sample. Count-model corrections occur at B+C=2
+(2,070) and 3+ (303); 585/587 regressions occur at B+C=1 and specifically in
+JZ-12. The AUC audit confirms KO=`1` and P(KO) are oriented correctly; reversed
+P(WT) gives 0.746/0.799 only as a diagnostic, not a corrected replacement.
+
+## Step 06 PCDH19 HET-female inference
+
+Step 06 applies the two immutable Step 05 WT-M+F/KO-M full-fit models to the
+three registered HET-female samples. It performs no fitting, coefficient
+estimation, weighting, model selection, threshold optimization, genotype
+calling, or cell-type stratification.
+
+Run directly or through Great Lakes:
+
+```bash
+./paper3_pcdh19/bin/run_step_06_pcdh19_het_female_inference.sh
+sbatch paper3_pcdh19/slurm/step_06_pcdh19_het_female_inference.sbatch
+```
+
+Outputs are published atomically beneath:
+
+```text
+results/step_06_pcdh19_het_female_inference/
+  step_06_het_female_cell_probabilities.tsv
+  step_06_het_female_sample_summary.tsv
+  step_06_het_female_pattern_distribution.tsv
+  step_06_het_female_a_negative_bc_evidence_distribution.tsv
+  step_06_het_and_control_probability_summary.tsv
+  step_06_het_and_control_probability_histograms.tsv
+  step_06_frozen_step_05_model_identity.tsv
+  four step_06 diagnostic PNGs
+  step_06_het_female_inference_validation.tsv
+  software_environment.tsv
+  output_manifest.tsv
+```
+
+The per-cell table contains all 101,102 JZ-7--9 cells, sample/barcode, raw
+A/B/C probe-level UMI/ligation counts, detection states, pattern, and both
+models' WT/KO probabilities. All 80,875 exact `000` cells retain auditable
+probabilities but are labeled `uncalled_000`; every other row is explicitly
+`probability_only_no_genotype_call`.
+
+The HET samples are intermediate between control distributions. Their `000`
+fractions are 81.26%, 81.23%, and 79.16%; A-positive fractions are 2.40%,
+5.16%, and 3.99%. Among A-negative cells, B+C=2 or 3+ comprises 3.45%, 2.35%,
+and 3.68%, compared with 1.23% in WT-F and 4.90% in KO-M. Among non-`000`
+cells, mean count-informed P(KO) is 0.492, 0.403, and 0.458, versus 0.250 in
+WT-F and 0.570 in KO-M. The control-relative figures show both low-P(KO)
+A-detected evidence and higher-P(KO) A-negative B/C evidence in every HET
+sample. This is consistent with mixed WT-like and KO-like probe evidence, but
+it is not by itself proof of two biologically separable cell genotypes because
+the control distributions overlap and the Step 05 models have known
+sample-level limitations.
+
+## Step 07 HET-female WT-like/KO-like classification
+
+Step 07 uses the frozen Step 05 count-informed model probabilities. Before any
+Step 06 HET row is opened, it evaluates all unique informative held-out-control
+P(KO) values as WT-like lower-tail or KO-like upper-tail cutoffs. The
+prespecified objective is at least 95% empirical precision with maximum
+coverage; if the target is unavailable, the rule retains the maximum
+achievable precision and maximum coverage among ties.
+
+```bash
+./paper3_pcdh19/bin/run_step_07_pcdh19_het_female_wt_ko_like_classification.sh
+sbatch paper3_pcdh19/slurm/step_07_pcdh19_het_female_wt_ko_like_classification.sbatch
+```
+
+The frozen rule is:
+
+```text
+000                                  -> Uncalled_000
+non-000 and P(KO) <= 0.301037619832 -> WT_like
+non-000 and P(KO) >= 0.911554020713 -> KO_like
+between thresholds                   -> Uncertain
+```
+
+The WT-like cutoff achieved 99.684% held-out precision and 55.042%
+informative-WT sensitivity. The 95% target was not achievable for KO-like
+calls. The retained best validated KO-like cutoff has 76.316% precision and
+0.471% informative-KO sensitivity; only 152 held-out controls entered that
+tail. It is therefore a usable KO-enriched probe-evidence category, but not a
+confidence tier equivalent to WT-like.
+
+Across held-out controls, 22,631/349,686 cells are called (6.472% of all cells,
+34.650% of informative cells), 42,683 informative cells are uncertain, and
+284,372 are `000`. The called-cell confusion counts are WT->WT-like 22,408,
+WT->KO-like 36, KO->WT-like 71, and KO->KO-like 116.
+
+| Sample | WT-like | KO-like | Uncertain | Uncalled-000 | WT/KO/uncertain among informative |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| JZ-7 | 471 | 26 | 3,180 | 15,946 | 12.81% / 0.71% / 86.48% |
+| JZ-8 | 1,074 | 10 | 2,820 | 16,895 | 27.51% / 0.26% / 72.23% |
+| JZ-9 | 2,419 | 104 | 10,123 | 48,034 | 19.13% / 0.82% / 80.05% |
+| Pooled | 3,964 | 140 | 16,123 | 80,875 | 19.60% / 0.69% / 79.71% |
+
+Outputs are in
+`results/step_07_pcdh19_het_female_wt_ko_like_classification/`. The per-cell
+table is `step_07_het_female_cell_classifications.tsv`; rule, full threshold
+tradeoff, overall/per-sample control validation, confusion/category tables,
+four figures, validation, environment, and manifest files accompany it.
+
+HET cells contributed zero observations to model fitting, calibration,
+threshold selection, or validation. `WT_like` and `KO_like` describe inferred
+PCDH19 probe evidence and are not independently observed DNA genotypes.

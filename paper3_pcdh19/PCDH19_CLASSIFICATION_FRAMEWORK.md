@@ -24,17 +24,27 @@ using WT-M+F and KO-M controls (no classifier fit)
 and a paired nine-fold model comparison:
   binary A/B/C detection versus
   A detection + raw B/C probe-level UMI evidence
+and a read-only biological-sample probe-evidence diagnostic
     ↓
-future model comparison and confidence logic
+Step 06
+inference-only application of both frozen Step 05 full-fit models to
+JZ-7--9 HET-female cells; probability/evidence distributions only
     ↓
-eventual HET-cell inference
+Step 07
+control-only precision-first threshold selection from Step 05 held-out
+count-model predictions, followed by frozen WT-like/KO-like HET calls
+    ↓
+future downstream cell-state work, only under a new formal contract
 ```
 
-Steps 03 through 05 are implemented. Step 05 compares the preserved male-only
+Steps 03 through 07 are implemented. Step 05 compares the preserved male-only
 benchmark with the expanded WT-M+F/KO-M cohort and now compares the binary
-model with one count-informed main-effects implementation. No current step
-performs final model selection, class reweighting, threshold optimization, or
-HET inference.
+model with one count-informed main-effects implementation. Step 06 applies
+both established full-fit models unchanged to HET females. No current step
+uses HET data for fitting, coefficient estimation, weighting, model selection,
+or threshold optimization. Step 07 is the first step that assigns HET
+probe-state categories, but HET cells remain absent from both model and
+threshold development.
 
 ## Step ownership
 
@@ -43,9 +53,11 @@ HET inference.
 | Step 03 | Validated loading of Step 02a per-cell PCDH19 probe observations; registered WT-male/KO-male annotation; the stable classification-ready cell table. | Pattern-frequency estimation, model fitting, splitting, performance evaluation, hard calls, or HET inference. |
 | Step 04 | Binary A/B/C encoding; empirical eight-pattern WT/KO counts and probabilities; likelihood-ratio evidence; descriptive pattern diagnostics. | Count-based predictors, logistic regression, train/test splitting, confusion matrices, hard calls, confidence thresholds, or HET inference. |
 | Step 05 | The original unpenalized binary A/B/C logistic baseline; immutable WT-M/KO-M and WT-M+F/KO-M packages; leave-one-registered-sample-out validation; descriptive raw B/C UMI evidence; and a paired count-informed model using `A_detected + B_UMI + C_UMI` on the same expanded folds. | Random cell splitting, class weighting, threshold optimization, forced calls for `000`, count normalization, treating probe UMIs as transcript numbers, interactions, nonlinear terms, transcriptome/cell-type features, final model selection, or HET inference. |
+| Step 06 | Checksum-locked loading of the two Step 05 full-fit models; manifested loading of JZ-7--9 HET females; unchanged probability application; per-cell and per-sample evidence distributions; control-reference plots. | Any fitting or coefficient estimation, weighting, model selection, threshold optimization, WT/KO genotype calls, using HET as ground truth, or cell-type stratification. |
+| Step 07 | Precision-first WT-like and KO-like thresholds derived only from Step 05 count-model held-out controls; frozen four-state HET classification; held-out control validation and sample-visible reporting. | Model fitting, calibration, feature selection, HET-informed threshold adjustment, DNA-genotype claims, a forced 0.5 cutoff, or cell-type stratification. |
 | Future model steps | A new model implementation behind a shared probability interface. | Reimplementation of Step 03 loading or Step 04 pattern encoding and publication conventions. |
 | Future validation extensions | Confirmed biological-unit validation, classifier comparison, and any expanded performance outputs. | Refitting hidden model logic inside evaluation code or optimizing a rule on held-out observations. |
-| Future HET application step | Application of a selected, validated, frozen model to HET cells. | Model selection or performance claims based on HET predictions. |
+| Future HET extensions | Confidence logic and biological stratification only after their scientific contracts are defined. | Retrofitting HET observations into training or treating probability modes as validated genotype labels. |
 
 ## Current modules
 
@@ -227,6 +239,16 @@ creating another encoder, ground-truth loader, or classifier protocol.
   Step 05 source.
 - `CountModelComparisonOutputPublisher` owns the separate paired prediction,
   evaluation, plot, provenance, restart, and manifest contract.
+- `SampleProbeDiagnosticReader` verifies every immutable paired cell and raw
+  A/B/C value against its manifested Step 02a row; it opens only the nine
+  WT-M/WT-F/KO-M tables.
+- `ProbeEvidenceSummaryBuilder`, `ProbeStatePerformanceAnalyzer`,
+  `SamplePairwiseProbeComparator`, and `AUCOrientationAuditor` separately own
+  flow, descriptive distributions, immutable-call stratification,
+  sample-unit comparisons, and score-orientation auditing. They fit or change
+  no model.
+- `SampleProbeDiagnosticPlotter` and `SampleProbeDiagnosticPublisher` own the
+  12 sample-visible figures and separately manifested read-only package.
 - `HeldOutValidationOutputPublisher` owns serialization, provenance,
   validation, plots, manifest verification, and atomic publication for the
   sample-level validation subpackage.
@@ -301,6 +323,86 @@ improvement, but the equally weighted mean per-sample accuracy decreases from
 50.613% to 49.983%. It does not demonstrate robust sample-level
 generalization.
 
+### Step 06: HET-female inference
+
+Implementation:
+`scripts/Step_06_PCDH19_HET_Female_Inference.py`.
+
+- `Step06Configuration` owns the inference-only contract, exact HET cohort,
+  immutable input identities, output precision, and prohibited operations. It
+  contains no fitting configuration.
+- `FrozenStep05ModelReader` verifies the two Step 05 package manifests and
+  exact coefficient-table bytes. It deserializes coefficients but cannot fit
+  or modify a model.
+- `FrozenLogisticModel` exposes only frozen KO-probability calculation for the
+  locked feature set. It has no estimator, threshold, or hard-call method.
+- `ManifestedHETFemaleLoader` opens exactly the manifested JZ-7--9 Step 02a
+  probe tables and preserves sample, barcode, sex, raw A/B/C counts, detection
+  states, and pattern. It does not supply a numeric ground-truth class.
+- `FrozenControlReferenceLoader` reads the immutable WT-M/WT-F/KO-M Step 05
+  paired table only to create comparison distributions. It never combines
+  control and HET rows for estimation.
+- `FrozenModelApplicator` calculates binary and count-informed WT/KO
+  probabilities from the stored coefficients. It does not call genotype.
+- `HETInferenceSummarizer` owns per-cell serialization and descriptive
+  sample, pattern, A-negative B/C, and probability distributions. Exact `000`
+  rows retain their probabilities for auditability and receive only the
+  `uncalled_000` status.
+- `HETInferencePlotter` owns the four control-relative figures and reads
+  completed probabilities/evidence. It does not fit or choose a model.
+- `Step06OutputPublisher` owns validation, environment capture, manifesting,
+  restart verification, and atomic publication.
+- `PCDH19HETFemaleInferenceStep` only coordinates these components.
+
+The frozen class orientation remains WT=`0`, KO=`1`; both models therefore
+report P(KO), with P(WT)=1-P(KO). The binary formula is
+`A_detected+B_detected+C_detected`; the count-informed formula is
+`A_detected+B_UMI+C_UMI`. B/C values are raw probe-level UMI/ligation evidence,
+not transcript numbers.
+
+Step 06 asks whether HET distributions contain WT-like and KO-like evidence;
+it does not assert that probability modes are validated cellular genotypes.
+Control overlap and the Step 05 sample-generalization limitations remain part
+of the interpretation.
+
+### Step 07: frozen WT-like/KO-like HET classification
+
+Implementation:
+`scripts/Step_07_PCDH19_HET_Female_WT_KO_Like_Classification.py`.
+
+- `HeldOutControlPredictionReader` verifies and reads the immutable Step 05
+  WT-M/WT-F/KO-M leave-one-sample-out count-model probabilities. It also
+  verifies the full-fit coefficient artifact but cannot refit it.
+- `PrecisionFirstThresholdSelector` evaluates every unique informative-control
+  P(KO) as an inclusive tail cutoff. For each class it reports precision,
+  sensitivity, and fraction of informative controls assigned. It never sees a
+  HET row.
+- `FrozenCallingRule` owns the non-overlapping inclusive decision rule:
+  P(KO)<=0.301037619832 is `WT_like`, P(KO)>=0.911554020713 is `KO_like`, the
+  interval between is `Uncertain`, and exact `000` is `Uncalled_000`.
+- `ControlRuleEvaluator` owns overall, per-sample, category, and called-cell
+  confusion outputs. It does not alter the thresholds.
+- `Step06HETProbabilityReader` requires an already frozen rule before it can
+  open the exact manifested Step 06 HET table. It supplies no class label to
+  threshold selection or performance estimation.
+- `HETFrozenRuleClassifier` applies the rule exactly and owns per-cell and
+  per-sample HET classification rows. It does not estimate probabilities.
+- `Step07Plotter` and `Step07Publisher` separately own the four concise figures
+  and atomic/provenance-protected output package.
+
+The prespecified target was at least 95% empirical precision in held-out
+controls, maximizing coverage among cutoffs that achieved it. If unavailable,
+the locked fallback was maximum precision, then maximum coverage among ties.
+The WT-like tail achieved 99.684% precision, 55.042% informative-WT
+sensitivity, and assigned 34.417% of informative controls. No KO-like cutoff
+reached 95%. The retained best KO-enriched tail achieved 76.316% precision,
+0.471% informative-KO sensitivity, and assigned 0.233% of informative
+controls. It is intentionally retained as `KO_like`, but its confidence is not
+equivalent to the WT-like tier.
+
+`WT_like` and `KO_like` mean inferred PCDH19 probe-evidence states. They are not
+independently observed DNA genotypes.
+
 ## Step 04 empirical model definition
 
 For pattern `p` and known classes WT and KO, Step 04 reports:
@@ -373,6 +475,36 @@ results/step_05_pcdh19_logistic_regression_baseline/
   count_informed_vs_binary_validation/
 ```
 
+The read-only sample diagnostic package is:
+
+```text
+results/step_05_pcdh19_logistic_regression_baseline/
+  sample_level_probe_evidence_diagnostics/
+```
+
+Step 06 publishes separately at:
+
+```text
+results/step_06_pcdh19_het_female_inference/
+```
+
+Its main contract is the 101,102-row
+`step_06_het_female_cell_probabilities.tsv`, accompanied by three HET-sample
+summaries/distributions, two control-relative probability tables, a frozen
+model-identity table, four figures, validation/environment tables, and an
+output manifest.
+
+Step 07 publishes separately at:
+
+```text
+results/step_07_pcdh19_het_female_wt_ko_like_classification/
+```
+
+The package contains the frozen rule, all control threshold tradeoffs,
+held-out overall/per-sample/confusion validation, 101,102 HET cell calls,
+sample and pooled HET summaries, four figures, validation/environment tables,
+and an output manifest.
+
 The Step 04 classifier TSV is the first serialized model artifact. The
 distribution TSV and plots are diagnostics derived from it. Validation,
 environment, and output-manifest files protect input identity, computation
@@ -380,7 +512,7 @@ scope, code/dependency identity, and published bytes.
 
 ## Current baselines and planned modular extensions
 
-The first seven entries are implemented. The remaining entries are planned
+The first nine entries are implemented. The remaining entries are planned
 extensions only.
 
 1. **Empirical pattern classifier — Step 04 (implemented baseline).** Preserve as
@@ -408,15 +540,21 @@ extensions only.
    `A_detected + B_UMI + C_UMI` directly with the immutable binary A/B/C model
    on identical expanded-cohort folds, cells, call eligibility, and threshold.
    Preserve probe counts as raw UMI/ligation evidence, not transcript numbers.
-8. **Model comparison.** Compare frozen candidate models on the same split and
+8. **HET-female inference — Step 06 (implemented).** Apply both frozen Step 05
+   models unchanged to JZ-7--9, preserve `000` as uncalled, and report evidence
+   distributions without genotype calls or HET-informed tuning.
+9. **Precision-first HET classification — Step 07 (implemented).** Derive
+   asymmetric high-confidence tails only from held-out controls, preserve the
+   best attainable KO-enriched tier with its lower precision explicit, freeze
+   the rule, and apply it without HET feedback.
+10. **Model comparison.** Compare frozen candidate models on the same split and
    evaluation contract rather than allowing each model script to define its
    own denominators.
-9. **Confidence/uncertain-call logic.** Keep probability estimation separate
+11. **Additional confidence logic.** Keep probability estimation separate
    from decision thresholds. Preserve uninformative/uncertain states rather
    than forcing WT or KO.
-10. **Application of a validated classifier to HET cells.** Load HET cells only
-   after model selection and validation are complete, record the frozen model
-   identity, and keep inference separate from performance estimation.
+12. **Cell-state or cell-type analysis.** Only after a separate scientific
+   contract is established; never feed HET-derived labels back into fitting.
 
 ## Guardrails for future steps
 

@@ -1,0 +1,66 @@
+{
+  "step_id": "07_pcdh19_het_female_wt_ko_like_classification",
+  "pipeline_version": "0.1.0",
+  "upstream_step_ids": ["05_pcdh19_logistic_regression_baseline", "06_pcdh19_het_female_inference"],
+  "class_encoding": {"WT": 0, "KO": 1},
+  "positive_model_class": "KO",
+  "model": {
+    "model_id": "step_05_count_informed_logistic",
+    "relative_directory": "count_informed_vs_binary_validation",
+    "package_manifest_sha256": "cf68ee398a2d3a9e19e3de05a59be50d9aed2bfe1084b3445f63ab47e556130f",
+    "coefficient_file": "step_05_count_informed_full_fit_coefficients.tsv",
+    "coefficient_sha256": "2596c0c2d7a6fca539b7af3b2ea19792dc884f7c5a874f3c72322d2e6ea3215a",
+    "features": ["A_detected", "B_UMI", "C_UMI"],
+    "formula": "logit(P(KO)) = intercept + beta_A*A_detected + beta_B*B_UMI + beta_C*C_UMI"
+  },
+  "control_predictions": {
+    "relative_directory": "count_informed_vs_binary_validation",
+    "file": "step_05_binary_vs_count_informed_held_out_predictions.tsv",
+    "bytes": 52135257,
+    "sha256": "8774c76e1b646241157202c08a1d6ff9cddff4687d644466e5b4924c18203d6e"
+  },
+  "step_06": {
+    "manifest_sha256": "8d5bf77448fee3fc67991094960fa355a826def67de0e53777d712a8079d9a2a",
+    "cell_file": "step_06_het_female_cell_probabilities.tsv",
+    "cell_bytes": 17814621,
+    "cell_sha256": "3933fcd01aa3f21db5656e5d34b336980afcec4e342ec16f267b9a896ee12ac1",
+    "expected_het_cells": 101102
+  },
+  "threshold_selection": {
+    "target_precision": 0.95,
+    "eligible_subset": "informative_non000_held_out_controls",
+    "wt_like_rule": "P(KO) <= WT_like_threshold",
+    "ko_like_rule": "P(KO) >= KO_like_threshold",
+    "target_achieved_tiebreak": "maximum_coverage",
+    "target_unachievable_fallback": "maximum_precision_then_maximum_coverage",
+    "threshold_candidates": "unique_observed_held_out_control_probabilities"
+  },
+  "expected_controls": {
+    "total_cells": 349686,
+    "cells_000": 284372,
+    "informative_cells": 65314,
+    "samples": {
+      "15662-JZ-1": {"genotype": "WT", "cells": 51229},
+      "15662-JZ-2": {"genotype": "WT", "cells": 37553},
+      "15662-JZ-3": {"genotype": "WT", "cells": 25354},
+      "15662-JZ-4": {"genotype": "WT", "cells": 21440},
+      "15662-JZ-5": {"genotype": "WT", "cells": 41878},
+      "15662-JZ-6": {"genotype": "WT", "cells": 56099},
+      "15662-JZ-10": {"genotype": "KO", "cells": 52753},
+      "15662-JZ-11": {"genotype": "KO", "cells": 52295},
+      "15662-JZ-12": {"genotype": "KO", "cells": 11085}
+    }
+  },
+  "expected_het_samples": {
+    "15662-JZ-7": {"cells": 19623},
+    "15662-JZ-8": {"cells": 20799},
+    "15662-JZ-9": {"cells": 60680}
+  },
+  "probability_decimal_places": 12,
+  "plot_dpi": 200,
+  "prohibited_operations": [
+    "model_refitting", "coefficient_estimation", "feature_selection", "probability_calibration",
+    "het_in_threshold_selection", "het_in_performance_estimation", "threshold_adjustment_after_het",
+    "cell_type_stratification", "forced_0.5_cutoff"
+  ]
+}

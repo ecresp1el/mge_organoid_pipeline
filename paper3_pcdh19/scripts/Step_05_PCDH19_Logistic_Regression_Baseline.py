@@ -48,6 +48,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pcdh19_step05_sample_probe_evidence_diagnostics as sample_diagnostic_module
 
 from Step_04_PCDH19_Empirical_Pattern_Classifier import (
     EmpiricalPatternEstimator,
@@ -58,6 +59,10 @@ from Step_04_PCDH19_Empirical_Pattern_Classifier import (
     Step04Configuration,
     Step04Error,
     ValidationRecorder,
+)
+from pcdh19_step05_sample_probe_evidence_diagnostics import (
+    DiagnosticError,
+    SampleProbeEvidenceDiagnosticStep,
 )
 
 
@@ -506,6 +511,8 @@ class Step05Configuration(object):
         "a_negative_raw_bc_umi_evidence",
         "existing_a_negative_raw_bc_package",
         "count_informed_model_comparison",
+        "existing_count_informed_comparison_package",
+        "sample_level_probe_evidence_diagnostics",
     }
 
     def __init__(self, lock_path, bundle_root):
@@ -612,6 +619,13 @@ class Step05Configuration(object):
             raise Step05Error("Count-informed comparison enables a prohibited operation")
         if count_model["expected_total_cells"] != expanded["expected_total_cells"]:
             raise Step05Error("Count-informed cohort total must match the binary comparator")
+        diagnostic = self.values["sample_level_probe_evidence_diagnostics"]
+        if diagnostic["cohort_id"] != expanded["cohort_id"] or diagnostic["expected_total_cells"] != expanded["expected_total_cells"]:
+            raise Step05Error("Sample diagnostic must use the unchanged expanded cohort")
+        if diagnostic["normalization"] != "none_raw_molecule_counts" or diagnostic["count_interpretation"] != count_model["count_interpretation"]:
+            raise Step05Error("Sample diagnostic raw-count contract is inconsistent")
+        if diagnostic["classifier_fitting_permitted"] is not False or diagnostic["prediction_changes_permitted"] is not False or diagnostic["het_cells_permitted"] is not False:
+            raise Step05Error("Sample diagnostic enables a prohibited operation")
         self.framework_script_path = os.path.join(
             self.bundle_root,
             self.values["shared_framework_script"]["relative_path"],
@@ -2315,6 +2329,32 @@ class ExistingRawBCEvidencePackageVerifier(object):
             sha256_file(self.cell_table_path),
             definition["cell_table_sha256"],
         )
+
+
+class ExistingCountModelComparisonPackageVerifier(object):
+    """Protect the published paired binary/count comparison package."""
+
+    def __init__(self, configuration, validation, base_root):
+        definition = configuration.values["existing_count_informed_comparison_package"]
+        self.definition = definition
+        self.validation = validation
+        self.root = os.path.join(os.path.abspath(base_root), definition["relative_directory"])
+        self.manifest_path = os.path.join(self.root, COUNT_MANIFEST_NAME)
+        self.predictions_path = os.path.join(self.root, COUNT_PAIRED_PREDICTIONS_NAME)
+        self.comparison_path = os.path.join(self.root, COUNT_OVERALL_COMPARISON_NAME)
+
+    def verify(self):
+        if not os.path.isfile(self.manifest_path):
+            raise Step05Error("Published count-model comparison package is missing")
+        self.validation.require_equal("count_comparison_manifest_unchanged", sha256_file(self.manifest_path), self.definition["output_manifest_sha256"])
+        with open(self.manifest_path, "r", newline="") as handle:
+            rows = list(csv.DictReader(handle, delimiter="\t"))
+        self.validation.require_equal("count_comparison_manifest_files", len(rows), 15)
+        for row in rows:
+            path = os.path.join(self.root, row["relative_path"])
+            if not os.path.isfile(path) or os.path.getsize(path) != int(row["bytes"]) or sha256_file(path) != row["sha256"]:
+                raise Step05Error("Published count-model comparison artifact mismatch")
+        self.validation.require_equal("count_comparison_predictions_unchanged", sha256_file(self.predictions_path), self.definition["paired_predictions_sha256"])
 
 
 class PatternErrorAnalyzer(object):
@@ -4230,6 +4270,36 @@ class PCDH19LogisticRegressionBaselineStep(object):
             count_root,
             count_paths,
         )
+        self.count_package_verifier = ExistingCountModelComparisonPackageVerifier(
+            self.configuration, self.validation, output_root
+        )
+        diagnostic_scope = self.configuration.values["sample_level_probe_evidence_diagnostics"]
+        diagnostic_root = os.path.join(output_root, diagnostic_scope["relative_directory"])
+        diagnostic_paths = {
+            "python_script": __file__,
+            "diagnostic_module": sample_diagnostic_module.__file__,
+            "lock": args.lock,
+            "requirements": args.requirements,
+            "sample_key": args.sample_key,
+            "step_02a_manifest": self.expanded_reader.manifest_path,
+            "step_03_manifest": self.step03_reader.manifest_path,
+            "step_05_base_manifest": os.path.join(output_root, MANIFEST_NAME),
+            "male_only_validation_manifest": self.male_only_reader.manifest_path,
+            "expanded_ground_truth_manifest": self.expanded_package_verifier.manifest_path,
+            "a_negative_raw_bc_manifest": self.raw_bc_package_verifier.manifest_path,
+            "count_comparison_manifest": self.count_package_verifier.manifest_path,
+            "paired_predictions": self.count_package_verifier.predictions_path,
+            "stored_model_comparison": self.count_package_verifier.comparison_path,
+        }
+        self.sample_probe_diagnostic = SampleProbeEvidenceDiagnosticStep(
+            self.configuration,
+            self.validation,
+            self.count_package_verifier.predictions_path,
+            self.count_package_verifier.comparison_path,
+            args.step02_root,
+            diagnostic_root,
+            diagnostic_paths,
+        )
 
     def _run_raw_bc_evidence(self):
         if os.path.exists(self.raw_bc_publisher.output_root):
@@ -4243,7 +4313,7 @@ class PCDH19LogisticRegressionBaselineStep(object):
 
     def _run_count_model_comparison(self):
         if os.path.exists(self.count_publisher.output_root):
-            self.count_publisher.publish(None, None, None, None, None, None, None, None, None, None)
+            self.count_package_verifier.verify()
             return
         records, binary_by_key = self.count_ground_truth_reader.read_records()
         binary_predictions = [binary_by_key[(record.biological_sample_id, record.cell_barcode)] for record in records]
@@ -4269,6 +4339,10 @@ class PCDH19LogisticRegressionBaselineStep(object):
             transition_rows,
         )
 
+    def _run_sample_probe_diagnostic(self):
+        self.count_package_verifier.verify()
+        self.sample_probe_diagnostic.run()
+
     def run(self):
         if os.path.exists(self.publisher.output_root):
             self.base_verifier.verify()
@@ -4290,6 +4364,7 @@ class PCDH19LogisticRegressionBaselineStep(object):
             self.expanded_package_verifier.verify()
             self._run_raw_bc_evidence()
             self._run_count_model_comparison()
+            self._run_sample_probe_diagnostic()
             return
         if os.path.exists(self.held_out_publisher.output_root):
             male_predictions = self.male_only_reader.read_predictions()
@@ -4312,6 +4387,7 @@ class PCDH19LogisticRegressionBaselineStep(object):
             self.expanded_package_verifier.verify()
             self._run_raw_bc_evidence()
             self._run_count_model_comparison()
+            self._run_sample_probe_diagnostic()
             return
         male_ground_truth_records = self.sample_aware_reader.read_records()
         expanded_records = self.expanded_reader.read_records(male_ground_truth_records)
@@ -4391,6 +4467,7 @@ class PCDH19LogisticRegressionBaselineStep(object):
         )
         self._run_raw_bc_evidence()
         self._run_count_model_comparison()
+        self._run_sample_probe_diagnostic()
 
 
 def build_parser():
@@ -4415,6 +4492,6 @@ def main(argv=None):
 if __name__ == "__main__":
     try:
         main()
-    except (Step05Error, Step04Error) as error:
+    except (Step05Error, Step04Error, DiagnosticError) as error:
         sys.stderr.write("ERROR: {}\n".format(error))
         sys.exit(1)

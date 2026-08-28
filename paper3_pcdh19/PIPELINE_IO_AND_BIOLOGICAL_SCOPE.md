@@ -852,3 +852,183 @@ In the expanded all-cell fit, one additional raw B UMI multiplies KO:WT odds
 by 2.143 and one additional raw C UMI by 2.329, holding other predictors fixed.
 These are probe-level evidence effects and do not imply transcript-number
 fold changes.
+
+### Step 05 biological-sample probe-evidence diagnostic
+
+`sample_level_probe_evidence_diagnostics/` is a read-only package built from
+the immutable paired held-out table. It verifies all raw A/B/C counts against
+the nine manifested Step 02a WT-M/WT-F/KO-M tables and never opens JZ-7--9.
+No eligible control is excluded: 349,686/349,686 cells are retained. The
+284,372 exact-zero cells are analyzed but remain uncalled under the existing
+policy; both stored models call 65,314 cells.
+
+Outputs cover sample/genotype flow, overall/A-negative/A-positive raw B, C,
+and B+C distributions; detection rates; 0/1/2/3+ compositions; mean, SD,
+median, IQR, max, and q0/q10/q25/q50/q75/q90/q95/q99/q100; immutable model
+performance and paired correctness within 11 probe states; all 15 WT and all
+3 KO within-genotype sample pairs without cell-level p-values; AUC orientation;
+one-row sample interpretations; and 12 figures.
+
+JZ-12 has slightly weaker A-negative B+C evidence than JZ-10/JZ-11 (mean
+0.2536 versus 0.2700/0.2867; exact-zero 80.40% versus 79.11%/78.29%), but all
+three KO samples remain clearly separated from WT controls. Model changes are
+state-specific: 2,070 corrections occur at B+C=2 and 303 at B+C>=3, while 585
+of 587 regressions occur at B+C=1 in JZ-12. Thus JZ-12's large accuracy loss
+is primarily a fold-specific one-UMI decision effect, not evidence that its raw
+probe biology is categorically unlike the other KO samples.
+
+The AUC audit confirms positive class KO=`1`, score P(KO), and consistent fold
+labels. Stored and recomputed AUCs match exactly (binary 0.254231; count
+0.201355). P(WT) produces 0.745769/0.798645, but this is a reversed-score
+diagnostic, not an orientation correction: pooled probabilities come from
+different single-class sample holdouts and are secondary to sample-level
+diagnostics.
+
+## Step 06 HET-female inference contract
+
+Formal Step 06 is
+`scripts/Step_06_PCDH19_HET_Female_Inference.py`, launched by
+`bin/run_step_06_pcdh19_het_female_inference.sh` or the allocation-only
+`slurm/step_06_pcdh19_het_female_inference.sbatch` wrapper. Its lock is
+`config/step_06_pcdh19_het_female_inference.lock.json`; the Python 3.6
+NumPy/Matplotlib environment is separately pinned.
+
+Step 06 reads only:
+
+- the exact manifested Step 02a JZ-7, JZ-8, and JZ-9 HET-female per-cell probe
+  tables and the checksum-locked registered sample key;
+- the exact Step 05 expanded binary full-fit coefficient table;
+- the exact Step 05 count-informed full-fit coefficient table; and
+- the immutable Step 05 paired WT-M/WT-F/KO-M control table, solely for
+  descriptive reference distributions.
+
+WT-M, WT-F, and KO-M remain the only ground-truth observations used by the
+upstream fits. HET rows never enter fitting, coefficient estimation, class
+weighting, model selection, threshold optimization, or performance
+evaluation. Step 06 exposes no estimator or genotype-call method. The
+formulas and orientation remain:
+
+```text
+WT=0; KO=1
+binary: logit(P(KO)) = intercept + A_detected + B_detected + C_detected
+count:  logit(P(KO)) = intercept + A_detected + raw B_UMI + raw C_UMI
+```
+
+Coefficient multipliers are omitted from this schematic but are loaded
+exactly from the frozen Step 05 TSVs. B/C counts are unnormalized probe-level
+UMI/ligation evidence, not transcript numbers.
+
+The output root is:
+
+```text
+results/step_06_pcdh19_het_female_inference/
+```
+
+- `step_06_het_female_cell_probabilities.tsv` preserves sample, barcode, raw
+  A/B/C and B+C counts, detection states, pattern, and both models' WT/KO
+  probabilities for all 101,102 HET cells. `000` is `uncalled_000`; all other
+  cells are probability-only and have no genotype call.
+- `step_06_het_female_sample_summary.tsv` reports total cells, `000`, A+
+  fraction, A-negative B+C evidence, and non-`000` probability quantiles for
+  each HET biological sample.
+- `step_06_het_female_pattern_distribution.tsv` reports all eight states by
+  HET sample.
+- `step_06_het_female_a_negative_bc_evidence_distribution.tsv` reports raw B,
+  C, and B+C 0/1/2/3+ bins for each HET sample and WT-M/WT-F/KO-M references.
+- `step_06_het_and_control_probability_summary.tsv` and
+  `step_06_het_and_control_probability_histograms.tsv` report non-`000`
+  probability distributions without a decision threshold.
+- `step_06_frozen_step_05_model_identity.tsv` records model formulas,
+  coefficients, class orientation, source paths, and exact source hashes.
+- Four `step_06` PNGs show HET evidence composition, A-negative raw B+C
+  evidence relative to controls, and binary/count-informed probability
+  distributions relative to controls.
+- Validation, software environment, and output-manifest TSVs protect cohort,
+  scope, code, dependency, model, upstream, and published-byte identities.
+
+The output manifest SHA-256 is
+`8d5bf77448fee3fc67991094960fa355a826def67de0e53777d712a8079d9a2a`.
+Step 06 is descriptive evidence inference. It does not establish a validated
+WT/KO decision threshold for HET cells and does not prove that visible
+probability modes are distinct biological genotypes.
+
+## Step 07 HET-female WT-like/KO-like classification contract
+
+Formal Step 07 is
+`scripts/Step_07_PCDH19_HET_Female_WT_KO_Like_Classification.py`, launched by
+`bin/run_step_07_pcdh19_het_female_wt_ko_like_classification.sh` or
+`slurm/step_07_pcdh19_het_female_wt_ko_like_classification.sbatch`. The lock
+and requirements files use the same formal name.
+
+Step 07 first checksum-verifies and reads the 349,686 immutable Step 05
+WT-M/WT-F/KO-M leave-one-registered-sample-out prediction rows. It restricts
+threshold selection to the 65,314 informative non-`000` controls and uses only
+the stored count-informed P(KO). At every unique observed probability it
+evaluates the appropriate inclusive tail:
+
+```text
+WT-like candidate: P(KO) <= threshold
+KO-like candidate: P(KO) >= threshold
+```
+
+For each candidate, Step 07 reports precision, class sensitivity, and fraction
+of informative controls assigned. The prespecified selection target is at
+least 95% empirical precision, maximizing coverage among target-achieving
+cutoffs. If 95% is unavailable, the locked fallback is maximum achievable
+precision, then maximum coverage among ties. The resulting frozen rule is:
+
+```text
+pattern 000                           -> Uncalled_000
+non-000; P(KO) <= 0.301037619832      -> WT_like
+non-000; P(KO) >= 0.911554020713      -> KO_like
+otherwise                             -> Uncertain
+```
+
+The WT-like rule achieves 99.684% held-out precision and 55.042% sensitivity
+among informative WT controls. The KO-like target of 95% is not achievable.
+The best validated KO-like tail is retained, with 76.316% precision, 0.471%
+sensitivity among informative KO controls, and 152 assigned controls (0.233%
+of all informative controls). `KO_like` must therefore be described as a
+KO-enriched evidence tier with lower validation confidence than `WT_like`; it
+must not be discarded or represented as 95%-precision.
+
+Only after the `FrozenCallingRule` exists does the Step 06 HET reader verify
+and open `step_06_het_female_cell_probabilities.tsv`. HET rows have zero
+influence on coefficients, features, probability calibration, threshold
+selection, or performance estimation. The rule is not adjusted after the HET
+composition is observed.
+
+The output root is:
+
+```text
+results/step_07_pcdh19_het_female_wt_ko_like_classification/
+```
+
+- `step_07_frozen_wt_ko_like_calling_rule.tsv` records both exact cutoffs,
+  selection status, achieved precision/sensitivity/coverage, control-only
+  source, and zero HET rows used.
+- `step_07_control_threshold_tradeoff.tsv` contains all 502 class/cutoff
+  candidate evaluations.
+- Four held-out control tables report final overall, per-sample, category, and
+  called-cell confusion performance.
+- `step_07_het_female_cell_classifications.tsv` contains all 101,102 HET cells,
+  barcode, sample, raw A/B/C counts, pattern, count-informed P(KO), both frozen
+  thresholds, and exactly one four-state classification.
+- `step_07_het_female_classification_summary.tsv` reports JZ-7, JZ-8, JZ-9,
+  and pooled counts and all-cell/informative percentages.
+- Four figures show the frozen thresholds on held-out control probabilities,
+  control classification including uncertainty, all-cell HET composition, and
+  informative-only HET composition.
+- Validation, environment, and manifest tables protect scope, input, code,
+  dependency, and output identities.
+
+Across held-out controls, 22,631 cells are classified WT-like or KO-like:
+6.472% of all controls and 34.650% of informative controls. There are 42,683
+uncertain informative controls (65.350% of informative) and 284,372
+`Uncalled_000` controls (81.322% of all). The called-cell confusion matrix is
+WT->WT-like 22,408, WT->KO-like 36, KO->WT-like 71, and KO->KO-like 116.
+
+The output-manifest SHA-256 is
+`aec9a9cf7c8575ca453fbc61172fdd6d5c28e6c9be177d662a3c7a75cb40af9d`.
+WT-like/KO-like are inferred PCDH19 probe-evidence states, not independently
+observed DNA genotypes.
