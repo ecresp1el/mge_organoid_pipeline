@@ -16,16 +16,18 @@ empirical A/B/C pattern classifier
     ↓
 Step 05
 three-feature logistic-regression baseline plus
-leave-one-registered-sample-out validation
+two leave-one-registered-sample-out cohorts:
+  A. WT-M versus KO-M (preserved benchmark)
+  B. WT-M+F versus KO-M (female-aware reference)
     ↓
 future model comparison and confidence logic
     ↓
 eventual HET-cell inference
 ```
 
-Steps 03 through 05 are implemented. Step 05 now includes the first sample-
-held-out evaluation, but no current step performs model selection, threshold
-optimization, or HET inference.
+Steps 03 through 05 are implemented. Step 05 compares the preserved male-only
+benchmark with the expanded WT-M+F/KO-M cohort. No current step performs model
+selection, class reweighting, threshold optimization, or HET inference.
 
 ## Step ownership
 
@@ -33,7 +35,7 @@ optimization, or HET inference.
 | --- | --- | --- |
 | Step 03 | Validated loading of Step 02a per-cell PCDH19 probe observations; registered WT-male/KO-male annotation; the stable classification-ready cell table. | Pattern-frequency estimation, model fitting, splitting, performance evaluation, hard calls, or HET inference. |
 | Step 04 | Binary A/B/C encoding; empirical eight-pattern WT/KO counts and probabilities; likelihood-ratio evidence; descriptive pattern diagnostics. | Count-based predictors, logistic regression, train/test splitting, confusion matrices, hard calls, confidence thresholds, or HET inference. |
-| Step 05 | Unpenalized main-effects logistic regression using only binary A/B/C detection; coefficient/odds-ratio reporting; probability comparison with Step 04; leave-one-registered-sample-out validation; a fixed, separately owned calling rule; called-cell metrics and generalization plots. | Random cell splitting, threshold optimization, forced calls for `000`, UMI counts, interactions, nonlinear terms, transcriptome/cell-type features, model selection, or HET inference. |
+| Step 05 | Unpenalized main-effects logistic regression using only binary A/B/C detection; the immutable WT-M/KO-M benchmark; a separately manifested WT-M+F/KO-M cohort; leave-one-registered-sample-out validation; fixed calling; probe-pattern error attribution; cohort comparison. | Random cell splitting, class weighting, threshold optimization, forced calls for `000`, UMI counts, interactions, nonlinear terms, transcriptome/cell-type features, model selection, or HET inference. |
 | Future model steps | A new model implementation behind a shared probability interface. | Reimplementation of Step 03 loading or Step 04 pattern encoding and publication conventions. |
 | Future validation extensions | Confirmed biological-unit validation, classifier comparison, and any expanded performance outputs. | Refitting hidden model logic inside evaluation code or optimizing a rule on held-out observations. |
 | Future HET application step | Application of a selected, validated, frozen model to HET cells. | Model selection or performance claims based on HET predictions. |
@@ -59,9 +61,12 @@ Implementation:
   logic.
 - `PCDH19GenotypeClassificationSetup` only coordinates those components.
 
-Step 03's main table is the stable input contract for classification work. New
-models should consume that contract rather than reopen Cell Ranger matrices or
-duplicate Step 02a extraction.
+Step 03's main table remains the stable male-only input contract. Step 05 does
+not rewrite it. The expanded female-aware cohort extends the exact Step 03 male
+records with a dedicated manifested reader for the three Step 02a WT-female
+tables because those rows are deliberately absent from the historical Step 03
+output. It uses the same registered metadata and binary encoder and never opens
+the HET-female tables.
 
 ### Step 04: empirical pattern model
 
@@ -133,28 +138,47 @@ creating another encoder, ground-truth loader, or classifier protocol.
   plots, manifest verification, and atomic publication for the original base
   package. It has no fitting responsibility.
 - `SampleAwarePatternRecord` adds registered sample identity and cell barcode
-  to the minimal pattern/ground-truth record. It does not predict a class.
+  plus sex/design group to the minimal pattern/ground-truth record. It does not
+  predict a class.
 - `Step03SampleAwarePatternReader` verifies and reads the Step 03 contract
   while retaining the registered `technical_sample_id` used for holdout. It
   does not split cells randomly or claim donor/embryo/litter independence.
+- `ManifestedProbePatternCohortReader` validates the Step 03 WT-M/KO-M records,
+  registered sample key, Step 02a manifest, and three WT-female per-cell tables.
+  It explicitly excludes JZ-7--9 HET females and does not infer genotype from
+  probes.
 - `HeldOutCallingPolicy` owns the fixed decision rule: `000` is always
   `uncalled`; otherwise KO is called when P(KO) > 0.5, WT when P(WT) > 0.5,
   and an exact tie is `uncalled`. It does not fit or tune the threshold.
 - `LeaveOneSampleOutLogisticValidator` holds out each registered sample in
-  turn, fits `LogisticRegressionEstimator` on the other five samples, and
-  produces held-out cell probabilities. It does not calculate metrics or
-  draw plots.
+  turn, fits `LogisticRegressionEstimator` on all other cohort samples, and
+  produces held-out cell probabilities. It supports both the six-sample and
+  nine-sample definitions without changing the model.
 - `HeldOutValidationEvaluator` creates called-cell confusion and overall/per-
   sample metrics with KO as the positive class. It does not fit a model or
   change calls.
 - `HeldOutValidationPlotter` draws only the held-out confusion matrix, per-
   sample called-cell accuracy, and per-sample call percentage. It does not
   recompute results.
+- `ExistingMaleOnlyValidationReader` verifies the historical male-only package
+  byte-for-byte and exposes its predictions for comparison; it never rewrites
+  that benchmark.
+- `PatternErrorAnalyzer` attributes WT-to-KO calls to the seven informative
+  A/B/C patterns, separately for the male benchmark and expanded WT sexes.
+- `ExpandedCohortEvaluator` owns WT-M, WT-F, and KO-M group metrics and the
+  direct male-only-versus-expanded comparison. It does not refit models.
+- `ExpandedFullFitBuilder` fits the same unweighted three-feature model on all
+  nine expanded ground-truth samples and publishes probabilities without hard
+  cell calls.
+- `ExpandedValidationPlotter` owns the expanded generalization, pattern-error,
+  and cohort-comparison plots. It contains no fitting logic.
 - `ExistingStep05BasePackageVerifier` protects the already published Step 05
   base fit and its historical manifest from being rewritten by the extension.
 - `HeldOutValidationOutputPublisher` owns serialization, provenance,
   validation, plots, manifest verification, and atomic publication for the
   sample-level validation subpackage.
+- `ExpandedCohortOutputPublisher` owns the separate WT-M+F/KO-M package and its
+  18-file manifest. It does not modify the base or male-only packages.
 - `PCDH19LogisticRegressionBaselineStep` coordinates the reused Step 04
   components, the original Step 05 fit, and the held-out extension.
 
@@ -172,11 +196,21 @@ the `000` log odds because all predictors are zero. Pattern `000` is included
 in fitting and remains uncalled regardless of which fitted probability is
 slightly greater than 0.5.
 
-For held-out evaluation, the only available registered sample key is the Step
-03 `technical_sample_id`. Step 05 exposes it as `biological_sample_id` in
-validation outputs and holds out one of the six registered WT-male/KO-male
-samples at a time. This prevents cell-level leakage, but the sample key alone
-does not establish donor, embryo, or litter independence.
+For held-out evaluation, the available registered sample key is
+`technical_sample_id`, exposed as `biological_sample_id` in outputs. The
+male-only benchmark holds out one of six samples; the expanded cohort holds out
+one of nine WT-M/WT-F/KO-M samples. This prevents cell-level leakage, but the
+sample key alone does not establish donor, embryo, or litter independence.
+
+The expanded cohort is intentionally unweighted: cells contribute to the
+likelihood exactly as in the original baseline. Adding WT females therefore
+changes the observed class prevalence in each fold. It does not change the
+WT-male call rule: the same 8,265 WT-male cells remain false KO, entirely from
+`001` (4,586), `010` (3,131), and `011` (548). When either large KO sample is
+held out, the expanded training fold makes `001` and `010` WT-favored at the
+fixed 0.5 threshold; aggregate KO sensitivity consequently falls to 20.302%.
+This is a documented baseline result, not a reason to silently add class
+weights or tune the threshold.
 
 ## Step 04 empirical model definition
 
@@ -229,6 +263,13 @@ results/step_05_pcdh19_logistic_regression_baseline/
   sample_level_held_out_validation/
 ```
 
+The preserved benchmark comparison and expanded cohort are:
+
+```text
+results/step_05_pcdh19_logistic_regression_baseline/
+  wt_male_female_vs_ko_male_validation/
+```
+
 The Step 04 classifier TSV is the first serialized model artifact. The
 distribution TSV and plots are diagnostics derived from it. Validation,
 environment, and output-manifest files protect input identity, computation
@@ -252,19 +293,24 @@ extensions only.
    pass).** Consume held-out probabilities and a separately defined fixed
    calling policy. Report confusion and metrics only among called cells while
    reporting the call denominator separately.
-5. **Model comparison.** Compare frozen candidate models on the same split and
+5. **Ground-truth cohort comparison — Step 05 (implemented).** Preserve the
+   WT-M/KO-M result and compare it with WT-M+F/KO-M under the same unweighted
+   model and fixed call rule. This is a cohort comparison, not a comparison of
+   different classifier families.
+6. **Model comparison.** Compare frozen candidate models on the same split and
    evaluation contract rather than allowing each model script to define its
    own denominators.
-6. **Confidence/uncertain-call logic.** Keep probability estimation separate
+7. **Confidence/uncertain-call logic.** Keep probability estimation separate
    from decision thresholds. Preserve uninformative/uncertain states rather
    than forcing WT or KO.
-7. **Application of a validated classifier to HET cells.** Load HET cells only
+8. **Application of a validated classifier to HET cells.** Load HET cells only
    after model selection and validation are complete, record the frozen model
    identity, and keep inference separate from performance estimation.
 
 ## Guardrails for future steps
 
-- Reuse the Step 03 table contract for known WT/KO model development.
+- Reuse the Step 03 table contract for the male benchmark; use the registered,
+  manifested Step 02a cohort reader when female ground truth is required.
 - Reuse `ProbePatternEncoder` whenever the predictor is the binary A/B/C state.
 - Implement new probabilistic classifiers behind `predict_proba(features)` so
   they can share later validation and comparison machinery.

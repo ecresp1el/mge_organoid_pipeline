@@ -1,6 +1,6 @@
 {
   "step_id": "05_pcdh19_logistic_regression_baseline",
-  "pipeline_version": "0.2.0",
+  "pipeline_version": "0.3.0",
   "upstream_step_ids": [
     "03_pcdh19_genotype_classification_setup",
     "04_pcdh19_empirical_pattern_classifier"
@@ -78,6 +78,50 @@
       "15662-JZ-10": {"genotype": "KO", "cells": 52753},
       "15662-JZ-11": {"genotype": "KO", "cells": 52295},
       "15662-JZ-12": {"genotype": "KO", "cells": 11085}
+    },
+    "calling_rule": {
+      "uncalled_pattern_codes": ["000"],
+      "probability_threshold": 0.5,
+      "ko_call": "P(KO) > 0.5",
+      "wt_call": "P(WT) > 0.5",
+      "tie_behavior": "uncalled",
+      "threshold_optimized": false
+    },
+    "positive_evaluation_class": "KO"
+  },
+  "existing_male_only_validation_package": {
+    "relative_directory": "sample_level_held_out_validation",
+    "output_manifest_sha256": "8b4012572b7bfbbbab8548d4a7b1e006aabf642139e84cd9ce6266540b28c239",
+    "held_out_predictions_sha256": "0ec141cab78a9af34a2fc71a0afb4cd12acf1f27c5f85b13cd6bc876bd1d78a6"
+  },
+  "expanded_ground_truth_validation": {
+    "cohort_id": "wt_male_female_vs_ko_male",
+    "relative_directory": "wt_male_female_vs_ko_male_validation",
+    "method": "leave_one_registered_sample_out",
+    "holdout_unit_field": "technical_sample_id",
+    "holdout_unit_interpretation": "registered_sample_id_used_as_biological_sample_holdout_unit",
+    "sample_key_relative_path": "config/sample_key.csv",
+    "sample_key_sha256": "5b20e8596c28f95b6adedcb0fe17019d2a6db46384f18f02d4bfdc58803f1dc8",
+    "step_02a_result_directory": "pcdh19_probe_audit",
+    "step_02a_output_manifest_sha256": "4b7e8450249734f5bb7f060cf47e4342f70355b32e332c64871d5e80b73c9a1b",
+    "expected_samples": {
+      "15662-JZ-1": {"genotype": "WT", "sex": "M", "design_group": "WT_M", "cells": 51229},
+      "15662-JZ-2": {"genotype": "WT", "sex": "M", "design_group": "WT_M", "cells": 37553},
+      "15662-JZ-3": {"genotype": "WT", "sex": "M", "design_group": "WT_M", "cells": 25354},
+      "15662-JZ-4": {"genotype": "WT", "sex": "F", "design_group": "WT_F", "cells": 21440},
+      "15662-JZ-5": {"genotype": "WT", "sex": "F", "design_group": "WT_F", "cells": 41878},
+      "15662-JZ-6": {"genotype": "WT", "sex": "F", "design_group": "WT_F", "cells": 56099},
+      "15662-JZ-10": {"genotype": "KO", "sex": "M", "design_group": "KO_M", "cells": 52753},
+      "15662-JZ-11": {"genotype": "KO", "sex": "M", "design_group": "KO_M", "cells": 52295},
+      "15662-JZ-12": {"genotype": "KO", "sex": "M", "design_group": "KO_M", "cells": 11085}
+    },
+    "expected_total_cells": 349686,
+    "expected_class_cells": {"WT": 233553, "KO": 116133},
+    "expected_sex_class_cells": {"WT_M": 114136, "WT_F": 119417, "KO_M": 116133},
+    "excluded_samples": {
+      "15662-JZ-7": {"genotype": "HET", "sex": "F"},
+      "15662-JZ-8": {"genotype": "HET", "sex": "F"},
+      "15662-JZ-9": {"genotype": "HET", "sex": "F"}
     },
     "calling_rule": {
       "uncalled_pattern_codes": ["000"],

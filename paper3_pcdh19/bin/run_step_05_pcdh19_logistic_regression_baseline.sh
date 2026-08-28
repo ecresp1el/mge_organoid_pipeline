@@ -13,6 +13,9 @@
 #   interactions, nonlinear terms, UMI counts, cell types, or transcriptome
 #   features are used. Existing Step 05 fit outputs remain unchanged; held-out
 #   products are published in a manifested validation subdirectory.
+#   A second separately manifested Step 05 cohort uses WT males plus WT females
+#   as WT ground truth and KO males as KO ground truth. HET females are excluded
+#   from loading, fitting, validation, and comparison.
 set -Eeuo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -58,6 +61,8 @@ fi
 
 STEP03_ROOT="${PAPER3_ROOT}/results/step_03_pcdh19_genotype_classification_setup"
 STEP04_ROOT="${PAPER3_ROOT}/results/step_04_pcdh19_empirical_pattern_classifier"
+STEP02_ROOT="${PAPER3_ROOT}/results/pcdh19_probe_audit"
+SAMPLE_KEY="${BUNDLE_DIR}/config/sample_key.csv"
 MPL_CACHE="${SOFTWARE_ROOT}/matplotlib-cache"
 mkdir -p "${MPL_CACHE}"
 
@@ -74,6 +79,8 @@ export PYTHONHASHSEED=0 LC_ALL=C TZ=UTC MPLCONFIGDIR="${MPL_CACHE}"
   echo "requirements=${REQUIREMENTS}"
   echo "step03_root=${STEP03_ROOT}"
   echo "step04_root=${STEP04_ROOT}"
+  echo "step02_root=${STEP02_ROOT}"
+  echo "sample_key=${SAMPLE_KEY}"
   echo "paper3_root=${PAPER3_ROOT}"
   PYTHONPATH="${SITE_PACKAGES}" "${PYTHON_BIN}" "${SCRIPT}" \
     --lock "${LOCK}" \
@@ -81,6 +88,8 @@ export PYTHONHASHSEED=0 LC_ALL=C TZ=UTC MPLCONFIGDIR="${MPL_CACHE}"
     --step04-lock "${STEP04_LOCK}" \
     --step03-root "${STEP03_ROOT}" \
     --step04-root "${STEP04_ROOT}" \
+    --step02-root "${STEP02_ROOT}" \
+    --sample-key "${SAMPLE_KEY}" \
     --paper3-root "${PAPER3_ROOT}" \
     --bundle-root "${BUNDLE_DIR}" \
     "$@"

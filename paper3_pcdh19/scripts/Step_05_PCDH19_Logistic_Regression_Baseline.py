@@ -16,7 +16,9 @@ eight-pattern probabilities with the Step 04 empirical probabilities and
 performs leave-one-registered-sample-out validation of the same model. The
 held-out decision policy uses a fixed 0.5 probability threshold for
 informative patterns, always leaves ``000`` uncalled, and never optimizes a
-threshold on held-out data.
+threshold on held-out data. The original WT-male/KO-male benchmark is retained
+unchanged. A second Step 05 cohort includes WT males plus WT females as WT
+ground truth and KO males as KO ground truth; all HET females remain excluded.
 """
 
 import argparse
@@ -57,6 +59,7 @@ VALIDATION_NAME = "step_05_pcdh19_logistic_regression_validation.tsv"
 ENVIRONMENT_NAME = "software_environment.tsv"
 MANIFEST_NAME = "output_manifest.tsv"
 HELD_OUT_VALIDATION_DIRECTORY = "sample_level_held_out_validation"
+EXPANDED_VALIDATION_DIRECTORY = "wt_male_female_vs_ko_male_validation"
 
 HELD_OUT_PREDICTIONS_NAME = "step_05_loso_held_out_cell_predictions.tsv"
 HELD_OUT_CONFUSION_NAME = "step_05_loso_confusion_matrix.tsv"
@@ -70,6 +73,26 @@ HELD_OUT_MANIFEST_NAME = "output_manifest.tsv"
 HELD_OUT_CONFUSION_PLOT_NAME = "step_05_loso_held_out_confusion_matrix.png"
 HELD_OUT_ACCURACY_PLOT_NAME = "step_05_loso_per_sample_accuracy_called.png"
 HELD_OUT_CALLED_PLOT_NAME = "step_05_loso_per_sample_percent_called.png"
+
+EXPANDED_PREDICTIONS_NAME = "step_05_wt_mf_ko_m_held_out_cell_predictions.tsv"
+EXPANDED_CONFUSION_NAME = "step_05_wt_mf_ko_m_confusion_matrix.tsv"
+EXPANDED_PER_SAMPLE_NAME = "step_05_wt_mf_ko_m_per_sample_metrics.tsv"
+EXPANDED_GROUP_METRICS_NAME = "step_05_wt_mf_ko_m_metrics_by_group.tsv"
+EXPANDED_OVERALL_NAME = "step_05_wt_mf_ko_m_overall_metrics.tsv"
+EXPANDED_FOLD_COEFFICIENTS_NAME = "step_05_wt_mf_ko_m_fold_model_coefficients.tsv"
+EXPANDED_FULL_COEFFICIENTS_NAME = "step_05_wt_mf_ko_m_full_fit_coefficients.tsv"
+EXPANDED_FULL_PROBABILITIES_NAME = "step_05_wt_mf_ko_m_full_fit_pattern_probabilities.tsv"
+MALE_PATTERN_ERRORS_NAME = "step_05_male_only_wt_false_ko_errors_by_pattern.tsv"
+EXPANDED_PATTERN_ERRORS_NAME = "step_05_wt_mf_ko_m_wt_false_ko_errors_by_pattern_and_sex.tsv"
+COHORT_COMPARISON_NAME = "step_05_ground_truth_cohort_validation_comparison.tsv"
+EXPANDED_CHECKS_NAME = "step_05_wt_mf_ko_m_validation_checks.tsv"
+EXPANDED_ENVIRONMENT_NAME = "software_environment.tsv"
+EXPANDED_MANIFEST_NAME = "output_manifest.tsv"
+EXPANDED_CONFUSION_PLOT_NAME = "step_05_wt_mf_ko_m_held_out_confusion_matrix.png"
+EXPANDED_ACCURACY_PLOT_NAME = "step_05_wt_mf_ko_m_per_sample_accuracy_called.png"
+EXPANDED_CALLED_PLOT_NAME = "step_05_wt_mf_ko_m_per_sample_percent_called.png"
+PATTERN_ERROR_PLOT_NAME = "step_05_wt_false_ko_errors_by_pattern_cohort.png"
+COHORT_COMPARISON_PLOT_NAME = "step_05_ground_truth_cohort_validation_comparison.png"
 
 PROBABILITY_PLOT_NAME = (
     "step_05_logistic_predicted_genotype_probability_by_pattern.png"
@@ -165,6 +188,85 @@ HELD_OUT_FOLD_COEFFICIENT_HEADER = [
     "iterations",
 ]
 
+EXPANDED_PREDICTION_HEADER = [
+    "cell_barcode",
+    "biological_sample_id",
+    "submitted_sample_name",
+    "sex",
+    "design_group",
+    "true_genotype",
+    "A_detected",
+    "B_detected",
+    "C_detected",
+    "pattern_code",
+    "predicted_wt_probability",
+    "predicted_ko_probability",
+    "predicted_genotype",
+]
+
+EXPANDED_PER_SAMPLE_HEADER = [
+    "biological_sample_id",
+    "submitted_sample_name",
+    "sex",
+    "design_group",
+    "true_genotype",
+    "total_cells",
+    "called_cells",
+    "uncalled_cells",
+    "percent_called",
+    "accuracy_among_called",
+    "ko_sensitivity_where_defined",
+    "ko_specificity_where_defined",
+]
+
+GROUP_METRICS_HEADER = [
+    "evaluation_group",
+    "true_genotype",
+    "sex",
+    "total_cells",
+    "called_cells",
+    "uncalled_cells",
+    "percent_called",
+    "accuracy_among_called",
+    "ko_sensitivity_where_defined",
+    "ko_specificity_where_defined",
+    "false_ko_cells",
+]
+
+EXPANDED_FOLD_COEFFICIENT_HEADER = [
+    "held_out_biological_sample_id",
+    "held_out_true_genotype",
+    "held_out_sex",
+    "held_out_design_group",
+    "training_samples",
+    "training_cells",
+    "term",
+    "coefficient",
+    "odds_ratio",
+    "converged",
+    "iterations",
+]
+
+PATTERN_ERROR_HEADER = [
+    "cohort",
+    "wt_sex",
+    "pattern_code",
+    "true_wt_cells",
+    "predicted_wt_cells",
+    "predicted_ko_cells_false_ko",
+    "uncalled_cells",
+    "false_ko_rate_among_called",
+    "percent_of_cohort_false_ko_errors",
+]
+
+COHORT_COMPARISON_HEADER = [
+    "metric",
+    "male_only_value",
+    "wt_male_female_ko_male_value",
+    "expanded_minus_male_only",
+    "interpretation_denominator",
+]
+
 
 class Step05Error(RuntimeError):
     """Raised when a Step 05 model or output invariant fails."""
@@ -223,6 +325,8 @@ class Step05Configuration(object):
         "plot_dpi",
         "existing_base_package",
         "sample_level_validation",
+        "existing_male_only_validation_package",
+        "expanded_ground_truth_validation",
     }
 
     def __init__(self, lock_path, bundle_root):
@@ -269,6 +373,24 @@ class Step05Configuration(object):
             raise Step05Error("Step 05 validation threshold must be fixed at 0.5")
         if calling["threshold_optimized"] is not False:
             raise Step05Error("Held-out data must not optimize the call threshold")
+        expanded = self.values["expanded_ground_truth_validation"]
+        if expanded["method"] != "leave_one_registered_sample_out":
+            raise Step05Error("Expanded Step 05 validation must be leave-one-sample-out")
+        if expanded["holdout_unit_field"] != "technical_sample_id":
+            raise Step05Error("Expanded Step 05 holdout unit must be technical_sample_id")
+        expected_groups = {
+            (row["genotype"], row["sex"], row["design_group"])
+            for row in expanded["expected_samples"].values()
+        }
+        if expected_groups != {("WT", "M", "WT_M"), ("WT", "F", "WT_F"), ("KO", "M", "KO_M")}:
+            raise Step05Error("Expanded ground truth must be WT-M, WT-F, and KO-M only")
+        if sum(row["cells"] for row in expanded["expected_samples"].values()) != expanded["expected_total_cells"]:
+            raise Step05Error("Expanded ground-truth cell total is inconsistent")
+        if any(row != {"genotype": "HET", "sex": "F"} for row in expanded["excluded_samples"].values()):
+            raise Step05Error("Expanded validation exclusions must be HET females")
+        expanded_calling = expanded["calling_rule"]
+        if expanded_calling != calling:
+            raise Step05Error("Male-only and expanded validation calling rules must match")
         self.framework_script_path = os.path.join(
             self.bundle_root,
             self.values["shared_framework_script"]["relative_path"],
@@ -685,6 +807,8 @@ class SampleAwarePatternRecord(object):
         "cell_barcode",
         "biological_sample_id",
         "submitted_sample_name",
+        "sex",
+        "design_group",
         "true_genotype",
         "pattern_code",
     )
@@ -694,12 +818,16 @@ class SampleAwarePatternRecord(object):
         cell_barcode,
         biological_sample_id,
         submitted_sample_name,
+        sex,
+        design_group,
         true_genotype,
         pattern_code,
     ):
         self.cell_barcode = cell_barcode
         self.biological_sample_id = biological_sample_id
         self.submitted_sample_name = submitted_sample_name
+        self.sex = sex
+        self.design_group = design_group
         self.true_genotype = true_genotype
         self.pattern_code = pattern_code
 
@@ -745,6 +873,8 @@ class Step03SampleAwarePatternReader(object):
                         row["cell_barcode"],
                         sample_id,
                         row["submitted_sample_name"],
+                        row["sex"],
+                        row["design_group"],
                         row["ground_truth_class"],
                         pattern,
                     )
@@ -769,6 +899,171 @@ class Step03SampleAwarePatternReader(object):
         return records
 
 
+class ManifestedProbePatternCohortReader(object):
+    """Extend the Step 03 male contract with manifested WT-female tables."""
+
+    REQUIRED_COLUMNS = [
+        "barcode", "A_UMI", "B_UMI", "C_UMI", "Pcdh19_total_UMI", "detection_pattern"
+    ]
+    PATTERN_LABELS = {
+        "000": "none", "001": "C only", "010": "B only", "011": "B+C",
+        "100": "A only", "101": "A+C", "110": "A+B", "111": "A+B+C",
+    }
+
+    def __init__(self, configuration, encoder, validation, sample_key_path, step02_root):
+        self.configuration = configuration
+        self.encoder = encoder
+        self.validation = validation
+        self.cohort = configuration.values["expanded_ground_truth_validation"]
+        self.sample_key_path = os.path.abspath(sample_key_path)
+        self.step02_root = os.path.abspath(step02_root)
+        self.manifest_path = os.path.join(self.step02_root, "output_manifest.tsv")
+
+    def _manifest(self):
+        if not os.path.isfile(self.manifest_path):
+            raise Step05Error("Expanded-cohort Step 02a manifest is missing")
+        self.validation.require_equal(
+            "expanded_step_02a_manifest_sha256",
+            sha256_file(self.manifest_path),
+            self.cohort["step_02a_output_manifest_sha256"],
+        )
+        rows = {}
+        with open(self.manifest_path, "r", newline="") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            if reader.fieldnames != ["relative_path", "bytes", "sha256"]:
+                raise Step05Error("Unexpected Step 02a manifest schema")
+            for row in reader:
+                rows[row["relative_path"]] = row
+        return rows
+
+    def _sample_metadata(self):
+        if not os.path.isfile(self.sample_key_path):
+            raise Step05Error("Expanded-cohort sample key is missing")
+        self.validation.require_equal(
+            "expanded_sample_key_sha256",
+            sha256_file(self.sample_key_path),
+            self.cohort["sample_key_sha256"],
+        )
+        metadata = {}
+        with open(self.sample_key_path, "r", newline="") as handle:
+            reader = csv.DictReader(handle)
+            required = {"technical_sample_id", "submitted_sample_name", "genotype", "sex", "design_group"}
+            if not required.issubset(set(reader.fieldnames or [])):
+                raise Step05Error("Expanded-cohort sample key schema is incomplete")
+            for row in reader:
+                sample_id = row["technical_sample_id"]
+                if sample_id in metadata:
+                    raise Step05Error("Duplicate sample in registered sample key")
+                metadata[sample_id] = row
+        expected = self.cohort["expected_samples"]
+        excluded = self.cohort["excluded_samples"]
+        for sample_id, definition in expected.items():
+            row = metadata.get(sample_id)
+            if row is None:
+                raise Step05Error("Expanded ground-truth sample is not registered")
+            for field in ("genotype", "sex", "design_group"):
+                if row[field] != definition[field]:
+                    raise Step05Error("Expanded sample metadata differs from lock: {}".format(sample_id))
+        for sample_id, definition in excluded.items():
+            row = metadata.get(sample_id)
+            if row is None or row["genotype"] != definition["genotype"] or row["sex"] != definition["sex"]:
+                raise Step05Error("HET-female exclusion metadata differs from lock")
+        self.validation.require_equal("expanded_het_female_samples_excluded", len(excluded), 3)
+        return metadata
+
+    def read_records(self, male_records):
+        manifest = self._manifest()
+        metadata = self._sample_metadata()
+        expected = self.cohort["expected_samples"]
+        records = list(male_records)
+        class_counts = {"WT": 0, "KO": 0}
+        group_counts = {"WT_M": 0, "WT_F": 0, "KO_M": 0}
+        male_sample_counts = {sample_id: 0 for sample_id, row in expected.items() if row["sex"] == "M"}
+        for record in records:
+            definition = expected.get(record.biological_sample_id)
+            if definition is None or definition["sex"] != "M":
+                raise Step05Error("Expanded cohort received a non-male Step 03 base record")
+            if record.true_genotype != definition["genotype"] or record.sex != "M":
+                raise Step05Error("Expanded cohort Step 03 male metadata mismatch")
+            male_sample_counts[record.biological_sample_id] += 1
+            class_counts[record.true_genotype] += 1
+            group_counts[record.design_group] += 1
+        for sample_id, observed in male_sample_counts.items():
+            self.validation.require_equal(
+                "expanded_{}_step_03_male_cells".format(sample_id),
+                observed,
+                expected[sample_id]["cells"],
+            )
+        for sample_id, definition in expected.items():
+            if definition["sex"] == "M":
+                continue
+            relative_path = os.path.join("per_sample", sample_id, "pcdh19_probe_patterns.tsv")
+            manifest_row = manifest.get(relative_path)
+            if manifest_row is None:
+                raise Step05Error("Step 02a manifest omits expanded sample {}".format(sample_id))
+            path = os.path.join(self.step02_root, relative_path)
+            if not os.path.isfile(path):
+                raise Step05Error("Expanded sample probe-pattern table is missing")
+            if os.path.getsize(path) != int(manifest_row["bytes"]) or sha256_file(path) != manifest_row["sha256"]:
+                raise Step05Error("Expanded sample probe-pattern identity mismatch")
+            seen = set()
+            row_count = 0
+            with open(path, "r", newline="") as handle:
+                reader = csv.DictReader(handle, delimiter="\t")
+                if reader.fieldnames != self.REQUIRED_COLUMNS:
+                    raise Step05Error("Unexpected expanded sample pattern schema")
+                for row in reader:
+                    barcode = row["barcode"]
+                    if not barcode or barcode in seen:
+                        raise Step05Error("Empty or duplicate expanded sample barcode")
+                    seen.add(barcode)
+                    try:
+                        counts = [int(row[name]) for name in ("A_UMI", "B_UMI", "C_UMI")]
+                        total = int(row["Pcdh19_total_UMI"])
+                    except ValueError:
+                        raise Step05Error("Invalid expanded sample probe count")
+                    if min(counts + [total]) < 0 or sum(counts) != total:
+                        raise Step05Error("Expanded sample probe counts are inconsistent")
+                    pattern = self.encoder.encode(*(int(value > 0) for value in counts))
+                    if row["detection_pattern"] != self.PATTERN_LABELS[pattern]:
+                        raise Step05Error("Expanded sample detection pattern is inconsistent")
+                    registered = metadata[sample_id]
+                    records.append(
+                        SampleAwarePatternRecord(
+                            barcode,
+                            sample_id,
+                            registered["submitted_sample_name"],
+                            definition["sex"],
+                            definition["design_group"],
+                            definition["genotype"],
+                            pattern,
+                        )
+                    )
+                    row_count += 1
+            self.validation.require_equal(
+                "expanded_{}_cells".format(sample_id), row_count, definition["cells"]
+            )
+            class_counts[definition["genotype"]] += row_count
+            group_counts[definition["design_group"]] += row_count
+        self.validation.require_equal(
+            "expanded_ground_truth_cells", len(records), self.cohort["expected_total_cells"]
+        )
+        for genotype, expected_count in self.cohort["expected_class_cells"].items():
+            self.validation.require_equal(
+                "expanded_{}_class_cells".format(genotype.lower()), class_counts[genotype], expected_count
+            )
+        for group, expected_count in self.cohort["expected_sex_class_cells"].items():
+            self.validation.require_equal(
+                "expanded_{}_cells".format(group.lower()), group_counts[group], expected_count
+            )
+        self.validation.require_equal(
+            "expanded_het_cells_loaded",
+            sum(record.biological_sample_id in self.cohort["excluded_samples"] for record in records),
+            0,
+        )
+        return records
+
+
 class HeldOutCallingPolicy(object):
     """Apply the predeclared 0.5 rule while always leaving 000 uncalled."""
 
@@ -787,19 +1082,30 @@ class HeldOutCallingPolicy(object):
 
 
 class LeaveOneSampleOutLogisticValidator(object):
-    """Fit six sample-held-out logistic models and predict held-out cells."""
+    """Fit one logistic model per registered-sample holdout."""
 
-    def __init__(self, configuration, encoder, validation, calling_policy):
+    def __init__(
+        self,
+        configuration,
+        encoder,
+        validation,
+        calling_policy,
+        validation_config=None,
+        check_prefix="",
+    ):
         self.configuration = configuration
         self.encoder = encoder
         self.validation = validation
         self.calling_policy = calling_policy
+        self.validation_config = validation_config or configuration.values["sample_level_validation"]
+        self.check_prefix = check_prefix
         self.estimator = LogisticRegressionEstimator(configuration, encoder)
 
+    def _check(self, name):
+        return "{}{}".format(self.check_prefix, name)
+
     def run(self, records):
-        sample_config = self.configuration.values["sample_level_validation"][
-            "expected_samples"
-        ]
+        sample_config = self.validation_config["expected_samples"]
         sample_order = list(sample_config.keys())
         predictions = []
         fold_coefficients = []
@@ -818,17 +1124,17 @@ class LeaveOneSampleOutLogisticValidator(object):
                 {record.biological_sample_id for record in training_records}
             )
             self.validation.require_equal(
-                "{}_training_samples_exclude_holdout".format(held_out_sample),
+                self._check("{}_training_samples_exclude_holdout".format(held_out_sample)),
                 held_out_sample in training_samples,
                 False,
             )
             self.validation.require_equal(
-                "{}_training_sample_count".format(held_out_sample),
+                self._check("{}_training_sample_count".format(held_out_sample)),
                 len(training_samples),
-                5,
+                len(sample_config) - 1,
             )
             self.validation.require_equal(
-                "{}_held_out_cells".format(held_out_sample),
+                self._check("{}_held_out_cells".format(held_out_sample)),
                 len(test_records),
                 sample_config[held_out_sample]["cells"],
             )
@@ -843,7 +1149,7 @@ class LeaveOneSampleOutLogisticValidator(object):
             )
             classifier = self.estimator.fit(empirical_training)
             self.validation.require_equal(
-                "{}_fold_model_converged".format(held_out_sample),
+                self._check("{}_fold_model_converged".format(held_out_sample)),
                 classifier.fit_diagnostics["converged"],
                 True,
             )
@@ -852,6 +1158,10 @@ class LeaveOneSampleOutLogisticValidator(object):
                     {
                         "held_out_biological_sample_id": held_out_sample,
                         "held_out_true_genotype": sample_config[held_out_sample]["genotype"],
+                        "held_out_sex": sample_config[held_out_sample].get("sex", "M"),
+                        "held_out_design_group": sample_config[held_out_sample].get(
+                            "design_group", "{}_M".format(sample_config[held_out_sample]["genotype"])
+                        ),
                         "training_samples": ",".join(training_samples),
                         "training_cells": len(training_records),
                         "term": coefficient_row["term"],
@@ -873,6 +1183,8 @@ class LeaveOneSampleOutLogisticValidator(object):
                         "cell_barcode": record.cell_barcode,
                         "biological_sample_id": record.biological_sample_id,
                         "submitted_sample_name": record.submitted_sample_name,
+                        "sex": record.sex,
+                        "design_group": record.design_group,
                         "true_genotype": record.true_genotype,
                         "A_detected": a_value,
                         "B_detected": b_value,
@@ -886,10 +1198,10 @@ class LeaveOneSampleOutLogisticValidator(object):
                     }
                 )
         self.validation.require_equal(
-            "held_out_prediction_rows", len(predictions), len(records)
+            self._check("held_out_prediction_rows"), len(predictions), len(records)
         )
         self.validation.require_equal(
-            "each_cell_predicted_once",
+            self._check("each_cell_predicted_once"),
             len(
                 {
                     (row["biological_sample_id"], row["cell_barcode"])
@@ -899,7 +1211,7 @@ class LeaveOneSampleOutLogisticValidator(object):
             len(records),
         )
         self.validation.require_equal(
-            "fold_coefficient_rows", len(fold_coefficients), 24
+            self._check("fold_coefficient_rows"), len(fold_coefficients), 4 * len(sample_config)
         )
         return predictions, fold_coefficients
 
@@ -907,9 +1219,14 @@ class LeaveOneSampleOutLogisticValidator(object):
 class HeldOutValidationEvaluator(object):
     """Compute called-cell confusion and sample/overall validation metrics."""
 
-    def __init__(self, configuration, validation):
+    def __init__(self, configuration, validation, validation_config=None, check_prefix=""):
         self.configuration = configuration
         self.validation = validation
+        self.validation_config = validation_config or configuration.values["sample_level_validation"]
+        self.check_prefix = check_prefix
+
+    def _check(self, name):
+        return "{}{}".format(self.check_prefix, name)
 
     @staticmethod
     def _safe_fraction(numerator, denominator):
@@ -927,7 +1244,7 @@ class HeldOutValidationEvaluator(object):
         return counts
 
     def evaluate(self, predictions):
-        sample_config = self.configuration.values["sample_level_validation"]["expected_samples"]
+        sample_config = self.validation_config["expected_samples"]
         per_sample = []
         for sample_id in sample_config:
             sample_rows = [row for row in predictions if row["biological_sample_id"] == sample_id]
@@ -944,6 +1261,10 @@ class HeldOutValidationEvaluator(object):
                 {
                     "biological_sample_id": sample_id,
                     "submitted_sample_name": sample_rows[0]["submitted_sample_name"],
+                    "sex": sample_rows[0].get("sex", sample_config[sample_id].get("sex", "M")),
+                    "design_group": sample_rows[0].get(
+                        "design_group", sample_config[sample_id].get("design_group", "")
+                    ),
                     "true_genotype": true_genotype,
                     "total_cells": len(sample_rows),
                     "called_cells": len(called),
@@ -962,8 +1283,9 @@ class HeldOutValidationEvaluator(object):
         total = len(predictions)
         called = tn + fp + fn + tp
         uncalled = total - called
+        cohort_id = self.validation_config.get("cohort_id", "wt_male_vs_ko_male")
         overall_values = [
-            ("total_cells", total, "All held-out WT/KO-male cells"),
+            ("total_cells", total, "All held-out cells in {}".format(cohort_id)),
             ("called_cells", called, "Non-000 cells receiving WT or KO at fixed threshold"),
             ("uncalled_cells", uncalled, "Pattern 000 plus any exact probability tie"),
             ("percent_called", 100.0 * called / total, "100 * called / total"),
@@ -985,20 +1307,232 @@ class HeldOutValidationEvaluator(object):
             {"true_genotype": "KO", "predicted_wt_cells": fn, "predicted_ko_cells": tp, "total_called_cells": fn + tp},
         ]
         self.validation.require_equal(
-            "pattern_000_predictions_uncalled",
+            self._check("pattern_000_predictions_uncalled"),
             sum(row["pattern_code"] == "000" and row["predicted_genotype"] != "uncalled" for row in predictions),
             0,
         )
         self.validation.require_equal(
-            "called_confusion_total", called, sum(row["called_cells"] for row in per_sample)
+            self._check("called_confusion_total"), called, sum(row["called_cells"] for row in per_sample)
         )
         self.validation.require_equal(
-            "fixed_call_threshold", self.configuration.values["sample_level_validation"]["calling_rule"]["probability_threshold"], 0.5
+            self._check("fixed_call_threshold"), self.validation_config["calling_rule"]["probability_threshold"], 0.5
         )
         self.validation.require_equal(
-            "held_out_threshold_optimized", self.configuration.values["sample_level_validation"]["calling_rule"]["threshold_optimized"], False
+            self._check("held_out_threshold_optimized"), self.validation_config["calling_rule"]["threshold_optimized"], False
         )
         return confusion_rows, per_sample, overall
+
+
+class ExistingMaleOnlyValidationReader(object):
+    """Verify and read the immutable male-only validation benchmark."""
+
+    def __init__(self, configuration, validation, base_root):
+        self.configuration = configuration
+        self.validation = validation
+        definition = configuration.values["existing_male_only_validation_package"]
+        self.root = os.path.join(os.path.abspath(base_root), definition["relative_directory"])
+        self.manifest_path = os.path.join(self.root, HELD_OUT_MANIFEST_NAME)
+        self.predictions_path = os.path.join(self.root, HELD_OUT_PREDICTIONS_NAME)
+        self.overall_path = os.path.join(self.root, HELD_OUT_OVERALL_NAME)
+
+    def verify(self):
+        definition = self.configuration.values["existing_male_only_validation_package"]
+        if not os.path.isfile(self.manifest_path):
+            raise Step05Error("Male-only validation benchmark is missing")
+        self.validation.require_equal(
+            "male_only_validation_manifest_unchanged",
+            sha256_file(self.manifest_path),
+            definition["output_manifest_sha256"],
+        )
+        with open(self.manifest_path, "r", newline="") as handle:
+            rows = list(csv.DictReader(handle, delimiter="\t"))
+        for row in rows:
+            path = os.path.join(self.root, row["relative_path"])
+            if not os.path.isfile(path) or os.path.getsize(path) != int(row["bytes"]):
+                raise Step05Error("Male-only validation benchmark is incomplete")
+            if sha256_file(path) != row["sha256"]:
+                raise Step05Error("Male-only validation artifact identity mismatch")
+        self.validation.require_equal("male_only_validation_manifest_files", len(rows), 10)
+        self.validation.require_equal(
+            "male_only_prediction_table_unchanged",
+            sha256_file(self.predictions_path),
+            definition["held_out_predictions_sha256"],
+        )
+
+    def read_predictions(self):
+        self.verify()
+        rows = []
+        with open(self.predictions_path, "r", newline="") as handle:
+            for row in csv.DictReader(handle, delimiter="\t"):
+                row["sex"] = "M"
+                row["design_group"] = "{}_M".format(row["true_genotype"])
+                rows.append(row)
+        self.validation.require_equal("male_only_benchmark_prediction_rows", len(rows), 230269)
+        return rows
+
+    def read_overall(self):
+        values = {}
+        with open(self.overall_path, "r", newline="") as handle:
+            for row in csv.DictReader(handle, delimiter="\t"):
+                values[row["metric"]] = float(row["value"])
+        return values
+
+
+class PatternErrorAnalyzer(object):
+    """Attribute held-out WT-to-KO errors to binary probe patterns."""
+
+    PATTERNS = ["001", "010", "011", "100", "101", "110", "111"]
+
+    @staticmethod
+    def _rows_for_group(predictions, cohort, wt_sex, sex_filter=None):
+        subset = [
+            row for row in predictions
+            if row["true_genotype"] == "WT"
+            and row["pattern_code"] != "000"
+            and (sex_filter is None or row.get("sex") == sex_filter)
+        ]
+        total_errors = sum(row["predicted_genotype"] == "KO" for row in subset)
+        rows = []
+        for pattern in PatternErrorAnalyzer.PATTERNS:
+            pattern_rows = [row for row in subset if row["pattern_code"] == pattern]
+            predicted_wt = sum(row["predicted_genotype"] == "WT" for row in pattern_rows)
+            predicted_ko = sum(row["predicted_genotype"] == "KO" for row in pattern_rows)
+            uncalled = sum(row["predicted_genotype"] == "uncalled" for row in pattern_rows)
+            called = predicted_wt + predicted_ko
+            rows.append(
+                {
+                    "cohort": cohort,
+                    "wt_sex": wt_sex,
+                    "pattern_code": pattern,
+                    "true_wt_cells": len(pattern_rows),
+                    "predicted_wt_cells": predicted_wt,
+                    "predicted_ko_cells_false_ko": predicted_ko,
+                    "uncalled_cells": uncalled,
+                    "false_ko_rate_among_called": predicted_ko / called if called else None,
+                    "percent_of_cohort_false_ko_errors": 100.0 * predicted_ko / total_errors if total_errors else None,
+                }
+            )
+        return rows
+
+    def analyze_male_only(self, predictions):
+        return self._rows_for_group(predictions, "male_only", "M", "M")
+
+    def analyze_expanded(self, predictions):
+        rows = self._rows_for_group(predictions, "wt_male_female_vs_ko_male", "ALL")
+        rows.extend(self._rows_for_group(predictions, "wt_male_female_vs_ko_male", "M", "M"))
+        rows.extend(self._rows_for_group(predictions, "wt_male_female_vs_ko_male", "F", "F"))
+        return rows
+
+
+class ExpandedCohortEvaluator(object):
+    """Create sex/genotype group metrics and cohort-benchmark comparisons."""
+
+    GROUPS = [
+        ("WT_M", "WT", "M"),
+        ("WT_F", "WT", "F"),
+        ("KO_M", "KO", "M"),
+    ]
+
+    @staticmethod
+    def _group_row(predictions, label, genotype, sex):
+        rows = [row for row in predictions if row["true_genotype"] == genotype and row.get("sex") == sex]
+        called = [row for row in rows if row["predicted_genotype"] in ("WT", "KO")]
+        correct = sum(row["predicted_genotype"] == genotype for row in called)
+        false_ko = sum(row["predicted_genotype"] == "KO" for row in called) if genotype == "WT" else 0
+        accuracy = correct / len(called) if called else None
+        return {
+            "evaluation_group": label,
+            "true_genotype": genotype,
+            "sex": sex,
+            "total_cells": len(rows),
+            "called_cells": len(called),
+            "uncalled_cells": len(rows) - len(called),
+            "percent_called": 100.0 * len(called) / len(rows) if rows else None,
+            "accuracy_among_called": accuracy,
+            "ko_sensitivity_where_defined": accuracy if genotype == "KO" else None,
+            "ko_specificity_where_defined": accuracy if genotype == "WT" else None,
+            "false_ko_cells": false_ko,
+        }
+
+    def group_metrics(self, predictions):
+        return [self._group_row(predictions, *definition) for definition in self.GROUPS]
+
+    @staticmethod
+    def _overall_dict(overall_rows):
+        return {row["metric"]: float(row["value"]) for row in overall_rows}
+
+    @staticmethod
+    def _specificity(predictions, sex=None):
+        rows = [
+            row for row in predictions
+            if row["true_genotype"] == "WT"
+            and row["predicted_genotype"] in ("WT", "KO")
+            and (sex is None or row.get("sex") == sex)
+        ]
+        return sum(row["predicted_genotype"] == "WT" for row in rows) / len(rows) if rows else None
+
+    @staticmethod
+    def _sensitivity(predictions):
+        rows = [row for row in predictions if row["true_genotype"] == "KO" and row["predicted_genotype"] in ("WT", "KO")]
+        return sum(row["predicted_genotype"] == "KO" for row in rows) / len(rows) if rows else None
+
+    def comparison(self, male_predictions, male_overall, expanded_predictions, expanded_overall_rows):
+        expanded_overall = self._overall_dict(expanded_overall_rows)
+        definitions = [
+            ("percent_called_overall", male_overall["percent_called"], expanded_overall["percent_called"], "all cohort cells"),
+            ("accuracy_among_called_overall", male_overall["accuracy_among_called"], expanded_overall["accuracy_among_called"], "called cells in each cohort"),
+            ("ko_male_sensitivity_among_called", self._sensitivity(male_predictions), self._sensitivity(expanded_predictions), "called KO-male cells"),
+            ("wt_male_specificity_among_called", self._specificity(male_predictions, "M"), self._specificity(expanded_predictions, "M"), "called WT-male cells; directly comparable"),
+            ("all_wt_specificity_among_called", self._specificity(male_predictions), self._specificity(expanded_predictions), "called WT cells; expanded includes WT females"),
+            ("wt_female_specificity_among_called", None, self._specificity(expanded_predictions, "F"), "called WT-female cells; no male-only counterpart"),
+            ("wt_male_false_ko_cells", float(sum(row["true_genotype"] == "WT" and row["predicted_genotype"] == "KO" for row in male_predictions)), float(sum(row["true_genotype"] == "WT" and row.get("sex") == "M" and row["predicted_genotype"] == "KO" for row in expanded_predictions)), "held-out WT-male false-KO cells"),
+        ]
+        rows = []
+        for metric, male, expanded, denominator in definitions:
+            rows.append(
+                {
+                    "metric": metric,
+                    "male_only_value": male,
+                    "wt_male_female_ko_male_value": expanded,
+                    "expanded_minus_male_only": expanded - male if male is not None and expanded is not None else None,
+                    "interpretation_denominator": denominator,
+                }
+            )
+        return rows
+
+
+class ExpandedFullFitBuilder(object):
+    """Fit the expanded full-data reference model without making cell calls."""
+
+    def __init__(self, configuration, encoder):
+        self.encoder = encoder
+        self.estimator = LogisticRegressionEstimator(configuration, encoder)
+
+    def fit(self, records):
+        empirical = EmpiricalPatternEstimator(self.encoder).fit(
+            LabeledPatternObservation(record.pattern_code, record.true_genotype) for record in records
+        )
+        classifier = self.estimator.fit(empirical)
+        probability_rows = []
+        for pattern in self.encoder.pattern_order:
+            probabilities = classifier.predict_proba({"pattern_code": pattern})
+            a_value, b_value, c_value = self.encoder.decode(pattern)
+            evidence = empirical.evidence(pattern)
+            probability_rows.append(
+                {
+                    "pattern_code": pattern,
+                    "pattern_label": self.encoder.label(pattern),
+                    "A_detected": a_value,
+                    "B_detected": b_value,
+                    "C_detected": c_value,
+                    "total_ground_truth_cells": evidence["total_cells"],
+                    "linear_predictor_log_odds_ko": classifier.linear_predictor({"pattern_code": pattern}),
+                    "p_wt_logistic": probabilities["WT"],
+                    "p_ko_logistic": probabilities["KO"],
+                    "hard_call": None,
+                }
+            )
+        return classifier, probability_rows
 
 
 class LogisticRegressionPlotter(object):
@@ -1214,6 +1748,104 @@ class HeldOutValidationPlotter(object):
         self.plot_confusion(confusion_rows, paths[0])
         self.plot_per_sample_accuracy(per_sample_rows, paths[1])
         self.plot_per_sample_called(per_sample_rows, paths[2])
+        return paths
+
+
+class ExpandedValidationPlotter(HeldOutValidationPlotter):
+    """Render expanded-cohort generalization and cohort-comparison diagnostics."""
+
+    def plot_pattern_errors(self, male_rows, expanded_rows, path):
+        male = {row["pattern_code"]: row for row in male_rows if row["wt_sex"] == "M"}
+        expanded = {
+            row["pattern_code"]: row
+            for row in expanded_rows
+            if row["wt_sex"] == "M"
+        }
+        patterns = PatternErrorAnalyzer.PATTERNS
+        x_values = np.arange(len(patterns))
+        width = 0.38
+        figure, axis = plt.subplots(figsize=(10, 5.5))
+        axis.bar(
+            x_values - width / 2,
+            [male[pattern]["predicted_ko_cells_false_ko"] for pattern in patterns],
+            width,
+            label="Male-only training",
+            color="#667788",
+        )
+        axis.bar(
+            x_values + width / 2,
+            [expanded[pattern]["predicted_ko_cells_false_ko"] for pattern in patterns],
+            width,
+            label="WT-M+F / KO-M training",
+            color="#8E5BA6",
+        )
+        axis.set_xticks(x_values)
+        axis.set_xticklabels(patterns)
+        axis.set_xlabel("Binary Probe A/B/C pattern")
+        axis.set_ylabel("Held-out WT-male cells called KO")
+        axis.set_title("Step 05: WT-male false-KO errors by probe pattern")
+        axis.grid(axis="y", color="#DDDDDD", linewidth=0.7)
+        axis.legend(frameon=False)
+        figure.tight_layout()
+        figure.savefig(path, dpi=self.dpi, metadata={"Title": "Step 05 WT false-KO pattern errors"})
+        plt.close(figure)
+
+    def plot_cohort_comparison(self, rows, path):
+        wanted = [
+            "wt_male_specificity_among_called",
+            "ko_male_sensitivity_among_called",
+            "accuracy_among_called_overall",
+        ]
+        indexed = {row["metric"]: row for row in rows}
+        x_values = np.arange(len(wanted))
+        width = 0.38
+        figure, axis = plt.subplots(figsize=(9, 5.5))
+        axis.bar(
+            x_values - width / 2,
+            [100.0 * indexed[key]["male_only_value"] for key in wanted],
+            width,
+            label="Male-only",
+            color="#667788",
+        )
+        axis.bar(
+            x_values + width / 2,
+            [100.0 * indexed[key]["wt_male_female_ko_male_value"] for key in wanted],
+            width,
+            label="WT-M+F / KO-M",
+            color="#8E5BA6",
+        )
+        axis.set_xticks(x_values)
+        axis.set_xticklabels(["WT-M specificity", "KO-M sensitivity", "Overall accuracy"])
+        axis.set_ylim(0, 105)
+        axis.set_ylabel("Called-cell metric (%)")
+        axis.set_title("Step 05: Ground-truth cohort validation comparison")
+        axis.grid(axis="y", color="#DDDDDD", linewidth=0.7)
+        axis.legend(frameon=False)
+        figure.tight_layout()
+        figure.savefig(path, dpi=self.dpi, metadata={"Title": "Step 05 cohort validation comparison"})
+        plt.close(figure)
+
+    def render_expanded(
+        self,
+        confusion_rows,
+        per_sample_rows,
+        male_pattern_rows,
+        expanded_pattern_rows,
+        comparison_rows,
+        output_directory,
+    ):
+        paths = [
+            os.path.join(output_directory, EXPANDED_CONFUSION_PLOT_NAME),
+            os.path.join(output_directory, EXPANDED_ACCURACY_PLOT_NAME),
+            os.path.join(output_directory, EXPANDED_CALLED_PLOT_NAME),
+            os.path.join(output_directory, PATTERN_ERROR_PLOT_NAME),
+            os.path.join(output_directory, COHORT_COMPARISON_PLOT_NAME),
+        ]
+        self.plot_confusion(confusion_rows, paths[0])
+        self.plot_per_sample_accuracy(per_sample_rows, paths[1])
+        self.plot_per_sample_called(per_sample_rows, paths[2])
+        self.plot_pattern_errors(male_pattern_rows, expanded_pattern_rows, paths[3])
+        self.plot_cohort_comparison(comparison_rows, paths[4])
         return paths
 
 
@@ -1608,6 +2240,210 @@ class HeldOutValidationOutputPublisher(object):
                 shutil.rmtree(staging)
 
 
+class ExpandedCohortOutputPublisher(object):
+    """Publish the expanded Step 05 cohort comparison as a separate package."""
+
+    EXPECTED_FILES = {
+        EXPANDED_PREDICTIONS_NAME,
+        EXPANDED_CONFUSION_NAME,
+        EXPANDED_PER_SAMPLE_NAME,
+        EXPANDED_GROUP_METRICS_NAME,
+        EXPANDED_OVERALL_NAME,
+        EXPANDED_FOLD_COEFFICIENTS_NAME,
+        EXPANDED_FULL_COEFFICIENTS_NAME,
+        EXPANDED_FULL_PROBABILITIES_NAME,
+        MALE_PATTERN_ERRORS_NAME,
+        EXPANDED_PATTERN_ERRORS_NAME,
+        COHORT_COMPARISON_NAME,
+        EXPANDED_CHECKS_NAME,
+        EXPANDED_ENVIRONMENT_NAME,
+        EXPANDED_CONFUSION_PLOT_NAME,
+        EXPANDED_ACCURACY_PLOT_NAME,
+        EXPANDED_CALLED_PLOT_NAME,
+        PATTERN_ERROR_PLOT_NAME,
+        COHORT_COMPARISON_PLOT_NAME,
+    }
+
+    def __init__(self, configuration, validation, plotter, output_root, paths):
+        self.configuration = configuration
+        self.validation = validation
+        self.plotter = plotter
+        self.output_root = os.path.abspath(output_root)
+        self.paths = {key: os.path.abspath(value) for key, value in paths.items()}
+
+    def _format(self, value):
+        if value is None or value == "":
+            return ""
+        return ("{:.%df}" % self.configuration.decimal_places).format(float(value))
+
+    def _serialize(self, rows, float_keys, blank_hard_call=False):
+        serialized = []
+        for source in rows:
+            row = dict(source)
+            for key in float_keys:
+                row[key] = self._format(row.get(key))
+            if blank_hard_call:
+                row["hard_call"] = ""
+            serialized.append(row)
+        return serialized
+
+    def _overall_rows(self, rows):
+        serialized = []
+        for source in rows:
+            row = dict(source)
+            if isinstance(row["value"], float):
+                row["value"] = self._format(row["value"])
+            serialized.append(row)
+        return serialized
+
+    def _fold_rows(self, rows):
+        serialized = self._serialize(rows, {"coefficient", "odds_ratio"})
+        for row in serialized:
+            row["converged"] = str(row["converged"]).lower()
+        return serialized
+
+    def _write_environment(self, path):
+        cohort = self.configuration.values["expanded_ground_truth_validation"]
+        rows = [
+            {"key": "step_id", "value": self.configuration.step_id},
+            {"key": "pipeline_version", "value": self.configuration.values["pipeline_version"]},
+            {"key": "cohort_id", "value": cohort["cohort_id"]},
+            {"key": "ground_truth_definition", "value": "WT=WT_M+WT_F;KO=KO_M"},
+            {"key": "class_encoding", "value": "WT=0;KO=1"},
+            {"key": "het_female_samples", "value": "excluded_not_loaded"},
+            {"key": "validation_method", "value": cohort["method"]},
+            {"key": "holdout_unit_field", "value": cohort["holdout_unit_field"]},
+            {"key": "probability_threshold", "value": cohort["calling_rule"]["probability_threshold"]},
+            {"key": "uncalled_patterns", "value": ",".join(cohort["calling_rule"]["uncalled_pattern_codes"])},
+            {"key": "threshold_optimized", "value": "false"},
+            {"key": "python_version", "value": platform.python_version()},
+            {"key": "numpy_version", "value": np.__version__},
+            {"key": "matplotlib_version", "value": matplotlib.__version__},
+        ]
+        for key in sorted(self.paths):
+            rows.append({"key": "{}_path".format(key), "value": self.paths[key]})
+            rows.append({"key": "{}_sha256".format(key), "value": sha256_file(self.paths[key])})
+        write_tsv(path, ["key", "value"], rows)
+
+    @staticmethod
+    def _write_manifest(directory):
+        rows = []
+        for filename in sorted(os.listdir(directory)):
+            path = os.path.join(directory, filename)
+            if filename == EXPANDED_MANIFEST_NAME or not os.path.isfile(path):
+                continue
+            rows.append({"relative_path": filename, "bytes": os.path.getsize(path), "sha256": sha256_file(path)})
+        write_tsv(os.path.join(directory, EXPANDED_MANIFEST_NAME), ["relative_path", "bytes", "sha256"], rows)
+
+    @classmethod
+    def _verify_manifest(cls, directory):
+        manifest_path = os.path.join(directory, EXPANDED_MANIFEST_NAME)
+        if not os.path.isfile(manifest_path):
+            raise Step05Error("Expanded Step 05 manifest is missing")
+        listed = set()
+        with open(manifest_path, "r", newline="") as handle:
+            for row in csv.DictReader(handle, delimiter="\t"):
+                path = os.path.join(directory, row["relative_path"])
+                if row["relative_path"] in listed or not os.path.isfile(path):
+                    raise Step05Error("Expanded Step 05 manifest is invalid")
+                listed.add(row["relative_path"])
+                if os.path.getsize(path) != int(row["bytes"]) or sha256_file(path) != row["sha256"]:
+                    raise Step05Error("Expanded Step 05 artifact identity mismatch")
+        if listed != cls.EXPECTED_FILES:
+            raise Step05Error("Expanded Step 05 manifested file set is unexpected")
+
+    def _verify_existing(self):
+        self._verify_manifest(self.output_root)
+        with open(os.path.join(self.output_root, EXPANDED_ENVIRONMENT_NAME), "r", newline="") as handle:
+            environment = {row["key"]: row["value"] for row in csv.DictReader(handle, delimiter="\t")}
+        for key, path in self.paths.items():
+            if environment.get("{}_sha256".format(key)) != sha256_file(path):
+                raise Step05Error("Expanded Step 05 provenance differs for {}".format(key))
+
+    def publish(
+        self,
+        predictions,
+        confusion_rows,
+        per_sample_rows,
+        group_rows,
+        overall_rows,
+        fold_rows,
+        full_classifier,
+        full_probability_rows,
+        male_pattern_rows,
+        expanded_pattern_rows,
+        comparison_rows,
+    ):
+        if os.path.exists(self.output_root):
+            self._verify_existing()
+            print("EXISTING_VALIDATED\t{}".format(self.output_root))
+            return
+        parent = os.path.dirname(self.output_root)
+        staging = tempfile.mkdtemp(prefix=".wt_male_female_vs_ko_male_validation.", dir=parent)
+        try:
+            write_tsv(
+                os.path.join(staging, EXPANDED_PREDICTIONS_NAME),
+                EXPANDED_PREDICTION_HEADER,
+                self._serialize(predictions, {"predicted_wt_probability", "predicted_ko_probability"}),
+            )
+            write_tsv(os.path.join(staging, EXPANDED_CONFUSION_NAME), HELD_OUT_CONFUSION_HEADER, confusion_rows)
+            write_tsv(
+                os.path.join(staging, EXPANDED_PER_SAMPLE_NAME),
+                EXPANDED_PER_SAMPLE_HEADER,
+                self._serialize(per_sample_rows, {"percent_called", "accuracy_among_called", "ko_sensitivity_where_defined", "ko_specificity_where_defined"}),
+            )
+            write_tsv(
+                os.path.join(staging, EXPANDED_GROUP_METRICS_NAME),
+                GROUP_METRICS_HEADER,
+                self._serialize(group_rows, {"percent_called", "accuracy_among_called", "ko_sensitivity_where_defined", "ko_specificity_where_defined"}),
+            )
+            write_tsv(
+                os.path.join(staging, EXPANDED_OVERALL_NAME),
+                HELD_OUT_OVERALL_HEADER,
+                self._overall_rows(overall_rows),
+            )
+            write_tsv(
+                os.path.join(staging, EXPANDED_FOLD_COEFFICIENTS_NAME),
+                EXPANDED_FOLD_COEFFICIENT_HEADER,
+                self._fold_rows(fold_rows),
+            )
+            full_coefficients = full_classifier.coefficient_rows()
+            write_tsv(
+                os.path.join(staging, EXPANDED_FULL_COEFFICIENTS_NAME),
+                COEFFICIENT_HEADER,
+                self._serialize(full_coefficients, {"coefficient", "odds_ratio"}),
+            )
+            write_tsv(
+                os.path.join(staging, EXPANDED_FULL_PROBABILITIES_NAME),
+                PROBABILITY_HEADER,
+                self._serialize(full_probability_rows, {"linear_predictor_log_odds_ko", "p_wt_logistic", "p_ko_logistic"}, blank_hard_call=True),
+            )
+            pattern_float_keys = {"false_ko_rate_among_called", "percent_of_cohort_false_ko_errors"}
+            write_tsv(os.path.join(staging, MALE_PATTERN_ERRORS_NAME), PATTERN_ERROR_HEADER, self._serialize(male_pattern_rows, pattern_float_keys))
+            write_tsv(os.path.join(staging, EXPANDED_PATTERN_ERRORS_NAME), PATTERN_ERROR_HEADER, self._serialize(expanded_pattern_rows, pattern_float_keys))
+            write_tsv(
+                os.path.join(staging, COHORT_COMPARISON_NAME),
+                COHORT_COMPARISON_HEADER,
+                self._serialize(comparison_rows, {"male_only_value", "wt_male_female_ko_male_value", "expanded_minus_male_only"}),
+            )
+            plot_paths = self.plotter.render_expanded(
+                confusion_rows, per_sample_rows, male_pattern_rows, expanded_pattern_rows, comparison_rows, staging
+            )
+            self.validation.require_equal("expanded_validation_plots_created", sum(os.path.getsize(path) > 0 for path in plot_paths), 5)
+            write_tsv(os.path.join(staging, EXPANDED_CHECKS_NAME), VALIDATION_HEADER, self.validation.rows)
+            self._write_environment(os.path.join(staging, EXPANDED_ENVIRONMENT_NAME))
+            self._write_manifest(staging)
+            self._verify_manifest(staging)
+            if os.path.exists(self.output_root):
+                raise Step05Error("Expanded Step 05 output appeared during publication")
+            os.replace(staging, self.output_root)
+            staging = None
+            print("PUBLISHED\t{}\tfolds=9\tcells={}".format(self.output_root, len(predictions)))
+        finally:
+            if staging and os.path.exists(staging):
+                shutil.rmtree(staging)
+
+
 class PCDH19LogisticRegressionBaselineStep(object):
     """Coordinate Step 05 using the existing Step 04 classification framework."""
 
@@ -1683,6 +2519,62 @@ class PCDH19LogisticRegressionBaselineStep(object):
             held_out_root,
             held_out_paths,
         )
+        self.male_only_reader = ExistingMaleOnlyValidationReader(
+            self.configuration, self.validation, output_root
+        )
+        expanded_config = self.configuration.values["expanded_ground_truth_validation"]
+        self.expanded_reader = ManifestedProbePatternCohortReader(
+            self.configuration,
+            self.encoder,
+            self.validation,
+            args.sample_key,
+            args.step02_root,
+        )
+        self.expanded_calling_policy = HeldOutCallingPolicy(expanded_config["calling_rule"])
+        self.expanded_validator = LeaveOneSampleOutLogisticValidator(
+            self.configuration,
+            self.encoder,
+            self.validation,
+            self.expanded_calling_policy,
+            validation_config=expanded_config,
+            check_prefix="expanded_",
+        )
+        self.expanded_evaluator = HeldOutValidationEvaluator(
+            self.configuration,
+            self.validation,
+            validation_config=expanded_config,
+            check_prefix="expanded_",
+        )
+        self.expanded_group_evaluator = ExpandedCohortEvaluator()
+        self.pattern_error_analyzer = PatternErrorAnalyzer()
+        self.expanded_full_fit = ExpandedFullFitBuilder(self.configuration, self.encoder)
+        self.expanded_plotter = ExpandedValidationPlotter(
+            self.configuration.values["plot_dpi"]
+        )
+        expanded_root = os.path.join(output_root, expanded_config["relative_directory"])
+        expanded_paths = {
+            "python_script": __file__,
+            "lock": args.lock,
+            "requirements": args.requirements,
+            "shared_framework_script": self.configuration.framework_script_path,
+            "step_04_lock": args.step04_lock,
+            "sample_key": args.sample_key,
+            "step_02a_manifest": self.expanded_reader.manifest_path,
+            "step_03_manifest": self.step03_reader.manifest_path,
+            "step_03_table": self.step03_reader.table_path,
+            "step_04_manifest": self.step04_reader.manifest_path,
+            "step_04_empirical_model": self.step04_reader.model_path,
+            "step_05_base_manifest": os.path.join(output_root, MANIFEST_NAME),
+            "male_only_validation_manifest": self.male_only_reader.manifest_path,
+            "male_only_predictions": self.male_only_reader.predictions_path,
+        }
+        self.expanded_publisher = ExpandedCohortOutputPublisher(
+            self.configuration,
+            self.validation,
+            self.expanded_plotter,
+            expanded_root,
+            expanded_paths,
+        )
 
     def run(self):
         if os.path.exists(self.publisher.output_root):
@@ -1698,19 +2590,102 @@ class PCDH19LogisticRegressionBaselineStep(object):
             )
             self.publisher.publish(classifier, probability_rows, comparison_rows, metrics)
         if os.path.exists(self.held_out_publisher.output_root):
-            self.held_out_publisher.publish([], [], [], [], [])
+            male_predictions = self.male_only_reader.read_predictions()
+            male_overall = self.male_only_reader.read_overall()
+        else:
+            records = self.sample_aware_reader.read_records()
+            male_predictions, fold_coefficients = self.held_out_validator.run(records)
+            confusion_rows, per_sample_rows, overall_rows = self.held_out_evaluator.evaluate(
+                male_predictions
+            )
+            self.held_out_publisher.publish(
+                male_predictions,
+                confusion_rows,
+                per_sample_rows,
+                overall_rows,
+                fold_coefficients,
+            )
+            male_overall = {row["metric"]: float(row["value"]) for row in overall_rows}
+        if os.path.exists(self.expanded_publisher.output_root):
+            self.expanded_publisher.publish(
+                None, None, None, None, None, None, None, None, None, None, None
+            )
             return
-        records = self.sample_aware_reader.read_records()
-        predictions, fold_coefficients = self.held_out_validator.run(records)
-        confusion_rows, per_sample_rows, overall_rows = self.held_out_evaluator.evaluate(
-            predictions
+        male_ground_truth_records = self.sample_aware_reader.read_records()
+        expanded_records = self.expanded_reader.read_records(male_ground_truth_records)
+        expanded_predictions, expanded_fold_rows = self.expanded_validator.run(
+            expanded_records
         )
-        self.held_out_publisher.publish(
-            predictions,
-            confusion_rows,
-            per_sample_rows,
-            overall_rows,
-            fold_coefficients,
+        expanded_confusion, expanded_per_sample, expanded_overall = self.expanded_evaluator.evaluate(
+            expanded_predictions
+        )
+        expanded_group_rows = self.expanded_group_evaluator.group_metrics(
+            expanded_predictions
+        )
+        male_pattern_rows = self.pattern_error_analyzer.analyze_male_only(
+            male_predictions
+        )
+        expanded_pattern_rows = self.pattern_error_analyzer.analyze_expanded(
+            expanded_predictions
+        )
+        comparison_rows = self.expanded_group_evaluator.comparison(
+            male_predictions,
+            male_overall,
+            expanded_predictions,
+            expanded_overall,
+        )
+        full_classifier, full_probability_rows = self.expanded_full_fit.fit(
+            expanded_records
+        )
+        self.validation.require_equal(
+            "male_only_wt_false_ko_errors",
+            sum(row["predicted_ko_cells_false_ko"] for row in male_pattern_rows),
+            8265,
+        )
+        self.validation.require_equal(
+            "expanded_het_female_predictions",
+            sum(row["true_genotype"] == "HET" for row in expanded_predictions),
+            0,
+        )
+        self.validation.require_equal(
+            "expanded_full_model_converged", full_classifier.fit_diagnostics["converged"], True
+        )
+        expanded_group_index = {row["evaluation_group"]: row for row in expanded_group_rows}
+        self.validation.require_equal(
+            "expanded_wt_male_false_ko_errors",
+            expanded_group_index["WT_M"]["false_ko_cells"],
+            8265,
+        )
+        self.validation.require_equal(
+            "expanded_wt_female_false_ko_errors",
+            expanded_group_index["WT_F"]["false_ko_cells"],
+            10035,
+        )
+        self.validation.require_equal(
+            "expanded_non000_calls_follow_fixed_threshold",
+            sum(
+                row["pattern_code"] != "000"
+                and row["predicted_genotype"]
+                != (
+                    "KO" if row["predicted_ko_probability"] > 0.5
+                    else ("WT" if row["predicted_wt_probability"] > 0.5 else "uncalled")
+                )
+                for row in expanded_predictions
+            ),
+            0,
+        )
+        self.expanded_publisher.publish(
+            expanded_predictions,
+            expanded_confusion,
+            expanded_per_sample,
+            expanded_group_rows,
+            expanded_overall,
+            expanded_fold_rows,
+            full_classifier,
+            full_probability_rows,
+            male_pattern_rows,
+            expanded_pattern_rows,
+            comparison_rows,
         )
 
 
@@ -1721,6 +2696,8 @@ def build_parser():
     parser.add_argument("--step04-lock", required=True)
     parser.add_argument("--step03-root", required=True)
     parser.add_argument("--step04-root", required=True)
+    parser.add_argument("--step02-root", required=True)
+    parser.add_argument("--sample-key", required=True)
     parser.add_argument("--paper3-root", required=True)
     parser.add_argument("--bundle-root", required=True)
     return parser

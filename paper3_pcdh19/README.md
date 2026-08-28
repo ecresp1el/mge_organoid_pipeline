@@ -366,6 +366,22 @@ results/step_05_pcdh19_logistic_regression_baseline/
     step_05_loso_validation_checks.tsv
     software_environment.tsv
     output_manifest.tsv
+  wt_male_female_vs_ko_male_validation/
+    step_05_wt_mf_ko_m_held_out_cell_predictions.tsv
+    step_05_wt_mf_ko_m_confusion_matrix.tsv
+    step_05_wt_mf_ko_m_per_sample_metrics.tsv
+    step_05_wt_mf_ko_m_metrics_by_group.tsv
+    step_05_wt_mf_ko_m_overall_metrics.tsv
+    step_05_wt_mf_ko_m_fold_model_coefficients.tsv
+    step_05_wt_mf_ko_m_full_fit_coefficients.tsv
+    step_05_wt_mf_ko_m_full_fit_pattern_probabilities.tsv
+    step_05_male_only_wt_false_ko_errors_by_pattern.tsv
+    step_05_wt_mf_ko_m_wt_false_ko_errors_by_pattern_and_sex.tsv
+    step_05_ground_truth_cohort_validation_comparison.tsv
+    five diagnostic PNGs
+    step_05_wt_mf_ko_m_validation_checks.tsv
+    software_environment.tsv
+    output_manifest.tsv
 ```
 
 All `000` cells remain in the fit, making the intercept their baseline log
@@ -388,3 +404,19 @@ The registered Step 03 `technical_sample_id` is the available holdout unit and
 is labeled `biological_sample_id` in validation outputs. This is leakage-safe
 at the registered-sample level, but the current metadata do not establish
 donor, embryo, or litter independence.
+
+The second Step 05 cohort keeps the male-only package byte-for-byte unchanged
+and defines WT as WT male plus WT female (six samples, 233,553 cells), KO as KO
+male (three samples, 116,133 cells), and HET female as excluded/not loaded. It
+performs nine leave-one-sample-out folds with the same unweighted model and
+fixed call rule. Of 349,686 cells, 65,314 (18.678%) are called. Called-cell
+accuracy is 41.960%, KO sensitivity is 20.302%, and WT specificity is 55.049%.
+
+Adding WT females does not improve the directly comparable WT-male result:
+WT-male specificity remains 55.691% and the same 8,265 WT-male cells are called
+KO. Every error is A-absent: `001` accounts for 4,586 (55.49%), `010` for 3,131
+(37.88%), and `011` for 548 (6.63%); `100`, `101`, `110`, and `111` account for
+zero. The expanded cohort also shows a fold-prevalence limitation: holding out
+either large KO sample causes `001` and `010` to become WT-favored, sharply
+reducing KO sensitivity. Step 05 records this result without adding class
+weights or tuning the 0.5 threshold.

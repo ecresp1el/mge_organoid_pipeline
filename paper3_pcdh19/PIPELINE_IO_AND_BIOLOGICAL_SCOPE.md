@@ -51,8 +51,9 @@ source/result ledger and safe provenance options.
   no hard calls and does not load HET cells.
 - `05_pcdh19_logistic_regression_baseline`: fits the unpenalized three-feature
   main-effects logistic baseline and compares its eight probabilities with
-  Step 04, then performs leave-one-registered-sample-out validation of the
-  same model; complete. It does not load HET cells.
+  Step 04, preserves the WT-M/KO-M leave-one-sample-out benchmark, and adds a
+  separately manifested WT-M+F/KO-M validation of the same model; complete.
+  It does not load HET cells.
 
 Step `02a` intentionally runs without ingesting the sample key because it uses
 only technical IDs. This keeps the validated assay audit separate from later
@@ -675,3 +676,69 @@ models, optimize confidence rules, or infer HET cells. Holding out a registered
 sample prevents leakage across its cells, but the sample key alone does not
 establish donor, embryo, or litter independence; biological-replicate claims
 still require confirmation of those experimental units.
+
+### Step 05 expanded WT-M+F/KO-M cohort
+
+The male-only result above is immutable and remains the historical benchmark.
+The second Step 05 cohort is published separately at:
+
+```text
+results/step_05_pcdh19_logistic_regression_baseline/
+  wt_male_female_vs_ko_male_validation/
+```
+
+Its locked ground truth is:
+
+| Class | Registered groups | Samples | Cells |
+| --- | --- | ---: | ---: |
+| WT=`0` | WT male plus WT female | JZ-1--6 | 233,553 |
+| KO=`1` | KO male | JZ-10--12 | 116,133 |
+| Withheld | HET female | JZ-7--9 | Not loaded |
+
+The historical Step 03 table remains male-only and is not rewritten. The
+expanded cohort reuses its exact WT-M/KO-M records, then validates the
+registered sample key, Step 02a manifest, and the three JZ-4--6 WT-female
+per-cell tables. It opens no HET-female table. Only binary A/B/C detection
+enters the unchanged, unpenalized logistic model.
+
+Nine leave-one-registered-sample-out folds are fit. The same fixed calling
+policy is used: `000` is always uncalled; informative patterns use the untuned
+0.5 threshold. No class weighting, resampling, sex predictor, interaction, or
+threshold optimization is introduced. Sex is retained only for cohort
+definition and evaluation breakdowns, never as a predictor.
+
+The expanded package publishes:
+
+- 349,686 per-cell held-out predictions with sample, sex, design group, true
+  genotype, A/B/C state, probability, and call;
+- overall confusion/metrics, nine per-sample metrics, and WT-M/WT-F/KO-M group
+  metrics;
+- 36 fold coefficient rows plus the expanded all-data intercept/A/B/C fit and
+  eight pattern probabilities;
+- the male-only WT false-KO error breakdown and the expanded WT error breakdown
+  by probe pattern and sex;
+- a direct male-only-versus-expanded cohort comparison table;
+- held-out confusion, per-sample accuracy/call-rate, pattern-error, and cohort-
+  comparison PNGs; and
+- 97 validation checks, software/input provenance, and an 18-file output
+  manifest.
+
+WT-female inclusion does not repair the WT-male false-KO problem under this
+model. WT-male specificity is 55.691% in both cohorts and the same 8,265 cells
+are false KO: `001` contributes 4,586, `010` contributes 3,131, and `011`
+contributes 548; all A-detected patterns contribute zero. WT-female
+specificity is 54.506%, with 10,035 false-KO cells in the same A-absent pattern
+families.
+
+Across the expanded nine-fold validation, 65,314/349,686 cells (18.678%) are
+called. Called-cell accuracy is 41.960%, KO sensitivity is 20.302%, and WT
+specificity is 55.049%. This sensitivity decrease is a fold-prevalence effect
+in the deliberately unweighted baseline: when JZ-10 or JZ-11 is held out, the
+remaining expanded training cohort makes `001` and `010` WT-favored at 0.5.
+JZ-12 remains 99.496% accurate when held out because the two large KO samples
+remain in its training fold. These results must not be summarized by overall
+accuracy alone and do not justify silent reweighting or threshold changes.
+
+The expanded validation still does not select a final model or apply anything
+to HET females. The registered sample key does not establish donor, embryo, or
+litter independence.

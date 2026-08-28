@@ -45,8 +45,26 @@ cell accuracy is 80.729%, KO sensitivity is 99.711%, and KO specificity is
 55.691%. This asymmetry and the low call percentage must remain explicit in
 downstream interpretation. The registered `technical_sample_id` is the
 available holdout key; donor/embryo/litter independence is not established.
-Step 05 still performs no model selection, threshold optimization, or HET
-inference. Do not create Step 06 until its scientific responsibility is
+
+The male-only package is preserved byte-for-byte. A second Step 05 subpackage,
+`wt_male_female_vs_ko_male_validation/`, defines WT as JZ-1--6 WT males plus
+WT females, KO as JZ-10--12 KO males, and completely excludes JZ-7--9 HET
+females. It holds out each of nine samples once and applies the same unweighted
+A/B/C model and fixed rule. Of 349,686 cells, 65,314 (18.678%) are called;
+called-cell accuracy is 41.960%, KO sensitivity 20.302%, and WT specificity
+55.049%.
+
+WT-female inclusion does not change WT-male specificity (55.691%) or its 8,265
+false-KO cells. Those errors are exactly `001`=4,586, `010`=3,131, and
+`011`=548; all A-detected states contribute zero. WT-female specificity is
+54.506%. Holding out either large KO sample causes `001` and `010` to flip to
+WT because the unchanged model is unweighted and the remaining training cohort
+is WT-heavy; this explains the aggregate KO-sensitivity collapse. Preserve
+this diagnostic result. Do not silently add weighting or optimize the threshold
+inside the baseline.
+
+Step 05 still performs no final model selection, threshold optimization, or
+HET inference. Do not create Step 06 until its scientific responsibility is
 defined.
 
 ## Correct allocation and source
