@@ -279,3 +279,85 @@ detection pattern, and explicit WT=0/KO=1 ground-truth targets. The label is a
 registered sample-genotype target, not a probe-derived prediction. No split,
 classifier, model score, confusion matrix, performance claim, or HET-cell
 prediction is produced in Step 03.
+
+## Step 04 empirical PCDH19 pattern classifier
+
+Step `04_pcdh19_empirical_pattern_classifier` is the first formal classifier
+step. It reads only the manifested Step 03 WT-male/KO-male table and uses only
+the binary A/B/C detection state. For all eight patterns it reports WT, KO, and
+total cells; `P(WT | pattern)` and `P(KO | pattern)`; class-conditional pattern
+frequencies; raw cell ratios; and reciprocal likelihood ratios.
+
+Run locally or interactively with:
+
+```bash
+./paper3_pcdh19/bin/run_step_04_pcdh19_empirical_pattern_classifier.sh
+```
+
+Or submit the same entry point through SLURM:
+
+```bash
+sbatch paper3_pcdh19/slurm/step_04_pcdh19_empirical_pattern_classifier.sbatch
+```
+
+Outputs are written beneath:
+
+```text
+results/step_04_pcdh19_empirical_pattern_classifier/
+  step_04_pcdh19_empirical_pattern_classifier.tsv
+  step_04_pcdh19_pattern_distribution.tsv
+  step_04_wt_vs_ko_pattern_frequency.png
+  step_04_wt_ko_conditional_probability_by_pattern.png
+  step_04_pattern_cell_count_and_proportion.png
+  step_04_pcdh19_empirical_pattern_classifier_validation.tsv
+  software_environment.tsv
+  output_manifest.tsv
+```
+
+Pattern `000` remains explicitly represented and has no hard call. Step 04
+does not split data, compute a confusion matrix, fit logistic regression, load
+HET cells, or generate HET predictions. The class/module ownership and planned
+extensions are documented in
+[`PCDH19_CLASSIFICATION_FRAMEWORK.md`](PCDH19_CLASSIFICATION_FRAMEWORK.md).
+
+## Step 05 PCDH19 logistic-regression baseline
+
+Step `05_pcdh19_logistic_regression_baseline` adds the first parametric model
+through the existing Step 04 probability interface. It fits the unpenalized
+main-effects equation
+`logit(P(KO)) = intercept + beta_A*A + beta_B*B + beta_C*C`, with WT=`0` and
+KO=`1`. Only the three binary detection indicators are predictors.
+
+Run locally or interactively with:
+
+```bash
+./paper3_pcdh19/bin/run_step_05_pcdh19_logistic_regression_baseline.sh
+```
+
+Or submit through SLURM:
+
+```bash
+sbatch paper3_pcdh19/slurm/step_05_pcdh19_logistic_regression_baseline.sbatch
+```
+
+Outputs are written beneath:
+
+```text
+results/step_05_pcdh19_logistic_regression_baseline/
+  step_05_pcdh19_logistic_regression_coefficients.tsv
+  step_05_pcdh19_logistic_pattern_probabilities.tsv
+  step_05_pcdh19_empirical_vs_logistic_comparison.tsv
+  step_05_pcdh19_logistic_regression_diagnostics.tsv
+  step_05_logistic_predicted_genotype_probability_by_pattern.png
+  step_05_empirical_vs_logistic_probability_by_pattern.png
+  step_05_logistic_coefficient_odds_ratio.png
+  step_05_pcdh19_logistic_regression_validation.tsv
+  software_environment.tsv
+  output_manifest.tsv
+```
+
+All `000` cells remain in the fit, making the intercept their baseline log
+odds. The fitted `000` probabilities are P(WT)=0.5099 and P(KO)=0.4901, but no
+hard call is assigned. Step 05 does not use UMI counts, interactions,
+nonlinear terms, transcriptome/cell-type features, HET cells, thresholds, or
+held-out performance claims.

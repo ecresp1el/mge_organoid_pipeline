@@ -1,0 +1,61 @@
+{
+  "step_id": "05_pcdh19_logistic_regression_baseline",
+  "pipeline_version": "0.1.0",
+  "upstream_step_ids": [
+    "03_pcdh19_genotype_classification_setup",
+    "04_pcdh19_empirical_pattern_classifier"
+  ],
+  "shared_framework_script": {
+    "relative_path": "scripts/Step_04_PCDH19_Empirical_Pattern_Classifier.py",
+    "sha256": "1b36604cba3b4a5d7de9cfef3f6eeef7c4d012ee26e6567fe907c9663187329c"
+  },
+  "step_04_output_manifest_sha256": "2f54c0101f1379438aedbf7a627b31776ae7fde6fae2dc450d0444419553ecc0",
+  "step_04_empirical_model": {
+    "relative_path": "step_04_pcdh19_empirical_pattern_classifier.tsv",
+    "bytes": 1485,
+    "sha256": "04ec9ed39310f49528f1abfecdf03d20256437178997e462dfb815c922a7f0c5"
+  },
+  "pattern_order": [
+    "000",
+    "001",
+    "010",
+    "011",
+    "100",
+    "101",
+    "110",
+    "111"
+  ],
+  "predictors": [
+    "A_detected",
+    "B_detected",
+    "C_detected"
+  ],
+  "outcome": "ground_truth_label",
+  "class_encoding": {
+    "WT": 0,
+    "KO": 1
+  },
+  "positive_model_class": "KO",
+  "model_formula": "logit(P(KO)) = intercept + beta_A*A_detected + beta_B*B_detected + beta_C*C_detected",
+  "fit_method": "unpenalized_grouped_binomial_maximum_likelihood_irls",
+  "penalty": "none",
+  "interaction_terms": false,
+  "nonlinear_transformations": false,
+  "umi_count_predictors": false,
+  "whole_transcriptome_predictors": false,
+  "cell_type_predictors": false,
+  "het_cells_permitted": false,
+  "hard_calls_permitted": false,
+  "expected_class_cells": {
+    "WT": 114136,
+    "KO": 116133
+  },
+  "expected_total_cells": 230269,
+  "optimizer": {
+    "maximum_iterations": 100,
+    "coefficient_tolerance": 1e-12,
+    "maximum_step_halvings": 30
+  },
+  "probability_decimal_places": 12,
+  "plot_dpi": 200
+}

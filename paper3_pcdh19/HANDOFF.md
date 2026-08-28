@@ -18,6 +18,25 @@ object-oriented pattern established by
 encoding, splitting, classification, evaluation, and HET application in small
 separable components rather than extending one monolithic script.
 
+Step `04_pcdh19_empirical_pattern_classifier` is also implemented and
+complete. It consumes only the manifested Step 03 table and publishes the
+eight-state empirical WT/KO probability/likelihood-ratio model plus three
+diagnostic plots beneath
+`results/step_04_pcdh19_empirical_pattern_classifier/`. Every pattern,
+including `000`, remains uncalled; Step 04 does not load HET cells or report
+held-out performance. The current architecture and future-only module plan are
+registered in `PCDH19_CLASSIFICATION_FRAMEWORK.md`.
+
+Step `05_pcdh19_logistic_regression_baseline` is implemented and complete. It
+reuses the locked Step 04 encoder, ground-truth loader, empirical estimator,
+and probability interface, then adds an unpenalized
+`A_detected+B_detected+C_detected` logistic model with WT=`0`, KO=`1`. The
+`000` intercept gives P(WT)=0.5099 and P(KO)=0.4901, and remains uncalled. Step
+05 reports coefficients, odds ratios, all eight probabilities, Step 04
+comparisons, and plots beneath
+`results/step_05_pcdh19_logistic_regression_baseline/`; it does not perform
+held-out validation or HET inference.
+
 ## Correct allocation and source
 
 The current workspace account belongs to these relevant Unix groups:

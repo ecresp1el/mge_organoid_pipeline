@@ -1,0 +1,59 @@
+{
+  "step_id": "04_pcdh19_empirical_pattern_classifier",
+  "pipeline_version": "0.1.0",
+  "upstream_step_id": "03_pcdh19_genotype_classification_setup",
+  "upstream_output_manifest_sha256": "8d0627c0e93e0fa7ec37ebc0d650896565a99cc3cecb2e5e099072edf1cd0098",
+  "classification_table": {
+    "relative_path": "pcdh19_wt_ko_male_genotype_classification_ready_cells.tsv",
+    "bytes": 27125840,
+    "sha256": "e41597cf4cfd589aea734a4bc6b1e0eba6d66cb77bcea1d394abec239afb8456"
+  },
+  "required_input_columns": [
+    "technical_sample_id",
+    "submitted_sample_name",
+    "genotype",
+    "sex",
+    "design_group",
+    "classification_role",
+    "ground_truth_class",
+    "ground_truth_label",
+    "cell_barcode",
+    "A_UMI",
+    "A_detected",
+    "B_UMI",
+    "B_detected",
+    "C_UMI",
+    "C_detected",
+    "Pcdh19_total_UMI",
+    "detection_pattern"
+  ],
+  "pattern_order": [
+    "000",
+    "001",
+    "010",
+    "011",
+    "100",
+    "101",
+    "110",
+    "111"
+  ],
+  "ground_truth_classes": {
+    "WT": {
+      "genotype": "WT",
+      "sex": "M",
+      "label": 0,
+      "cells": 114136
+    },
+    "KO": {
+      "genotype": "KO",
+      "sex": "M",
+      "label": 1,
+      "cells": 116133
+    }
+  },
+  "expected_total_cells": 230269,
+  "probability_decimal_places": 12,
+  "plot_dpi": 200,
+  "hard_calls_permitted": false,
+  "het_cells_permitted": false
+}

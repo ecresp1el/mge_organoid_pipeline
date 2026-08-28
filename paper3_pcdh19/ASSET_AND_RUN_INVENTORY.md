@@ -16,10 +16,12 @@ column-level contract in
 | `02b_xgfp_probe_compatibility_audit` | Exact probe-to-construct sequence compatibility | Complete, 6/6 manifested non-manifest files passed byte-size and SHA-256 verification | Three of three probes have one exact 50/50 reverse-complement match to the locked Clontech EGFP CDS. |
 | `02c_egfp_probe_audit` | Raw EGFP UMI contribution of three validated probes | Complete, 55/55 manifested non-manifest files passed byte-size and SHA-256 verification | 12 EGFP UMIs in 12 of 450,788 vendor-filtered barcodes. |
 | `03_pcdh19_genotype_classification_setup` | Registered WT-male/KO-male ground-truth cells with raw A/B/C probe features | Complete, 4/4 manifested non-manifest files passed byte-size and SHA-256 verification | Classification-ready table contains 230,269 cells; no classifier is fitted. |
-| Downstream QC/cell biology | New QC calls, normalization, integration, clustering, cell types, differential expression, genotype effects | No such analysis is implemented or represented by these outputs | Not analyzed by Steps 02a-03. |
+| `04_pcdh19_empirical_pattern_classifier` | Empirical WT/KO evidence for all eight binary A/B/C states | Complete, 7/7 manifested non-manifest files passed byte-size and SHA-256 verification | Eight-row probability/likelihood-ratio model and three diagnostic plots; no hard calls or HET inference. |
+| `05_pcdh19_logistic_regression_baseline` | Unpenalized main-effects logistic model of KO using binary A/B/C detection | Complete, 9/9 manifested non-manifest files passed byte-size and SHA-256 verification | Intercept plus three coefficients, eight pattern probabilities, Step 04 comparison, and three plots; no hard calls or HET inference. |
+| Downstream QC/cell biology | New QC calls, normalization, integration, clustering, cell types, differential expression, genotype effects | No such analysis is implemented or represented by these outputs | Not analyzed by Steps 02a-05. |
 | Figures | Publication or exploratory figures | `final_figures/` was empty at inspection | No Paper 3 figure asset is claimed. |
 
-The four result manifests had no missing, unmanifested, size-mismatched, or
+The six result manifests had no missing, unmanifested, size-mismatched, or
 checksum-mismatched non-hidden files inside their result roots. The manifest
 itself is intentionally not self-listed.
 
@@ -36,12 +38,12 @@ itself is intentionally not self-listed.
 
 | Asset class | Files | Role |
 | --- | --- | --- |
-| Python computation | `scripts/pcdh19_probe_audit.py`, `scripts/xgfp_probe_compatibility_audit.py`, `scripts/egfp_probe_audit.py`, `scripts/Step_03_PCDH19_Genotype_Classification_Setup.py` | Reference validation, count extraction/alignment, metadata joins, classification-table setup, summaries, validation, atomic publication, and manifests. Step 03 introduces the object-oriented modular pattern for new Python analyses. |
-| Supported shell entry points | `bin/run_pcdh19_probe_audit_all.sh`, `bin/run_xgfp_probe_audit.sh`, `bin/run_egfp_probe_audit_all.sh`, `bin/run_step_03_pcdh19_genotype_classification_setup.sh` | Resolve configuration, enforce environments where needed, invoke Python, and capture timestamped logs. |
+| Python computation | `scripts/pcdh19_probe_audit.py`, `scripts/xgfp_probe_compatibility_audit.py`, `scripts/egfp_probe_audit.py`, `scripts/Step_03_PCDH19_Genotype_Classification_Setup.py`, `scripts/Step_04_PCDH19_Empirical_Pattern_Classifier.py`, `scripts/Step_05_PCDH19_Logistic_Regression_Baseline.py` | Reference validation, count extraction/alignment, metadata joins, empirical and logistic modeling, probability comparison, plotting, validation, atomic publication, and manifests. Steps 03-05 use the object-oriented modular classification pattern. |
+| Supported shell entry points | `bin/run_pcdh19_probe_audit_all.sh`, `bin/run_xgfp_probe_audit.sh`, `bin/run_egfp_probe_audit_all.sh`, `bin/run_step_03_pcdh19_genotype_classification_setup.sh`, `bin/run_step_04_pcdh19_empirical_pattern_classifier.sh`, `bin/run_step_05_pcdh19_logistic_regression_baseline.sh` | Resolve configuration, enforce environments where needed, invoke Python, and capture timestamped logs. |
 | Discovery/initialization helpers | `bin/check_candidate_access.sh`, `bin/initialize_turbo.sh` | Metadata-only access inventory and output-directory setup; neither analyzes expression. |
-| SLURM wrappers | `slurm/pcdh19_probe_audit_all.sbatch`, `slurm/egfp_probe_audit_all.sbatch`, `slurm/step_03_pcdh19_genotype_classification_setup.sbatch` | Allocate Great Lakes resources and invoke the same shell entry points; no scientific logic. |
-| Scientific locks | `config/*probe_audit.lock.json`, `config/step_03_pcdh19_genotype_classification_setup.lock.json` | Freeze panel/reference/probe/prototype identities or the downstream classification-setup input/schema contract. |
-| Environment pins | `config/*probe_audit.requirements.txt` | Pin `h5py==3.1.0` and `numpy==1.19.5` for the two HDF5 count audits. |
+| SLURM wrappers | `slurm/pcdh19_probe_audit_all.sbatch`, `slurm/egfp_probe_audit_all.sbatch`, `slurm/step_03_pcdh19_genotype_classification_setup.sbatch`, `slurm/step_04_pcdh19_empirical_pattern_classifier.sbatch`, `slurm/step_05_pcdh19_logistic_regression_baseline.sbatch` | Allocate Great Lakes resources and invoke the same shell entry points; no scientific logic. |
+| Scientific locks | `config/*probe_audit.lock.json`, `config/step_03_pcdh19_genotype_classification_setup.lock.json`, `config/step_04_pcdh19_empirical_pattern_classifier.lock.json`, `config/step_05_pcdh19_logistic_regression_baseline.lock.json` | Freeze panel/reference/probe/prototype identities or downstream classification input/schema/model contracts. |
+| Environment pins | `config/*probe_audit.requirements.txt`, `config/step_04_pcdh19_empirical_pattern_classifier.requirements.txt`, `config/step_05_pcdh19_logistic_regression_baseline.requirements.txt` | Pin count-audit and NumPy/Matplotlib classification environments. |
 | Dataset/design registries | `input_candidates.tsv`, `sample_manifest_draft.tsv`, `sample_key.csv` | Separate source candidates, verified vendor technical metrics, and user-provided biological labels. |
 | Path configuration | `config/greatlakes.env` | Resolve source, reference, output, account, and partition paths. |
 
@@ -91,6 +93,29 @@ itself is intentionally not self-listed.
   UMIs, reconstructed Pcdh19 totals, and detection patterns.
 - No Cell Ranger matrix, source-delivery file, EGFP result, HET-cell table,
   model, or prediction was read or created by Step 03.
+
+### Step 04: empirical PCDH19 pattern classifier
+
+- The exact Step 03 output manifest and 230,269-row classification-ready table
+  passed the identities fixed in the Step 04 lock.
+- Only the binary `A_detected`, `B_detected`, and `C_detected` fields and known
+  WT/KO targets entered estimation; raw UMI magnitudes were not predictors.
+- Step 04 read no HET row, Cell Ranger matrix, Step 02 table, EGFP result, or
+  other model output.
+- The model contains all eight binary patterns, including `000`, and makes no
+  hard calls.
+
+### Step 05: PCDH19 logistic-regression baseline
+
+- The Step 03 table was validated and read through the checksum-locked Step 04
+  encoder/reader, and the manifested Step 04 model supplied empirical
+  comparison probabilities.
+- The design matrix contained only intercept, `A_detected`, `B_detected`, and
+  `C_detected`; WT=`0` and KO=`1`.
+- All eight patterns and 230,269 WT/KO-male cells entered the unpenalized
+  grouped-binomial likelihood, including 187,013 `000` cells.
+- No UMI count, interaction, nonlinear term, transcriptome feature, cell type,
+  HET row, threshold, or hard call entered Step 05.
 
 ## Cached and installed assets generated by the runs
 
@@ -204,6 +229,61 @@ The publication run and an immediate idempotent verification rerun both
 completed successfully on 2026-08-28. No model, split, prediction, or
 performance output exists in this package.
 
+### Step 04 result root
+
+`results/step_04_pcdh19_empirical_pattern_classifier/` contains the eight-row
+empirical model, the eight-row pattern distribution, three diagnostic PNGs, a
+validation table, an environment/provenance table, and an output manifest
+listing the other seven files. The seven manifested assets total 231,293
+bytes.
+
+| Pattern | WT cells | KO cells | Total cells | P(WT \| pattern) | P(KO \| pattern) | WT:KO likelihood ratio |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `000` | 95,483 | 91,530 | 187,013 | 0.5106 | 0.4894 | 1.0614 |
+| `001` | 4,586 | 13,627 | 18,213 | 0.2518 | 0.7482 | 0.3424 |
+| `010` | 3,131 | 7,804 | 10,935 | 0.2863 | 0.7137 | 0.4082 |
+| `011` | 548 | 3,101 | 3,649 | 0.1502 | 0.8498 | 0.1798 |
+| `100` | 7,638 | 52 | 7,690 | 0.9932 | 0.0068 | 149.4546 |
+| `101` | 1,424 | 6 | 1,430 | 0.9958 | 0.0042 | 241.4859 |
+| `110` | 956 | 9 | 965 | 0.9907 | 0.0093 | 108.0808 |
+| `111` | 370 | 4 | 374 | 0.9893 | 0.0107 | 94.1184 |
+
+The likelihood-ratio column is class-conditional
+`P(pattern|WT)/P(pattern|KO)`, not the unadjusted WT:KO cell-count ratio. The
+model applies no smoothing and leaves `hard_call` blank for every pattern. The
+three plots show within-genotype frequencies, conditional genotype
+probabilities, and log-scaled total pattern abundance. The output-manifest
+SHA-256 is
+`2f54c0101f1379438aedbf7a627b31776ae7fde6fae2dc450d0444419553ecc0`.
+The publication run and immediate idempotent verification rerun completed
+successfully on 2026-08-28.
+
+### Step 05 result root
+
+`results/step_05_pcdh19_logistic_regression_baseline/` contains coefficient,
+eight-pattern probability, empirical-comparison, and diagnostic TSVs; three
+diagnostic PNGs; validation and environment tables; and an output manifest
+listing the other nine files. The nine manifested assets total 309,217 bytes.
+
+| Term | Coefficient for KO log odds | KO:WT odds ratio |
+| --- | ---: | ---: |
+| Intercept (`000`) | -0.039606 | 0.961168 |
+| `A_detected` | -5.434219 | 0.004365 |
+| `B_detected` | 0.905881 | 2.474111 |
+| `C_detected` | 1.094869 | 2.988792 |
+
+The fit converged in 10 IRLS iterations with no step halving and a full-rank
+four-column information matrix. At `000`, Step 05 gives P(WT)=0.509900 and
+P(KO)=0.490100 versus Step 04's 0.510569 and 0.489431; no call is assigned.
+Across the eight patterns, the P(KO) cell-weighted RMSE from Step 04 is
+0.004556, and the largest absolute pattern difference is 0.026835 at `011`.
+These are in-sample descriptive comparisons, not held-out performance.
+
+The output-manifest SHA-256 is
+`1507fa4c4b6cacb5f7bae9580ed4b04d4dc2483869ebe4eec065e834c8b9f8ff`.
+The publication run and immediate idempotent verification rerun completed
+successfully on 2026-08-28.
+
 ## Run evidence and failed attempts
 
 The timestamped runner logs show direct execution on Great Lakes login hosts.
@@ -223,6 +303,12 @@ inventory does not claim that any committed SLURM wrapper was submitted.
 - Step 03 has a successful six-sample classification-table publication run and
   an immediate manifest/provenance verification-only rerun. The latter
   completed at 2026-08-28 16:43:51 UTC.
+- Step 04 has a successful empirical-model/plot publication run and an
+  immediate manifest/provenance verification-only rerun. The latter completed
+  at 2026-08-28 16:55:52 UTC.
+- Step 05 has a successful logistic-model/comparison/plot publication run and
+  an immediate manifest/provenance verification-only rerun. The latter
+  completed at 2026-08-28 17:06:16 UTC.
 
 Failed logs are retained as provenance; they are not scientific result assets.
 

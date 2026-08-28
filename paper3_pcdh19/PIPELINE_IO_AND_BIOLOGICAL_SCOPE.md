@@ -46,6 +46,12 @@ source/result ledger and safe provenance options.
 - `03_pcdh19_genotype_classification_setup`: joins registered biological
   labels to validated Step 02a per-cell probe observations and creates the
   WT-male/KO-male ground-truth intermediate table; complete. It fits no model.
+- `04_pcdh19_empirical_pattern_classifier`: estimates WT-versus-KO evidence
+  for each binary A/B/C state from the locked Step 03 table; complete. It makes
+  no hard calls and does not load HET cells.
+- `05_pcdh19_logistic_regression_baseline`: fits the unpenalized three-feature
+  main-effects logistic baseline and compares its eight probabilities with
+  Step 04; complete. It makes no hard calls and does not load HET cells.
 
 Step `02a` intentionally runs without ingesting the sample key because it uses
 only technical IDs. This keeps the validated assay audit separate from later
@@ -460,3 +466,160 @@ confusion-matrix calculation, performance evaluation, or HET-cell scoring.
 Those are intentionally reserved for later small modules that consume this
 stable table. The output contains technical-sample-level labels; it does not
 establish embryo/donor/litter independence.
+
+## Step 04 empirical-pattern classifier contract
+
+Step `04_pcdh19_empirical_pattern_classifier` answers one question: given an
+observed binary A/B/C detection pattern in a known WT-male or KO-male cell, how
+much empirical evidence does that pattern provide for WT versus KO genotype?
+
+### Inputs and validation
+
+The sole scientific input is the Step 03
+`pcdh19_wt_ko_male_genotype_classification_ready_cells.tsv`. Before loading,
+Step 04 requires the exact Step 03 output-manifest SHA-256 and verifies the
+table's manifested and observed byte size and SHA-256. It requires 230,269
+unique sample/barcode rows: 114,136 registered WT-male cells and 116,133
+registered KO-male cells. HET and non-male rows are rejected.
+
+Only `A_detected`, `B_detected`, and `C_detected` enter the estimator. The raw
+A/B/C UMI counts and total remain in the upstream table but are not model
+features. The canonical encoder represents states in A/B/C order as `000`,
+`001`, `010`, `011`, `100`, `101`, `110`, and `111`.
+
+The supported runner is
+`bin/run_step_04_pcdh19_empirical_pattern_classifier.sh`; the Great Lakes
+wrapper is `slurm/step_04_pcdh19_empirical_pattern_classifier.sbatch`. The
+implementation is
+`scripts/Step_04_PCDH19_Empirical_Pattern_Classifier.py`; its input/model scope
+and plotting parameters are fixed in
+`config/step_04_pcdh19_empirical_pattern_classifier.lock.json`, and plotting
+dependencies are version-pinned in the matching requirements file.
+
+### Empirical classifier table
+
+`results/step_04_pcdh19_empirical_pattern_classifier/step_04_pcdh19_empirical_pattern_classifier.tsv`
+has exactly eight rows:
+
+| Column group | Meaning |
+| --- | --- |
+| `pattern_code`, `pattern_label`, `A_detected`, `B_detected`, `C_detected` | Exact binary state and readable label. |
+| `wt_cells`, `ko_cells`, `total_cells` | Known ground-truth cell counts for the pattern. |
+| `p_wt_given_pattern`, `p_ko_given_pattern` | Empirical class probabilities conditional on the observed pattern. |
+| `wt_to_ko_cell_ratio`, `ko_to_wt_cell_ratio` | Direct ratios of observed class counts. |
+| `p_pattern_given_wt`, `p_pattern_given_ko` | Within-class pattern frequencies used to calculate likelihood ratios. |
+| `wt_to_ko_likelihood_ratio`, `ko_to_wt_likelihood_ratio` | Reciprocal class-conditional evidence ratios, `P(pattern|WT)/P(pattern|KO)` and its inverse. |
+| `hard_call` | Blank for every pattern in Step 04. |
+
+No pseudocount or smoothing is applied. `Inf` represents a positive numerator
+with a zero denominator; a ratio is blank if both numerator and denominator
+are zero. All eight patterns happen to have observed WT and KO cells in the
+current data, so the current table has no infinite or missing ratio.
+
+### Diagnostic and provenance outputs
+
+- `step_04_pcdh19_pattern_distribution.tsv` records overall and within-class
+  counts, fractions, and percentages for all eight patterns.
+- `step_04_wt_vs_ko_pattern_frequency.png` compares within-genotype pattern
+  frequencies.
+- `step_04_wt_ko_conditional_probability_by_pattern.png` compares
+  `P(WT|pattern)` with `P(KO|pattern)`.
+- `step_04_pattern_cell_count_and_proportion.png` uses a log count scale and
+  count/percentage annotations to expose common and rare patterns.
+- The validation table checks locked input identity, row/class totals, all
+  eight probability sums, the shared probability interface, preservation of
+  `000`, absence of hard calls, and plot creation.
+- `software_environment.tsv` records exact code, lock, dependency, Step 03,
+  Python, NumPy, and Matplotlib identities. `output_manifest.tsv` protects all
+  seven non-manifest outputs.
+
+Step 04 performs no train/test or sample-level split, count-based modeling,
+hard classification, uncertainty thresholding, confusion-matrix/performance
+evaluation, logistic regression, model comparison, or HET-cell inference. The
+module boundaries and future-only extension plan are maintained in
+[`PCDH19_CLASSIFICATION_FRAMEWORK.md`](PCDH19_CLASSIFICATION_FRAMEWORK.md).
+
+## Step 05 logistic-regression baseline contract
+
+Step `05_pcdh19_logistic_regression_baseline` asks how closely the simplest
+parametric model reproduces the Step 04 empirical eight-pattern probability
+structure. It reuses the checksum-locked Step 04 `ProbePatternEncoder`,
+`Step03ClassificationTableReader`, `EmpiricalPatternEstimator`, and
+`ProbabilisticClassifier` interface.
+
+### Inputs and model definition
+
+Step 05 validates and reads the exact manifested Step 03 WT-male/KO-male table
+through the Step 04 reader. It separately validates the Step 04 output manifest
+and empirical model table used for comparison. Recomputed Step 03 pattern
+counts and probabilities must match the serialized Step 04 model.
+
+The retained Step 03 target encoding is:
+
+| Genotype | Numeric class | Logistic role |
+| --- | ---: | --- |
+| WT | `0` | Negative/reference class |
+| KO | `1` | Positive modeled class |
+
+The exact model is:
+
+```text
+logit(P(KO)) = intercept
+             + beta_A * A_detected
+             + beta_B * B_detected
+             + beta_C * C_detected
+```
+
+The fit is unpenalized grouped-binomial maximum likelihood using Newton/IRLS.
+Grouping by the eight binary patterns produces the same likelihood and fitted
+coefficients as expanding all 230,269 cells because the design vector is
+identical within each pattern. Pattern `000` is retained, so the intercept is
+its modeled KO-versus-WT log odds.
+
+No UMI count, whole-transcriptome feature, cell type, interaction, nonlinear
+transformation, or HET row enters the design matrix. There is no confidence
+threshold or hard call.
+
+The supported runner is
+`bin/run_step_05_pcdh19_logistic_regression_baseline.sh`; the Great Lakes
+wrapper is `slurm/step_05_pcdh19_logistic_regression_baseline.sbatch`. The
+implementation is
+`scripts/Step_05_PCDH19_Logistic_Regression_Baseline.py`; the model/input scope
+and exact shared-framework identity are fixed in the Step 05 lock.
+
+### Outputs
+
+Production root:
+
+```text
+results/step_05_pcdh19_logistic_regression_baseline/
+```
+
+- `step_05_pcdh19_logistic_regression_coefficients.tsv` reports the intercept,
+  A/B/C coefficients, and exponentiated KO:WT odds ratios. Positive
+  coefficients increase KO log odds; negative coefficients decrease them.
+- `step_05_pcdh19_logistic_pattern_probabilities.tsv` reports the linear
+  predictor and complementary WT/KO probabilities for all eight patterns. Its
+  `hard_call` field is blank.
+- `step_05_pcdh19_empirical_vs_logistic_comparison.tsv` reports Step 04 and
+  Step 05 probabilities plus signed and absolute differences for every
+  pattern. It makes no accuracy or performance claim.
+- `step_05_pcdh19_logistic_regression_diagnostics.tsv` records the formula,
+  encoding, excluded model elements, convergence, information-matrix checks,
+  `000` behavior, descriptive probability RMSE, and the explicit absence of
+  held-out validation and HET cells.
+- Three diagnostic PNGs show fitted probabilities, empirical-versus-logistic
+  probabilities, and coefficients/odds ratios.
+- The validation table checks all upstream identities, class/row totals,
+  Step 03/04 agreement, eight probability sums, `000` retention, absence of
+  hard calls, convergence, full rank, and plot creation.
+- `software_environment.tsv` records exact Step 03-05 code/input/configuration
+  identities and dependencies; `output_manifest.tsv` protects all nine
+  non-manifest outputs.
+
+Step 05 reports fit behavior on the same data used for estimation. It does not
+perform sample-level held-out validation, a confusion matrix, sensitivity,
+specificity, accuracy, classifier selection, thresholding, or HET inference.
+The Step 03 table retains technical sample IDs so a later formal validation
+step can split by sample rather than randomly by cell; experimental-unit
+independence still requires biological confirmation.
