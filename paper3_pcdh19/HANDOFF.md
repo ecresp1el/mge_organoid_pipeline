@@ -2,6 +2,12 @@
 
 Last updated: 2026-08-28
 
+> **Classification freeze:** Steps 03–07 are complete and immutable. The
+> authoritative resume document is
+> [`PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md`](PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md).
+> Do not create Step 08 or change any existing model, threshold,
+> classification, or result package.
+
 ## Current next analysis boundary
 
 Step `03_pcdh19_genotype_classification_setup` is implemented and complete.

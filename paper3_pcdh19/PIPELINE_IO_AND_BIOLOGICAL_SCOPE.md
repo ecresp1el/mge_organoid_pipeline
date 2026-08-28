@@ -6,6 +6,12 @@ This document is the I/O contract for the locked probe-audit steps:
 meaning of their files, and the boundary between an observed probe pattern and
 a biological interpretation.
 
+Steps 03–07 are now a completed, frozen classification unit. The concise
+resume entry point is
+[`PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md`](PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md);
+the sections below retain the detailed I/O contracts. No Step 08 or
+classification-result modification is authorized by this document.
+
 The registered source tissue is mouse embryonic brain, MGE, and the dataset was
 generated with 10x Flex v2. This audit asks a deliberately narrow question:
 which of the three panel probes assigned to Pcdh19 produced raw UMIs in each

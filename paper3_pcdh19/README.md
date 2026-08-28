@@ -4,6 +4,16 @@ This workstream is reserved for the Ziobro PCDH19 MGE single-cell paper. It is
 separate from the Paper 2 cross-study atlas and uses the Ziobro Turbo
 allocation, independent step numbering, and independent outputs.
 
+## Resume point: frozen PCDH19 classification unit
+
+The PCDH19 genotype-classification workflow is complete and frozen after Step
+07. Start with
+[`PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md`](PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md)
+when returning to this analysis. Do not create Step 08 or modify the Step 03–07
+models, thresholds, classifications, or result packages. Any future cell-state
+analysis must consume the frozen Step 07 table without feeding results back
+into the classifier.
+
 ## Correct Turbo allocation
 
 The current account is a member of `umms-ziobroj-turbo` and can read and

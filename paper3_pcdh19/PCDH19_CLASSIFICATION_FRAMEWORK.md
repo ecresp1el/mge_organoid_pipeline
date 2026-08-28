@@ -5,6 +5,12 @@ classification workflow. It is intended to keep later models interoperable and
 prevent scripts from duplicating input loading, pattern encoding, evaluation,
 plotting, or publication logic.
 
+**Frozen state:** Steps 03–07 are complete. Use
+[`PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md`](PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md)
+as the resume entry point. This architecture is historical documentation for
+the frozen methodological unit, not authorization to create Step 08 or alter
+published classifications.
+
 ## Current data flow
 
 ```text
@@ -510,10 +516,10 @@ distribution TSV and plots are diagnostics derived from it. Validation,
 environment, and output-manifest files protect input identity, computation
 scope, code/dependency identity, and published bytes.
 
-## Current baselines and planned modular extensions
+## Frozen completed components
 
-The first nine entries are implemented. The remaining entries are planned
-extensions only.
+All nine entries below are implemented and frozen. There are no planned
+classification extensions and no Step 08 in this methodological unit.
 
 1. **Empirical pattern classifier — Step 04 (implemented baseline).** Preserve as
    the simplest interpretable reference model.
@@ -547,27 +553,17 @@ extensions only.
    asymmetric high-confidence tails only from held-out controls, preserve the
    best attainable KO-enriched tier with its lower precision explicit, freeze
    the rule, and apply it without HET feedback.
-10. **Model comparison.** Compare frozen candidate models on the same split and
-   evaluation contract rather than allowing each model script to define its
-   own denominators.
-11. **Additional confidence logic.** Keep probability estimation separate
-   from decision thresholds. Preserve uninformative/uncertain states rather
-   than forcing WT or KO.
-12. **Cell-state or cell-type analysis.** Only after a separate scientific
-   contract is established; never feed HET-derived labels back into fitting.
 
-## Guardrails for future steps
+## Guardrails when biological analysis resumes
 
-- Reuse the Step 03 table contract for the male benchmark; use the registered,
-  manifested Step 02a cohort reader when female ground truth is required.
-- Reuse `ProbePatternEncoder` whenever the predictor is the binary A/B/C state.
-- Implement new probabilistic classifiers behind `predict_proba(features)` so
-  they can share later validation and comparison machinery.
-- Keep feature computation, fitting, probability prediction, decision rules,
-  evaluation, plotting, and I/O in separate components.
+- Consume the exact manifested Step 07 per-cell classification table. Do not
+  create Step 08 within this classification workflow.
+- Do not refit a model, recalibrate probabilities, change either threshold, or
+  relabel Step 07 cells based on cell identities or states.
+- Keep any future cell-state analysis outside this frozen methodological unit
+  and link back to the exact Step 07 manifest.
 - Do not interpret cell counts as independent biological replicates.
-- Do not introduce HET cells into model fitting, model selection, or threshold
-  tuning.
-- Do not silently turn missing probe detection into a genotype call.
-- Register every new formal step in the pipeline I/O/scope document and protect
-  upstream/output identities through the existing lock and manifest framework.
+- Do not interpret WT-like/KO-like as independently observed DNA genotype or
+  use their asymmetric counts as a mosaic-ratio estimate.
+- Preserve `000` as no observed informative probe event, not biological
+  absence of expression and not KO.
