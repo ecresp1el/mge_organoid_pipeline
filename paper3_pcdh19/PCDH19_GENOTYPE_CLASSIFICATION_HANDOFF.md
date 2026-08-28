@@ -10,6 +10,11 @@ developmental-state composition and PCDH19 probe detectability. It does not
 open Step 07 as an input or modify this methodological unit. See
 [`PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md`](PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md).
 
+Preliminary Step 09 subsequently performs ordinary design-group pseudobulk
+differential expression without loading HET WT-like/KO-like classifications.
+It also remains downstream and cannot modify this frozen unit. See
+[`PCDH19_PRELIMINARY_PSEUDOBULK_DE.md`](PCDH19_PRELIMINARY_PSEUDOBULK_DE.md).
+
 ## 1. Biological goal
 
 The goal was to determine whether PCDH19 Flex probe-level evidence from known

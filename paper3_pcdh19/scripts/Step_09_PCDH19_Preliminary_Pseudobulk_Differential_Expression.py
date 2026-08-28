@@ -23,7 +23,6 @@ import tempfile
 
 import h5py
 import numpy as np
-from scipy import sparse
 
 
 STEP_ID = "09_pcdh19_preliminary_pseudobulk_differential_expression"
@@ -116,29 +115,45 @@ class LabelStateRepository(object):
         self.registry = registry
         self.validation = validation
 
-    def load(self):
+    def load(self, staging_root):
         manifest = os.path.join(self.root, MANIFEST_NAME)
         self.validation.check("step_00_manifest_sha256", sha256_file(manifest), self.configuration.values["label_transfer_manifest_sha256"])
         label_path = os.path.join(self.root, self.configuration.values["label_file"])
         self.validation.check("step_00_label_sha256", sha256_file(label_path), self.configuration.values["label_file_sha256"])
-        states = dict((sample_id, {}) for sample_id in self.registry.by_id)
-        with open(label_path, "r", newline="") as handle:
-            reader = csv.DictReader(handle, delimiter="\t")
-            required = {"sample_id", "cell_barcode", "design_group", "GSE94641_broad_state"}
-            if not required.issubset(reader.fieldnames):
-                raise Step09Error("Label table schema mismatch")
-            total = 0
-            for row in reader:
-                sample_id = row["sample_id"]
-                if row["design_group"] != self.registry.by_id[sample_id]["design_group"]:
-                    raise Step09Error("Design-group mismatch in labels")
-                barcode = row["cell_barcode"]
-                if barcode in states[sample_id]:
-                    raise Step09Error("Duplicate barcode {} {}".format(sample_id, barcode))
-                states[sample_id][barcode] = row["GSE94641_broad_state"]
-                total += 1
+        membership_root = os.path.join(staging_root, "state_membership")
+        os.makedirs(membership_root)
+        paths = dict((sample_id, os.path.join(membership_root, "{}_broad_state.tsv".format(sample_id))) for sample_id in self.registry.by_id)
+        handles = dict((sample_id, open(path, "w", newline="")) for sample_id, path in paths.items())
+        writers = dict((sample_id, csv.writer(handle, delimiter="\t", lineterminator="\n")) for sample_id, handle in handles.items())
+        counts = dict((sample_id, 0) for sample_id in self.registry.by_id)
+        for writer in writers.values():
+            writer.writerow(["cell_barcode", "GSE94641_broad_state"])
+        try:
+            with open(label_path, "r", newline="") as handle:
+                reader = csv.DictReader(handle, delimiter="\t")
+                required = {"sample_id", "cell_barcode", "design_group", "GSE94641_broad_state"}
+                if not required.issubset(reader.fieldnames):
+                    raise Step09Error("Label table schema mismatch")
+                total = 0
+                for row in reader:
+                    sample_id = row["sample_id"]
+                    if row["design_group"] != self.registry.by_id[sample_id]["design_group"]:
+                        raise Step09Error("Design-group mismatch in labels")
+                    writers[sample_id].writerow([row["cell_barcode"], row["GSE94641_broad_state"]])
+                    counts[sample_id] += 1
+                    total += 1
+        finally:
+            for handle in handles.values():
+                handle.close()
         self.validation.check("label_cells", total, self.configuration.values["expected_cells"])
-        return states
+        for sample_id, count in counts.items():
+            self.validation.check("{}_label_cells".format(sample_id), count, len(self._read_membership(paths[sample_id])))
+        return paths
+
+    @staticmethod
+    def _read_membership(path):
+        with open(path, "r", newline="") as handle:
+            return dict((row["cell_barcode"], row["GSE94641_broad_state"]) for row in csv.DictReader(handle, delimiter="\t"))
 
 
 class MatrixInputRegistry(object):
@@ -159,10 +174,10 @@ class MatrixInputRegistry(object):
 class PseudobulkAggregator(object):
     """Sum filtered-cell integer gene counts by sample and broad state."""
 
-    def __init__(self, configuration, registry, states, inputs, validation):
+    def __init__(self, configuration, registry, state_paths, inputs, validation):
         self.configuration = configuration
         self.registry = registry
-        self.states = states
+        self.state_paths = state_paths
         self.inputs = inputs
         self.validation = validation
         self.feature_ids = None
@@ -170,7 +185,7 @@ class PseudobulkAggregator(object):
         self.count_columns = []
         self.metadata = []
 
-    def _load_matrix(self, sample_id):
+    def _matrix_contract(self, sample_id):
         path = self.inputs.matrix_rows[sample_id]["path"]
         with h5py.File(path, "r") as handle:
             group = handle["matrix"]
@@ -179,7 +194,6 @@ class PseudobulkAggregator(object):
             types = decode(group["features"]["feature_type"][:])
             barcodes = decode(group["barcodes"][:])
             shape = tuple(int(value) for value in group["shape"][:])
-            matrix = sparse.csc_matrix((group["data"][:], group["indices"][:], group["indptr"][:]), shape=shape, dtype=np.int64)
         if set(types) != {"Gene Expression"}:
             raise Step09Error("Unexpected feature type in {}".format(sample_id))
         if self.feature_ids is None:
@@ -188,14 +202,37 @@ class PseudobulkAggregator(object):
             self.validation.check("unique_gene_ids", len(set(ids)), len(ids))
         elif ids != self.feature_ids or names != self.feature_names:
             raise Step09Error("Feature contract differs in {}".format(sample_id))
-        return barcodes, matrix
+        return path, barcodes, shape
+
+    @staticmethod
+    def _stream_sum(path, masks, shape, cell_chunk=256):
+        """Aggregate CSC columns with bounded memory; never materialize the matrix."""
+        n_features, n_cells = shape
+        totals = dict((stratum, np.zeros(n_features, dtype=np.int64)) for stratum in STRATA)
+        with h5py.File(path, "r") as handle:
+            group = handle["matrix"]
+            indptr = group["indptr"][:]
+            for cell_start in range(0, n_cells, cell_chunk):
+                cell_end = min(n_cells, cell_start + cell_chunk)
+                pointers = indptr[cell_start:cell_end + 1]
+                nz_start, nz_end = int(pointers[0]), int(pointers[-1])
+                indices = group["indices"][nz_start:nz_end]
+                data = group["data"][nz_start:nz_end].astype(np.float64)
+                repeats = np.diff(pointers)
+                totals["all_cells"] += np.bincount(indices, weights=data, minlength=n_features).astype(np.int64)
+                for stratum in ("progenitor", "immature_neuron"):
+                    selected = np.repeat(masks[stratum][cell_start:cell_end], repeats)
+                    if np.any(selected):
+                        totals[stratum] += np.bincount(indices[selected], weights=data[selected], minlength=n_features).astype(np.int64)
+        return totals
 
     def aggregate(self):
         for sample in self.registry.rows:
             sample_id = sample["technical_sample_id"]
-            print("aggregating {}".format(sample_id))
-            barcodes, matrix = self._load_matrix(sample_id)
-            state_map = self.states[sample_id]
+            print("aggregating {}".format(sample_id), flush=True)
+            path, barcodes, shape = self._matrix_contract(sample_id)
+            with open(self.state_paths[sample_id], "r", newline="") as handle:
+                state_map = dict((row["cell_barcode"], row["GSE94641_broad_state"]) for row in csv.DictReader(handle, delimiter="\t"))
             self.validation.check("{}_barcode_identity".format(sample_id), set(barcodes) == set(state_map), True)
             state_vector = np.asarray([state_map[barcode] for barcode in barcodes], dtype=object)
             masks = {
@@ -203,10 +240,11 @@ class PseudobulkAggregator(object):
                 "progenitor": state_vector == "proliferating_neural_progenitor",
                 "immature_neuron": state_vector == "postmitotic_immature_neuron",
             }
-            all_library = int(matrix.sum())
+            totals = self._stream_sum(path, masks, shape)
+            all_library = int(totals["all_cells"].sum())
             for stratum in STRATA:
                 selected = np.flatnonzero(masks[stratum])
-                counts = np.asarray(matrix[:, selected].sum(axis=1)).ravel().astype(np.int64)
+                counts = totals[stratum]
                 pseudobulk_id = "{}__{}".format(sample_id, stratum)
                 self.count_columns.append((pseudobulk_id, counts))
                 self.metadata.append({
@@ -223,7 +261,7 @@ class PseudobulkAggregator(object):
                 })
                 if stratum == "all_cells":
                     self.validation.check("{}_all_library_sum".format(sample_id), int(counts.sum()), all_library)
-            del matrix
+            del totals, state_map, state_vector
         self.validation.check("pseudobulk_libraries", len(self.count_columns), 36)
         return self
 
@@ -298,9 +336,9 @@ class Step09Workflow(object):
         staging = tempfile.mkdtemp(prefix=".step09-preliminary.", dir=parent)
         try:
             registry = SampleRegistry(self.args.sample_key, self.configuration, self.validation)
-            states = LabelStateRepository(self.args.label_root, self.configuration, registry, self.validation).load()
+            state_paths = LabelStateRepository(self.args.label_root, self.configuration, registry, self.validation).load(staging)
             inputs = MatrixInputRegistry(self.args.label_root, self.configuration, self.validation)
-            aggregator = PseudobulkAggregator(self.configuration, registry, states, inputs, self.validation).aggregate()
+            aggregator = PseudobulkAggregator(self.configuration, registry, state_paths, inputs, self.validation).aggregate()
             counts_path = os.path.join(staging, COUNTS_NAME)
             metadata_path = os.path.join(staging, METADATA_NAME)
             aggregator.write(counts_path, metadata_path)
@@ -342,4 +380,3 @@ if __name__ == "__main__":
     except Step09Error as error:
         print("ERROR: {}".format(error), file=sys.stderr)
         sys.exit(2)
-

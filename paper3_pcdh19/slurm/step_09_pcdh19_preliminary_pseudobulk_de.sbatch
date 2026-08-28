@@ -3,7 +3,7 @@
 #SBATCH --account=parent0
 #SBATCH --partition=standard
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=16G
+#SBATCH --mem=32G
 #SBATCH --time=03:00:00
 #SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/logs/%x-%j.out
 

@@ -1097,3 +1097,30 @@ Step 08 has no estimator or threshold code, does not open Step 07, and cannot
 modify Steps 03–07. Probe UMIs remain probe-level ligation evidence rather than
 transcript counts. Full biological interpretation is in
 [`PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md`](PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md).
+
+## PRELIMINARY Step 09 pseudobulk differential-expression contract
+
+Step 09 sums raw integer gene-level Flex UMI/probe-ligation counts from
+Cell Ranger-filtered cells by `biological_sample_id × stratum`. The strata are
+all cells, transferred progenitors, and transferred immature neurons. It then
+runs exactly nine edgeR quasi-likelihood tests: WT-F/WT-M, HET-F/WT-F, and
+KO-M/WT-M in each stratum. Every table and plot is labeled `PRELIMINARY`.
+
+edgeR receives only integer pseudobulk counts and performs `filterByExpr`, TMM
+normalization, robust dispersion estimation, and BH correction within each
+test. Normalized logCPM is used for plots, not as model input. The replicate is
+the biological sample; no cell-level DE test exists in the implementation.
+
+The step does not open HET WT-like/KO-like calls and does not read or modify
+Steps 03–07. Its output root is:
+
+```text
+results/step_09_pcdh19_preliminary_pseudobulk_differential_expression/
+```
+
+It contains 36 pseudobulk libraries, nine full DE tables, TMM factors, a
+nine-test summary, 33 figures, validation, software/source identities, and an
+output manifest with SHA-256
+`4d6a09d98f921e937c56c0ab0676c42abb0ea35c29e1dced3959b9110b905287`.
+Interpretation and required QC are in
+[`PCDH19_PRELIMINARY_PSEUDOBULK_DE.md`](PCDH19_PRELIMINARY_PSEUDOBULK_DE.md).

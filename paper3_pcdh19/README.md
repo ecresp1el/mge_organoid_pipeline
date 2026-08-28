@@ -4,6 +4,18 @@ This workstream is reserved for the Ziobro PCDH19 MGE single-cell paper. It is
 separate from the Paper 2 cross-study atlas and uses the Ziobro Turbo
 allocation, independent step numbering, and independent outputs.
 
+## Current analysis: PRELIMINARY pseudobulk differential expression
+
+Formal Step 09 is a rapid, explicitly preliminary sample-level pseudobulk
+analysis. It tests WT-F/WT-M, HET-F/WT-F, and KO-M/WT-M across all cells,
+progenitors, and immature neurons. Start with
+[`PCDH19_PRELIMINARY_PSEUDOBULK_DE.md`](PCDH19_PRELIMINARY_PSEUDOBULK_DE.md).
+
+No HET-F/WT-F or KO-M/WT-M test currently has an FDR≤0.05 gene. WT-F/WT-M
+shows many mostly small effects in all cells and progenitors but none in
+immature neurons; that signal requires sex-marker, batch, and sample-influence
+QC before biological interpretation. All plots and tables remain preliminary.
+
 ## Current preprocessing work: GSE94641 reference mapping
 
 A separate Step 00 workstream now provides the entry point for rapid published
@@ -93,6 +105,8 @@ counts range from 11,085 to 60,680.
   [`MGE_REFERENCE_MAPPING.md`](MGE_REFERENCE_MAPPING.md)
 - Step 08 developmental-state composition and PCDH19 probe detectability:
   [`PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md`](PCDH19_DEVELOPMENTAL_STATE_PROBE_DETECTABILITY.md)
+- Preliminary Step 09 sample-level pseudobulk differential expression:
+  [`PCDH19_PRELIMINARY_PSEUDOBULK_DE.md`](PCDH19_PRELIMINARY_PSEUDOBULK_DE.md)
 - Verified generated-asset and run ledger:
   [`ASSET_AND_RUN_INVENTORY.md`](ASSET_AND_RUN_INVENTORY.md)
 - X-GFP construct/Flex compatibility audit:
