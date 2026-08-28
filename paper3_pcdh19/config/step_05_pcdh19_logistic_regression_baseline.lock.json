@@ -1,6 +1,6 @@
 {
   "step_id": "05_pcdh19_logistic_regression_baseline",
-  "pipeline_version": "0.3.0",
+  "pipeline_version": "0.5.0",
   "upstream_step_ids": [
     "03_pcdh19_genotype_classification_setup",
     "04_pcdh19_empirical_pattern_classifier"
@@ -132,5 +132,57 @@
       "threshold_optimized": false
     },
     "positive_evaluation_class": "KO"
+  },
+  "existing_expanded_ground_truth_package": {
+    "relative_directory": "wt_male_female_vs_ko_male_validation",
+    "output_manifest_sha256": "bcb22b87e567d3ec8ccee15cc17eefd5e36abfe499f25406753b651fb8deac7d",
+    "held_out_predictions_sha256": "57ba6ff9f1908b6870902128147c242512817203fbe6d53933ce4289db194200"
+  },
+  "a_negative_raw_bc_umi_evidence": {
+    "relative_directory": "a_negative_raw_bc_umi_evidence",
+    "cohort_definition": "WT=WT_M+WT_F;KO=KO_M;HET_F=excluded",
+    "a_negative_definition": "A_UMI == 0",
+    "normalization": "none_raw_molecule_counts",
+    "measures": ["B_UMI", "C_UMI", "B_plus_C_UMI"],
+    "count_bins": ["0", "1", "2", "3+"],
+    "expected_a_negative_cells": 327204,
+    "expected_class_cells": {"WT": 211142, "KO": 116062},
+    "expected_group_cells": {"WT_M": 103748, "WT_F": 107394, "KO_M": 116062},
+    "expected_max_raw_counts": {"B_UMI": 5, "C_UMI": 6, "B_plus_C_UMI": 8},
+    "het_cells_permitted": false,
+    "classifier_fitting_permitted": false,
+    "threshold_optimization_permitted": false
+  },
+  "existing_a_negative_raw_bc_package": {
+    "relative_directory": "a_negative_raw_bc_umi_evidence",
+    "output_manifest_sha256": "0a27a9e5c1e983c5b1a6772435b299f72a974bac405d9a39932e0c8146dc0631",
+    "cell_table_sha256": "7046240fa799a6c40c993fc4a6d60c469556f67c258e8ee931828c8ec0df2078"
+  },
+  "count_informed_model_comparison": {
+    "relative_directory": "count_informed_vs_binary_validation",
+    "cohort_id": "wt_male_female_vs_ko_male",
+    "binary_comparator": "existing_expanded_ground_truth_package",
+    "predictors": ["A_detected", "B_UMI", "C_UMI"],
+    "count_interpretation": "raw_probe_level_umi_ligation_evidence_not_transcript_numbers",
+    "normalization": "none_raw_molecule_counts",
+    "model_formula": "logit(P(KO)) = intercept + beta_A*A_detected + beta_B*B_UMI + beta_C*C_UMI",
+    "fit_method": "unpenalized_grouped_binomial_maximum_likelihood_irls",
+    "penalty": "none",
+    "interaction_terms": false,
+    "nonlinear_transformations": false,
+    "class_weighting": false,
+    "threshold_optimization": false,
+    "het_cells_permitted": false,
+    "expected_total_cells": 349686,
+    "expected_class_cells": {"WT": 233553, "KO": 116133},
+    "expected_max_raw_counts": {"B_UMI": 5, "C_UMI": 6},
+    "calling_rule": {
+      "uncalled_pattern_codes": ["000"],
+      "probability_threshold": 0.5,
+      "ko_call": "P(KO) > 0.5",
+      "wt_call": "P(WT) > 0.5",
+      "tie_behavior": "uncalled",
+      "threshold_optimized": false
+    }
   }
 }

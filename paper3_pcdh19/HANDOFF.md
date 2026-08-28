@@ -67,6 +67,40 @@ Step 05 still performs no final model selection, threshold optimization, or
 HET inference. Do not create Step 06 until its scientific responsibility is
 defined.
 
+Step 05 now also owns the separately manifested descriptive module
+`a_negative_raw_bc_umi_evidence/`. It restricts the registered WT-M+F and KO-M
+controls to exact `A_UMI == 0`, preserves raw integer Probe B and C UMI counts,
+and fits no classifier. The output contains 327,204 cells: 103,748 WT-M,
+107,394 WT-F, and 116,062 KO-M; no HET-female table is opened.
+
+Increasing B/C evidence is monotonically KO-enriched. For raw B+C total,
+P(KO) is 54.255% with one UMI, 67.640% with two, and 80.216% with three or
+more; KO:WT likelihood ratios are 2.158, 3.803, and 7.376. B alone and C alone
+show the same trend. The 3+ bins are small (158 B, 499 C, and 1,663 B+C
+cells), and WT cells remain present, so this is a descriptive result rather
+than a count-based genotype rule or classifier specificity. The ten-file
+package manifest is
+`0a27a9e5c1e983c5b1a6772435b299f72a974bac405d9a39932e0c8146dc0631`.
+
+Step 05 additionally owns `count_informed_vs_binary_validation/`. This package
+compares the immutable expanded binary `A_detected+B_detected+C_detected`
+model against `A_detected+B_UMI+C_UMI` on the exact same 349,686 cells and
+nine registered-sample holdouts. B/C counts are raw probe-level UMI/ligation
+evidence, not transcript numbers. Both models leave exact `000` uncalled and
+use the same fixed, untuned 0.5 rule. No normalization, weighting, interaction,
+nonlinearity, HET inference, or threshold change is present.
+
+The count-informed model raises called-cell accuracy from 41.960% to 44.695%
+and KO sensitivity from 20.302% to 27.570%; WT specificity is essentially
+unchanged (55.049% to 55.044%). It corrects 2,373 binary errors and introduces
+587 regressions. This gain is not sample-consistent: JZ-10 and JZ-11 improve by
+10.29 and 10.87 points, JZ-12 declines by 26.81 points, and pooled held-out AUC
+drops from 0.254 to 0.201. Treat this as modest, sample-dependent aggregate
+improvement; equally weighted mean sample accuracy decreases from 50.613% to
+49.983%. This is not proof that the count model generalizes robustly or should
+be selected for HET inference. The 15-file package manifest is
+`cf68ee398a2d3a9e19e3de05a59be50d9aed2bfe1084b3445f63ab47e556130f`.
+
 ## Correct allocation and source
 
 The current workspace account belongs to these relevant Unix groups:

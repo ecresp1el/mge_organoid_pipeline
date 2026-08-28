@@ -19,6 +19,11 @@ three-feature logistic-regression baseline plus
 two leave-one-registered-sample-out cohorts:
   A. WT-M versus KO-M (preserved benchmark)
   B. WT-M+F versus KO-M (female-aware reference)
+and a descriptive A-negative raw B/C UMI evidence module
+using WT-M+F and KO-M controls (no classifier fit)
+and a paired nine-fold model comparison:
+  binary A/B/C detection versus
+  A detection + raw B/C probe-level UMI evidence
     ↓
 future model comparison and confidence logic
     ↓
@@ -26,8 +31,10 @@ eventual HET-cell inference
 ```
 
 Steps 03 through 05 are implemented. Step 05 compares the preserved male-only
-benchmark with the expanded WT-M+F/KO-M cohort. No current step performs model
-selection, class reweighting, threshold optimization, or HET inference.
+benchmark with the expanded WT-M+F/KO-M cohort and now compares the binary
+model with one count-informed main-effects implementation. No current step
+performs final model selection, class reweighting, threshold optimization, or
+HET inference.
 
 ## Step ownership
 
@@ -35,7 +42,7 @@ selection, class reweighting, threshold optimization, or HET inference.
 | --- | --- | --- |
 | Step 03 | Validated loading of Step 02a per-cell PCDH19 probe observations; registered WT-male/KO-male annotation; the stable classification-ready cell table. | Pattern-frequency estimation, model fitting, splitting, performance evaluation, hard calls, or HET inference. |
 | Step 04 | Binary A/B/C encoding; empirical eight-pattern WT/KO counts and probabilities; likelihood-ratio evidence; descriptive pattern diagnostics. | Count-based predictors, logistic regression, train/test splitting, confusion matrices, hard calls, confidence thresholds, or HET inference. |
-| Step 05 | Unpenalized main-effects logistic regression using only binary A/B/C detection; the immutable WT-M/KO-M benchmark; a separately manifested WT-M+F/KO-M cohort; leave-one-registered-sample-out validation; fixed calling; probe-pattern error attribution; cohort comparison. | Random cell splitting, class weighting, threshold optimization, forced calls for `000`, UMI counts, interactions, nonlinear terms, transcriptome/cell-type features, model selection, or HET inference. |
+| Step 05 | The original unpenalized binary A/B/C logistic baseline; immutable WT-M/KO-M and WT-M+F/KO-M packages; leave-one-registered-sample-out validation; descriptive raw B/C UMI evidence; and a paired count-informed model using `A_detected + B_UMI + C_UMI` on the same expanded folds. | Random cell splitting, class weighting, threshold optimization, forced calls for `000`, count normalization, treating probe UMIs as transcript numbers, interactions, nonlinear terms, transcriptome/cell-type features, final model selection, or HET inference. |
 | Future model steps | A new model implementation behind a shared probability interface. | Reimplementation of Step 03 loading or Step 04 pattern encoding and publication conventions. |
 | Future validation extensions | Confirmed biological-unit validation, classifier comparison, and any expanded performance outputs. | Refitting hidden model logic inside evaluation code or optimizing a rule on held-out observations. |
 | Future HET application step | Application of a selected, validated, frozen model to HET cells. | Model selection or performance claims based on HET predictions. |
@@ -174,6 +181,52 @@ creating another encoder, ground-truth loader, or classifier protocol.
   and cohort-comparison plots. It contains no fitting logic.
 - `ExistingStep05BasePackageVerifier` protects the already published Step 05
   base fit and its historical manifest from being rewritten by the extension.
+- `ANegativeRawCountRecord` represents one known-genotype A-negative cell and
+  preserves sample, sex, design group, barcode, and integer raw A/B/C molecule
+  counts. It does not encode a model feature or make a genotype call.
+- `ANegativeRawCountCohortReader` reuses the exact Step 03 WT-M/KO-M rows and
+  reads only the three manifested WT-female Step 02a tables. It requires
+  `A_UMI == 0`, verifies raw count arithmetic, and never opens HET-female
+  tables.
+- `RawBCUMIEvidenceSummarizer` computes exact B, C, and B+C count
+  distributions, `0`/`1`/`2`/`3+` enrichment summaries, and observed joint
+  B/C count combinations. It fits no classifier and applies no threshold.
+- `RawBCUMIEvidencePlotter` renders distributions, enrichment by molecule
+  count, and joint-count diagnostics from completed summary rows. It does not
+  load cells or recompute counts.
+- `ExistingExpandedGroundTruthPackageVerifier` protects the already published
+  expanded-cohort package before the raw-count module runs.
+- `RawBCUMIEvidenceOutputPublisher` owns the separately manifested raw-count
+  tables, plots, provenance, restart validation, and atomic publication. It
+  contains no scientific classification logic.
+- `CountInformedCellRecord` represents one comparator cell with raw A/B/C
+  probe-level UMI/ligation evidence. It exposes exactly `A_detected`, `B_UMI`,
+  and `C_UMI` as model features and does not interpret counts as transcript
+  numbers.
+- `CountInformedGroundTruthReader` loads all nine manifested WT-M/WT-F/KO-M
+  control tables and requires an exact cell, label, sex, group, and binary
+  pattern match to the immutable expanded binary predictions. It never opens
+  HET-female tables.
+- `CountInformedLogisticEstimator` fits the unpenalized main-effects model by
+  exact grouped-binomial IRLS. Grouping identical count vectors is
+  likelihood-equivalent to expanding every cell; it adds no weighting,
+  interaction, transformation, or threshold.
+- `CountInformedLogisticClassifier` implements the shared
+  `predict_proba(features)` contract for `A_detected`, raw `B_UMI`, and raw
+  `C_UMI`. B/C coefficients are per additional probe-level UMI/ligation event.
+- `LeaveOneSampleOutCountLogisticValidator` refits this model on the same nine
+  registered-sample folds used by the expanded binary comparator.
+- `PairedBinaryCountModelEvaluator` matches predictions cell for cell and
+  reports called-cell metrics, Brier score, log loss, pooled held-out AUC,
+  per-sample accuracy, and correctness transitions. It does not select a
+  winner or alter calls.
+- `CountModelComparisonPlotter` renders only the overall called metrics,
+  paired per-sample accuracy, and full-fit odds ratios.
+- `ExistingRawBCEvidencePackageVerifier` protects the descriptive raw-count
+  package byte-for-byte after the count-informed implementation changes the
+  Step 05 source.
+- `CountModelComparisonOutputPublisher` owns the separate paired prediction,
+  evaluation, plot, provenance, restart, and manifest contract.
 - `HeldOutValidationOutputPublisher` owns serialization, provenance,
   validation, plots, manifest verification, and atomic publication for the
   sample-level validation subpackage.
@@ -211,6 +264,42 @@ held out, the expanded training fold makes `001` and `010` WT-favored at the
 fixed 0.5 threshold; aggregate KO sensitivity consequently falls to 20.302%.
 This is a documented baseline result, not a reason to silently add class
 weights or tune the threshold.
+
+The raw-count module is a descriptive extension of Step 05, not a change to
+the logistic model. It restricts the registered WT-M+F and KO-M controls to
+exact `A_UMI == 0`, preserves integer molecule counts without normalization,
+and asks whether larger B/C counts carry progressively stronger KO enrichment.
+Across 327,204 A-negative controls, P(KO) for B+C total is 54.255% at one UMI,
+67.640% at two UMIs, and 80.216% at three or more UMIs; the corresponding
+KO:WT likelihood ratios are 2.158, 3.803, and 7.376. Probe B and Probe C show
+the same monotonic pattern. These are descriptive cell-level enrichment
+estimates, not specificity from a classifier, and the 3+ B+C bin contains only
+1,663 cells. No HET cell is loaded.
+
+The count-informed comparison is a new classifier implementation inside Step
+05, but it leaves the original binary packages untouched. Both models use the
+same 349,686 WT-M+F/KO-M cells, nine leave-one-registered-sample-out folds,
+fixed 0.5 rule for informative cells, and uncalled exact `000` state. The new
+model is:
+
+```text
+logit(P(KO)) = intercept
+             + beta_A * A_detected
+             + beta_B * raw B probe UMI
+             + beta_C * raw C probe UMI
+```
+
+Called-cell accuracy increases from 41.960% to 44.695% and KO sensitivity from
+20.302% to 27.570%, while WT specificity is essentially unchanged (55.049% to
+55.044%). The count model corrects 2,373 binary errors and introduces 587
+regressions. However, the change is not consistent across biological samples:
+JZ-10 and JZ-11 improve by 10.29 and 10.87 percentage points, whereas JZ-12
+declines by 26.81 points. All-cell Brier score and log loss improve only
+slightly, while pooled held-out AUC decreases from 0.254 to 0.201. Therefore
+raw B/C evidence changes predictions and yields modest aggregate called-cell
+improvement, but the equally weighted mean per-sample accuracy decreases from
+50.613% to 49.983%. It does not demonstrate robust sample-level
+generalization.
 
 ## Step 04 empirical model definition
 
@@ -270,6 +359,20 @@ results/step_05_pcdh19_logistic_regression_baseline/
   wt_male_female_vs_ko_male_validation/
 ```
 
+The descriptive A-negative raw-count package is:
+
+```text
+results/step_05_pcdh19_logistic_regression_baseline/
+  a_negative_raw_bc_umi_evidence/
+```
+
+The paired binary-versus-count model package is:
+
+```text
+results/step_05_pcdh19_logistic_regression_baseline/
+  count_informed_vs_binary_validation/
+```
+
 The Step 04 classifier TSV is the first serialized model artifact. The
 distribution TSV and plots are diagnostics derived from it. Validation,
 environment, and output-manifest files protect input identity, computation
@@ -277,7 +380,7 @@ scope, code/dependency identity, and published bytes.
 
 ## Current baselines and planned modular extensions
 
-The first four entries are implemented. The remaining entries are planned
+The first seven entries are implemented. The remaining entries are planned
 extensions only.
 
 1. **Empirical pattern classifier — Step 04 (implemented baseline).** Preserve as
@@ -297,13 +400,21 @@ extensions only.
    WT-M/KO-M result and compare it with WT-M+F/KO-M under the same unweighted
    model and fixed call rule. This is a cohort comparison, not a comparison of
    different classifier families.
-6. **Model comparison.** Compare frozen candidate models on the same split and
+6. **A-negative raw B/C UMI evidence — Step 05 (implemented descriptive
+   module).** Compare unnormalized B, C, B+C, and joint B/C molecule counts in
+   known WT-M+F and KO-M controls. Do not treat this analysis as a fitted
+   count-based classifier.
+7. **Count-informed logistic comparison — Step 05 (implemented).** Compare
+   `A_detected + B_UMI + C_UMI` directly with the immutable binary A/B/C model
+   on identical expanded-cohort folds, cells, call eligibility, and threshold.
+   Preserve probe counts as raw UMI/ligation evidence, not transcript numbers.
+8. **Model comparison.** Compare frozen candidate models on the same split and
    evaluation contract rather than allowing each model script to define its
    own denominators.
-7. **Confidence/uncertain-call logic.** Keep probability estimation separate
+9. **Confidence/uncertain-call logic.** Keep probability estimation separate
    from decision thresholds. Preserve uninformative/uncertain states rather
    than forcing WT or KO.
-8. **Application of a validated classifier to HET cells.** Load HET cells only
+10. **Application of a validated classifier to HET cells.** Load HET cells only
    after model selection and validation are complete, record the frozen model
    identity, and keep inference separate from performance estimation.
 

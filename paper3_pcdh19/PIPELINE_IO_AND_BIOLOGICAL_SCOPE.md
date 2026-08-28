@@ -52,8 +52,12 @@ source/result ledger and safe provenance options.
 - `05_pcdh19_logistic_regression_baseline`: fits the unpenalized three-feature
   main-effects logistic baseline and compares its eight probabilities with
   Step 04, preserves the WT-M/KO-M leave-one-sample-out benchmark, and adds a
-  separately manifested WT-M+F/KO-M validation of the same model; complete.
-  It does not load HET cells.
+  separately manifested WT-M+F/KO-M validation of the same model. A separate
+  descriptive module evaluates unnormalized raw B/C molecule evidence among
+  A-negative WT-M+F and KO-M controls without fitting another classifier;
+  a paired extension then compares the original binary model with an
+  unpenalized `A_detected + B_UMI + C_UMI` model on the same expanded LOSO
+  folds. Complete. It does not load HET cells.
 
 Step `02a` intentionally runs without ingesting the sample key because it uses
 only technical IDs. This keeps the validated assay audit separate from later
@@ -742,3 +746,109 @@ accuracy alone and do not justify silent reweighting or threshold changes.
 The expanded validation still does not select a final model or apply anything
 to HET females. The registered sample key does not establish donor, embryo, or
 litter independence.
+
+### Step 05 A-negative raw B/C UMI evidence
+
+This descriptive Step 05 module is published separately at:
+
+```text
+results/step_05_pcdh19_logistic_regression_baseline/
+  a_negative_raw_bc_umi_evidence/
+```
+
+It asks only whether raw Probe B and Probe C molecule counts provide
+increasing WT-versus-KO evidence among cells with exact `A_UMI == 0`. It uses
+the same registered controls as the expanded cohort: JZ-1--3 WT male, JZ-4--6
+WT female, and JZ-10--12 KO male. JZ-7--9 HET-female tables are excluded and
+not opened. The exact Step 03 table supplies the male rows; the Step 02a
+manifest and per-cell tables supply only the WT-female rows.
+
+The input and computation contract is:
+
+- preserve raw nonnegative integer `B_UMI` and `C_UMI` molecule counts;
+- require `A_UMI + B_UMI + C_UMI == Pcdh19_total_UMI` before filtering;
+- retain only `A_UMI == 0` and derive `B_plus_C_UMI = B_UMI + C_UMI`;
+- report exact B, C, and B+C distributions, bins `0`, `1`, `2`, and `3+`, and
+  every observed joint `(B_UMI, C_UMI)` combination; and
+- perform no normalization, classifier fitting, weighting, thresholding,
+  calling, or HET inference.
+
+The 327,204-cell output cohort contains 211,142 WT controls (103,748 WT-M and
+107,394 WT-F) and 116,062 KO-M controls. The package publishes a per-cell raw
+count table, per-sample cohort summary, exact distribution table, binned
+enrichment table, 33-row observed joint-count table, three diagnostic PNGs,
+41 passing validation checks, software/input provenance, and a ten-file
+manifest.
+
+| Raw evidence | P(KO \| 1 UMI) | P(KO \| 2 UMIs) | P(KO \| 3+ UMIs) | KO:WT likelihood ratio at 1 / 2 / 3+ |
+| --- | ---: | ---: | ---: | ---: |
+| Probe B | 56.716% | 70.066% | 81.013% | 2.384 / 4.258 / 7.762 |
+| Probe C | 57.046% | 71.257% | 82.565% | 2.416 / 4.510 / 8.615 |
+| B+C total | 54.255% | 67.640% | 80.216% | 2.158 / 3.803 / 7.376 |
+
+Thus increasing raw B/C molecule evidence is progressively KO-enriched in all
+three summaries. The `3+` bins are rare (158 B, 499 C, and 1,663 B+C cells),
+and WT cells remain present in each, so these values are descriptive
+enrichment rather than classifier specificity or a new calling rule.
+
+### Step 05 count-informed versus binary logistic comparison
+
+The paired model-comparison package is:
+
+```text
+results/step_05_pcdh19_logistic_regression_baseline/
+  count_informed_vs_binary_validation/
+```
+
+It compares two unpenalized main-effects logistic models:
+
+```text
+Binary:         logit(P(KO)) = intercept + A_detected + B_detected + C_detected
+Count-informed: logit(P(KO)) = intercept + A_detected + B_UMI + C_UMI
+```
+
+`B_UMI` and `C_UMI` are raw probe-level UMI/ligation evidence. They are not
+normalized and must not be described as transcript numbers. A remains binary
+in both models. The comparison adds no interaction, nonlinear transformation,
+class weight, resampling, or threshold optimization.
+
+The comparator contract is paired exactly: the same 349,686 WT-M/WT-F/KO-M
+cells, the same nine registered-sample holdouts, the same WT=`0`/KO=`1`
+encoding, and the same fixed decision policy. Exact `A_UMI=B_UMI=C_UMI=0`
+cells are uncalled in both models; other cells use 0.5 without optimization.
+The immutable expanded binary prediction table supplies comparator
+probabilities and calls. Every count-informed row must match its sample,
+barcode, genotype, sex, design group, and binary detection pattern. HET-female
+tables remain excluded and unopened.
+
+The package publishes 349,686 paired held-out predictions; count-model
+confusion, per-sample, group, and overall metrics; 36 fold coefficient rows;
+four full-fit coefficients; overall and per-sample paired comparisons;
+correctness transitions; three diagnostic PNGs; 91 passing checks; software
+and input provenance; and a 15-file manifest.
+
+| Held-out metric | Binary model | Count-informed model | Difference |
+| --- | ---: | ---: | ---: |
+| Called cells | 65,314 (18.678%) | 65,314 (18.678%) | 0 |
+| Accuracy among called | 41.960% | 44.695% | +2.734 points |
+| KO sensitivity among called | 20.302% | 27.570% | +7.267 points |
+| KO specificity among called | 55.049% | 55.044% | -0.005 points |
+| Brier score, all cells | 0.278737 | 0.278479 | -0.000258 |
+| Log loss, all cells | 0.767334 | 0.766793 | -0.000541 |
+| Pooled held-out AUC | 0.254231 | 0.201355 | -0.052876 |
+| Mean per-sample accuracy | 50.613% | 49.983% | -0.631 points |
+
+The count-informed model changes 2,960 called-cell decisions: 2,373 binary
+errors become correct and 587 binary-correct cells become wrong. The aggregate
+accuracy gain is therefore real for these pooled held-out cells, but it is not
+consistent by sample. JZ-10 and JZ-11 improve by 10.29 and 10.87 percentage
+points, respectively, whereas JZ-12 declines by 26.81 points; the six WT
+samples are essentially unchanged. The worsened pooled AUC and minimal
+proper-score changes and decreased equally weighted mean sample accuracy
+further prevent a claim of robust global discrimination. This is a paired
+baseline result, not final model selection.
+
+In the expanded all-cell fit, one additional raw B UMI multiplies KO:WT odds
+by 2.143 and one additional raw C UMI by 2.329, holding other predictors fixed.
+These are probe-level evidence effects and do not imply transcript-number
+fold changes.

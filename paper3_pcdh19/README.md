@@ -382,6 +382,33 @@ results/step_05_pcdh19_logistic_regression_baseline/
     step_05_wt_mf_ko_m_validation_checks.tsv
     software_environment.tsv
     output_manifest.tsv
+  a_negative_raw_bc_umi_evidence/
+    step_05_a_negative_raw_bc_cells.tsv
+    step_05_a_negative_raw_bc_cohort_summary.tsv
+    step_05_a_negative_raw_umi_distribution.tsv
+    step_05_a_negative_umi_bin_enrichment.tsv
+    step_05_a_negative_joint_bc_count_combinations.tsv
+    step_05_a_negative_raw_b_c_umi_distributions.png
+    step_05_a_negative_umi_bin_ko_enrichment.png
+    step_05_a_negative_joint_bc_count_combinations.png
+    step_05_a_negative_raw_bc_validation_checks.tsv
+    software_environment.tsv
+    output_manifest.tsv
+  count_informed_vs_binary_validation/
+    step_05_binary_vs_count_informed_held_out_predictions.tsv
+    step_05_count_informed_confusion_matrix.tsv
+    step_05_count_informed_per_sample_metrics.tsv
+    step_05_count_informed_metrics_by_group.tsv
+    step_05_count_informed_overall_metrics.tsv
+    step_05_count_informed_fold_model_coefficients.tsv
+    step_05_count_informed_full_fit_coefficients.tsv
+    step_05_binary_vs_count_informed_overall_comparison.tsv
+    step_05_binary_vs_count_informed_per_sample_comparison.tsv
+    step_05_binary_vs_count_informed_correctness_transitions.tsv
+    three diagnostic PNGs
+    step_05_count_informed_validation_checks.tsv
+    software_environment.tsv
+    output_manifest.tsv
 ```
 
 All `000` cells remain in the fit, making the intercept their baseline log
@@ -396,9 +423,9 @@ Across all six held-out folds, 43,256/230,269 cells (18.785%) are called.
 Accuracy among called cells is 80.729%; with KO as the positive class,
 sensitivity is 99.711% and specificity is 55.691%. These denominators and the
 large class asymmetry should accompany any interpretation of the overall
-accuracy. Step 05 still excludes UMI counts, interactions, nonlinear terms,
-transcriptome/cell-type features, HET cells, model selection, and threshold
-optimization.
+accuracy. The original binary logistic classifier still excludes UMI-count
+predictors, interactions, nonlinear terms, transcriptome/cell-type features,
+HET cells, model selection, and threshold optimization.
 
 The registered Step 03 `technical_sample_id` is the available holdout unit and
 is labeled `biological_sample_id` in validation outputs. This is leakage-safe
@@ -420,3 +447,34 @@ zero. The expanded cohort also shows a fold-prevalence limitation: holding out
 either large KO sample causes `001` and `010` to become WT-favored, sharply
 reducing KO sensitivity. Step 05 records this result without adding class
 weights or tuning the 0.5 threshold.
+
+Step 05 also contains a separate descriptive module for the 327,204 controls
+with exact `A_UMI == 0`: 211,142 WT cells (WT male plus WT female) and 116,062
+KO-male cells. It preserves raw integer Probe B and C molecule counts without
+normalization and fits no additional classifier. For B+C total, known-KO
+enrichment increases from 54.255% at one UMI to 67.640% at two and 80.216% at
+three or more; the corresponding KO:WT likelihood ratios are 2.158, 3.803,
+and 7.376. Probe B and Probe C separately show the same monotonic trend. The
+3+ B+C bin contains only 1,663 cells, so this is evidence of increasing KO
+enrichment, not a validated count-based call rule or a sensitivity/specificity
+claim. HET-female tables are not loaded.
+
+The next Step 05 implementation compares the original binary model directly
+with `A_detected + B_UMI + C_UMI` on the identical nine expanded-cohort LOSO
+folds. B/C values remain raw probe-level UMI/ligation evidence and are not
+normalized or described as transcript numbers. Both models leave exact `000`
+uncalled and apply the same fixed, untuned 0.5 rule to informative cells.
+
+Among the same 65,314 called cells, count-informed accuracy is 44.695% versus
+41.960% for binary A/B/C, and KO sensitivity is 27.570% versus 20.302%. WT
+specificity is essentially unchanged at 55.044% versus 55.049%. The count
+model corrects 2,373 binary-model errors while regressing 587 previously
+correct calls. The improvement is not sample-consistent: JZ-10 and JZ-11 gain
+10.29 and 10.87 accuracy points, but JZ-12 loses 26.81 points. Brier score and
+log loss improve only slightly, and pooled held-out AUC decreases from 0.254
+to 0.201. Equally weighted mean per-sample accuracy also decreases from
+50.613% to 49.983%. This supports modest pooled-cell information beyond
+detection state, but not robust biological-sample generalization or a final
+model choice. No
+weighting, threshold optimization, interaction, nonlinear term, or HET
+inference is introduced.

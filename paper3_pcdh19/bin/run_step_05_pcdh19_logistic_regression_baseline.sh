@@ -10,12 +10,21 @@
 #   KO=1. The expanded Step 05 also performs leave-one-registered-sample-out
 #   validation, always leaves 000 uncalled, and uses a fixed non-optimized 0.5
 #   probability threshold for informative patterns. No HET cells,
-#   interactions, nonlinear terms, UMI counts, cell types, or transcriptome
-#   features are used. Existing Step 05 fit outputs remain unchanged; held-out
-#   products are published in a manifested validation subdirectory.
+#   interactions, nonlinear terms, UMI-count predictors, cell types, or
+#   transcriptome features are used by the logistic model. Existing Step 05
+#   fit outputs remain unchanged; held-out products are published in a
+#   manifested validation subdirectory.
 #   A second separately manifested Step 05 cohort uses WT males plus WT females
 #   as WT ground truth and KO males as KO ground truth. HET females are excluded
 #   from loading, fitting, validation, and comparison.
+#   A descriptive A-negative module additionally summarizes unnormalized raw B,
+#   C, and B+C UMI evidence and joint B/C counts. It fits no classifier and does
+#   not alter any logistic-regression result or decision rule.
+#   A paired count-informed implementation uses A_detected plus raw B/C
+#   probe-level UMI/ligation evidence on the identical expanded-cohort LOSO
+#   folds and compares it directly with the immutable binary model. Counts are
+#   not transcript numbers. No weighting, interaction, threshold change, or
+#   HET-cell loading is introduced.
 set -Eeuo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
