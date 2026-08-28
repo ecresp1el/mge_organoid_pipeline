@@ -1,10 +1,43 @@
 #!/usr/bin/env python3
-"""Locked raw three-probe EGFP audit for AGC request 15662-JZ.
+"""Audit raw EGFP Flex-probe counts for AGC request 15662-JZ.
 
-Inputs are the Cell Ranger raw probe matrix, the vendor-filtered gene matrix,
-and the vendor-filtered barcode CSV for each technical sample. Outputs remain
-raw integer UMIs. This script does not normalize, call cell types, infer
-genotype, or classify cells biologically.
+Scientific question
+-------------------
+After Step 02b established construct-level sequence compatibility, determine
+whether any of the three validated EGFP probes contributed raw UMIs to each
+Cell Ranger filtered barcode in the 12 technical samples.
+
+Inputs
+------
+The audit consumes the delivered panel, the checksum-locked Step 02b alignment
+and validation package, the registered sample key (for one descriptive
+sample-level table only), and three Cell Ranger files per sample:
+``sample_raw_probe_bc_matrix.h5``,
+``sample_filtered_feature_bc_matrix.h5``, and
+``sample_filtered_barcodes.csv``. Identities and the JZ-1 prototype are fixed
+in ``config/egfp_probe_audit.lock.json``.
+
+Computation and validation
+--------------------------
+``probe01``, ``probe02``, and ``probe03`` raw counts are extracted only for
+the vendor-filtered barcode set. Their integer sum must equal Cell Ranger's
+independent EGFP gene-feature count for every barcode. Presence is defined
+solely as ``UMI > 0`` and yields one of eight binary patterns. The workflow
+checks upstream compatibility, panel/feature/chemistry identity, barcode
+equality and uniqueness, count reconstruction, pattern partition/marginals,
+serialized tables, per-file checksums, and frozen JZ-1 equivalence.
+
+Outputs and scope
+-----------------
+The atomically published package below ``results/egfp_probe_audit/`` contains
+reference provenance, per-barcode raw counts, per-sample summaries and
+validations, combined summaries, an explicitly descriptive sample-design
+join, software versions, and an output manifest. The biological labels never
+enter barcode-level calculations. The script performs no normalization,
+imputation, ambient-RNA correction, new cell calling, reporter-positive
+classification, cell typing, genotype inference, concordance analysis, or
+statistical testing. A sparse probe UMI is a technical observation, not proof
+of functional reporter expression.
 """
 
 import argparse
@@ -56,6 +89,16 @@ DESIGN_HEADER = [
 
 
 def sample_paths(cellranger_root, sample_id):
+    """Resolve the three Cell Ranger inputs for one technical sample.
+
+    Args:
+        cellranger_root: Pooled Cell Ranger output root.
+        sample_id: Locked identifier such as ``15662-JZ-1``.
+
+    Returns:
+        Mapping of raw probe HDF5, filtered gene HDF5, and filtered-barcode
+        CSV paths.
+    """
     directory = os.path.join(cellranger_root, "per_sample_outs", sample_id)
     return {
         "probe_h5": os.path.join(directory, "sample_raw_probe_bc_matrix.h5"),
@@ -65,10 +108,43 @@ def sample_paths(cellranger_root, sample_id):
 
 
 def locked_path(root, record):
+    """Resolve a lock record's repository- or output-relative path.
+
+    Args:
+        root: Base directory appropriate to the lock record.
+        record: Mapping containing ``relative_path``.
+
+    Returns:
+        Joined filesystem path.
+    """
     return os.path.join(root, record["relative_path"])
 
 
 def validate_references(lock, cellranger_root, paper3_root, bundle_root):
+    """Validate Step 02b, panel, metadata, and publish EGFP references.
+
+    This gate proves that the delivered panel still contains exactly the
+    three locked EGFP probes and that Step 02b passed exact construct-sequence
+    compatibility. The sample key is checksum-validated here but is not used
+    for barcode-level computation.
+
+    Args:
+        lock: Parsed EGFP count-audit lock.
+        cellranger_root: Pooled Cell Ranger output containing ``probe_set.csv``.
+        paper3_root: Paper 3 output root containing the Step 02b assets.
+        bundle_root: Version-controlled ``paper3_pcdh19`` directory.
+
+    Returns:
+        Mapping of resolved locked upstream paths.
+
+    Side Effects:
+        Publishes ``egfp_probe_reference.tsv`` and
+        ``reference_manifest.tsv`` below the EGFP result tree.
+
+    Raises:
+        RuntimeError: On any pipeline identity, checksum, probe, alignment,
+            validation, or safe-publication mismatch.
+    """
     if lock.get("pipeline_name") != "paper3_egfp_probe_count_audit" or lock.get("pipeline_version") != "1.0.0":
         common.fail("Unexpected EGFP pipeline identity/version in lock")
     refs = lock["reference_inputs"]
@@ -181,6 +257,19 @@ def validate_references(lock, cellranger_root, paper3_root, bundle_root):
 
 
 def verify_existing_sample(directory, prototype=None):
+    """Verify a per-sample EGFP package before treating it as reusable.
+
+    Args:
+        directory: Final per-sample output directory.
+        prototype: Optional JZ-1 lock record for byte-equivalence checking.
+
+    Returns:
+        ``False`` if the directory is absent; ``True`` only if all required
+        files, file checksums, validation rows, and optional prototype pass.
+
+    Raises:
+        RuntimeError: If an existing package is incomplete or inconsistent.
+    """
     required = ["egfp_probe_patterns.tsv", "egfp_probe_summary.tsv", "validation.tsv", "checksums.sha256"]
     if not os.path.isdir(directory):
         return False
@@ -206,6 +295,29 @@ def verify_existing_sample(directory, prototype=None):
 
 
 def process_sample(lock, cellranger_root, paper3_root, sample_id, prototype_gate=False):
+    """Extract and validate raw three-probe EGFP counts for one sample.
+
+    The three probe rows are selected from the raw probe CSC matrix for the
+    exact vendor-filtered barcode set. Counts are summed, independently
+    reconstructed against the filtered EGFP feature, assigned to eight binary
+    patterns, serialized, re-read, validated, checksummed, and atomically
+    published.
+
+    Args:
+        lock: Parsed EGFP audit lock.
+        cellranger_root: Pooled Cell Ranger output root.
+        paper3_root: Paper 3 workflow output root.
+        sample_id: One of the 12 locked technical sample identifiers.
+        prototype_gate: Whether to apply the complete frozen JZ-1 gate.
+
+    Side Effects:
+        Publishes a barcode table, summary, validation table, and checksum
+        list under ``results/egfp_probe_audit/per_sample/<sample_id>/``.
+
+    Raises:
+        RuntimeError: On missing inputs, metadata/barcode/count disagreement,
+            prototype failure, or a conflicting destination.
+    """
     output_root = os.path.join(paper3_root, "results", "egfp_probe_audit")
     per_sample_root = os.path.join(output_root, "per_sample")
     os.makedirs(per_sample_root, exist_ok=True)
@@ -411,6 +523,19 @@ def process_sample(lock, cellranger_root, paper3_root, sample_id, prototype_gate
 
 
 def read_sample_key(path, sample_ids):
+    """Read and validate the one-to-one technical-to-biological sample map.
+
+    Args:
+        path: Registered ``sample_key.csv`` path.
+        sample_ids: Complete expected technical-ID collection.
+
+    Returns:
+        Mapping from technical sample ID to its CSV record.
+
+    Raises:
+        RuntimeError: If rows are duplicated, missing, or outside the locked
+            12-sample set.
+    """
     with open(path, "r", newline="") as handle:
         rows = list(csv.DictReader(handle))
     by_id = {row["technical_sample_id"]: row for row in rows}
@@ -420,6 +545,25 @@ def read_sample_key(path, sample_ids):
 
 
 def combine_outputs(lock, paper3_root, bundle_root, sample_ids):
+    """Combine validated EGFP summaries and add a descriptive design join.
+
+    Counts and patterns are read only from already-validated sample packages.
+    Genotype, sex, and design group are joined afterward at sample-summary
+    resolution; they do not alter barcode inclusion, counts, or patterns.
+
+    Args:
+        lock: Parsed EGFP audit lock.
+        paper3_root: Paper 3 workflow output root.
+        bundle_root: Version-controlled ``paper3_pcdh19`` directory.
+        sample_ids: Ordered technical sample identifiers.
+
+    Side Effects:
+        Publishes combined probe, pattern, validation, and design-summary TSVs.
+
+    Raises:
+        RuntimeError: If a sample/key is invalid or an existing combined file
+            differs from the newly derived table.
+    """
     output_root = os.path.join(paper3_root, "results", "egfp_probe_audit")
     combined = os.path.join(output_root, "combined")
     os.makedirs(combined, exist_ok=True)
@@ -466,6 +610,17 @@ def combine_outputs(lock, paper3_root, bundle_root, sample_ids):
 
 
 def write_environment(lock_path, script_path, paper3_root):
+    """Record exact software versions and provenance identities.
+
+    Args:
+        lock_path: EGFP reference/prototype lock path.
+        script_path: Executed Python source path.
+        paper3_root: Paper 3 workflow output root.
+
+    Side Effects:
+        Publishes ``software_environment.tsv``, including raw-count scale,
+        barcode-denominator, and no-biological-classification declarations.
+    """
     output_root = os.path.join(paper3_root, "results", "egfp_probe_audit")
     os.makedirs(output_root, exist_ok=True)
     rows = [
@@ -488,6 +643,15 @@ def write_environment(lock_path, script_path, paper3_root):
 
 
 def write_output_manifest(paper3_root):
+    """Publish a deterministic size/SHA-256 inventory of all EGFP outputs.
+
+    Args:
+        paper3_root: Paper 3 workflow output root.
+
+    Side Effects:
+        Writes ``results/egfp_probe_audit/output_manifest.tsv`` while excluding
+        hidden staging files and the manifest itself.
+    """
     output_root = os.path.join(paper3_root, "results", "egfp_probe_audit")
     target = os.path.join(output_root, "output_manifest.tsv")
     rows = []
@@ -509,6 +673,7 @@ def write_output_manifest(paper3_root):
 
 
 def parse_args():
+    """Parse EGFP workflow command, roots, and optional sample controls."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["run-all", "references", "sample", "combine"])
     parser.add_argument("--lock", required=True)
@@ -521,6 +686,15 @@ def parse_args():
 
 
 def main():
+    """Dispatch reference, single-sample, combination, or full audit modes.
+
+    ``run-all`` always validates upstream references and records the software
+    environment, gates first on the JZ-1 prototype, then processes the other
+    11 samples and publishes combined tables plus the complete manifest.
+
+    Raises:
+        RuntimeError: Propagates any failed audit invariant.
+    """
     args = parse_args()
     with open(args.lock, "r") as handle:
         lock = json.load(handle, object_pairs_hook=OrderedDict)

@@ -1,9 +1,32 @@
 #!/usr/bin/env bash
-# Supported Step 02a entry point for the locked 12-sample Pcdh19 probe audit.
-# Exact scientific inputs, output tables, validation gates, restart behavior,
-# and interpretation limits are defined in
-# ../PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md. Outputs are technical probe-pattern
-# measurements and do not assign genotype, condition, or cell identity.
+# PURPOSE
+#   Supported Step 02a entry point for the locked 12-sample Pcdh19 Flex-probe
+#   audit. Extra command-line arguments are forwarded unchanged to the Python
+#   program (for example, --prototype-only).
+#
+# INPUTS
+#   greatlakes.env resolves the read-only Cell Ranger delivery, GRCm39 GTF,
+#   GRCm39 reference.json, and Paper 3 output root. The JSON lock fixes panel,
+#   reference, probe, and JZ-1 prototype identities. The requirements file pins
+#   h5py==3.1.0 and numpy==1.19.5 for Python 3.6.
+#
+# EXECUTION AND VALIDATION
+#   Verifies Python 3.6 and the pinned packages, installing them once into the
+#   workflow-specific software directory when absent. It fixes locale, time
+#   zone, and hash seed, logs provenance, then invokes `run-all`. JZ-1 must pass
+#   the frozen prototype before samples 2-12 are processed.
+#
+# OUTPUTS AND RESTART BEHAVIOR
+#   Scientific assets are atomically published below
+#   results/pcdh19_probe_audit/. A timestamped combined stdout/stderr log is
+#   written below logs/pcdh19_probe_audit/. Existing byte-identical validated
+#   assets are reused; incomplete, corrupt, or different assets cause failure.
+#
+# SCIENTIFIC SCOPE
+#   Produces raw technical probe counts and eight detection patterns for Cell
+#   Ranger-filtered barcodes. It performs no normalization, new cell calling,
+#   genotype/condition assignment, cell typing, or statistical inference. See
+#   ../PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md for columns and interpretation.
 set -Eeuo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"

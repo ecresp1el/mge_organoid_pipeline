@@ -1,5 +1,32 @@
 #!/usr/bin/env python3
-"""Reproduce the locked construct-level X-GFP/Flex sequence audit for 15662-JZ."""
+"""Test X-GFP reporter compatibility with the delivered 15662-JZ Flex panel.
+
+Scientific question
+-------------------
+Determine whether each of the three custom EGFP probes in the delivered 10x
+Flex panel has one exact target in the enhanced-GFP coding sequence specified
+for the original Nagy/Kalantry D4/XEGFP reporter construct.
+
+Inputs and computation
+----------------------
+The script checksum-validates the delivered ``probe_set.csv`` and the lock
+file, then obtains the NCBI GenBank U55762.1 record. It extracts the locked
+Clontech EGFP CDS interval and searches that CDS for both the probe sequence
+and its reverse complement. Compatibility requires exactly one 50/50
+reverse-complement match, no direct match, and the expected 5-prime probe
+order for all three probes.
+
+Outputs and interpretation boundary
+-----------------------------------
+An atomically published package under ``results/xgfp_probe_audit/`` contains
+the alignments, validation checks, extracted CDS FASTA, source manifest,
+conclusion, software environment, and output manifest. A PASS establishes
+theoretical construct-level sequence compatibility only. This step reads no
+expression matrix, barcode, sample condition, or genotype, and cannot prove
+reporter transcription, RNA preservation, hybridization efficiency, or GFP
+expression in any cell. The full colony-specific integrated allele sequence
+is not asserted by this analysis.
+"""
 
 import argparse
 import csv
@@ -15,14 +42,25 @@ from collections import OrderedDict
 
 
 def fail(message):
+    """Raise a fatal validation error with a human-readable explanation."""
     raise RuntimeError(message)
 
 
 def sha256_bytes(value):
+    """Return the lowercase SHA-256 digest of a bytes-like value."""
     return hashlib.sha256(value).hexdigest()
 
 
 def sha256_file(path, chunk_size=8 * 1024 * 1024):
+    """Compute a file's SHA-256 digest in bounded-memory chunks.
+
+    Args:
+        path: File to hash.
+        chunk_size: Bytes read per iteration.
+
+    Returns:
+        Lowercase hexadecimal SHA-256 digest.
+    """
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
         while True:
@@ -33,10 +71,18 @@ def sha256_file(path, chunk_size=8 * 1024 * 1024):
 
 
 def reverse_complement(sequence):
+    """Return the reverse complement of an uppercase unambiguous DNA string."""
     return sequence.translate(str.maketrans("ACGT", "TGCA"))[::-1]
 
 
 def write_tsv(path, header, rows):
+    """Write mappings as a deterministic LF-terminated TSV table.
+
+    Args:
+        path: Destination path.
+        header: Ordered output field names.
+        rows: Iterable of mappings; absent fields are serialized as empty.
+    """
     with open(path, "w", newline="") as handle:
         writer = csv.DictWriter(handle, delimiter="\t", fieldnames=header, lineterminator="\n")
         writer.writeheader()
@@ -45,6 +91,15 @@ def write_tsv(path, header, rows):
 
 
 def parse_panel(path):
+    """Parse 10x probe-set metadata comments and the CSV probe records.
+
+    Args:
+        path: Delivered ``probe_set.csv`` path.
+
+    Returns:
+        ``(metadata, rows)`` where metadata retains ``#key=value`` order and
+        rows contains dictionaries from the CSV body.
+    """
     metadata = OrderedDict()
     rows = []
     data_lines = []
@@ -60,6 +115,18 @@ def parse_panel(path):
 
 
 def parse_fasta_bytes(raw):
+    """Decode and minimally validate a single-record nucleotide FASTA.
+
+    Args:
+        raw: ASCII FASTA file contents.
+
+    Returns:
+        Pair containing the header without ``>`` and the uppercase sequence.
+
+    Raises:
+        RuntimeError: If the FASTA header, sequence, or alphabet is invalid.
+        UnicodeDecodeError: If ``raw`` is not ASCII.
+    """
     lines = raw.decode("ascii").splitlines()
     if not lines or not lines[0].startswith(">"):
         fail("Downloaded EGFP reference is not FASTA")
@@ -70,6 +137,23 @@ def parse_fasta_bytes(raw):
 
 
 def load_locked_reference(lock, cache_root):
+    """Load, cache, and checksum-validate U55762.1 and its EGFP CDS.
+
+    Args:
+        lock: Parsed X-GFP audit lock containing accession, URL, coordinates,
+            lengths, and sequence digests.
+        cache_root: Directory for the downloaded full GenBank FASTA record.
+
+    Returns:
+        ``(path, header, record_sequence, egfp_cds)``.
+
+    Side Effects:
+        Downloads the reference only when absent and publishes it atomically.
+
+    Raises:
+        RuntimeError: On cache races or any locked length/checksum mismatch.
+        OSError: For network or filesystem failures.
+    """
     reference = lock["egfp_sequence_reference"]
     os.makedirs(cache_root, exist_ok=True)
     path = os.path.join(cache_root, reference["accession"] + ".fasta")
@@ -111,6 +195,21 @@ def load_locked_reference(lock, cache_root):
 
 
 def verify_existing(output_root, script_path, lock_path):
+    """Verify a complete existing audit package for idempotent reuse.
+
+    Args:
+        output_root: Existing X-GFP result directory.
+        script_path: Current pipeline source used for provenance comparison.
+        lock_path: Current lock file used for provenance comparison.
+
+    Returns:
+        ``False`` when no output directory exists; ``True`` only when every
+        manifested file, validation row, source hash, and lock hash passes.
+
+    Raises:
+        RuntimeError: If an existing package is incomplete, modified, failed,
+            or was generated by different source/lock bytes.
+    """
     manifest = os.path.join(output_root, "output_manifest.tsv")
     if not os.path.isdir(output_root):
         return False
@@ -138,6 +237,15 @@ def verify_existing(output_root, script_path, lock_path):
 
 
 def add_check(rows, name, observed, expected, details=""):
+    """Append one comparison to the machine-readable validation table.
+
+    Args:
+        rows: Mutable list receiving the new record.
+        name: Stable validation identifier.
+        observed: Value measured by this run.
+        expected: Locked expected value.
+        details: Optional explanatory text.
+    """
     rows.append({
         "check_name": name,
         "status": "PASS" if observed == expected else "FAIL",
@@ -148,6 +256,20 @@ def add_check(rows, name, observed, expected, details=""):
 
 
 def run(args):
+    """Execute the locked panel-to-EGFP sequence compatibility audit.
+
+    Args:
+        args: Parsed arguments providing the lock, delivered probe-set, and
+            Paper 3 output-root paths.
+
+    Side Effects:
+        May cache U55762.1 and, after all checks pass, atomically publishes the
+        complete ``results/xgfp_probe_audit`` directory.
+
+    Raises:
+        RuntimeError: On any checksum, panel identity, sequence-alignment,
+            validation, provenance, or safe-publication failure.
+    """
     script_path = os.path.realpath(__file__)
     with open(args.lock, "r") as handle:
         lock = json.load(handle, object_pairs_hook=OrderedDict)
@@ -332,6 +454,7 @@ def run(args):
 
 
 def parse_args():
+    """Parse required lock, delivered panel, and output-root arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lock", required=True)
     parser.add_argument("--probe-set", required=True)

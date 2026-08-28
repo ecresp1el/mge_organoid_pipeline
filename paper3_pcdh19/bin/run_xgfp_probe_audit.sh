@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
-# Step 02b: exact construct-level compatibility audit between the three custom
-# Flex EGFP probes and the reporter sequence specified for D4/XEGFP.
+# PURPOSE
+#   Step 02b: test exact construct-level sequence compatibility between the
+#   three delivered Flex EGFP probes and the EGFP CDS specified for D4/XEGFP.
+#
+# INPUTS
+#   greatlakes.env supplies PAPER3_CELLRANGER_ROOT and PAPER3_ROOT. The script
+#   reads the delivered probe_set.csv, xgfp_probe_audit.lock.json, and a cached
+#   or downloaded checksum-locked NCBI U55762.1 FASTA.
+#
+# COMPUTATION AND OUTPUTS
+#   The Python audit requires one unique 50/50 reverse-complement EGFP-CDS match
+#   for every probe and atomically publishes alignments, validations, source
+#   provenance, extracted CDS, conclusion, software versions, and checksums
+#   below results/xgfp_probe_audit/. This runner adds a timestamped log below
+#   logs/xgfp_probe_audit/. An existing validated package is verified/reused.
+#
+# SCIENTIFIC SCOPE
+#   A PASS establishes theoretical sequence compatibility only. No count
+#   matrix, barcode, sample label, expression state, or genotype is analyzed;
+#   reporter transcription or functional GFP expression is not established.
 set -Eeuo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"

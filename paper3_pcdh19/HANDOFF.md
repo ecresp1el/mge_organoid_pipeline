@@ -1,6 +1,6 @@
 # Paper 3 Ziobro PCDH19 MGE single-cell RNA-seq: operational handoff
 
-Last updated: 2026-08-27
+Last updated: 2026-08-28
 
 ## Correct allocation and source
 
@@ -500,6 +500,9 @@ The completed result root is:
 
 The production package records Python implementation SHA-256
 `731edca099bcbca8fb5e968ed621c2e5d8e31e3f25b6209b5008d2eb082d7b43`.
-The computational file remains frozen at that checksum; expanded explanatory
-documentation is maintained separately so the existing provenance remains
-truthful.
+That hash identifies the source at repository commit `22a342e`. The current
+working source contains expanded docstrings and therefore has different bytes;
+it must not be described as having generated the historical package. The
+verified distinction between analyzed inputs, generated assets, run logs, and
+current documented source is maintained in
+[`ASSET_AND_RUN_INVENTORY.md`](ASSET_AND_RUN_INVENTORY.md).

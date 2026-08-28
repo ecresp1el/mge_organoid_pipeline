@@ -1,7 +1,31 @@
 #!/usr/bin/env bash
-# Step 02c: locked raw EGFP probe audit across the 12 vendor-filtered samples.
-# This step measures three exact Flex probes. It performs no normalization,
-# cell-type calling, genotype inference, or probabilistic classification.
+# PURPOSE
+#   Supported Step 02c entry point for the locked raw EGFP probe-count audit
+#   across all 12 technical samples. Additional arguments are forwarded to the
+#   Python program (for example, --prototype-only).
+#
+# INPUTS
+#   greatlakes.env resolves the Cell Ranger delivery and Paper 3 output root.
+#   The lock fixes the three probes, all Step 02b/sample-key/helper identities,
+#   and the JZ-1 prototype. Requirements pin h5py==3.1.0 and numpy==1.19.5 for
+#   Python 3.6.
+#
+# EXECUTION AND VALIDATION
+#   Verifies or immutably installs the pinned environment; fixes locale, time
+#   zone, and hash seed; records run provenance; and calls `run-all`. Upstream
+#   X-GFP compatibility and JZ-1 reproduction must pass before samples 2-12.
+#
+# OUTPUTS AND RESTART BEHAVIOR
+#   Publishes reference, per-barcode, summary, validation, design-join,
+#   environment, and checksum assets under results/egfp_probe_audit/. Writes a
+#   timestamped log under logs/egfp_probe_audit/. Valid existing assets are
+#   retained; incomplete, corrupt, or different assets are never overwritten.
+#
+# SCIENTIFIC SCOPE
+#   Reports raw integer UMIs and eight presence/absence patterns in vendor-
+#   filtered barcodes. It performs no normalization, cell calling, cell typing,
+#   genotype inference, reporter-positive classification, concordance testing,
+#   or other statistical analysis. See ../PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md.
 set -Eeuo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"

@@ -1,7 +1,21 @@
 #!/usr/bin/env bash
-# Paper 3 output-root initializer; it does not process scientific data.
-# Inputs, created directories, copied files, and biological scope are defined
-# in ../PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md.
+# PURPOSE
+#   Initialize the Paper 3 output namespace configured in greatlakes.env.
+#
+# INPUTS
+#   config/greatlakes.env supplies PAPER3_ROOT. TURBO_ROOT_README.md and
+#   HANDOFF.md are the documentation copied into that root.
+#
+# OUTPUTS AND RESTART BEHAVIOR
+#   Creates inputs/, results/, logs/, jobs/, and final_figures/ idempotently;
+#   then refreshes PAPER3_ROOT/README.md and HANDOFF.md with repository copies.
+#   Existing scientific assets below those directories are not enumerated,
+#   read, moved, or removed. The two copied documentation files may be replaced.
+#
+# SCIENTIFIC SCOPE
+#   Directory preparation only: no expression data, barcode, reference, sample
+#   metadata, normalization, or biological inference is processed. See
+#   ../PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md for the complete contract.
 set -Eeuo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"

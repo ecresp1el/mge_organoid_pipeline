@@ -1,5 +1,41 @@
 #!/usr/bin/env python3
-"""Locked, technical-only Pcdh19 Flex probe audit for AGC request 15662-JZ."""
+"""Audit raw Pcdh19 Flex-probe counts for AGC request 15662-JZ.
+
+Scientific question
+-------------------
+For each of the 12 technical samples, determine which of the three locked
+Pcdh19 probes (A, B, and C) contributed raw UMIs to every barcode that Cell
+Ranger already classified as filtered.  This is an assay-level audit, not a
+differential-expression or cell-classification analysis.
+
+Inputs
+------
+The pipeline validates the delivered ``probe_set.csv``; the matching 10x
+BED12 and probe-metadata files; GRCm39-2024-A ``genes.gtf.gz`` and
+``reference.json``; and, per sample, ``sample_raw_probe_bc_matrix.h5``,
+``sample_filtered_feature_bc_matrix.h5``, and
+``sample_filtered_barcodes.csv``. Exact identities and expected values are
+defined by ``config/pcdh19_probe_audit.lock.json``.
+
+Computation and validation
+--------------------------
+Probe-level counts are extracted from the raw probe matrix only for vendor-
+filtered barcodes. A+B+C is required to equal Cell Ranger's independently
+reported Pcdh19 feature count for every barcode. Each barcode is assigned one
+of eight binary detection patterns using ``UMI > 0``. Barcode identity/order,
+feature metadata, chemistry, pattern marginals, serialized tables, and the
+frozen JZ-1 prototype are checked before outputs are atomically published.
+
+Outputs and scope
+-----------------
+Outputs are written below ``results/pcdh19_probe_audit/`` and include locked
+reference tables, one barcode table plus summaries/validations/checksums per
+sample, combined summaries, an environment record, and a SHA-256 manifest.
+Counts remain raw integers. The script performs no normalization, imputation,
+ambient-RNA correction, new cell calling, genotype assignment, cell typing,
+statistical testing, or causal interpretation. A zero is absence of an
+observed UMI, not proof that a transcript or biological state is absent.
+"""
 
 import argparse
 import csv
@@ -40,10 +76,27 @@ COORDINATE_HEADER = [
 
 
 def fail(message):
+    """Stop the audit with a pipeline-level validation error.
+
+    Args:
+        message: Human-readable description of the violated invariant.
+
+    Raises:
+        RuntimeError: Always; this helper centralizes fatal audit failures.
+    """
     raise RuntimeError(message)
 
 
 def sha256_file(path, chunk_size=8 * 1024 * 1024):
+    """Compute a file's SHA-256 digest without loading it fully into memory.
+
+    Args:
+        path: File to hash.
+        chunk_size: Number of bytes read per iteration.
+
+    Returns:
+        Lowercase hexadecimal SHA-256 digest.
+    """
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
         while True:
@@ -55,6 +108,19 @@ def sha256_file(path, chunk_size=8 * 1024 * 1024):
 
 
 def require_sha256(path, expected, label):
+    """Require a regular file to match a locked SHA-256 identity.
+
+    Args:
+        path: Candidate file path.
+        expected: Expected lowercase hexadecimal SHA-256 digest.
+        label: Scientific/provenance label used in failure messages.
+
+    Returns:
+        The observed digest when it equals ``expected``.
+
+    Raises:
+        RuntimeError: If the file is missing or its digest differs.
+    """
     if not os.path.isfile(path):
         fail("{} is missing: {}".format(label, path))
     observed = sha256_file(path)
@@ -64,6 +130,22 @@ def require_sha256(path, expected, label):
 
 
 def download_locked(url, path, expected_sha256):
+    """Materialize a checksum-locked reference using atomic publication.
+
+    An existing cache entry is verified and retained. Otherwise the URL is
+    downloaded to a sibling temporary file, flushed to disk, checksum-checked,
+    and renamed into place. A concurrently appearing destination is never
+    overwritten.
+
+    Args:
+        url: Remote reference URL.
+        path: Final cache path.
+        expected_sha256: Required digest of the downloaded bytes.
+
+    Raises:
+        RuntimeError: If identity validation fails or publication would
+            overwrite another file. Network and filesystem errors propagate.
+    """
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if os.path.exists(path):
         require_sha256(path, expected_sha256, "cached reference")
@@ -89,6 +171,16 @@ def download_locked(url, path, expected_sha256):
 
 
 def write_tsv(path, header, rows):
+    """Serialize dictionaries as a deterministic tab-separated table.
+
+    Args:
+        path: Destination file path.
+        header: Ordered output column names.
+        rows: Iterable of mappings; missing header keys become empty fields.
+
+    Side Effects:
+        Creates or replaces ``path`` with LF-terminated TSV text.
+    """
     with open(path, "w", newline="") as handle:
         writer = csv.DictWriter(handle, delimiter="\t", fieldnames=header, lineterminator="\n")
         writer.writeheader()
@@ -97,6 +189,19 @@ def write_tsv(path, header, rows):
 
 
 def publish_file_locked(temporary, destination):
+    """Publish a staged file without replacing a different existing asset.
+
+    Args:
+        temporary: Fully written candidate file.
+        destination: Intended final path.
+
+    Returns:
+        ``"PUBLISHED"`` after an atomic rename, or
+        ``"EXISTING_IDENTICAL"`` after deleting a byte-identical candidate.
+
+    Raises:
+        RuntimeError: If ``destination`` exists with different bytes.
+    """
     if os.path.exists(destination):
         if sha256_file(temporary) == sha256_file(destination):
             os.unlink(temporary)
@@ -107,6 +212,15 @@ def publish_file_locked(temporary, destination):
 
 
 def read_delivered_probe_set(path):
+    """Read a 10x probe-set CSV and its leading ``#key=value`` metadata.
+
+    Args:
+        path: Delivered ``probe_set.csv`` path.
+
+    Returns:
+        Pair ``(metadata, rows)`` where metadata preserves header order and
+        rows is a list of dictionaries parsed from the CSV body.
+    """
     metadata = OrderedDict()
     data_lines = []
     with open(path, "r", newline="") as handle:
@@ -120,6 +234,14 @@ def read_delivered_probe_set(path):
 
 
 def parse_gtf_attributes(text):
+    """Parse the semicolon-delimited attribute field from one GTF record.
+
+    Args:
+        text: Ninth-column GTF attribute text.
+
+    Returns:
+        Mapping from attribute names to unquoted string values.
+    """
     attributes = {}
     for item in text.split(";"):
         item = item.strip()
@@ -132,6 +254,22 @@ def parse_gtf_attributes(text):
 
 
 def read_pcdh19_gtf(path, gene_id):
+    """Extract one gene and all of its exon records from a gzipped GTF.
+
+    Coordinates are converted from GTF's 1-based inclusive convention to
+    0-based half-open intervals so they can be compared directly with BED12.
+
+    Args:
+        path: Gzipped GRCm39 GTF path.
+        gene_id: Ensembl gene identifier to retain.
+
+    Returns:
+        ``(gene, exons)`` dictionaries containing genomic coordinates,
+        strand, transcript identifiers, and available exon annotations.
+
+    Raises:
+        RuntimeError: If ``gene_id`` has no gene feature in the GTF.
+    """
     gene = None
     exons = []
     with gzip.open(path, "rt") as handle:
@@ -160,6 +298,31 @@ def read_pcdh19_gtf(path, gene_id):
 
 
 def validate_reference_and_write(lock, cellranger_root, paper3_root):
+    """Validate all Pcdh19 references and publish coordinate provenance.
+
+    The function verifies panel metadata and checksums, validates the local
+    GRCm39 reference identity, confirms the exact three-probe set across the
+    delivered panel/10x metadata/BED, proves each target's locked exon
+    assignment, and derives probe order on the negative-strand gene.
+
+    Args:
+        lock: Parsed Pcdh19 audit lock dictionary.
+        cellranger_root: Pooled Cell Ranger output containing ``probe_set.csv``.
+        paper3_root: Workflow output root containing ``inputs/`` and
+            ``results/``.
+
+    Returns:
+        Mapping of the resolved BED, probe metadata, GTF, and delivered-panel
+        paths used by the audit.
+
+    Side Effects:
+        May download locked 10x references into the input cache and writes
+        ``pcdh19_probe_coordinates.tsv`` and ``reference_manifest.tsv``.
+
+    Raises:
+        RuntimeError: On any checksum, identity, coordinate, transcript, or
+            safe-publication mismatch.
+    """
     output_root = os.path.join(paper3_root, "results", "pcdh19_probe_audit")
     reference_output = os.path.join(output_root, "references")
     reference_cache = os.path.join(paper3_root, "inputs", "pcdh19_probe_audit", "references")
@@ -321,6 +484,20 @@ def validate_reference_and_write(lock, cellranger_root, paper3_root):
 
 
 def positions_for_rows(dataset, rows, chunk_size=5_000_000):
+    """Locate CSC data positions whose feature indices match selected rows.
+
+    Args:
+        dataset: One-dimensional HDF5/NumPy CSC ``indices`` dataset.
+        rows: Feature-row indices to select.
+        chunk_size: Maximum number of index entries examined per read.
+
+    Returns:
+        Pair of NumPy arrays: positions in the CSC ``data`` vector and the
+        matching feature-row index at each position.
+
+    Notes:
+        Chunking bounds memory use for large raw probe matrices.
+    """
     positions = []
     matched_rows = []
     total = dataset.shape[0]
@@ -340,6 +517,16 @@ def positions_for_rows(dataset, rows, chunk_size=5_000_000):
 
 
 def extract_sparse_rows(matrix, rows):
+    """Densify selected feature rows from a Cell Ranger CSC matrix group.
+
+    Args:
+        matrix: HDF5 group containing CSC ``data``, ``indices``, and
+            ``indptr`` datasets.
+        rows: Ordered NumPy array of feature-row indices.
+
+    Returns:
+        ``int64`` array with shape ``(len(rows), number_of_barcodes)``.
+    """
     indptr = matrix["indptr"][:]
     positions, matched = positions_for_rows(matrix["indices"], rows)
     values = matrix["data"][positions].astype(np.int64)
@@ -352,6 +539,18 @@ def extract_sparse_rows(matrix, rows):
 
 
 def check_row(sample_id, name, observed, expected, details=""):
+    """Create one machine-readable PASS/FAIL validation record.
+
+    Args:
+        sample_id: Technical sample identifier.
+        name: Stable validation name.
+        observed: Value computed from the current input/output.
+        expected: Locked or independently derived expected value.
+        details: Optional explanatory text.
+
+    Returns:
+        Dictionary matching ``VALIDATION_HEADER``.
+    """
     status = "PASS" if observed == expected else "FAIL"
     return {
         "sample_id": sample_id, "check_name": name, "status": status,
@@ -360,10 +559,21 @@ def check_row(sample_id, name, observed, expected, details=""):
 
 
 def format_float(value):
+    """Format a numeric summary deterministically to 12 decimal places."""
     return "{:.12f}".format(float(value))
 
 
 def sample_paths(cellranger_root, sample_id):
+    """Resolve the three authoritative Cell Ranger inputs for one sample.
+
+    Args:
+        cellranger_root: Pooled Cell Ranger output root.
+        sample_id: Locked technical identifier, e.g. ``15662-JZ-1``.
+
+    Returns:
+        Mapping containing the per-sample directory, raw probe HDF5,
+        filtered gene HDF5, and filtered-barcode CSV paths.
+    """
     directory = os.path.join(cellranger_root, "per_sample_outs", sample_id)
     return {
         "directory": directory,
@@ -374,6 +584,21 @@ def sample_paths(cellranger_root, sample_id):
 
 
 def verify_existing_sample(directory, prototype=None):
+    """Validate an existing per-sample package before reusing it.
+
+    Args:
+        directory: Final per-sample output directory.
+        prototype: Optional JZ-1 prototype lock record. When supplied, the
+            barcode table must also match its frozen byte-level checksum.
+
+    Returns:
+        ``False`` when the directory does not exist; ``True`` only when every
+        required file, checksum, and validation row passes.
+
+    Raises:
+        RuntimeError: If an existing directory is incomplete, corrupt,
+            validation-failing, or not prototype-equivalent.
+    """
     required = ["pcdh19_probe_patterns.tsv", "pcdh19_probe_summary.tsv", "validation.tsv", "checksums.sha256"]
     if not os.path.isdir(directory):
         return False
@@ -401,6 +626,32 @@ def verify_existing_sample(directory, prototype=None):
 
 
 def process_sample(lock, cellranger_root, paper3_root, sample_id, prototype_gate=False):
+    """Extract, validate, summarize, and atomically publish one sample.
+
+    Probe A/B/C raw UMIs are selected for vendor-filtered barcodes, summed to
+    reconstruct Pcdh19, compared barcode-by-barcode with the filtered gene
+    matrix, and classified into eight presence/absence patterns. Outputs are
+    re-read after serialization so table structure and sums are also tested.
+
+    Args:
+        lock: Parsed audit lock defining panel, probes, and prototype values.
+        cellranger_root: Pooled Cell Ranger output root.
+        paper3_root: Paper 3 workflow output root.
+        sample_id: One of the 12 locked technical sample identifiers.
+        prototype_gate: Whether to enforce all frozen JZ-1 equivalence tests.
+
+    Returns:
+        ``"EXISTING_VALIDATED"`` when safe output already exists, otherwise
+        ``"PUBLISHED"`` after successful atomic publication.
+
+    Side Effects:
+        Creates a temporary directory and then publishes four files beneath
+        ``results/pcdh19_probe_audit/per_sample/<sample_id>/``.
+
+    Raises:
+        RuntimeError: On missing inputs, metadata/count/barcode disagreement,
+            failed validation, or a conflicting existing destination.
+    """
     output_root = os.path.join(paper3_root, "results", "pcdh19_probe_audit")
     per_sample_root = os.path.join(output_root, "per_sample")
     os.makedirs(per_sample_root, exist_ok=True)
@@ -614,6 +865,21 @@ def process_sample(lock, cellranger_root, paper3_root, sample_id, prototype_gate
 
 
 def combine_outputs(lock, paper3_root, sample_ids):
+    """Combine validated per-sample summaries without pooling barcodes.
+
+    Args:
+        lock: Parsed audit lock, used to enforce the JZ-1 prototype.
+        paper3_root: Paper 3 workflow output root.
+        sample_ids: Ordered technical sample identifiers to include.
+
+    Side Effects:
+        Writes combined probe/gene summaries, pattern-derived summaries, and
+        validation rows below ``results/pcdh19_probe_audit/combined/``.
+
+    Raises:
+        RuntimeError: If any sample package is absent, invalid, or conflicts
+            with an existing combined file.
+    """
     output_root = os.path.join(paper3_root, "results", "pcdh19_probe_audit")
     combined = os.path.join(output_root, "combined")
     os.makedirs(combined, exist_ok=True)
@@ -644,6 +910,18 @@ def combine_outputs(lock, paper3_root, sample_ids):
 
 
 def write_environment(lock_path, script_path, paper3_root):
+    """Record the exact software and source identities used for a run.
+
+    Args:
+        lock_path: Reference-lock JSON path.
+        script_path: Executed Python source path.
+        paper3_root: Paper 3 workflow output root.
+
+    Side Effects:
+        Publishes ``software_environment.tsv`` with interpreter, dependency,
+        script, and lock identities. A different existing file is preserved
+        and causes failure through :func:`publish_file_locked`.
+    """
     output_root = os.path.join(paper3_root, "results", "pcdh19_probe_audit")
     os.makedirs(output_root, exist_ok=True)
     rows = [
@@ -662,6 +940,16 @@ def write_environment(lock_path, script_path, paper3_root):
 
 
 def write_output_manifest(paper3_root):
+    """Create a complete size/SHA-256 inventory of final audit assets.
+
+    Args:
+        paper3_root: Paper 3 workflow output root.
+
+    Side Effects:
+        Walks the Pcdh19 result tree deterministically and publishes
+        ``output_manifest.tsv``. Hidden staging files and the manifest itself
+        are excluded.
+    """
     output_root = os.path.join(paper3_root, "results", "pcdh19_probe_audit")
     target = os.path.join(output_root, "output_manifest.tsv")
     rows = []
@@ -683,6 +971,12 @@ def write_output_manifest(paper3_root):
 
 
 def parse_args():
+    """Parse the four supported workflow commands and required root paths.
+
+    Returns:
+        :class:`argparse.Namespace` for ``run-all``, ``references``,
+        ``sample``, or ``combine``.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["run-all", "references", "sample", "combine"])
     parser.add_argument("--lock", required=True)
@@ -694,6 +988,16 @@ def parse_args():
 
 
 def main():
+    """Dispatch the locked reference, sample, combination, or full workflow.
+
+    ``run-all`` always validates references and the software environment,
+    gates first on JZ-1 prototype equivalence, then processes JZ-2 through
+    JZ-12 and writes combined outputs plus the final manifest.
+
+    Raises:
+        RuntimeError: Propagates any failed audit invariant; no failure is
+            converted into a successful exit status.
+    """
     args = parse_args()
     with open(args.lock, "r") as handle:
         lock = json.load(handle, object_pairs_hook=OrderedDict)

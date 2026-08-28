@@ -1,8 +1,27 @@
 #!/usr/bin/env bash
-# Step 00 metadata-only source access inventory.
-# Inputs, stdout schema, side effects, and biological limitations are defined
-# in ../PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md. This script does not inspect
-# expression values or establish biological sample identities.
+# PURPOSE
+#   Step 00, read-only source discovery. Report whether each path registered in
+#   config/input_candidates.tsv exists and can be read/traversed.
+#
+# INPUTS
+#   --manifest PATH       Candidate registry (default: input_candidates.tsv).
+#   --max-depth INTEGER   Maximum directory depth for metadata aggregation
+#                        (default: 3; zero is allowed).
+#
+# COMPUTATION
+#   For a directory that can be traversed, find counts regular files and sums
+#   their stat-reported byte sizes through the requested depth. For a regular
+#   file, stat supplies its byte size. Permission tests use shell -r/-x.
+#
+# OUTPUTS AND SIDE EFFECTS
+#   Writes one TSV to standard output with existence/access/type/count/size
+#   fields. Diagnostics and usage go to standard error. It creates, copies,
+#   hashes, opens for content inspection, and modifies no scientific file.
+#
+# SCIENTIFIC SCOPE
+#   This is a storage/access inventory only. It cannot validate matrix content,
+#   sample identity, tissue, condition, genotype, replicate structure, or QC.
+#   The full contract is in ../PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md.
 set -Eeuo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -10,6 +29,7 @@ MANIFEST="${BUNDLE_DIR}/config/input_candidates.tsv"
 MAX_DEPTH=3
 
 usage() {
+  # Print the command-line contract to stderr; this function changes no state.
   cat >&2 <<'EOF'
 Usage: check_candidate_access.sh [--manifest PATH] [--max-depth INTEGER]
 

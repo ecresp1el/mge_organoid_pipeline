@@ -53,6 +53,8 @@ counts range from 11,085 to 60,680.
 - Operational handoff: [`HANDOFF.md`](HANDOFF.md)
 - Complete pipeline I/O and interpretation contract:
   [`PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md`](PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md)
+- Verified generated-asset and run ledger:
+  [`ASSET_AND_RUN_INVENTORY.md`](ASSET_AND_RUN_INVENTORY.md)
 - X-GFP construct/Flex compatibility audit:
   [`XGFP_PROBE_COMPATIBILITY_AUDIT.md`](XGFP_PROBE_COMPATIBILITY_AUDIT.md)
 - Paper 3 output root:
@@ -67,6 +69,18 @@ the corresponding output path is:
 
 The source directory remains read-only. Paper 3 analysis products use the same
 `inputs/`, `results/`, `logs/`, `jobs/`, and `final_figures/` layout as Paper 2.
+
+### Production provenance note
+
+The existing Step 02a-02c result packages were generated from commit
+`22a342e` and record exact Python-source hashes. The current working sources
+contain expanded scientific docstrings, so their file hashes intentionally
+differ even though their executable Python AST is unchanged. Do not run the
+documentation-edited files in place and describe that as verification by the
+historical implementation. Use the recorded production commit/hash for exact
+reproduction, or create a newly versioned output package. The complete
+old-versus-current identities are in
+[`ASSET_AND_RUN_INVENTORY.md`](ASSET_AND_RUN_INVENTORY.md).
 
 ## Safe access check
 
