@@ -43,6 +43,9 @@ source/result ledger and safe provenance options.
   custom Flex EGFP probes to the Nagy/Kalantry D4/XEGFP reporter; complete.
 - `02c_egfp_probe_audit`: locked raw counts and eight binary patterns for the
   three validated EGFP probes across all 12 samples; complete.
+- `03_pcdh19_genotype_classification_setup`: joins registered biological
+  labels to validated Step 02a per-cell probe observations and creates the
+  WT-male/KO-male ground-truth intermediate table; complete. It fits no model.
 
 Step `02a` intentionally runs without ingesting the sample key because it uses
 only technical IDs. This keeps the validated assay audit separate from later
@@ -403,3 +406,57 @@ analysis. Binary probe non-detection must be modeled as an observation subject
 to capture efficiency and sampling, not treated alone as proof of a cell's
 genotype. Biological conclusions require the replicate structure, appropriate
 denominators, and orthogonal validation where the claim demands it.
+
+## Step 03 genotype-classification setup contract
+
+Step `03_pcdh19_genotype_classification_setup` is a new downstream consumer of
+the frozen Step 02a package. It does not edit, replace, or relabel any Step 02a
+file. Its two scientific inputs are:
+
+- `config/sample_key.csv`, required to match the checksum in the Step 03 lock;
+  and
+- each manifested Step 02a
+  `per_sample/<sample_id>/pcdh19_probe_patterns.tsv` for the registered WT-male
+  and KO-male samples. Each consumed table is byte-size- and SHA-256-validated
+  against the existing Step 02a `output_manifest.tsv` before loading.
+
+The supported entry point is
+`bin/run_step_03_pcdh19_genotype_classification_setup.sh`; its Great Lakes
+wrapper is `slurm/step_03_pcdh19_genotype_classification_setup.sbatch`. The
+Python implementation is
+`scripts/Step_03_PCDH19_Genotype_Classification_Setup.py`, and the scientific
+scope is fixed in
+`config/step_03_pcdh19_genotype_classification_setup.lock.json`. The Python
+code uses small classes for locked configuration, sample annotation, probe
+observation, validated loading, output serialization, and workflow
+orchestration. This establishes the modular pattern for subsequent new Python
+analysis steps.
+
+The principal output is
+`results/step_03_pcdh19_genotype_classification_setup/pcdh19_wt_ko_male_genotype_classification_ready_cells.tsv`.
+It has one row per Cell Ranger filtered barcode in JZ-1--3 and JZ-10--12:
+
+| Column | Meaning |
+| --- | --- |
+| `technical_sample_id`, `submitted_sample_name` | Registered technical and submitted sample identifiers. |
+| `genotype`, `sex`, `design_group` | Sample-level registered biological annotations. |
+| `classification_role` | `ground_truth_training_candidate`; no train/validation allocation has yet occurred. |
+| `ground_truth_class`, `ground_truth_label` | Registered target encoding: WT=`0`, KO=`1`. These are not inferred from probe counts. |
+| `cell_barcode` | Cell Ranger filtered barcode, unique within its technical sample. |
+| `A_UMI`, `B_UMI`, `C_UMI` | Unchanged raw probe counts loaded from Step 02a. |
+| `A_detected`, `B_detected`, `C_detected` | Direct integer indicators of the corresponding raw count being greater than zero. |
+| `Pcdh19_total_UMI` | Validated exact sum of the three raw probe counts. |
+| `detection_pattern` | Unchanged Step 02a eight-pattern representation. |
+
+The companion ground-truth summary gives per-sample cell, detection, and UMI
+totals. The validation table records uniqueness, class/sample composition,
+non-empty output, and the explicit no-classifier boundary. The environment
+table records exact script, lock, sample-key, and upstream-manifest identities;
+the output manifest protects all four non-manifest outputs.
+
+Step 03 performs no normalization, imputation, feature selection beyond direct
+detection flags, train/validation split, rule fitting, logistic regression,
+confusion-matrix calculation, performance evaluation, or HET-cell scoring.
+Those are intentionally reserved for later small modules that consume this
+stable table. The output contains technical-sample-level labels; it does not
+establish embryo/donor/litter independence.

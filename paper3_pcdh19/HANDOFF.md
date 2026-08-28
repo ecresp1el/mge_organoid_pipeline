@@ -2,6 +2,22 @@
 
 Last updated: 2026-08-28
 
+## Current next analysis boundary
+
+Step `03_pcdh19_genotype_classification_setup` is implemented and complete.
+It checksum-validates the frozen Step 02a per-cell probe tables, joins the
+registered biological sample key, and publishes a 230,269-row WT-male/KO-male
+ground-truth candidate table beneath
+`results/step_03_pcdh19_genotype_classification_setup/`. The table retains raw
+A/B/C counts and patterns and adds direct detection indicators and explicit
+WT=`0`/KO=`1` targets. It fits no classifier and does not score HET cells.
+
+All new Python analysis steps from Step 03 forward should retain the modular,
+object-oriented pattern established by
+`scripts/Step_03_PCDH19_Genotype_Classification_Setup.py`: keep loading,
+encoding, splitting, classification, evaluation, and HET application in small
+separable components rather than extending one monolithic script.
+
 ## Correct allocation and source
 
 The current workspace account belongs to these relevant Unix groups:

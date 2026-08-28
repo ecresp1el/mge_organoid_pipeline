@@ -15,10 +15,11 @@ column-level contract in
 | `02a_pcdh19_probe_audit` | Raw Pcdh19 UMI contribution of three Flex probes | Complete, 54/54 manifested non-manifest files passed byte-size and SHA-256 verification | 113,772 Pcdh19 UMIs in 85,541 of 450,788 vendor-filtered barcodes. |
 | `02b_xgfp_probe_compatibility_audit` | Exact probe-to-construct sequence compatibility | Complete, 6/6 manifested non-manifest files passed byte-size and SHA-256 verification | Three of three probes have one exact 50/50 reverse-complement match to the locked Clontech EGFP CDS. |
 | `02c_egfp_probe_audit` | Raw EGFP UMI contribution of three validated probes | Complete, 55/55 manifested non-manifest files passed byte-size and SHA-256 verification | 12 EGFP UMIs in 12 of 450,788 vendor-filtered barcodes. |
-| Downstream QC/cell biology | New QC calls, normalization, integration, clustering, cell types, differential expression, genotype effects | No such analysis is implemented or represented by these outputs | Not analyzed by Steps 02a-02c. |
+| `03_pcdh19_genotype_classification_setup` | Registered WT-male/KO-male ground-truth cells with raw A/B/C probe features | Complete, 4/4 manifested non-manifest files passed byte-size and SHA-256 verification | Classification-ready table contains 230,269 cells; no classifier is fitted. |
+| Downstream QC/cell biology | New QC calls, normalization, integration, clustering, cell types, differential expression, genotype effects | No such analysis is implemented or represented by these outputs | Not analyzed by Steps 02a-03. |
 | Figures | Publication or exploratory figures | `final_figures/` was empty at inspection | No Paper 3 figure asset is claimed. |
 
-The three result manifests had no missing, unmanifested, size-mismatched, or
+The four result manifests had no missing, unmanifested, size-mismatched, or
 checksum-mismatched non-hidden files inside their result roots. The manifest
 itself is intentionally not self-listed.
 
@@ -35,11 +36,11 @@ itself is intentionally not self-listed.
 
 | Asset class | Files | Role |
 | --- | --- | --- |
-| Python computation | `scripts/pcdh19_probe_audit.py`, `scripts/xgfp_probe_compatibility_audit.py`, `scripts/egfp_probe_audit.py` | Reference validation, count extraction/alignment, summaries, validation, atomic publication, and manifests. |
-| Supported shell entry points | `bin/run_pcdh19_probe_audit_all.sh`, `bin/run_xgfp_probe_audit.sh`, `bin/run_egfp_probe_audit_all.sh` | Resolve configuration, enforce environments where needed, invoke Python, and capture timestamped logs. |
+| Python computation | `scripts/pcdh19_probe_audit.py`, `scripts/xgfp_probe_compatibility_audit.py`, `scripts/egfp_probe_audit.py`, `scripts/Step_03_PCDH19_Genotype_Classification_Setup.py` | Reference validation, count extraction/alignment, metadata joins, classification-table setup, summaries, validation, atomic publication, and manifests. Step 03 introduces the object-oriented modular pattern for new Python analyses. |
+| Supported shell entry points | `bin/run_pcdh19_probe_audit_all.sh`, `bin/run_xgfp_probe_audit.sh`, `bin/run_egfp_probe_audit_all.sh`, `bin/run_step_03_pcdh19_genotype_classification_setup.sh` | Resolve configuration, enforce environments where needed, invoke Python, and capture timestamped logs. |
 | Discovery/initialization helpers | `bin/check_candidate_access.sh`, `bin/initialize_turbo.sh` | Metadata-only access inventory and output-directory setup; neither analyzes expression. |
-| SLURM wrappers | `slurm/pcdh19_probe_audit_all.sbatch`, `slurm/egfp_probe_audit_all.sbatch` | Allocate Great Lakes resources and invoke the same shell entry points; no scientific logic. |
-| Scientific locks | `config/*probe_audit.lock.json` | Freeze panel/reference/probe/prototype identities and expected checksums. |
+| SLURM wrappers | `slurm/pcdh19_probe_audit_all.sbatch`, `slurm/egfp_probe_audit_all.sbatch`, `slurm/step_03_pcdh19_genotype_classification_setup.sbatch` | Allocate Great Lakes resources and invoke the same shell entry points; no scientific logic. |
+| Scientific locks | `config/*probe_audit.lock.json`, `config/step_03_pcdh19_genotype_classification_setup.lock.json` | Freeze panel/reference/probe/prototype identities or the downstream classification-setup input/schema contract. |
 | Environment pins | `config/*probe_audit.requirements.txt` | Pin `h5py==3.1.0` and `numpy==1.19.5` for the two HDF5 count audits. |
 | Dataset/design registries | `input_candidates.tsv`, `sample_manifest_draft.tsv`, `sample_key.csv` | Separate source candidates, verified vendor technical metrics, and user-provided biological labels. |
 | Path configuration | `config/greatlakes.env` | Resolve source, reference, output, account, and partition paths. |
@@ -79,6 +80,17 @@ itself is intentionally not self-listed.
   filtered gene HDF5 supplied the independent EGFP reconstruction check, and
   the filtered-barcode CSV supplied the denominator/order.
 - No biological label entered per-barcode extraction or pattern assignment.
+
+### Step 03: PCDH19 genotype-classification setup
+
+- The registered `config/sample_key.csv` supplied sample ID, submitted name,
+  genotype, sex, and design group after passing its locked SHA-256 check.
+- Step 02a `output_manifest.tsv` supplied the expected byte size and SHA-256
+  for each of the six consumed WT-male/KO-male per-cell probe tables.
+- The validated Step 02a tables supplied unchanged cell barcodes, raw A/B/C
+  UMIs, reconstructed Pcdh19 totals, and detection patterns.
+- No Cell Ranger matrix, source-delivery file, EGFP result, HET-cell table,
+  model, or prediction was read or created by Step 03.
 
 ## Cached and installed assets generated by the runs
 
@@ -169,11 +181,34 @@ The 55 manifested assets total 19,006,873 bytes. The design summary records:
 These raw events are too sparse to be represented as a reporter-positive
 population by this workflow. No inferential group comparison was performed.
 
+### Step 03 result root
+
+`results/step_03_pcdh19_genotype_classification_setup/` contains the
+classification-ready per-cell table, a six-sample ground-truth summary, a
+validation table, a software/input-provenance table, and an output manifest
+listing the other four files. The four manifested assets total 27,128,070
+bytes. The main table contains 230,269 cell rows plus its header:
+
+| Ground-truth class | Technical samples | Cells | Pcdh19-detected cells | Pcdh19 UMIs |
+| --- | --- | ---: | ---: | ---: |
+| WT male (`0`) | JZ-1--3 | 114,136 | 18,653 | 25,128 |
+| KO male (`1`) | JZ-10--12 | 116,133 | 24,603 | 32,126 |
+| **Total** | **6 samples** | **230,269** | **43,256** | **57,254** |
+
+Every raw A/B/C count, total, and detection pattern comes unchanged from the
+checksum-validated Step 02a tables. A/B/C detection indicators are direct
+`UMI > 0` representations. Genotype targets come from the registered sample
+key rather than from any probe-derived call. The output-manifest SHA-256 is
+`8d0627c0e93e0fa7ec37ebc0d650896565a99cc3cecb2e5e099072edf1cd0098`.
+The publication run and an immediate idempotent verification rerun both
+completed successfully on 2026-08-28. No model, split, prediction, or
+performance output exists in this package.
+
 ## Run evidence and failed attempts
 
 The timestamped runner logs show direct execution on Great Lakes login hosts.
 No `%x-%j.out` scheduler log or file under `jobs/` was present, so this
-inventory does not claim that either committed SLURM wrapper was submitted.
+inventory does not claim that any committed SLURM wrapper was submitted.
 
 - Step 02a had three recorded setup/debug failures (HTTP 403 while retrieving
   a reference, a missing GTF `exon_number`, and an exon-assignment mismatch),
@@ -185,6 +220,9 @@ inventory does not claim that either committed SLURM wrapper was submitted.
 - Step 02c has a successful JZ-1 prototype run, successful all-sample run, and
   two later all-sample verification-only reruns. The latest observed log
   completed at 2026-08-28 16:20:32 UTC.
+- Step 03 has a successful six-sample classification-table publication run and
+  an immediate manifest/provenance verification-only rerun. The latter
+  completed at 2026-08-28 16:43:51 UTC.
 
 Failed logs are retained as provenance; they are not scientific result assets.
 

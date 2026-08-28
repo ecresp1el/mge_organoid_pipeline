@@ -235,3 +235,47 @@ The completed audit found 12 raw EGFP UMIs in 12 of 450,788 filtered barcodes:
 barcode has one UMI and only one probe; no joint two- or three-probe pattern is
 observed. This is an extremely sparse trace signal, not a hidden moderate GFP
 population, and it is not used for reporter-positive cell classification.
+
+## Step 03 PCDH19 genotype-classification setup
+
+Step `03_pcdh19_genotype_classification_setup` is the first formal biological
+classification-preparation step. It does not change or rewrite any Step 02
+artifact. Instead, it checksum-validates the existing Step 02a per-cell probe
+tables, joins the separately registered sample key, and selects cells from the
+three known WT-male and three known KO-male technical samples as ground-truth
+training candidates.
+
+Run the step locally or in an interactive Great Lakes allocation with:
+
+```bash
+./paper3_pcdh19/bin/run_step_03_pcdh19_genotype_classification_setup.sh
+```
+
+Or submit the same entry point through SLURM:
+
+```bash
+sbatch paper3_pcdh19/slurm/step_03_pcdh19_genotype_classification_setup.sbatch
+```
+
+The object-oriented implementation is
+[`scripts/Step_03_PCDH19_Genotype_Classification_Setup.py`](scripts/Step_03_PCDH19_Genotype_Classification_Setup.py).
+It separates configuration, sample annotation, per-cell probe representation,
+validated loading, output writing, and orchestration responsibilities. The
+main intermediate output is:
+
+```text
+results/step_03_pcdh19_genotype_classification_setup/
+  pcdh19_wt_ko_male_genotype_classification_ready_cells.tsv
+  pcdh19_genotype_classification_ground_truth_summary.tsv
+  pcdh19_genotype_classification_setup_validation.tsv
+  software_environment.tsv
+  output_manifest.tsv
+```
+
+The classification-ready table contains 230,269 cells and preserves technical
+sample ID, submitted sample name, genotype, sex, design group, cell barcode,
+raw A/B/C UMI counts, direct A/B/C detection flags, total Pcdh19 UMI, original
+detection pattern, and explicit WT=0/KO=1 ground-truth targets. The label is a
+registered sample-genotype target, not a probe-derived prediction. No split,
+classifier, model score, confusion matrix, performance claim, or HET-cell
+prediction is produced in Step 03.

@@ -1,0 +1,43 @@
+{
+  "step_id": "03_pcdh19_genotype_classification_setup",
+  "pipeline_version": "0.1.0",
+  "upstream_step_id": "02a_pcdh19_probe_audit",
+  "upstream_result_directory": "pcdh19_probe_audit",
+  "sample_key_sha256": "5b20e8596c28f95b6adedcb0fe17019d2a6db46384f18f02d4bfdc58803f1dc8",
+  "expected_sample_ids": [
+    "15662-JZ-1",
+    "15662-JZ-2",
+    "15662-JZ-3",
+    "15662-JZ-4",
+    "15662-JZ-5",
+    "15662-JZ-6",
+    "15662-JZ-7",
+    "15662-JZ-8",
+    "15662-JZ-9",
+    "15662-JZ-10",
+    "15662-JZ-11",
+    "15662-JZ-12"
+  ],
+  "ground_truth_classes": [
+    {
+      "genotype": "WT",
+      "sex": "M",
+      "ground_truth_class": "WT",
+      "ground_truth_label": 0
+    },
+    {
+      "genotype": "KO",
+      "sex": "M",
+      "ground_truth_class": "KO",
+      "ground_truth_label": 1
+    }
+  ],
+  "required_probe_pattern_columns": [
+    "barcode",
+    "A_UMI",
+    "B_UMI",
+    "C_UMI",
+    "Pcdh19_total_UMI",
+    "detection_pattern"
+  ]
+}
