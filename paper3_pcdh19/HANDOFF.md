@@ -229,7 +229,7 @@ Validated machine-readable results are under:
 ```
 
 The output manifest SHA-256 is
-`72b5a4df241b6b2c38e2f57d80a49969235f7c3a745c813d798041c56e2b3d3d`.
+`3d4a3affc77aa844cc779ce947ba8805a06261360b0ec4513435833d5d540912`.
 No GFP counts, barcodes, UMAP, or cell classification were analyzed in this
 step.
 
