@@ -1,0 +1,52 @@
+{
+  "accession": "GSE94641",
+  "platform_accession": "GPL17021",
+  "expected_cells": 225,
+  "expected_gene_rows": 36528,
+  "expected_ages": ["E11.5", "E13.5", "E15.5", "E17.5"],
+  "expected_characteristic_fields": [
+    "tissue",
+    "age",
+    "extendedphenotype",
+    "subtype",
+    "nonneuralcelltype",
+    "date"
+  ],
+  "sources": [
+    {
+      "name": "GSE94641_RAW.tar",
+      "role": "processed_per_cell_expression_archive",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE94nnn/GSE94641/suppl/GSE94641_RAW.tar",
+      "bytes": 35020800,
+      "sha256": "f237a6c3e12814d9cb8351d145f7b5df7fb0115b03f23759d246e6c45e03bdad"
+    },
+    {
+      "name": "filelist.txt",
+      "role": "geo_supplementary_file_inventory",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE94nnn/GSE94641/suppl/filelist.txt",
+      "bytes": 14384,
+      "sha256": "bebbeafd3390032571c4187ec52745dc4f5740659c5dc4c064a0dd710232d6be"
+    },
+    {
+      "name": "GSE94641_series_matrix.txt.gz",
+      "role": "series_and_per_cell_geo_metadata",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE94nnn/GSE94641/matrix/GSE94641_series_matrix.txt.gz",
+      "bytes": 11331,
+      "sha256": "61cd11ee985b7af87046469ebea29956cb0fd3fd0ddb84b03192e9e18e0529e6"
+    },
+    {
+      "name": "GSE94641_family.soft.gz",
+      "role": "series_family_metadata",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE94nnn/GSE94641/soft/GSE94641_family.soft.gz",
+      "bytes": 14367,
+      "sha256": "6a1fb011296442c7f45df854eca92e26bbab221fbae7a37e062b407354cf70f0"
+    },
+    {
+      "name": "GPL17021_family.soft.gz",
+      "role": "platform_metadata_and_gene_symbol_availability_check",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/platforms/GPL17nnn/GPL17021/soft/GPL17021_family.soft.gz",
+      "bytes": 38060584,
+      "sha256": "8c0c082d2ee55cfd6ce395502e64a944db664e2ca2d57248b5a0ab2f785f9074"
+    }
+  ]
+}

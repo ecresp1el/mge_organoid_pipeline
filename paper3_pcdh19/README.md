@@ -4,6 +4,19 @@ This workstream is reserved for the Ziobro PCDH19 MGE single-cell paper. It is
 separate from the Paper 2 cross-study atlas and uses the Ziobro Turbo
 allocation, independent step numbering, and independent outputs.
 
+## Current preprocessing work: GSE94641 reference mapping
+
+A separate Step 00 workstream now provides the entry point for rapid published
+MGE reference mapping. Start with
+[`MGE_REFERENCE_MAPPING.md`](MGE_REFERENCE_MAPPING.md). The full 225-cell,
+four-age reference is validated and preserved. All 450,788 Paper 3 cells now
+have an E15.5-primary published-label transfer plus a complete all-age context
+transfer, with raw labels, confidence, exact barcodes, and existing vendor UMAP
+coordinates retained.
+
+This preprocessing work is independent of the frozen PCDH19 classification
+unit below. It does not read PCDH19 classifications or alter Steps 03–07.
+
 ## Resume point: frozen PCDH19 classification unit
 
 The PCDH19 genotype-classification workflow is complete and frozen after Step
@@ -63,6 +76,8 @@ counts range from 11,085 to 60,680.
 - Operational handoff: [`HANDOFF.md`](HANDOFF.md)
 - Complete pipeline I/O and interpretation contract:
   [`PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md`](PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md)
+- GSE94641 rapid MGE reference validation, transfer, and limitations:
+  [`MGE_REFERENCE_MAPPING.md`](MGE_REFERENCE_MAPPING.md)
 - Verified generated-asset and run ledger:
   [`ASSET_AND_RUN_INVENTORY.md`](ASSET_AND_RUN_INVENTORY.md)
 - X-GFP construct/Flex compatibility audit:

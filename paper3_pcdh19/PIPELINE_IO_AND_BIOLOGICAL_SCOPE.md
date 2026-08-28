@@ -12,6 +12,13 @@ resume entry point is
 the sections below retain the detailed I/O contracts. No Step 08 or
 classification-result modification is authorized by this document.
 
+An independent Step 00 GSE94641 reference-mapping workstream has completed
+reference validation and an E15.5-focused kNN transfer to all query cells. Its
+I/O, published annotation inventory, mapping contract, actual results, and
+limitations are documented in
+[`MGE_REFERENCE_MAPPING.md`](MGE_REFERENCE_MAPPING.md). It is not an input to
+the frozen genotype classifier.
+
 The registered source tissue is mouse embryonic brain, MGE, and the dataset was
 generated with 10x Flex v2. This audit asks a deliberately narrow question:
 which of the three panel probes assigned to Pcdh19 produced raw UMIs in each
@@ -41,6 +48,12 @@ source/result ledger and safe provenance options.
 ## Workflow position
 
 - `00_source_discovery`: located the correct `15662-JZ` delivery; complete.
+- `00_gse94641_reference_download_validation`: independent rapid-annotation
+  preprocessing; 225 processed published reference cells and all GEO cell
+  metadata are checksum-locked and validated; complete.
+- `00_gse94641_e15_5_label_transfer`: full-age reference PCA with E15.5-primary
+  fixed-k transfer plus all-age context for all 450,788 query cells; complete.
+  It uses no PCDH19 classification feature.
 - `01_sample_key`: user-provided mapping registered; complete, with
   experimental-unit details still to confirm.
 - `02_input_audit`: broader delivery and canonical-input audit; not complete.

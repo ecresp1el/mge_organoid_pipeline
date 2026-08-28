@@ -1,0 +1,31 @@
+{
+  "workflow_name": "gse94641_e15_5_label_transfer",
+  "reference_accession": "GSE94641",
+  "reference_validation_manifest_sha256": "41cf973380a7d934909a6629e68493058b77bb3d4a6d5403328be010e7ec9e00",
+  "sample_key_sha256": "5b20e8596c28f95b6adedcb0fe17019d2a6db46384f18f02d4bfdc58803f1dc8",
+  "primary_reference_age": "E15.5",
+  "primary_k": 5,
+  "all_age_context_k": 20,
+  "normalization": "log1p_library_size_10000",
+  "normalization_target": 10000.0,
+  "feature_selection": "top_reference_variance_among_shared_one_to_one_ensembl_genes",
+  "selected_features": 2000,
+  "pca_dimensions": 20,
+  "expected_reference_cells": 225,
+  "expected_primary_reference_cells": 63,
+  "expected_query_samples": 12,
+  "expected_query_features": 19071,
+  "expected_query_cells": 450788,
+  "minimum_shared_genes": 10000,
+  "transferred_fields": [
+    "extendedphenotype",
+    "subtype",
+    "nonneuralcelltype"
+  ],
+  "gene_annotation": {
+    "name": "Mus_musculus.gene_info.gz",
+    "url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Mus_musculus.gene_info.gz",
+    "bytes": 3919341,
+    "sha256": "79e8d9f043e28858a1e0a6398cee17c1ca7fea440b6fda6d69504aab357ae424"
+  }
+}
