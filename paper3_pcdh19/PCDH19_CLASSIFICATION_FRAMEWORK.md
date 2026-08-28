@@ -15,15 +15,17 @@ Step 04
 empirical A/B/C pattern classifier
     ↓
 Step 05
-three-feature logistic-regression baseline
+three-feature logistic-regression baseline plus
+leave-one-registered-sample-out validation
     ↓
-future sample-aware validation and model comparison
+future model comparison and confidence logic
     ↓
 eventual HET-cell inference
 ```
 
-Steps 03 through 05 are implemented. Neither current classifier performs the
-future held-out validation, hard-call, or HET-inference stages shown below.
+Steps 03 through 05 are implemented. Step 05 now includes the first sample-
+held-out evaluation, but no current step performs model selection, threshold
+optimization, or HET inference.
 
 ## Step ownership
 
@@ -31,9 +33,9 @@ future held-out validation, hard-call, or HET-inference stages shown below.
 | --- | --- | --- |
 | Step 03 | Validated loading of Step 02a per-cell PCDH19 probe observations; registered WT-male/KO-male annotation; the stable classification-ready cell table. | Pattern-frequency estimation, model fitting, splitting, performance evaluation, hard calls, or HET inference. |
 | Step 04 | Binary A/B/C encoding; empirical eight-pattern WT/KO counts and probabilities; likelihood-ratio evidence; descriptive pattern diagnostics. | Count-based predictors, logistic regression, train/test splitting, confusion matrices, hard calls, confidence thresholds, or HET inference. |
-| Step 05 | Unpenalized main-effects logistic regression using only binary A/B/C detection; coefficient/odds-ratio reporting; probability comparison with Step 04. | UMI counts, interactions, nonlinear terms, transcriptome/cell-type features, held-out performance, hard calls, thresholds, or HET inference. |
+| Step 05 | Unpenalized main-effects logistic regression using only binary A/B/C detection; coefficient/odds-ratio reporting; probability comparison with Step 04; leave-one-registered-sample-out validation; a fixed, separately owned calling rule; called-cell metrics and generalization plots. | Random cell splitting, threshold optimization, forced calls for `000`, UMI counts, interactions, nonlinear terms, transcriptome/cell-type features, model selection, or HET inference. |
 | Future model steps | A new model implementation behind a shared probability interface. | Reimplementation of Step 03 loading or Step 04 pattern encoding and publication conventions. |
-| Future validation step | Sample-aware validation, classifier comparison, and performance outputs. | Refitting hidden model logic inside evaluation code. |
+| Future validation extensions | Confirmed biological-unit validation, classifier comparison, and any expanded performance outputs. | Refitting hidden model logic inside evaluation code or optimizing a rule on held-out observations. |
 | Future HET application step | Application of a selected, validated, frozen model to HET cells. | Model selection or performance claims based on HET predictions. |
 
 ## Current modules
@@ -123,16 +125,38 @@ creating another encoder, ground-truth loader, or classifier protocol.
   coefficients; it has no hard-call method.
 - `LogisticModelEvaluator` compares Step 05 probabilities with the manifested
   Step 04 empirical probabilities and reports descriptive probability
-  differences. It does not calculate classification accuracy, a confusion
-  matrix, or held-out performance.
+  differences. It does not own sample splitting or held-out calls.
 - `LogisticRegressionPlotter` renders probability, empirical-comparison, and
   coefficient/odds-ratio plots from completed model rows. It does not fit or
   load the model.
 - `Step05OutputPublisher` owns Step 05 serialization, validation/provenance,
-  plots, manifest verification, and atomic publication. It has no fitting
-  responsibility.
+  plots, manifest verification, and atomic publication for the original base
+  package. It has no fitting responsibility.
+- `SampleAwarePatternRecord` adds registered sample identity and cell barcode
+  to the minimal pattern/ground-truth record. It does not predict a class.
+- `Step03SampleAwarePatternReader` verifies and reads the Step 03 contract
+  while retaining the registered `technical_sample_id` used for holdout. It
+  does not split cells randomly or claim donor/embryo/litter independence.
+- `HeldOutCallingPolicy` owns the fixed decision rule: `000` is always
+  `uncalled`; otherwise KO is called when P(KO) > 0.5, WT when P(WT) > 0.5,
+  and an exact tie is `uncalled`. It does not fit or tune the threshold.
+- `LeaveOneSampleOutLogisticValidator` holds out each registered sample in
+  turn, fits `LogisticRegressionEstimator` on the other five samples, and
+  produces held-out cell probabilities. It does not calculate metrics or
+  draw plots.
+- `HeldOutValidationEvaluator` creates called-cell confusion and overall/per-
+  sample metrics with KO as the positive class. It does not fit a model or
+  change calls.
+- `HeldOutValidationPlotter` draws only the held-out confusion matrix, per-
+  sample called-cell accuracy, and per-sample call percentage. It does not
+  recompute results.
+- `ExistingStep05BasePackageVerifier` protects the already published Step 05
+  base fit and its historical manifest from being rewritten by the extension.
+- `HeldOutValidationOutputPublisher` owns serialization, provenance,
+  validation, plots, manifest verification, and atomic publication for the
+  sample-level validation subpackage.
 - `PCDH19LogisticRegressionBaselineStep` coordinates the reused Step 04
-  components and the Step 05-specific components.
+  components, the original Step 05 fit, and the held-out extension.
 
 Step 05 retains Step 03's numeric targets: WT=`0`, KO=`1`. Its model is:
 
@@ -147,6 +171,12 @@ Thus coefficients and odds ratios describe KO-versus-WT odds. The intercept is
 the `000` log odds because all predictors are zero. Pattern `000` is included
 in fitting and remains uncalled regardless of which fitted probability is
 slightly greater than 0.5.
+
+For held-out evaluation, the only available registered sample key is the Step
+03 `technical_sample_id`. Step 05 exposes it as `biological_sample_id` in
+validation outputs and holds out one of the six registered WT-male/KO-male
+samples at a time. This prevents cell-level leakage, but the sample key alone
+does not establish donor, embryo, or litter independence.
 
 ## Step 04 empirical model definition
 
@@ -192,6 +222,13 @@ Step 05 output root:
 results/step_05_pcdh19_logistic_regression_baseline/
 ```
 
+Its sample-level held-out extension is:
+
+```text
+results/step_05_pcdh19_logistic_regression_baseline/
+  sample_level_held_out_validation/
+```
+
 The Step 04 classifier TSV is the first serialized model artifact. The
 distribution TSV and plots are diagnostics derived from it. Validation,
 environment, and output-manifest files protect input identity, computation
@@ -199,20 +236,22 @@ scope, code/dependency identity, and published bytes.
 
 ## Current baselines and planned modular extensions
 
-The first two entries are implemented baselines. The remaining entries are
-architectural placeholders only and are not implemented by Steps 04 or 05.
+The first four entries are implemented. The remaining entries are planned
+extensions only.
 
 1. **Empirical pattern classifier — Step 04 (implemented baseline).** Preserve as
    the simplest interpretable reference model.
 2. **Logistic regression baseline — Step 05 (implemented baseline).** Preserve
    as the simplest parametric model using the same binary predictors and shared
    probability interface.
-3. **Train/test or sample-level validation.** Define leakage-safe splitting at
-   the technical-sample or confirmed biological-unit level; do not create
-   random cell-level claims before the experimental units are confirmed.
-4. **Classifier evaluation/confusion matrix.** Consume a classifier through
-   the shared interface and a separately defined validation set. Add hard-call
-   metrics only after call/uncertainty rules exist.
+3. **Sample-level validation — Step 05 (implemented first pass).** Leave one
+   registered sample out, refit on the other samples, and evaluate held-out
+   cells. No random cell split is used. Future work should confirm the true
+   biological independence unit before stronger replicate-level claims.
+4. **Classifier evaluation/confusion matrix — Step 05 (implemented first
+   pass).** Consume held-out probabilities and a separately defined fixed
+   calling policy. Report confusion and metrics only among called cells while
+   reporting the call denominator separately.
 5. **Model comparison.** Compare frozen candidate models on the same split and
    evaluation contract rather than allowing each model script to define its
    own denominators.

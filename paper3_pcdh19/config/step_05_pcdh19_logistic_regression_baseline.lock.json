@@ -1,6 +1,6 @@
 {
   "step_id": "05_pcdh19_logistic_regression_baseline",
-  "pipeline_version": "0.1.0",
+  "pipeline_version": "0.2.0",
   "upstream_step_ids": [
     "03_pcdh19_genotype_classification_setup",
     "04_pcdh19_empirical_pattern_classifier"
@@ -57,5 +57,36 @@
     "maximum_step_halvings": 30
   },
   "probability_decimal_places": 12,
-  "plot_dpi": 200
+  "plot_dpi": 200,
+  "existing_base_package": {
+    "output_manifest_sha256": "1507fa4c4b6cacb5f7bae9580ed4b04d4dc2483869ebe4eec065e834c8b9f8ff",
+    "core_artifacts": {
+      "step_05_pcdh19_logistic_regression_coefficients.tsv": "59d3bb809c54bacd7ef115068237f2e9c1261e835fb83d941e05caf7d3c92490",
+      "step_05_pcdh19_logistic_pattern_probabilities.tsv": "2f2855608890ef737d7c9843191540ee80429e572e82474d9bf55f24cdca48a5",
+      "step_05_pcdh19_empirical_vs_logistic_comparison.tsv": "814c8c4b6a45850eec9595d74abf02d52ac6ca74b759abb3a27b2d7b17e8306c",
+      "step_05_pcdh19_logistic_regression_diagnostics.tsv": "b02b49c69f045aa3901831c50a7bc92b3be13bfea6446653b40f663fdd265e94"
+    }
+  },
+  "sample_level_validation": {
+    "method": "leave_one_registered_sample_out",
+    "holdout_unit_field": "technical_sample_id",
+    "holdout_unit_interpretation": "registered_sample_id_used_as_biological_sample_holdout_unit",
+    "expected_samples": {
+      "15662-JZ-1": {"genotype": "WT", "cells": 51229},
+      "15662-JZ-2": {"genotype": "WT", "cells": 37553},
+      "15662-JZ-3": {"genotype": "WT", "cells": 25354},
+      "15662-JZ-10": {"genotype": "KO", "cells": 52753},
+      "15662-JZ-11": {"genotype": "KO", "cells": 52295},
+      "15662-JZ-12": {"genotype": "KO", "cells": 11085}
+    },
+    "calling_rule": {
+      "uncalled_pattern_codes": ["000"],
+      "probability_threshold": 0.5,
+      "ko_call": "P(KO) > 0.5",
+      "wt_call": "P(WT) > 0.5",
+      "tie_behavior": "uncalled",
+      "threshold_optimized": false
+    },
+    "positive_evaluation_class": "KO"
+  }
 }

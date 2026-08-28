@@ -34,8 +34,20 @@ and probability interface, then adds an unpenalized
 `000` intercept gives P(WT)=0.5099 and P(KO)=0.4901, and remains uncalled. Step
 05 reports coefficients, odds ratios, all eight probabilities, Step 04
 comparisons, and plots beneath
-`results/step_05_pcdh19_logistic_regression_baseline/`; it does not perform
-held-out validation or HET inference.
+`results/step_05_pcdh19_logistic_regression_baseline/`.
+
+Step 05 also now owns a leave-one-registered-sample-out validation subpackage
+at `sample_level_held_out_validation/`. Each of the six WT-male/KO-male samples
+is held out once; the same three-feature model is fit on the other five. Pattern
+`000` is always uncalled, and informative patterns use a fixed, untuned 0.5
+probability rule. Overall, 43,256/230,269 cells (18.785%) are called; called-
+cell accuracy is 80.729%, KO sensitivity is 99.711%, and KO specificity is
+55.691%. This asymmetry and the low call percentage must remain explicit in
+downstream interpretation. The registered `technical_sample_id` is the
+available holdout key; donor/embryo/litter independence is not established.
+Step 05 still performs no model selection, threshold optimization, or HET
+inference. Do not create Step 06 until its scientific responsibility is
+defined.
 
 ## Correct allocation and source
 

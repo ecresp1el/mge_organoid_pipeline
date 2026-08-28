@@ -11,9 +11,12 @@ predictors are binary ``A_detected``, ``B_detected``, and ``C_detected``. The
 fit retains all ``000`` cells; the intercept is their fitted KO log odds.
 
 No UMI counts, transcriptome features, cell types, interactions, nonlinear
-terms, penalty, HET cells, hard calls, confidence threshold, train/test split,
-or held-out performance estimate is introduced. Step 05 compares fitted
-eight-pattern probabilities with the Step 04 empirical probabilities.
+terms, penalty, or HET cells are introduced. Step 05 compares fitted
+eight-pattern probabilities with the Step 04 empirical probabilities and
+performs leave-one-registered-sample-out validation of the same model. The
+held-out decision policy uses a fixed 0.5 probability threshold for
+informative patterns, always leaves ``000`` uncalled, and never optimizes a
+threshold on held-out data.
 """
 
 import argparse
@@ -35,6 +38,7 @@ import numpy as np
 
 from Step_04_PCDH19_Empirical_Pattern_Classifier import (
     EmpiricalPatternEstimator,
+    LabeledPatternObservation,
     ProbePatternEncoder,
     ProbabilisticClassifier,
     Step03ClassificationTableReader,
@@ -52,6 +56,20 @@ DIAGNOSTICS_NAME = "step_05_pcdh19_logistic_regression_diagnostics.tsv"
 VALIDATION_NAME = "step_05_pcdh19_logistic_regression_validation.tsv"
 ENVIRONMENT_NAME = "software_environment.tsv"
 MANIFEST_NAME = "output_manifest.tsv"
+HELD_OUT_VALIDATION_DIRECTORY = "sample_level_held_out_validation"
+
+HELD_OUT_PREDICTIONS_NAME = "step_05_loso_held_out_cell_predictions.tsv"
+HELD_OUT_CONFUSION_NAME = "step_05_loso_confusion_matrix.tsv"
+HELD_OUT_PER_SAMPLE_NAME = "step_05_loso_per_sample_metrics.tsv"
+HELD_OUT_OVERALL_NAME = "step_05_loso_overall_metrics.tsv"
+HELD_OUT_FOLD_COEFFICIENTS_NAME = "step_05_loso_fold_model_coefficients.tsv"
+HELD_OUT_CHECKS_NAME = "step_05_loso_validation_checks.tsv"
+HELD_OUT_ENVIRONMENT_NAME = "software_environment.tsv"
+HELD_OUT_MANIFEST_NAME = "output_manifest.tsv"
+
+HELD_OUT_CONFUSION_PLOT_NAME = "step_05_loso_held_out_confusion_matrix.png"
+HELD_OUT_ACCURACY_PLOT_NAME = "step_05_loso_per_sample_accuracy_called.png"
+HELD_OUT_CALLED_PLOT_NAME = "step_05_loso_per_sample_percent_called.png"
 
 PROBABILITY_PLOT_NAME = (
     "step_05_logistic_predicted_genotype_probability_by_pattern.png"
@@ -100,6 +118,51 @@ COMPARISON_HEADER = [
 
 VALIDATION_HEADER = [
     "step_id", "check_name", "status", "observed", "expected", "details"
+]
+
+HELD_OUT_PREDICTION_HEADER = [
+    "cell_barcode",
+    "biological_sample_id",
+    "submitted_sample_name",
+    "true_genotype",
+    "A_detected",
+    "B_detected",
+    "C_detected",
+    "pattern_code",
+    "predicted_wt_probability",
+    "predicted_ko_probability",
+    "predicted_genotype",
+]
+
+HELD_OUT_CONFUSION_HEADER = [
+    "true_genotype", "predicted_wt_cells", "predicted_ko_cells", "total_called_cells"
+]
+
+HELD_OUT_PER_SAMPLE_HEADER = [
+    "biological_sample_id",
+    "submitted_sample_name",
+    "true_genotype",
+    "total_cells",
+    "called_cells",
+    "uncalled_cells",
+    "percent_called",
+    "accuracy_among_called",
+    "ko_sensitivity_where_defined",
+    "ko_specificity_where_defined",
+]
+
+HELD_OUT_OVERALL_HEADER = ["metric", "value", "definition"]
+
+HELD_OUT_FOLD_COEFFICIENT_HEADER = [
+    "held_out_biological_sample_id",
+    "held_out_true_genotype",
+    "training_samples",
+    "training_cells",
+    "term",
+    "coefficient",
+    "odds_ratio",
+    "converged",
+    "iterations",
 ]
 
 
@@ -158,6 +221,8 @@ class Step05Configuration(object):
         "optimizer",
         "probability_decimal_places",
         "plot_dpi",
+        "existing_base_package",
+        "sample_level_validation",
     }
 
     def __init__(self, lock_path, bundle_root):
@@ -192,6 +257,18 @@ class Step05Configuration(object):
             raise Step05Error("Step 05 lock enables a prohibited model feature")
         if self.values["penalty"] != "none":
             raise Step05Error("Step 05 logistic regression must be unpenalized")
+        validation = self.values["sample_level_validation"]
+        if validation["method"] != "leave_one_registered_sample_out":
+            raise Step05Error("Step 05 validation must be leave-one-sample-out")
+        if validation["holdout_unit_field"] != "technical_sample_id":
+            raise Step05Error("Step 05 holdout unit must be technical_sample_id")
+        calling = validation["calling_rule"]
+        if calling["uncalled_pattern_codes"] != ["000"]:
+            raise Step05Error("Step 05 validation must leave pattern 000 uncalled")
+        if float(calling["probability_threshold"]) != 0.5:
+            raise Step05Error("Step 05 validation threshold must be fixed at 0.5")
+        if calling["threshold_optimized"] is not False:
+            raise Step05Error("Held-out data must not optimize the call threshold")
         self.framework_script_path = os.path.join(
             self.bundle_root,
             self.values["shared_framework_script"]["relative_path"],
@@ -601,6 +678,329 @@ class LogisticModelEvaluator(object):
         return probability_rows, comparison_rows, metrics
 
 
+class SampleAwarePatternRecord(object):
+    """One WT/KO cell retaining the registered sample used for holdout."""
+
+    __slots__ = (
+        "cell_barcode",
+        "biological_sample_id",
+        "submitted_sample_name",
+        "true_genotype",
+        "pattern_code",
+    )
+
+    def __init__(
+        self,
+        cell_barcode,
+        biological_sample_id,
+        submitted_sample_name,
+        true_genotype,
+        pattern_code,
+    ):
+        self.cell_barcode = cell_barcode
+        self.biological_sample_id = biological_sample_id
+        self.submitted_sample_name = submitted_sample_name
+        self.true_genotype = true_genotype
+        self.pattern_code = pattern_code
+
+
+class Step03SampleAwarePatternReader(object):
+    """Load Step 03 cells while retaining the registered sample holdout key."""
+
+    def __init__(self, configuration, shared_configuration, encoder, validation, table_path):
+        self.configuration = configuration
+        self.shared_configuration = shared_configuration
+        self.encoder = encoder
+        self.validation = validation
+        self.table_path = table_path
+
+    def read_records(self):
+        expected_samples = self.configuration.values["sample_level_validation"][
+            "expected_samples"
+        ]
+        observed_counts = {sample_id: 0 for sample_id in expected_samples}
+        records = []
+        with open(self.table_path, "r", newline="") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            if reader.fieldnames != self.shared_configuration.values["required_input_columns"]:
+                raise Step05Error("Unexpected Step 03 schema for sample-aware validation")
+            for row in reader:
+                sample_id = row["technical_sample_id"]
+                if sample_id not in expected_samples:
+                    raise Step05Error(
+                        "Unexpected sample in Step 05 validation: {}".format(sample_id)
+                    )
+                expected_genotype = expected_samples[sample_id]["genotype"]
+                if row["genotype"] != expected_genotype or row["ground_truth_class"] != expected_genotype:
+                    raise Step05Error(
+                        "Sample/genotype mismatch in held-out validation: {}".format(sample_id)
+                    )
+                if row["sex"] != "M":
+                    raise Step05Error("Held-out validation input contains a non-male cell")
+                pattern = self.encoder.encode(
+                    row["A_detected"], row["B_detected"], row["C_detected"]
+                )
+                records.append(
+                    SampleAwarePatternRecord(
+                        row["cell_barcode"],
+                        sample_id,
+                        row["submitted_sample_name"],
+                        row["ground_truth_class"],
+                        pattern,
+                    )
+                )
+                observed_counts[sample_id] += 1
+        for sample_id in expected_samples:
+            self.validation.require_equal(
+                "{}_held_out_unit_cells".format(sample_id),
+                observed_counts[sample_id],
+                expected_samples[sample_id]["cells"],
+            )
+        self.validation.require_equal(
+            "sample_aware_validation_cells",
+            len(records),
+            self.configuration.values["expected_total_cells"],
+        )
+        self.validation.require_equal(
+            "leave_one_sample_out_units",
+            len(observed_counts),
+            6,
+        )
+        return records
+
+
+class HeldOutCallingPolicy(object):
+    """Apply the predeclared 0.5 rule while always leaving 000 uncalled."""
+
+    def __init__(self, calling_rule):
+        self.uncalled_patterns = set(calling_rule["uncalled_pattern_codes"])
+        self.threshold = float(calling_rule["probability_threshold"])
+
+    def call(self, pattern_code, probabilities):
+        if pattern_code in self.uncalled_patterns:
+            return "uncalled"
+        if probabilities["KO"] > self.threshold:
+            return "KO"
+        if probabilities["WT"] > self.threshold:
+            return "WT"
+        return "uncalled"
+
+
+class LeaveOneSampleOutLogisticValidator(object):
+    """Fit six sample-held-out logistic models and predict held-out cells."""
+
+    def __init__(self, configuration, encoder, validation, calling_policy):
+        self.configuration = configuration
+        self.encoder = encoder
+        self.validation = validation
+        self.calling_policy = calling_policy
+        self.estimator = LogisticRegressionEstimator(configuration, encoder)
+
+    def run(self, records):
+        sample_config = self.configuration.values["sample_level_validation"][
+            "expected_samples"
+        ]
+        sample_order = list(sample_config.keys())
+        predictions = []
+        fold_coefficients = []
+        for held_out_sample in sample_order:
+            training_records = [
+                record
+                for record in records
+                if record.biological_sample_id != held_out_sample
+            ]
+            test_records = [
+                record
+                for record in records
+                if record.biological_sample_id == held_out_sample
+            ]
+            training_samples = sorted(
+                {record.biological_sample_id for record in training_records}
+            )
+            self.validation.require_equal(
+                "{}_training_samples_exclude_holdout".format(held_out_sample),
+                held_out_sample in training_samples,
+                False,
+            )
+            self.validation.require_equal(
+                "{}_training_sample_count".format(held_out_sample),
+                len(training_samples),
+                5,
+            )
+            self.validation.require_equal(
+                "{}_held_out_cells".format(held_out_sample),
+                len(test_records),
+                sample_config[held_out_sample]["cells"],
+            )
+            observations = (
+                LabeledPatternObservation(
+                    record.pattern_code, record.true_genotype
+                )
+                for record in training_records
+            )
+            empirical_training = EmpiricalPatternEstimator(self.encoder).fit(
+                observations
+            )
+            classifier = self.estimator.fit(empirical_training)
+            self.validation.require_equal(
+                "{}_fold_model_converged".format(held_out_sample),
+                classifier.fit_diagnostics["converged"],
+                True,
+            )
+            for coefficient_row in classifier.coefficient_rows():
+                fold_coefficients.append(
+                    {
+                        "held_out_biological_sample_id": held_out_sample,
+                        "held_out_true_genotype": sample_config[held_out_sample]["genotype"],
+                        "training_samples": ",".join(training_samples),
+                        "training_cells": len(training_records),
+                        "term": coefficient_row["term"],
+                        "coefficient": coefficient_row["coefficient"],
+                        "odds_ratio": coefficient_row["odds_ratio"],
+                        "converged": classifier.fit_diagnostics["converged"],
+                        "iterations": classifier.fit_diagnostics["iterations"],
+                    }
+                )
+            for record in test_records:
+                probabilities = classifier.predict_proba(
+                    {"pattern_code": record.pattern_code}
+                )
+                a_value, b_value, c_value = self.encoder.decode(
+                    record.pattern_code
+                )
+                predictions.append(
+                    {
+                        "cell_barcode": record.cell_barcode,
+                        "biological_sample_id": record.biological_sample_id,
+                        "submitted_sample_name": record.submitted_sample_name,
+                        "true_genotype": record.true_genotype,
+                        "A_detected": a_value,
+                        "B_detected": b_value,
+                        "C_detected": c_value,
+                        "pattern_code": record.pattern_code,
+                        "predicted_wt_probability": probabilities["WT"],
+                        "predicted_ko_probability": probabilities["KO"],
+                        "predicted_genotype": self.calling_policy.call(
+                            record.pattern_code, probabilities
+                        ),
+                    }
+                )
+        self.validation.require_equal(
+            "held_out_prediction_rows", len(predictions), len(records)
+        )
+        self.validation.require_equal(
+            "each_cell_predicted_once",
+            len(
+                {
+                    (row["biological_sample_id"], row["cell_barcode"])
+                    for row in predictions
+                }
+            ),
+            len(records),
+        )
+        self.validation.require_equal(
+            "fold_coefficient_rows", len(fold_coefficients), 24
+        )
+        return predictions, fold_coefficients
+
+
+class HeldOutValidationEvaluator(object):
+    """Compute called-cell confusion and sample/overall validation metrics."""
+
+    def __init__(self, configuration, validation):
+        self.configuration = configuration
+        self.validation = validation
+
+    @staticmethod
+    def _safe_fraction(numerator, denominator):
+        if denominator == 0:
+            return None
+        return numerator / denominator
+
+    @staticmethod
+    def _confusion(predictions):
+        counts = {("WT", "WT"): 0, ("WT", "KO"): 0, ("KO", "WT"): 0, ("KO", "KO"): 0}
+        for row in predictions:
+            predicted = row["predicted_genotype"]
+            if predicted in ("WT", "KO"):
+                counts[(row["true_genotype"], predicted)] += 1
+        return counts
+
+    def evaluate(self, predictions):
+        sample_config = self.configuration.values["sample_level_validation"]["expected_samples"]
+        per_sample = []
+        for sample_id in sample_config:
+            sample_rows = [row for row in predictions if row["biological_sample_id"] == sample_id]
+            called = [row for row in sample_rows if row["predicted_genotype"] in ("WT", "KO")]
+            correct = sum(row["predicted_genotype"] == row["true_genotype"] for row in called)
+            true_genotype = sample_config[sample_id]["genotype"]
+            sensitivity = None
+            specificity = None
+            if true_genotype == "KO":
+                sensitivity = self._safe_fraction(correct, len(called))
+            else:
+                specificity = self._safe_fraction(correct, len(called))
+            per_sample.append(
+                {
+                    "biological_sample_id": sample_id,
+                    "submitted_sample_name": sample_rows[0]["submitted_sample_name"],
+                    "true_genotype": true_genotype,
+                    "total_cells": len(sample_rows),
+                    "called_cells": len(called),
+                    "uncalled_cells": len(sample_rows) - len(called),
+                    "percent_called": 100.0 * self._safe_fraction(len(called), len(sample_rows)),
+                    "accuracy_among_called": self._safe_fraction(correct, len(called)),
+                    "ko_sensitivity_where_defined": sensitivity,
+                    "ko_specificity_where_defined": specificity,
+                }
+            )
+        confusion = self._confusion(predictions)
+        tn = confusion[("WT", "WT")]
+        fp = confusion[("WT", "KO")]
+        fn = confusion[("KO", "WT")]
+        tp = confusion[("KO", "KO")]
+        total = len(predictions)
+        called = tn + fp + fn + tp
+        uncalled = total - called
+        overall_values = [
+            ("total_cells", total, "All held-out WT/KO-male cells"),
+            ("called_cells", called, "Non-000 cells receiving WT or KO at fixed threshold"),
+            ("uncalled_cells", uncalled, "Pattern 000 plus any exact probability tie"),
+            ("percent_called", 100.0 * called / total, "100 * called / total"),
+            ("percent_uncalled", 100.0 * uncalled / total, "100 * uncalled / total"),
+            ("accuracy_among_called", self._safe_fraction(tp + tn, called), "(TP+TN) / called"),
+            ("ko_sensitivity_among_called", self._safe_fraction(tp, tp + fn), "TP / (TP+FN); KO is positive"),
+            ("ko_specificity_among_called", self._safe_fraction(tn, tn + fp), "TN / (TN+FP); KO is positive"),
+            ("true_ko_predicted_ko", tp, "TP"),
+            ("true_ko_predicted_wt", fn, "FN"),
+            ("true_wt_predicted_ko", fp, "FP"),
+            ("true_wt_predicted_wt", tn, "TN"),
+        ]
+        overall = [
+            {"metric": key, "value": value, "definition": definition}
+            for key, value, definition in overall_values
+        ]
+        confusion_rows = [
+            {"true_genotype": "WT", "predicted_wt_cells": tn, "predicted_ko_cells": fp, "total_called_cells": tn + fp},
+            {"true_genotype": "KO", "predicted_wt_cells": fn, "predicted_ko_cells": tp, "total_called_cells": fn + tp},
+        ]
+        self.validation.require_equal(
+            "pattern_000_predictions_uncalled",
+            sum(row["pattern_code"] == "000" and row["predicted_genotype"] != "uncalled" for row in predictions),
+            0,
+        )
+        self.validation.require_equal(
+            "called_confusion_total", called, sum(row["called_cells"] for row in per_sample)
+        )
+        self.validation.require_equal(
+            "fixed_call_threshold", self.configuration.values["sample_level_validation"]["calling_rule"]["probability_threshold"], 0.5
+        )
+        self.validation.require_equal(
+            "held_out_threshold_optimized", self.configuration.values["sample_level_validation"]["calling_rule"]["threshold_optimized"], False
+        )
+        return confusion_rows, per_sample, overall
+
+
 class LogisticRegressionPlotter(object):
     """Render Step 05 model diagnostics without fitting or reading cells."""
 
@@ -722,6 +1122,98 @@ class LogisticRegressionPlotter(object):
         self.plot_probabilities(probability_rows, paths[0])
         self.plot_comparison(comparison_rows, paths[1])
         self.plot_coefficients(coefficient_rows, paths[2])
+        return paths
+
+
+class HeldOutValidationPlotter(object):
+    """Render only the three plots needed to assess sample-held-out behavior."""
+
+    WT_COLOR = "#3B6FB6"
+    KO_COLOR = "#D95F43"
+    BAR_COLOR = "#667788"
+
+    def __init__(self, dpi):
+        self.dpi = int(dpi)
+
+    def plot_confusion(self, confusion_rows, path):
+        matrix = np.asarray(
+            [
+                [confusion_rows[0]["predicted_wt_cells"], confusion_rows[0]["predicted_ko_cells"]],
+                [confusion_rows[1]["predicted_wt_cells"], confusion_rows[1]["predicted_ko_cells"]],
+            ],
+            dtype=int,
+        )
+        figure, axis = plt.subplots(figsize=(6.5, 5.5))
+        image = axis.imshow(matrix, cmap="Blues")
+        for row_index in range(2):
+            for column_index in range(2):
+                value = int(matrix[row_index, column_index])
+                axis.text(
+                    column_index,
+                    row_index,
+                    "{:,}".format(value),
+                    ha="center",
+                    va="center",
+                    color="white" if value > matrix.max() / 2 else "black",
+                    fontsize=12,
+                )
+        axis.set_xticks([0, 1])
+        axis.set_xticklabels(["Predicted WT", "Predicted KO"])
+        axis.set_yticks([0, 1])
+        axis.set_yticklabels(["True WT", "True KO"])
+        axis.set_title("Step 05 LOSO: Held-out confusion matrix (called cells)")
+        figure.colorbar(image, ax=axis, label="Held-out cells")
+        figure.tight_layout()
+        figure.savefig(path, dpi=self.dpi, metadata={"Title": "Step 05 LOSO confusion matrix"})
+        plt.close(figure)
+
+    @staticmethod
+    def _sample_colors(rows):
+        return ["#3B6FB6" if row["true_genotype"] == "WT" else "#D95F43" for row in rows]
+
+    def plot_per_sample_accuracy(self, rows, path):
+        x_values = list(range(len(rows)))
+        values = [100.0 * row["accuracy_among_called"] for row in rows]
+        figure, axis = plt.subplots(figsize=(9, 5.5))
+        bars = axis.bar(x_values, values, color=self._sample_colors(rows))
+        axis.set_xticks(x_values)
+        axis.set_xticklabels([row["biological_sample_id"] for row in rows], rotation=25, ha="right")
+        axis.set_ylim(0, 105)
+        axis.set_ylabel("Accuracy among called cells (%)")
+        axis.set_title("Step 05 LOSO: Per-sample held-out accuracy")
+        axis.grid(axis="y", color="#DDDDDD", linewidth=0.7)
+        for bar, value in zip(bars, values):
+            axis.text(bar.get_x() + bar.get_width() / 2, value + 1.0, "{:.1f}%".format(value), ha="center", va="bottom", fontsize=8)
+        figure.tight_layout()
+        figure.savefig(path, dpi=self.dpi, metadata={"Title": "Step 05 LOSO per-sample accuracy"})
+        plt.close(figure)
+
+    def plot_per_sample_called(self, rows, path):
+        x_values = list(range(len(rows)))
+        values = [row["percent_called"] for row in rows]
+        figure, axis = plt.subplots(figsize=(9, 5.5))
+        bars = axis.bar(x_values, values, color=self._sample_colors(rows))
+        axis.set_xticks(x_values)
+        axis.set_xticklabels([row["biological_sample_id"] for row in rows], rotation=25, ha="right")
+        axis.set_ylim(0, max(values) * 1.2)
+        axis.set_ylabel("Held-out cells called (%)")
+        axis.set_title("Step 05 LOSO: Per-sample call rate (000 remains uncalled)")
+        axis.grid(axis="y", color="#DDDDDD", linewidth=0.7)
+        for bar, value in zip(bars, values):
+            axis.text(bar.get_x() + bar.get_width() / 2, value + 0.3, "{:.1f}%".format(value), ha="center", va="bottom", fontsize=8)
+        figure.tight_layout()
+        figure.savefig(path, dpi=self.dpi, metadata={"Title": "Step 05 LOSO per-sample percent called"})
+        plt.close(figure)
+
+    def render_all(self, confusion_rows, per_sample_rows, output_directory):
+        paths = [
+            os.path.join(output_directory, HELD_OUT_CONFUSION_PLOT_NAME),
+            os.path.join(output_directory, HELD_OUT_ACCURACY_PLOT_NAME),
+            os.path.join(output_directory, HELD_OUT_CALLED_PLOT_NAME),
+        ]
+        self.plot_confusion(confusion_rows, paths[0])
+        self.plot_per_sample_accuracy(per_sample_rows, paths[1])
+        self.plot_per_sample_called(per_sample_rows, paths[2])
         return paths
 
 
@@ -905,6 +1397,217 @@ class Step05OutputPublisher(object):
                 shutil.rmtree(staging)
 
 
+class ExistingStep05BasePackageVerifier(object):
+    """Protect the already published Step 05 fit while adding validation."""
+
+    def __init__(self, configuration, base_root, validation):
+        self.configuration = configuration
+        self.base_root = os.path.abspath(base_root)
+        self.validation = validation
+        self.manifest_path = os.path.join(self.base_root, MANIFEST_NAME)
+
+    def verify(self):
+        if not os.path.isfile(self.manifest_path):
+            raise Step05Error("Existing Step 05 base manifest is missing")
+        base_config = self.configuration.values["existing_base_package"]
+        observed_manifest_sha = sha256_file(self.manifest_path)
+        base_environment_path = os.path.join(self.base_root, ENVIRONMENT_NAME)
+        if not os.path.isfile(base_environment_path):
+            raise Step05Error("Existing Step 05 base environment is missing")
+        with open(base_environment_path, "r", newline="") as handle:
+            base_environment = {
+                row["key"]: row["value"]
+                for row in csv.DictReader(handle, delimiter="\t")
+            }
+        if base_environment.get("pipeline_version") == "0.1.0":
+            self.validation.require_equal(
+                "historical_step_05_base_manifest_unchanged",
+                observed_manifest_sha,
+                base_config["output_manifest_sha256"],
+            )
+        entries = {}
+        with open(self.manifest_path, "r", newline="") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            for row in reader:
+                path = os.path.join(self.base_root, row["relative_path"])
+                if not os.path.isfile(path):
+                    raise Step05Error("Existing Step 05 base artifact is missing")
+                if os.path.getsize(path) != int(row["bytes"]) or sha256_file(path) != row["sha256"]:
+                    raise Step05Error("Existing Step 05 base artifact identity mismatch")
+                entries[row["relative_path"]] = row["sha256"]
+        for filename, expected_sha in base_config["core_artifacts"].items():
+            self.validation.require_equal(
+                "existing_base_{}_sha256".format(filename),
+                entries.get(filename),
+                expected_sha,
+            )
+        self.validation.require_equal(
+            "existing_step_05_base_package_accepted",
+            True,
+            True,
+            "historical_manifest={} observed_manifest={}; core model artifacts are exact".format(
+                base_config["output_manifest_sha256"], observed_manifest_sha
+            ),
+        )
+
+
+class HeldOutValidationOutputPublisher(object):
+    """Atomically publish the LOSO extension without altering base outputs."""
+
+    EXPECTED_FILES = {
+        HELD_OUT_PREDICTIONS_NAME,
+        HELD_OUT_CONFUSION_NAME,
+        HELD_OUT_PER_SAMPLE_NAME,
+        HELD_OUT_OVERALL_NAME,
+        HELD_OUT_FOLD_COEFFICIENTS_NAME,
+        HELD_OUT_CHECKS_NAME,
+        HELD_OUT_ENVIRONMENT_NAME,
+        HELD_OUT_CONFUSION_PLOT_NAME,
+        HELD_OUT_ACCURACY_PLOT_NAME,
+        HELD_OUT_CALLED_PLOT_NAME,
+    }
+
+    def __init__(self, configuration, validation, plotter, output_root, paths):
+        self.configuration = configuration
+        self.validation = validation
+        self.plotter = plotter
+        self.output_root = os.path.abspath(output_root)
+        self.paths = {key: os.path.abspath(value) for key, value in paths.items()}
+
+    def _format_float(self, value):
+        if value is None:
+            return ""
+        return ("{:.%df}" % self.configuration.decimal_places).format(value)
+
+    def _prediction_rows(self, predictions):
+        rows = []
+        for source in predictions:
+            row = dict(source)
+            row["predicted_wt_probability"] = self._format_float(row["predicted_wt_probability"])
+            row["predicted_ko_probability"] = self._format_float(row["predicted_ko_probability"])
+            rows.append(row)
+        return rows
+
+    def _per_sample_rows(self, metrics):
+        rows = []
+        for source in metrics:
+            row = dict(source)
+            for key in [
+                "percent_called",
+                "accuracy_among_called",
+                "ko_sensitivity_where_defined",
+                "ko_specificity_where_defined",
+            ]:
+                row[key] = self._format_float(row[key])
+            rows.append(row)
+        return rows
+
+    def _overall_rows(self, metrics):
+        rows = []
+        for source in metrics:
+            row = dict(source)
+            if isinstance(row["value"], float):
+                row["value"] = self._format_float(row["value"])
+            rows.append(row)
+        return rows
+
+    def _fold_rows(self, rows):
+        serialized = []
+        for source in rows:
+            row = dict(source)
+            row["coefficient"] = self._format_float(row["coefficient"])
+            row["odds_ratio"] = self._format_float(row["odds_ratio"])
+            row["converged"] = str(row["converged"]).lower()
+            serialized.append(row)
+        return serialized
+
+    def _write_environment(self, path):
+        calling = self.configuration.values["sample_level_validation"]["calling_rule"]
+        rows = [
+            {"key": "step_id", "value": self.configuration.step_id},
+            {"key": "pipeline_version", "value": self.configuration.values["pipeline_version"]},
+            {"key": "validation_method", "value": "leave_one_registered_sample_out"},
+            {"key": "holdout_unit_field", "value": "technical_sample_id"},
+            {"key": "holdout_unit_interpretation", "value": self.configuration.values["sample_level_validation"]["holdout_unit_interpretation"]},
+            {"key": "class_encoding", "value": "WT=0;KO=1"},
+            {"key": "probability_threshold", "value": calling["probability_threshold"]},
+            {"key": "uncalled_patterns", "value": ",".join(calling["uncalled_pattern_codes"])},
+            {"key": "tie_behavior", "value": calling["tie_behavior"]},
+            {"key": "threshold_optimized", "value": str(calling["threshold_optimized"]).lower()},
+            {"key": "python_version", "value": platform.python_version()},
+            {"key": "numpy_version", "value": np.__version__},
+            {"key": "matplotlib_version", "value": matplotlib.__version__},
+        ]
+        for key in sorted(self.paths):
+            rows.append({"key": "{}_path".format(key), "value": self.paths[key]})
+            rows.append({"key": "{}_sha256".format(key), "value": sha256_file(self.paths[key])})
+        write_tsv(path, ["key", "value"], rows)
+
+    @staticmethod
+    def _write_manifest(directory):
+        rows = []
+        for filename in sorted(os.listdir(directory)):
+            path = os.path.join(directory, filename)
+            if filename == HELD_OUT_MANIFEST_NAME or not os.path.isfile(path):
+                continue
+            rows.append({"relative_path": filename, "bytes": os.path.getsize(path), "sha256": sha256_file(path)})
+        write_tsv(os.path.join(directory, HELD_OUT_MANIFEST_NAME), ["relative_path", "bytes", "sha256"], rows)
+
+    @classmethod
+    def _verify_manifest(cls, directory):
+        manifest_path = os.path.join(directory, HELD_OUT_MANIFEST_NAME)
+        if not os.path.isfile(manifest_path):
+            raise Step05Error("Held-out validation manifest is missing")
+        listed = set()
+        with open(manifest_path, "r", newline="") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            for row in reader:
+                path = os.path.join(directory, row["relative_path"])
+                if row["relative_path"] in listed or not os.path.isfile(path):
+                    raise Step05Error("Held-out validation manifest is invalid")
+                listed.add(row["relative_path"])
+                if os.path.getsize(path) != int(row["bytes"]) or sha256_file(path) != row["sha256"]:
+                    raise Step05Error("Held-out validation artifact identity mismatch")
+        if listed != cls.EXPECTED_FILES:
+            raise Step05Error("Held-out validation manifest file set is unexpected")
+
+    def _verify_existing_provenance(self):
+        self._verify_manifest(self.output_root)
+        with open(os.path.join(self.output_root, HELD_OUT_ENVIRONMENT_NAME), "r", newline="") as handle:
+            environment = {row["key"]: row["value"] for row in csv.DictReader(handle, delimiter="\t")}
+        for key, path in self.paths.items():
+            if environment.get("{}_sha256".format(key)) != sha256_file(path):
+                raise Step05Error("Held-out validation provenance differs for {}".format(key))
+
+    def publish(self, predictions, confusion_rows, per_sample_rows, overall_rows, fold_rows):
+        if os.path.exists(self.output_root):
+            self._verify_existing_provenance()
+            print("EXISTING_VALIDATED\t{}".format(self.output_root))
+            return
+        parent = os.path.dirname(self.output_root)
+        staging = tempfile.mkdtemp(prefix=".sample_level_held_out_validation.", dir=parent)
+        try:
+            write_tsv(os.path.join(staging, HELD_OUT_PREDICTIONS_NAME), HELD_OUT_PREDICTION_HEADER, self._prediction_rows(predictions))
+            write_tsv(os.path.join(staging, HELD_OUT_CONFUSION_NAME), HELD_OUT_CONFUSION_HEADER, confusion_rows)
+            write_tsv(os.path.join(staging, HELD_OUT_PER_SAMPLE_NAME), HELD_OUT_PER_SAMPLE_HEADER, self._per_sample_rows(per_sample_rows))
+            write_tsv(os.path.join(staging, HELD_OUT_OVERALL_NAME), HELD_OUT_OVERALL_HEADER, self._overall_rows(overall_rows))
+            write_tsv(os.path.join(staging, HELD_OUT_FOLD_COEFFICIENTS_NAME), HELD_OUT_FOLD_COEFFICIENT_HEADER, self._fold_rows(fold_rows))
+            plot_paths = self.plotter.render_all(confusion_rows, per_sample_rows, staging)
+            self.validation.require_equal("held_out_validation_plots_created", sum(os.path.getsize(path) > 0 for path in plot_paths), 3)
+            write_tsv(os.path.join(staging, HELD_OUT_CHECKS_NAME), VALIDATION_HEADER, self.validation.rows)
+            self._write_environment(os.path.join(staging, HELD_OUT_ENVIRONMENT_NAME))
+            self._write_manifest(staging)
+            self._verify_manifest(staging)
+            if os.path.exists(self.output_root):
+                raise Step05Error("Held-out validation output appeared during publication")
+            os.replace(staging, self.output_root)
+            staging = None
+            print("PUBLISHED\t{}\tfolds=6\tcells={}".format(self.output_root, len(predictions)))
+        finally:
+            if staging and os.path.exists(staging):
+                shutil.rmtree(staging)
+
+
 class PCDH19LogisticRegressionBaselineStep(object):
     """Coordinate Step 05 using the existing Step 04 classification framework."""
 
@@ -938,20 +1641,77 @@ class PCDH19LogisticRegressionBaselineStep(object):
             "step_04_empirical_model": self.step04_reader.model_path,
         }
         self.publisher = Step05OutputPublisher(self.configuration, self.validation, self.plotter, output_root, paths)
+        self.base_verifier = ExistingStep05BasePackageVerifier(
+            self.configuration, output_root, self.validation
+        )
+        self.sample_aware_reader = Step03SampleAwarePatternReader(
+            self.configuration,
+            self.shared_configuration,
+            self.encoder,
+            self.validation,
+            self.step03_reader.table_path,
+        )
+        self.calling_policy = HeldOutCallingPolicy(
+            self.configuration.values["sample_level_validation"]["calling_rule"]
+        )
+        self.held_out_validator = LeaveOneSampleOutLogisticValidator(
+            self.configuration, self.encoder, self.validation, self.calling_policy
+        )
+        self.held_out_evaluator = HeldOutValidationEvaluator(
+            self.configuration, self.validation
+        )
+        self.held_out_plotter = HeldOutValidationPlotter(
+            self.configuration.values["plot_dpi"]
+        )
+        held_out_root = os.path.join(output_root, HELD_OUT_VALIDATION_DIRECTORY)
+        held_out_paths = {
+            "python_script": __file__,
+            "lock": args.lock,
+            "requirements": args.requirements,
+            "shared_framework_script": self.configuration.framework_script_path,
+            "step_04_lock": args.step04_lock,
+            "step_03_manifest": self.step03_reader.manifest_path,
+            "step_03_table": self.step03_reader.table_path,
+            "step_04_manifest": self.step04_reader.manifest_path,
+            "step_04_empirical_model": self.step04_reader.model_path,
+            "step_05_base_manifest": os.path.join(output_root, MANIFEST_NAME),
+        }
+        self.held_out_publisher = HeldOutValidationOutputPublisher(
+            self.configuration,
+            self.validation,
+            self.held_out_plotter,
+            held_out_root,
+            held_out_paths,
+        )
 
     def run(self):
         if os.path.exists(self.publisher.output_root):
-            self.publisher.publish(None, [], [], {})
+            self.base_verifier.verify()
+        else:
+            recomputed_empirical = EmpiricalPatternEstimator(self.encoder).fit(
+                self.step03_reader.iter_observations()
+            )
+            empirical_rows = self.step04_reader.read_rows()
+            classifier = self.estimator.fit(recomputed_empirical)
+            probability_rows, comparison_rows, metrics = self.evaluator.evaluate(
+                classifier, empirical_rows, recomputed_empirical
+            )
+            self.publisher.publish(classifier, probability_rows, comparison_rows, metrics)
+        if os.path.exists(self.held_out_publisher.output_root):
+            self.held_out_publisher.publish([], [], [], [], [])
             return
-        recomputed_empirical = EmpiricalPatternEstimator(self.encoder).fit(
-            self.step03_reader.iter_observations()
+        records = self.sample_aware_reader.read_records()
+        predictions, fold_coefficients = self.held_out_validator.run(records)
+        confusion_rows, per_sample_rows, overall_rows = self.held_out_evaluator.evaluate(
+            predictions
         )
-        empirical_rows = self.step04_reader.read_rows()
-        classifier = self.estimator.fit(recomputed_empirical)
-        probability_rows, comparison_rows, metrics = self.evaluator.evaluate(
-            classifier, empirical_rows, recomputed_empirical
+        self.held_out_publisher.publish(
+            predictions,
+            confusion_rows,
+            per_sample_rows,
+            overall_rows,
+            fold_coefficients,
         )
-        self.publisher.publish(classifier, probability_rows, comparison_rows, metrics)
 
 
 def build_parser():

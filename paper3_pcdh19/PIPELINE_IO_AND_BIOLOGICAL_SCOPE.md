@@ -51,7 +51,8 @@ source/result ledger and safe provenance options.
   no hard calls and does not load HET cells.
 - `05_pcdh19_logistic_regression_baseline`: fits the unpenalized three-feature
   main-effects logistic baseline and compares its eight probabilities with
-  Step 04; complete. It makes no hard calls and does not load HET cells.
+  Step 04, then performs leave-one-registered-sample-out validation of the
+  same model; complete. It does not load HET cells.
 
 Step `02a` intentionally runs without ingesting the sample key because it uses
 only technical IDs. This keeps the validated assay audit separate from later
@@ -577,8 +578,10 @@ identical within each pattern. Pattern `000` is retained, so the intercept is
 its modeled KO-versus-WT log odds.
 
 No UMI count, whole-transcriptome feature, cell type, interaction, nonlinear
-transformation, or HET row enters the design matrix. There is no confidence
-threshold or hard call.
+transformation, or HET row enters the design matrix. The original full-data
+fit reports probabilities without hard calls. Its held-out validation uses a
+separate fixed calling policy described below; that policy does not alter the
+model or optimize a threshold.
 
 The supported runner is
 `bin/run_step_05_pcdh19_logistic_regression_baseline.sh`; the Great Lakes
@@ -606,8 +609,9 @@ results/step_05_pcdh19_logistic_regression_baseline/
   pattern. It makes no accuracy or performance claim.
 - `step_05_pcdh19_logistic_regression_diagnostics.tsv` records the formula,
   encoding, excluded model elements, convergence, information-matrix checks,
-  `000` behavior, descriptive probability RMSE, and the explicit absence of
-  held-out validation and HET cells.
+  `000` behavior, descriptive probability RMSE, and the original base-fit
+  scope. This already published base diagnostic remains unchanged; held-out
+  validation is owned by the extension subpackage below.
 - Three diagnostic PNGs show fitted probabilities, empirical-versus-logistic
   probabilities, and coefficients/odds ratios.
 - The validation table checks all upstream identities, class/row totals,
@@ -617,9 +621,57 @@ results/step_05_pcdh19_logistic_regression_baseline/
   identities and dependencies; `output_manifest.tsv` protects all nine
   non-manifest outputs.
 
-Step 05 reports fit behavior on the same data used for estimation. It does not
-perform sample-level held-out validation, a confusion matrix, sensitivity,
-specificity, accuracy, classifier selection, thresholding, or HET inference.
-The Step 03 table retains technical sample IDs so a later formal validation
-step can split by sample rather than randomly by cell; experimental-unit
-independence still requires biological confirmation.
+The original files above remain the intact full-data baseline. Step 05 adds
+sample-level validation beneath the same formal result root:
+
+```text
+results/step_05_pcdh19_logistic_regression_baseline/
+  sample_level_held_out_validation/
+```
+
+### Step 05 leave-one-sample-out validation
+
+The Step 03 `technical_sample_id` is the only available registered sample key.
+Step 05 uses it as the holdout unit, exposes it as `biological_sample_id` in
+validation outputs, and creates six folds: hold out one of `15662-JZ-1`,
+`15662-JZ-2`, `15662-JZ-3`, `15662-JZ-10`, `15662-JZ-11`, or `15662-JZ-12`,
+fit the unchanged A/B/C model on the other five samples, and predict every cell
+in the held-out sample. Individual cells are never randomly divided between
+training and test data.
+
+The calling policy is fixed before evaluation:
+
+- pattern `000` is always `uncalled`, even when its fold-specific probability
+  lies on one side of 0.5;
+- for all other patterns, P(KO) > 0.5 gives KO and P(WT) > 0.5 gives WT; and
+- an exact probability tie is `uncalled`.
+
+The 0.5 threshold is not estimated, selected, or optimized on held-out data.
+KO is the positive evaluation class. The confusion matrix and accuracy,
+sensitivity, and specificity use called cells only; call and uncalled
+percentages retain all held-out cells as their denominator.
+
+The extension publishes:
+
+- `step_05_loso_held_out_cell_predictions.tsv`: cell barcode, registered
+  sample ID, submitted sample name, true genotype, binary A/B/C state, pattern,
+  complementary WT/KO probabilities, and WT/KO/`uncalled` prediction;
+- `step_05_loso_confusion_matrix.tsv`: overall called-cell WT/KO confusion
+  counts;
+- `step_05_loso_per_sample_metrics.tsv`: total, called, uncalled, percent
+  called, called-cell accuracy, and KO sensitivity/specificity where defined;
+- `step_05_loso_overall_metrics.tsv`: overall call/uncalled percentages,
+  called-cell accuracy/sensitivity/specificity, and confusion counts;
+- `step_05_loso_fold_model_coefficients.tsv`: training-sample identities,
+  training-cell totals, convergence, intercept, A/B/C coefficients, and odds
+  ratios for every fold;
+- three PNGs limited to the held-out confusion matrix, per-sample called-cell
+  accuracy, and per-sample percent called; and
+- validation, software/provenance, and output-manifest tables protecting the
+  extension.
+
+This first validation pass does not select a classifier, compare candidate
+models, optimize confidence rules, or infer HET cells. Holding out a registered
+sample prevents leakage across its cells, but the sample key alone does not
+establish donor, embryo, or litter independence; biological-replicate claims
+still require confirmation of those experimental units.

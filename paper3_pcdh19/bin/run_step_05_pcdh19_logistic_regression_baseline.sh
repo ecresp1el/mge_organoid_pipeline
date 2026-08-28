@@ -7,8 +7,12 @@
 #   Reads the validated Step 03 WT-male/KO-male table through the shared Step 04
 #   encoder/reader and the manifested Step 04 empirical model for comparison.
 #   Predictors are exactly A_detected, B_detected, and C_detected. WT=0 and
-#   KO=1. No HET cells, hard calls, thresholds, interactions, nonlinear terms,
-#   UMI counts, cell types, or transcriptome features are used.
+#   KO=1. The expanded Step 05 also performs leave-one-registered-sample-out
+#   validation, always leaves 000 uncalled, and uses a fixed non-optimized 0.5
+#   probability threshold for informative patterns. No HET cells,
+#   interactions, nonlinear terms, UMI counts, cell types, or transcriptome
+#   features are used. Existing Step 05 fit outputs remain unchanged; held-out
+#   products are published in a manifested validation subdirectory.
 set -Eeuo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"

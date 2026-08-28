@@ -354,10 +354,37 @@ results/step_05_pcdh19_logistic_regression_baseline/
   step_05_pcdh19_logistic_regression_validation.tsv
   software_environment.tsv
   output_manifest.tsv
+  sample_level_held_out_validation/
+    step_05_loso_held_out_cell_predictions.tsv
+    step_05_loso_confusion_matrix.tsv
+    step_05_loso_per_sample_metrics.tsv
+    step_05_loso_overall_metrics.tsv
+    step_05_loso_fold_model_coefficients.tsv
+    step_05_loso_held_out_confusion_matrix.png
+    step_05_loso_per_sample_accuracy_called.png
+    step_05_loso_per_sample_percent_called.png
+    step_05_loso_validation_checks.tsv
+    software_environment.tsv
+    output_manifest.tsv
 ```
 
 All `000` cells remain in the fit, making the intercept their baseline log
 odds. The fitted `000` probabilities are P(WT)=0.5099 and P(KO)=0.4901, but no
-hard call is assigned. Step 05 does not use UMI counts, interactions,
-nonlinear terms, transcriptome/cell-type features, HET cells, thresholds, or
-held-out performance claims.
+held-out call is assigned. The validation extension leaves out one registered
+sample at a time, refits on the other five, and predicts every cell in the
+held-out sample. No cell-level random split is used. For non-`000` patterns,
+the fixed rule calls KO when P(KO) > 0.5 and WT when P(WT) > 0.5; exact ties
+remain uncalled, and the threshold is never optimized on held-out cells.
+
+Across all six held-out folds, 43,256/230,269 cells (18.785%) are called.
+Accuracy among called cells is 80.729%; with KO as the positive class,
+sensitivity is 99.711% and specificity is 55.691%. These denominators and the
+large class asymmetry should accompany any interpretation of the overall
+accuracy. Step 05 still excludes UMI counts, interactions, nonlinear terms,
+transcriptome/cell-type features, HET cells, model selection, and threshold
+optimization.
+
+The registered Step 03 `technical_sample_id` is the available holdout unit and
+is labeled `biological_sample_id` in validation outputs. This is leakage-safe
+at the registered-sample level, but the current metadata do not establish
+donor, embryo, or litter independence.
