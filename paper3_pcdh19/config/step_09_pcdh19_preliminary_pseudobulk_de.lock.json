@@ -1,0 +1,40 @@
+{
+  "step_id": "09_pcdh19_preliminary_pseudobulk_differential_expression",
+  "pipeline_version": "0.1.0-preliminary",
+  "analysis_status": "PRELIMINARY",
+  "label_transfer_manifest_sha256": "ca214c2c65d6aaac6235b7b8e66b2388fbfb2e9f1ac0369de0e9bb0e53280b11",
+  "label_file": "gse94641_query_cell_label_transfer.tsv",
+  "label_file_sha256": "fc8fead9aca1bf713e06a501ca9cca1831e740cbf05d062c1b0ca34d799feda4",
+  "query_input_manifest_sha256": "206442fdeed08697ba17fb8c0f5c708402fc20a39efcec5fe95b2d169eb38d18",
+  "sample_key_sha256": "5b20e8596c28f95b6adedcb0fe17019d2a6db46384f18f02d4bfdc58803f1dc8",
+  "expected_cells": 450788,
+  "expected_features": 19071,
+  "strata": {
+    "all_cells": "all Cell Ranger-filtered cells",
+    "progenitor": "GSE94641_broad_state == proliferating_neural_progenitor",
+    "immature_neuron": "GSE94641_broad_state == postmitotic_immature_neuron"
+  },
+  "contrasts": [
+    {"contrast_id": "wt_f_vs_wt_m", "case_group": "WT_F", "reference_group": "WT_M", "interpretation": "sex effect within WT"},
+    {"contrast_id": "het_f_vs_wt_f", "case_group": "HET_F", "reference_group": "WT_F", "interpretation": "HET effect in females"},
+    {"contrast_id": "ko_m_vs_wt_m", "case_group": "KO_M", "reference_group": "WT_M", "interpretation": "KO effect in males"}
+  ],
+  "model": {
+    "method": "edgeR quasi-likelihood negative-binomial GLM",
+    "replicate_unit": "biological_sample_id",
+    "normalization": "TMM",
+    "filtering": "edgeR filterByExpr within contrast and stratum",
+    "design": "~0 + design_group",
+    "robust_dispersion": true,
+    "fdr_method": "Benjamini-Hochberg within each contrast and stratum"
+  },
+  "prohibited_operations": [
+    "cell_level_de_testing",
+    "wt_like_vs_ko_like_het_comparison",
+    "step_03_to_07_model_or_threshold_modification",
+    "cross_sex_disease_contrast",
+    "normalized_values_as_edger_count_input",
+    "flex_counts_as_literal_transcript_counts"
+  ]
+}
+
