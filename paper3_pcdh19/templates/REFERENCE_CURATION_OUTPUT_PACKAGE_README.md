@@ -12,15 +12,25 @@ Directory roles:
   The SLURM jobs execute these copies, not the repository files.
 - `config/`: submitted source registry, environment/resource settings, and
   resolved run paths.
-- `LaManno2021/`, `Bandler2022/`, `Mayer2018/`: per-study metadata and audit
-  outputs. Large downloaded P0 objects are not duplicated here.
-- `tables/`: source audit, raw-access registry, and combined early checkpoint.
+- `LaManno2021/`, `Bandler2022/`, `Mayer2018/`: per-study published metadata,
+  object-linked sample inventory, standardized sample summary, and object
+  audit outputs. Large downloaded P0 objects are not duplicated here.
+- `tables/`: source/raw-access audit, all-candidate per-sample inventory,
+  study-level sample/library summary, sample-field data dictionary, curation
+  requirements ledger, and combined early object checkpoint.
 - `logs/`: scheduler output and errors.
 - `provenance/`: submitted command, job IDs, and runtime environment records.
 - `SUCCESS.txt` or `FAILED.txt`: unambiguous checkpoint status.
+- `REFERENCE_CURATION_REPORT.md`: observed-object comparison generated only
+  after all three inspections and the combined checkpoint pass.
 
 Original P0 objects are cached once under the resolved
 `PAPER3_CURATION_SOURCE_ROOT` inside `PAPER3_ROOT/inputs/`. Existing cached
 objects are reused without being overwritten. A new default submission creates
 a new versioned run. An existing inactive run can be regenerated only through
 the guarded `--replace-run RUN_ID` submission option.
+
+Published sample metadata and membership in a downloaded P0 object are
+different evidence states in this package. Blank, unresolved, partial, and
+`NOT_ASSESSED` values are intentional; they prevent paper-level facts from
+being presented as cell-level joins before those joins are proven.

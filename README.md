@@ -12,8 +12,14 @@ still awaiting the lab sample key.
 The new standalone audit of La Manno 2021, Bandler 2022, and Mayer 2018 as
 candidate developing-mouse MGE references is registered in
 [`paper3_pcdh19/PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](paper3_pcdh19/PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md).
-Its first-checkpoint code and SLURM scaffold are implemented but not yet run;
-it remains curation-only and does not map Paper 3 cells.
+Its first checkpoint completed on 2026-08-29 in run
+`00_developing_mouse_mge_reference_curation_20260829_141944_3b2ad52`; it
+remains curation-only and did not map Paper 3 cells. The checkpoint
+publishes standardized published-versus-P0-linked sample counts/IDs,
+biological and library metadata, and an explicit requirements ledger for the
+next annotation/embedding curation stage. Its observed-object report found
+that La Manno contains embedded author labels and embeddings, whereas the
+inspected Bandler and Mayer P0 files are counts-only.
 
 ## Paper 2 workstream
 

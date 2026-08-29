@@ -44,6 +44,7 @@ REGISTRY="${BUNDLE_DIR}/config/developing_mouse_mge_source_registry.tsv"
 REQUIREMENTS="${BUNDLE_DIR}/config/developing_mouse_mge_reference_curation.requirements.txt"
 PY_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/developing_mouse_mge_reference_curation.py"
 R_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/inspect_bandler_rds.R"
+REPORT_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/generate_reference_curation_report.py"
 SOURCE_SBATCH="${BUNDLE_DIR}/slurm/00a_developing_mouse_mge_source_audit.sbatch"
 P0_SBATCH="${BUNDLE_DIR}/slurm/00b_developing_mouse_mge_p0_inspection.sbatch"
 CHECKPOINT_SBATCH="${BUNDLE_DIR}/slurm/00c_developing_mouse_mge_checkpoint.sbatch"
@@ -63,7 +64,7 @@ source "${CURATION_CONFIG}"
 
 for required in \
   "${GREATLAKES_CONFIG}" "${CURATION_CONFIG}" "${REGISTRY}" "${REQUIREMENTS}" \
-  "${PY_SCRIPT}" "${R_SCRIPT}" "${SOURCE_SBATCH}" "${P0_SBATCH}" \
+  "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${SOURCE_SBATCH}" "${P0_SBATCH}" \
   "${CHECKPOINT_SBATCH}" "${PACKAGE_README}" "${HANDOFF}" "${CURATION_PYTHON_BIN}"; do
   [[ -f "${required}" ]] || { echo "Missing required file: ${required}" >&2; exit 2; }
 done
@@ -146,7 +147,7 @@ mkdir -p \
   "${RUN_DIR}/Mayer2018/metadata" "${RUN_DIR}/Mayer2018/figures" "${RUN_DIR}/Mayer2018/audit" \
   "${SOURCE_ROOT}"
 
-cp -p "${PY_SCRIPT}" "${R_SCRIPT}" "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" \
+cp -p "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" \
   "${BASH_SOURCE[0]}" "${RUN_DIR}/code/"
 cp -p "${GREATLAKES_CONFIG}" "${RUN_DIR}/config/submitted_greatlakes.env"
 cp -p "${CURATION_CONFIG}" "${RUN_DIR}/config/submitted_curation.env"

@@ -40,6 +40,19 @@ The three candidate references to curate are:
    Smart-seq2 MGE series:
    GSE104157
 
+CURRENT EXECUTION STATUS
+------------------------
+
+The early processed-object and sample-metadata checkpoint completed on
+2026-08-29 in run
+`00_developing_mouse_mge_reference_curation_20260829_141944_3b2ad52`.
+The successful replacement chain used jobs 59168348, 59168349, and 59168350.
+La Manno contains embedded author annotation columns and `X_UMAP`/`X_tSNE`;
+the inspected Bandler and Mayer P0 files are counts-only and require a stable
+barcode-to-published-label artifact before their cell types can be displayed.
+The evidence-based comparison is in that run's
+`REFERENCE_CURATION_REPORT.md`. No Paper 3 cell was loaded or mapped.
+
 IMPORTANT BIOLOGICAL GOAL
 -------------------------
 
@@ -137,9 +150,9 @@ Implemented physical structure:
 
 PAPER3_ROOT/
 ├── inputs/developing_mouse_mge/
-│   ├── LaManno2021/source/
-│   ├── Bandler2022/source/
-│   └── Mayer2018/source/
+│   ├── LaManno2021/{source,metadata_sources}/
+│   ├── Bandler2022/{source,metadata_sources}/
+│   └── Mayer2018/{source,metadata_sources}/
 └── results/00_developing_mouse_mge_reference_curation/<run_id>/
     ├── README.md
     ├── code/
@@ -180,6 +193,58 @@ Record:
 - source repository/database
 - paper
 - whether it was actually downloaded
+
+SAMPLE / LIBRARY METADATA CONTRACT
+----------------------------------
+
+The first checkpoint must also prepare the evidence needed for the next
+reference-curation stage. For every published or author-registered sample,
+retain the exact sample ID and, when supplied, age/stage, tissue, anatomical
+region, genotype/condition, sex, strain, organism, pool, replicate, QC state,
+project/cohort, single-cell modality, capture technology, library strategy,
+source, selection, layout, instrument, platform, chemistry, sequencing
+protocol, reference genome, isolation/dissociation method, experimental
+selection or enrichment, raw accession, and BioSample accession.
+
+Published sample metadata and membership in the downloaded P0 object are two
+different claims. Record both. Never claim that a published sample is present
+in the P0 cells unless an author sample field, stable barcode/cell identifier,
+or other explicit join proves it. Preserve all original GEO/author fields in a
+long-form table even when they do not map into the standardized columns.
+
+Required first-checkpoint outputs are:
+
+- `<paper>/metadata/published_sample_inventory.tsv`
+- `<paper>/metadata/published_sample_metadata_long.tsv`
+- `<paper>/metadata/object_sample_inventory.tsv`
+- `<paper>/metadata/sample_inventory.tsv`
+- `<paper>/metadata/study_sample_summary.tsv`
+- `tables/all_candidate_reference_samples.tsv`
+- `tables/study_sample_summary.tsv`
+- `tables/sample_metadata_data_dictionary.tsv`
+- `tables/reference_curation_requirements_ledger.tsv`
+- `tables/reference_annotation_availability.tsv`
+- `<paper>/metadata/annotation_dictionary.tsv` (observed P0 labels only;
+  header-only when the P0 has no labels)
+- `REFERENCE_CURATION_REPORT.md`
+
+The combined summary must report both the number/IDs of published samples and
+the number/IDs demonstrably represented in the P0 object. Unresolved object
+sample IDs and unlinked published samples remain explicit. The requirements
+ledger uses `PASS`, `PARTIAL`, `MISSING`, and `NOT_ASSESSED`; the latter is
+expected for annotation dictionaries, author-embedding reproduction, broad
+class coverage, exact MGE/age-matched counts, and readiness ranking because
+those belong to the reviewed next stage.
+
+The implementation must remain object-oriented. `SourceRegistry` owns source
+validation, `ImmutableSourceCache` owns atomic read-only materialization,
+`PublishedMetadataCollector` owns sample evidence, study-specific
+`StudyObjectInspector` subclasses own P0 inspection,
+`StudyInspectionWorkflow` owns per-study reconciliation, and
+`CheckpointPublisher` plus `CurationRequirementEvaluator` own combined output
+publication, and `ReferenceCurationReportBuilder` owns the observed-object
+report and label dictionaries. Do not move these responsibilities into a
+monolithic command.
 
 
 TASK 0 — ENVIRONMENT AND REPRODUCIBILITY
@@ -963,6 +1028,7 @@ one existing inactive run within this step:
       --replace-run 00_developing_mouse_mge_reference_curation_<timestamp>_<commit>
 
 The submitted chain is source audit, a three-study P0 inspection array, and a
-dependency-gated checkpoint aggregator. It stops after publishing
-`tables/early_processed_object_checkpoint.tsv`; the UMAP/annotation audit must
-be a separately reviewed later stage.
+dependency-gated checkpoint aggregator. The array also retrieves only the
+small GEO/author metadata registries needed to publish the sample/library
+inventories above. It stops after the early object/sample-metadata checkpoint;
+the UMAP/annotation audit must be a separately reviewed later stage.

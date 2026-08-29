@@ -6,9 +6,10 @@ allocation, independent step numbering, and independent outputs.
 
 ## New auxiliary work: three-reference MGE curation
 
-A standalone, implemented but not-yet-executed module will audit three published WT
-developing-mouse references—La Manno 2021, Bandler 2022, and Mayer 2018—before
-one is selected for future mapping. Start with
+A standalone module audits three published WT developing-mouse
+references—La Manno 2021, Bandler 2022, and Mayer 2018—before one is selected
+for future mapping. Its first checkpoint completed on 2026-08-29 in run
+`00_developing_mouse_mge_reference_curation_20260829_141944_3b2ad52`. Start with
 [`PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md).
 
 The immediate scope is source discovery, minimal processed-object inspection,
@@ -17,6 +18,26 @@ raw FASTQs, reconstruct large analyses, integrate references, or map the
 PCDH19 cells before the required early checkpoint. This is a sibling of the
 existing GSE94641 workstream and is not part of the frozen Steps 03–07
 classification unit.
+
+The observed P0 files show that La Manno has embedded `Class`, `Subclass`,
+`CellType`, `cluster_id`, age/dissection metadata, and author UMAP/tSNE
+coordinates. Bandler's exact WT E15 MGE object and Mayer's six-sample 10x CSV
+contain counts but no cell-level annotations or saved embeddings. The complete
+checkpoint interpretation is in the run's `REFERENCE_CURATION_REPORT.md`.
+
+The early checkpoint additionally produces a standardized sample/library
+inventory for the next curation stage. It separately reports published sample
+counts and IDs versus samples demonstrably present in each P0 object, with
+age, tissue/region, genotype/design, pool/replicate/QC, modality, technology,
+library, instrument/platform, chemistry/protocol, enrichment/selection, raw
+accessions, cell counts when proven, and explicit metadata gaps. See
+`tables/all_candidate_reference_samples.tsv`, `tables/study_sample_summary.tsv`,
+and `tables/reference_curation_requirements_ledger.tsv` in a completed run.
+The Python design is object-oriented, with distinct registry/cache, metadata,
+study-inspector, orchestration, evaluator, and publisher components.
+Successful future checkpoint jobs also publish `REFERENCE_CURATION_REPORT.md`
+and observed-label annotation dictionaries using the report generator copied
+into the run package before submission.
 
 Prepare or submit the required first checkpoint with:
 

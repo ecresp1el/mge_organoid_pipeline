@@ -19,13 +19,29 @@ limitations are documented in
 [`MGE_REFERENCE_MAPPING.md`](MGE_REFERENCE_MAPPING.md). It is not an input to
 the frozen genotype classifier.
 
-A separate, not-yet-executed auxiliary Step 00-style module will curate La
-Manno 2021, Bandler 2022, and Mayer 2018 as candidate WT developing-mouse MGE
-references. Its authoritative instructions are
+A separate auxiliary Step 00-style module curates La Manno 2021, Bandler 2022,
+and Mayer 2018 as candidate WT developing-mouse MGE references. Its first
+checkpoint completed on 2026-08-29. Its authoritative instructions are
 [`PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md).
 The registered stage stops at processed-object, annotation, author-embedding,
 and raw-access auditing; it does not load the Paper 3 query, run label
 transfer, or alter the completed GSE94641 package.
+
+Before that stop, the workflow builds a standardized sample/library ledger
+from small GEO SOFT and author registries and from sample fields actually
+present in each P0 object. Published sample identity is not treated as proof of
+P0-cell membership. Per-study and combined tables retain sample counts/IDs,
+age, tissue/region, biological/design fields, modality, technology, full
+library/instrument metadata, selection bias, raw accessions, object-linked
+cell counts where proven, and explicit gaps. A requirements ledger carries
+all later annotation, MGE-class, author-embedding, and readiness tasks forward
+as assessed or `NOT_ASSESSED`. Registry/cache, metadata parsing,
+study-specific inspection, reconciliation, evaluation, and publication remain
+separate object-oriented components.
+After all inspections pass, the copied report builder publishes the
+observed-object comparison, annotation-availability table, and per-study
+observed-label dictionaries; absent P0 annotations remain header-only rather
+than being reconstructed from paper text.
 
 The registered source tissue is mouse embryonic brain, MGE, and the dataset was
 generated with 10x Flex v2. This audit asks a deliberately narrow question:
@@ -57,12 +73,14 @@ source/result ledger and safe provenance options.
 
 - `00_source_discovery`: located the correct `15662-JZ` delivery; complete.
 - `00_developing_mouse_mge_reference_curation`: auxiliary comparison of La
-  Manno 2021, Bandler 2022, and Mayer 2018; first-checkpoint code, submission,
-  and SLURM scaffold implemented, execution not started. Default runs are
+  Manno 2021, Bandler 2022, and Mayer 2018; first checkpoint completed in run
+  `00_developing_mouse_mge_reference_curation_20260829_141944_3b2ad52`.
+  Default runs are
   versioned; guarded `--replace-run RUN_ID` regeneration is confined to this
   step. Jobs execute pre-submission copies from each run package. The first
-  checkpoint precedes reconstruction, heavy analysis, reference selection,
-  and all Paper 3 mapping.
+  checkpoint publishes object structure plus sample/library inventories and
+  precedes reconstruction, heavy analysis, reference selection, and all Paper
+  3 mapping.
 - `00_gse94641_reference_download_validation`: independent rapid-annotation
   preprocessing; 225 processed published reference cells and all GEO cell
   metadata are checksum-locked and validated; complete.

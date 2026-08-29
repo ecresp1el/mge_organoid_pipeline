@@ -8,7 +8,7 @@ Last updated: 2026-08-29
 > Do not change any existing model, threshold, classification, or result
 > package. Post-freeze analyses must remain separate and downstream.
 
-## Independent developing-mouse MGE reference curation (implemented; not yet executed)
+## Independent developing-mouse MGE reference curation (first checkpoint complete)
 
 The authoritative instructions for auditing La Manno 2021, Bandler 2022, and
 Mayer 2018 as candidate WT developing-mouse MGE references are now registered
@@ -20,9 +20,34 @@ P0 processed objects. It must not download raw FASTQs, integrate or map the
 Paper 3 cells, invent annotations, recluster giant datasets, or select a final
 reference before the evidence audit is complete.
 
+The first checkpoint now creates a curation-ready sample and library ledger,
+not just an object-structure row. It preserves published/author sample IDs,
+sample counts, ages, tissues/regions, genotype/condition, sex/strain,
+pool/replicate/QC, single-cell modality, capture technology, library and
+instrument fields, chemistry/protocol, experimental selection, raw/BioSample
+accessions, and P0-object membership. Published metadata and proven P0 cell
+membership remain separate claims. The combined outputs are
+`tables/all_candidate_reference_samples.tsv`, `tables/study_sample_summary.tsv`,
+`tables/sample_metadata_data_dictionary.tsv`, and
+`tables/reference_curation_requirements_ledger.tsv`; unresolved or future-stage
+requirements are marked explicitly.
+After the three inspections pass, the checkpoint job also generates
+`REFERENCE_CURATION_REPORT.md`, `tables/reference_annotation_availability.tsv`,
+and per-study observed-label `annotation_dictionary.tsv` files from the exact
+report code copied into that run.
+
+This auxiliary implementation follows the same modular object-oriented rule
+as the classification code: registry, immutable cache, metadata collection,
+study-specific object inspection, per-study orchestration, readiness
+evaluation, and checkpoint publication are separate objects.
+
 This new three-candidate workstream is a sibling of the completed GSE94641
 Step 00 mapping work, not a replacement for it and not an input to the frozen
-Steps 03–07 classifier. No candidate-reference audit output is claimed yet.
+Steps 03–07 classifier. Its first checkpoint completed on 2026-08-29 in run
+`00_developing_mouse_mge_reference_curation_20260829_141944_3b2ad52`.
+La Manno was directly annotation/embedding-ready; the Bandler and Mayer P0
+files were counts-only and require published barcode metadata before their
+cell types can be displayed. See that run's `REFERENCE_CURATION_REPORT.md`.
 
 The first-checkpoint scaffold is implemented through
 `bin/submit_developing_mouse_mge_reference_curation.sh`. Default submission
