@@ -47,11 +47,31 @@ The early processed-object and sample-metadata checkpoint completed on
 2026-08-29 in run
 `00_developing_mouse_mge_reference_curation_20260829_141944_3b2ad52`.
 The successful replacement chain used jobs 59168348, 59168349, and 59168350.
+The visual/report stage was added with job 59169776; layout and wording
+revisions completed as jobs 59170025 and 59170165.
 La Manno contains embedded author annotation columns and `X_UMAP`/`X_tSNE`;
 the inspected Bandler and Mayer P0 files are counts-only and require a stable
 barcode-to-published-label artifact before their cell types can be displayed.
 The evidence-based comparison is in that run's
 `REFERENCE_CURATION_REPORT.md`. No Paper 3 cell was loaded or mapped.
+
+The observed E15/MGE answer is now explicit. Bandler is the only candidate
+with a directly identified exact WT E15 MGE sample in the inspected P0
+(`CA301`/`GSM5684876`, 4,516 cells). Mayer has a directly identified MGE
+sample, but it is `MGE_E13.5_Lhx6pos` (6,515 cells), not E15 and not an
+unbiased whole-MGE census. La Manno contains exact E15.0/E15.5 cells and
+ventral-forebrain dissections, but no explicit author MGE label was found in
+the inspected annotation vocabularies; exact E15 MGE membership therefore
+remains unproven and ventral forebrain must not be relabeled as MGE.
+
+The auxiliary visual audit publishes the La Manno author-label hierarchy at
+`LaManno2021/figures/01_author_annotation_hierarchy_composition.{png,pdf}` and
+the three-study evidence matrix at
+`figures/02_candidate_e15_mge_annotation_evidence.{png,pdf}`. Its supporting
+tables are `LaManno2021/metadata/class_by_subclass_composition.tsv`,
+`LaManno2021/metadata/forebrain_gabaergic_celltype_composition.tsv`, and
+`tables/candidate_e15_mge_status.tsv`. The plots show only observed author
+labels/evidence and do not reconstruct missing Bandler or Mayer annotations.
 
 IMPORTANT BIOLOGICAL GOAL
 -------------------------
@@ -226,6 +246,11 @@ Required first-checkpoint outputs are:
 - `tables/reference_annotation_availability.tsv`
 - `<paper>/metadata/annotation_dictionary.tsv` (observed P0 labels only;
   header-only when the P0 has no labels)
+- `LaManno2021/metadata/class_by_subclass_composition.tsv`
+- `LaManno2021/metadata/forebrain_gabaergic_celltype_composition.tsv`
+- `LaManno2021/figures/01_author_annotation_hierarchy_composition.{png,pdf}`
+- `tables/candidate_e15_mge_status.tsv`
+- `figures/02_candidate_e15_mge_annotation_evidence.{png,pdf}`
 - `REFERENCE_CURATION_REPORT.md`
 
 The combined summary must report both the number/IDs of published samples and
@@ -234,7 +259,10 @@ sample IDs and unlinked published samples remain explicit. The requirements
 ledger uses `PASS`, `PARTIAL`, `MISSING`, and `NOT_ASSESSED`; the latter is
 expected for annotation dictionaries, author-embedding reproduction, broad
 class coverage, exact MGE/age-matched counts, and readiness ranking because
-those belong to the reviewed next stage.
+those belong to the reviewed next stage. The present visual audit is limited
+to observed label hierarchy and the explicit E15/MGE evidence status above;
+it does not substitute for the still-missing Bandler/Mayer barcode-to-label
+joins or a final reference-readiness ranking.
 
 The implementation must remain object-oriented. `SourceRegistry` owns source
 validation, `ImmutableSourceCache` owns atomic read-only materialization,
@@ -242,9 +270,10 @@ validation, `ImmutableSourceCache` owns atomic read-only materialization,
 `StudyObjectInspector` subclasses own P0 inspection,
 `StudyInspectionWorkflow` owns per-study reconciliation, and
 `CheckpointPublisher` plus `CurationRequirementEvaluator` own combined output
-publication, and `ReferenceCurationReportBuilder` owns the observed-object
-report and label dictionaries. Do not move these responsibilities into a
-monolithic command.
+publication, `HierarchyComposition` and its plotter classes own the visual
+audit, and `ReferenceCurationReportBuilder` owns the observed-object report
+and label dictionaries. Do not move these responsibilities into a monolithic
+command.
 
 
 TASK 0 — ENVIRONMENT AND REPRODUCIBILITY
@@ -1028,7 +1057,8 @@ one existing inactive run within this step:
       --replace-run 00_developing_mouse_mge_reference_curation_<timestamp>_<commit>
 
 The submitted chain is source audit, a three-study P0 inspection array, and a
-dependency-gated checkpoint aggregator. The array also retrieves only the
+dependency-gated checkpoint/report/visual aggregator. The array also retrieves only the
 small GEO/author metadata registries needed to publish the sample/library
 inventories above. It stops after the early object/sample-metadata checkpoint;
-the UMAP/annotation audit must be a separately reviewed later stage.
+missing Bandler/Mayer label reconstruction and any final reference selection
+must be separately reviewed later stages.

@@ -41,7 +41,11 @@ separate object-oriented components.
 After all inspections pass, the copied report builder publishes the
 observed-object comparison, annotation-availability table, and per-study
 observed-label dictionaries; absent P0 annotations remain header-only rather
-than being reconstructed from paper text.
+than being reconstructed from paper text. The copied object-oriented visual
+audit also publishes the observed La Manno `Class` → `Subclass` → `CellType`
+composition and a three-study E15/MGE evidence matrix with supporting TSVs.
+It establishes exact WT E15 MGE only for Bandler (`CA301`, 4,516 cells): Mayer
+is MGE E13.5 Lhx6-positive, while La Manno exact E15 MGE remains unproven.
 
 The registered source tissue is mouse embryonic brain, MGE, and the dataset was
 generated with 10x Flex v2. This audit asks a deliberately narrow question:
@@ -79,8 +83,9 @@ source/result ledger and safe provenance options.
   versioned; guarded `--replace-run RUN_ID` regeneration is confined to this
   step. Jobs execute pre-submission copies from each run package. The first
   checkpoint publishes object structure plus sample/library inventories and
-  precedes reconstruction, heavy analysis, reference selection, and all Paper
-  3 mapping.
+  observed hierarchy/evidence visuals, and precedes missing-label
+  reconstruction, heavy analysis, reference selection, and all Paper 3
+  mapping.
 - `00_gse94641_reference_download_validation`: independent rapid-annotation
   preprocessing; 225 processed published reference cells and all GEO cell
   metadata are checksum-locked and validated; complete.

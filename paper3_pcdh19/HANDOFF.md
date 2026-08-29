@@ -48,6 +48,12 @@ Steps 03–07 classifier. Its first checkpoint completed on 2026-08-29 in run
 La Manno was directly annotation/embedding-ready; the Bandler and Mayer P0
 files were counts-only and require published barcode metadata before their
 cell types can be displayed. See that run's `REFERENCE_CURATION_REPORT.md`.
+The E15/MGE evidence is not equivalent across candidates: Bandler directly
+provides 4,516 WT E15 MGE cells; Mayer directly provides 6,515 MGE E13.5
+Lhx6-positive cells; and La Manno has exact E15 and ventral-forebrain cells but
+no inspected author label that proves exact E15 MGE membership. The run now
+also contains an author-label hierarchy/composition plot and a three-study
+E15/MGE evidence matrix, with underlying TSVs and exact executed plot code.
 
 The first-checkpoint scaffold is implemented through
 `bin/submit_developing_mouse_mge_reference_curation.sh`. Default submission
@@ -56,6 +62,10 @@ creates a versioned package beneath
 copies the exact Python, R, submitter, configuration, and SLURM files into the
 run package; the jobs execute those copies. P0 processed objects are cached
 once beneath `inputs/developing_mouse_mge/` and are not duplicated per run.
+The dependency-gated checkpoint invokes the object-oriented hierarchy plotter
+before rebuilding the Markdown report, so a rerun or guarded same-step
+replacement regenerates the visual outputs rather than relying on a manual
+figure.
 
 Use `--replace-run RUN_ID` only when intentionally regenerating an existing inactive run
 within this exact step. The guarded replacement rejects unsafe names and active

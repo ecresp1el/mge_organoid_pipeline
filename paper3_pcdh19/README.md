@@ -25,6 +25,14 @@ coordinates. Bandler's exact WT E15 MGE object and Mayer's six-sample 10x CSV
 contain counts but no cell-level annotations or saved embeddings. The complete
 checkpoint interpretation is in the run's `REFERENCE_CURATION_REPORT.md`.
 
+For the exact age/anatomy question: Bandler provides 4,516 directly identified
+WT E15 MGE cells (`CA301`); Mayer provides 6,515 MGE cells at E13.5 with
+Lhx6-positive enrichment; La Manno contains E15 cells and ventral-forebrain
+dissections, but its inspected author labels do not prove which E15 cells are
+MGE. The run includes a La Manno author hierarchy/composition plot and a
+three-candidate E15/MGE evidence matrix in its `figures/` directories, with
+the underlying counts/evidence retained as TSV tables and manifested outputs.
+
 The early checkpoint additionally produces a standardized sample/library
 inventory for the next curation stage. It separately reports published sample
 counts and IDs versus samples demonstrably present in each P0 object, with
@@ -36,8 +44,9 @@ and `tables/reference_curation_requirements_ledger.tsv` in a completed run.
 The Python design is object-oriented, with distinct registry/cache, metadata,
 study-inspector, orchestration, evaluator, and publisher components.
 Successful future checkpoint jobs also publish `REFERENCE_CURATION_REPORT.md`
-and observed-label annotation dictionaries using the report generator copied
-into the run package before submission.
+and observed-label annotation dictionaries plus hierarchy/evidence plots
+using the plotting and report code copied into the run package before
+submission.
 
 Prepare or submit the required first checkpoint with:
 

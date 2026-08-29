@@ -17,12 +17,17 @@ Directory roles:
   audit outputs. Large downloaded P0 objects are not duplicated here.
 - `tables/`: source/raw-access audit, all-candidate per-sample inventory,
   study-level sample/library summary, sample-field data dictionary, curation
-  requirements ledger, and combined early object checkpoint.
+  requirements ledger, combined early object checkpoint, and explicit
+  candidate E15/MGE evidence status.
+- `figures/`: cross-study E15/MGE evidence visual. La Manno's study-specific
+  directory also contains the observed author annotation hierarchy/composition
+  plot and its underlying TSVs.
 - `logs/`: scheduler output and errors.
 - `provenance/`: submitted command, job IDs, and runtime environment records.
 - `SUCCESS.txt` or `FAILED.txt`: unambiguous checkpoint status.
 - `REFERENCE_CURATION_REPORT.md`: observed-object comparison generated only
-  after all three inspections and the combined checkpoint pass.
+  after all three inspections and the combined checkpoint pass; it embeds the
+  hierarchy/evidence visuals when they are present.
 
 Original P0 objects are cached once under the resolved
 `PAPER3_CURATION_SOURCE_ROOT` inside `PAPER3_ROOT/inputs/`. Existing cached
