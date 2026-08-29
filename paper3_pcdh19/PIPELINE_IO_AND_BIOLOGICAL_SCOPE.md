@@ -19,6 +19,14 @@ limitations are documented in
 [`MGE_REFERENCE_MAPPING.md`](MGE_REFERENCE_MAPPING.md). It is not an input to
 the frozen genotype classifier.
 
+A separate, not-yet-executed auxiliary Step 00-style module will curate La
+Manno 2021, Bandler 2022, and Mayer 2018 as candidate WT developing-mouse MGE
+references. Its authoritative instructions are
+[`PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md).
+The registered stage stops at processed-object, annotation, author-embedding,
+and raw-access auditing; it does not load the Paper 3 query, run label
+transfer, or alter the completed GSE94641 package.
+
 The registered source tissue is mouse embryonic brain, MGE, and the dataset was
 generated with 10x Flex v2. This audit asks a deliberately narrow question:
 which of the three panel probes assigned to Pcdh19 produced raw UMIs in each
@@ -48,6 +56,13 @@ source/result ledger and safe provenance options.
 ## Workflow position
 
 - `00_source_discovery`: located the correct `15662-JZ` delivery; complete.
+- `00_developing_mouse_mge_reference_curation`: auxiliary comparison of La
+  Manno 2021, Bandler 2022, and Mayer 2018; first-checkpoint code, submission,
+  and SLURM scaffold implemented, execution not started. Default runs are
+  versioned; guarded `--replace-run RUN_ID` regeneration is confined to this
+  step. Jobs execute pre-submission copies from each run package. The first
+  checkpoint precedes reconstruction, heavy analysis, reference selection,
+  and all Paper 3 mapping.
 - `00_gse94641_reference_download_validation`: independent rapid-annotation
   preprocessing; 225 processed published reference cells and all GEO cell
   metadata are checksum-locked and validated; complete.

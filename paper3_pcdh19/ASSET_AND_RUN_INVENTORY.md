@@ -8,12 +8,17 @@ column-level contract in
 For the frozen Steps 03–07 methodological unit and its exact stopping point,
 start with
 [`PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md`](PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md).
+The separate, planned three-candidate reference-curation audit is governed by
+[`PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md);
+its instructions and first-checkpoint implementation are registered, but no
+downloaded source or generated audit asset is claimed in this inventory yet.
 
 ## Status at a glance
 
 | Step | Scientific object | Status supported by files | Main result |
 | --- | --- | --- | --- |
 | `00_source_discovery` | Storage paths and delivered-file metadata | Source registry and access tooling present | Correct Ziobro delivery registered; this step is not biological analysis. |
+| `00_developing_mouse_mge_reference_curation` | Published processed objects, cell-level annotations, and author embeddings for La Manno 2021, Bandler 2022, and Mayer 2018 | First-checkpoint Python/R, submission, configuration, and three-stage SLURM scaffold implemented; execution not started and no audit output claimed | Default versioned run or guarded same-step `--replace-run`; inspect the three smallest P0 objects and stop at the required early checkpoint. |
 | `01_sample_key` | User-supplied technical-to-design mapping | Registered CSV present | 12 technical samples map to four groups of three; independence/replicate structure remains unconfirmed. |
 | `02a_pcdh19_probe_audit` | Raw Pcdh19 UMI contribution of three Flex probes | Complete, 54/54 manifested non-manifest files passed byte-size and SHA-256 verification | 113,772 Pcdh19 UMIs in 85,541 of 450,788 vendor-filtered barcodes. |
 | `02b_xgfp_probe_compatibility_audit` | Exact probe-to-construct sequence compatibility | Complete, 6/6 manifested non-manifest files passed byte-size and SHA-256 verification | Three of three probes have one exact 50/50 reverse-complement match to the locked Clontech EGFP CDS. |
@@ -45,6 +50,8 @@ Each manifest is intentionally not self-listed.
 
 | Asset class | Files | Role |
 | --- | --- | --- |
+| Reference-curation instructions | `PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md` | Authoritative curation-only scope, candidate datasets, required audit products, early checkpoint, ranking criteria, and explicit prohibitions before any future label transfer. |
+| Reference-curation implementation | `scripts/reference_curation/developing_mouse_mge_reference_curation.py`, `scripts/reference_curation/inspect_bandler_rds.R`, `config/developing_mouse_mge_*`, `bin/submit_developing_mouse_mge_reference_curation.sh`, `bin/status_developing_mouse_mge_reference_curation.sh`, and `slurm/00a-00c_developing_mouse_mge_*.sbatch` | Builds/probes the source registry, downloads or reuses only P0 processed objects, inspects actual H5AD/RDS/CSV structure, and publishes the early checkpoint. Submission freezes executable copies into a versioned run and supports guarded same-step replacement. |
 | Python computation | `scripts/pcdh19_probe_audit.py`, `scripts/xgfp_probe_compatibility_audit.py`, `scripts/egfp_probe_audit.py`, `scripts/Step_03_PCDH19_Genotype_Classification_Setup.py`, `scripts/Step_04_PCDH19_Empirical_Pattern_Classifier.py`, `scripts/Step_05_PCDH19_Logistic_Regression_Baseline.py` | Reference validation, count extraction/alignment, metadata joins, empirical and logistic modeling, probability comparison, plotting, validation, atomic publication, and manifests. Steps 03-05 use the object-oriented modular classification pattern. |
 | Supported shell entry points | `bin/run_pcdh19_probe_audit_all.sh`, `bin/run_xgfp_probe_audit.sh`, `bin/run_egfp_probe_audit_all.sh`, `bin/run_step_03_pcdh19_genotype_classification_setup.sh`, `bin/run_step_04_pcdh19_empirical_pattern_classifier.sh`, `bin/run_step_05_pcdh19_logistic_regression_baseline.sh`, `bin/run_step_06_pcdh19_het_female_inference.sh`, `bin/run_step_07_pcdh19_het_female_wt_ko_like_classification.sh` | Resolve configuration, enforce environments where needed, invoke Python, and capture timestamped logs. |
 | Discovery/initialization helpers | `bin/check_candidate_access.sh`, `bin/initialize_turbo.sh` | Metadata-only access inventory and output-directory setup; neither analyzes expression. |

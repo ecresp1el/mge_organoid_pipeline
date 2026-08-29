@@ -30,6 +30,13 @@ Directory roles:
 - `jobs/`: exact submitted scheduler scripts.
 - `final_figures/`: finalized or explicitly labeled candidate figure packages.
 
+Major new workflows follow the neighboring Paper 2 run contract: default
+submissions create versioned packages, exact runnable files are copied into
+each package before submission, and SLURM executes those copies. A workflow may
+offer an explicit guarded `--replace-run RUN_ID` option to regenerate one named
+inactive run inside that same step. Such replacement does not authorize
+changes to frozen steps or shared read-only/cached inputs.
+
 The operational handoff is copied here as `HANDOFF.md`; its canonical source is
 the version-controlled file in the repository.
 

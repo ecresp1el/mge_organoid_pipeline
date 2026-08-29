@@ -9,6 +9,12 @@ allocation. The workstream contains a read-only source inventory, technical
 sample manifest, and operational handoff; biological sample identities are
 still awaiting the lab sample key.
 
+The new standalone audit of La Manno 2021, Bandler 2022, and Mayer 2018 as
+candidate developing-mouse MGE references is registered in
+[`paper3_pcdh19/PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](paper3_pcdh19/PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md).
+Its first-checkpoint code and SLURM scaffold are implemented but not yet run;
+it remains curation-only and does not map Paper 3 cells.
+
 ## Paper 2 workstream
 
 The cross-study in-vitro MGE organoid atlas workstream is maintained inside

@@ -4,6 +4,35 @@ This workstream is reserved for the Ziobro PCDH19 MGE single-cell paper. It is
 separate from the Paper 2 cross-study atlas and uses the Ziobro Turbo
 allocation, independent step numbering, and independent outputs.
 
+## New auxiliary work: three-reference MGE curation
+
+A standalone, implemented but not-yet-executed module will audit three published WT
+developing-mouse references—La Manno 2021, Bandler 2022, and Mayer 2018—before
+one is selected for future mapping. Start with
+[`PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md).
+
+The immediate scope is source discovery, minimal processed-object inspection,
+author-annotation recovery, and author-embedding verification. Do not download
+raw FASTQs, reconstruct large analyses, integrate references, or map the
+PCDH19 cells before the required early checkpoint. This is a sibling of the
+existing GSE94641 workstream and is not part of the frozen Steps 03–07
+classification unit.
+
+Prepare or submit the required first checkpoint with:
+
+```bash
+./paper3_pcdh19/bin/submit_developing_mouse_mge_reference_curation.sh --dry-run
+./paper3_pcdh19/bin/submit_developing_mouse_mge_reference_curation.sh
+```
+
+Every default submission creates a versioned package under
+`PAPER3_ROOT/results/00_developing_mouse_mge_reference_curation/`. The exact
+code and settings are copied into the package before submission and executed
+from there. An existing inactive run can be intentionally regenerated with
+`--replace-run RUN_ID`; replacement is constrained to this step, refused for
+active jobs, and does not delete the shared P0 cache under
+`PAPER3_ROOT/inputs/developing_mouse_mge/`.
+
 ## Current analysis: PRELIMINARY pseudobulk differential expression
 
 Formal Step 09 is a rapid, explicitly preliminary sample-level pseudobulk
@@ -99,6 +128,8 @@ counts range from 11,085 to 60,680.
 - Registered biological sample key:
   [`config/sample_key.csv`](config/sample_key.csv)
 - Operational handoff: [`HANDOFF.md`](HANDOFF.md)
+- Three-candidate developing-mouse MGE reference-curation handoff:
+  [`PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md)
 - Complete pipeline I/O and interpretation contract:
   [`PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md`](PIPELINE_IO_AND_BIOLOGICAL_SCOPE.md)
 - GSE94641 rapid MGE reference validation, transfer, and limitations:

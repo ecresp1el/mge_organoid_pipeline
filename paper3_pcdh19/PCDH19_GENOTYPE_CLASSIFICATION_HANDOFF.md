@@ -15,6 +15,20 @@ differential expression without loading HET WT-like/KO-like classifications.
 It also remains downstream and cannot modify this frozen unit. See
 [`PCDH19_PRELIMINARY_PSEUDOBULK_DE.md`](PCDH19_PRELIMINARY_PSEUDOBULK_DE.md).
 
+An additional, not-yet-executed auxiliary workstream will curate La Manno
+2021, Bandler 2022, and Mayer 2018 as candidate developing-mouse MGE
+references. Its authoritative scope and stop conditions are in
+[`PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md).
+It is reference-only at this stage: it cannot load or map the Paper 3 query,
+alter GSE94641 outputs, or feed information into this frozen classification
+unit.
+
+That auxiliary module uses versioned run packages by default and has an
+explicit guarded `--replace-run RUN_ID` mode for intentional inactive-run reruns inside its
+own step. Its SLURM jobs execute code copied into each run package before
+submission. This does not relax the freeze here: Steps 03–07 must not be
+replaced through the auxiliary workflow.
+
 ## 1. Biological goal
 
 The goal was to determine whether PCDH19 Flex probe-level evidence from known

@@ -1,12 +1,42 @@
 # Paper 3 Ziobro PCDH19 MGE single-cell RNA-seq: operational handoff
 
-Last updated: 2026-08-28
+Last updated: 2026-08-29
 
 > **Classification freeze:** Steps 03–07 are complete and immutable. The
 > authoritative resume document is
 > [`PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md`](PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md).
-> Do not create Step 08 or change any existing model, threshold,
-> classification, or result package.
+> Do not change any existing model, threshold, classification, or result
+> package. Post-freeze analyses must remain separate and downstream.
+
+## Independent developing-mouse MGE reference curation (implemented; not yet executed)
+
+The authoritative instructions for auditing La Manno 2021, Bandler 2022, and
+Mayer 2018 as candidate WT developing-mouse MGE references are now registered
+in
+[`PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md).
+This is an isolated reference-curation and verification module. Its first
+checkpoint is limited to source/metadata audit and inspection of the smallest
+P0 processed objects. It must not download raw FASTQs, integrate or map the
+Paper 3 cells, invent annotations, recluster giant datasets, or select a final
+reference before the evidence audit is complete.
+
+This new three-candidate workstream is a sibling of the completed GSE94641
+Step 00 mapping work, not a replacement for it and not an input to the frozen
+Steps 03–07 classifier. No candidate-reference audit output is claimed yet.
+
+The first-checkpoint scaffold is implemented through
+`bin/submit_developing_mouse_mge_reference_curation.sh`. Default submission
+creates a versioned package beneath
+`results/00_developing_mouse_mge_reference_curation/`. Before submission it
+copies the exact Python, R, submitter, configuration, and SLURM files into the
+run package; the jobs execute those copies. P0 processed objects are cached
+once beneath `inputs/developing_mouse_mge/` and are not duplicated per run.
+
+Use `--replace-run RUN_ID` only when intentionally regenerating an existing inactive run
+within this exact step. The guarded replacement rejects unsafe names and active
+jobs, clears only the selected run package, and preserves the shared input
+cache. This replace mode does not authorize overwriting the frozen Steps 03–07
+packages.
 
 ## Current next analysis boundary
 

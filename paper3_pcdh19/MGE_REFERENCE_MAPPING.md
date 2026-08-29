@@ -16,6 +16,13 @@ E17.5. Its E15.5 cells approximately match the Paper 3 developmental stage,
 and its author-supplied fields allow a rapid reference-based annotation without
 reclustering or reinventing identities.
 
+A separate sibling workstream has an implemented but not-yet-executed first
+checkpoint for curating La Manno 2021, Bandler 2022, and Mayer 2018 before
+selecting one candidate for possible future reference use. See
+[`PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md).
+That audit does not replace, reopen, or modify this completed GSE94641 package,
+and it stops before loading or mapping the Paper 3 query.
+
 ## Validation result
 
 | Property | Validated result |
