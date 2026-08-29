@@ -43,6 +43,25 @@ The three candidate references to curate are:
 CURRENT EXECUTION STATUS
 ------------------------
 
+The first downstream mapping diagnostic is now a separate, non-destructive
+Step 01 rather than being folded into this Step 00 curation package. Its run
+`01_e15_mge_mapping_diagnostic_20260829_172214_a3f7ca7` is complete. Successful
+jobs are 59181267 (query), 59181383 (MapMyCells), 59182039 (Bandler/MIND),
+59182287 (combined Seurat/concordance/figures), and 59185031 (final report
+wording). Failed environment-only MIND attempts 59181382 and 59181926 and
+cancelled dependency reports remain recorded. The new step preserves all 450,788 source
+count columns, sample-qualified Cell Ranger graph clusters, and original
+per-sample UMAP coordinates. It does not recluster or integrate. Bandler/MIND
+uses the 4,481 definitively joined CA301 cells, preserves both hierarchy levels
+and all Seurat prediction scores, and applies the predeclared 0.50 diagnostic
+abstention threshold. MapMyCells is an independent, pinned Allen WMB
+hierarchical comparator and preserves every returned hierarchy/confidence
+field and the extended output. Bandler/MIND assigned 73.8% of cells Mitotic
+and 55.0% `Hist1h1b_Top2a`, with 5.15% unassigned at the 12-state level;
+MapMyCells assigned 99.0% to adult `OB-IMN GABA` and separately flagged 3,116
+named non-neural cells. These are diagnostics, not final annotations. See
+`PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md` for its exact contract.
+
 The early processed-object and sample-metadata checkpoint completed on
 2026-08-29 in run
 `00_developing_mouse_mge_reference_curation_20260829_141944_3b2ad52`.

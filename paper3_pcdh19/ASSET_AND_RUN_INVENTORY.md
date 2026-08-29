@@ -640,3 +640,18 @@ Step 07 was generated from Python SHA-256
 and lock SHA-256
 `ff414387703c9b93f8150e633e9d4615de2f55ac1afdc4a14c7be5a9a4cf997d`.
 Both are recorded in their published `software_environment.tsv` files.
+## Step 01 E15 MGE mapping diagnostic (complete 2026-08-29)
+
+- Run: `01_e15_mge_mapping_diagnostic_20260829_172214_a3f7ca7`
+- Location: `${PAPER3_ROOT}/results/01_e15_mge_mapping_diagnostic/`
+- Successful jobs: 59181267, 59181383, 59182039, 59182287, 59185031.
+- Final object: `Bandler_MIND/paper3_query_with_mind_and_mapmycells_labels.rds`
+  (31.84 GB; 450,788 cells; original counts/UMAP plus both mapping results).
+- Cell-level concordance: `tables/per_cell_mapping_concordance.tsv.gz`.
+- Report: `E15_MGE_MAPPING_DIAGNOSTIC_REPORT.md`; figures 01--07.
+- Shared inputs: pinned Allen WMB assets under
+  `${PAPER3_ROOT}/inputs/mapmycells/WMB-10X/20240831/`; Bandler CA301 source
+  matrix remains in the Step 00 shared reference cache.
+- Failed environment-only attempts and cancelled dependency jobs are retained
+  in `provenance/job_ids.tsv`; exact failed and successful code copies remain
+  under the run's `code/` directory.

@@ -1,0 +1,9 @@
+# The exact installed Python environment is captured with pip freeze in each run.
+# Runtime versions intentionally pinned at workflow creation.
+anndata==0.12.19
+cell_type_mapper==1.7.4
+h5py==3.16.0
+matplotlib==3.11.1
+numpy==2.4.6
+pandas==2.3.3
+scipy==1.17.1

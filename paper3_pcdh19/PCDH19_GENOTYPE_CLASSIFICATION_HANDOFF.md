@@ -261,3 +261,15 @@ results/step_05_pcdh19_logistic_regression_baseline/
 results/step_06_pcdh19_het_female_inference/
 results/step_07_pcdh19_het_female_wt_ko_like_classification/
 ```
+REFERENCE-MAPPING AUXILIARY STEP (DO NOT CONFUSE WITH GENOTYPE CLASSIFICATION)
+-----------------------------------------------------------------------------
+
+Standalone Step 01 run
+`01_e15_mge_mapping_diagnostic_20260829_172214_a3f7ca7` completed two cell-type
+mapping approaches without reading or changing any PCDH19 classifier output.
+Successful jobs 59181267, 59181383, 59182039, 59182287, and 59185031 preserve
+original Cell Ranger counts, sample-qualified clusters, and per-sample UMAPs.
+The combined Seurat object adds only MIND and MapMyCells mapping fields. The
+mapping outputs must remain covariates/annotations separate from the
+genotype-classification evidence. See
+`PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md`.

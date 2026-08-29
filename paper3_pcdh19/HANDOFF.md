@@ -776,3 +776,19 @@ it must not be described as having generated the historical package. The
 verified distinction between analyzed inputs, generated assets, run logs, and
 current documented source is maintained in
 [`ASSET_AND_RUN_INVENTORY.md`](ASSET_AND_RUN_INVENTORY.md).
+CURRENT AUXILIARY REFERENCE-MAPPING STEP (2026-08-29)
+-----------------------------------------------------
+
+The curated Bandler/MIND result has completed its first diagnostic mapping
+test in standalone Step 01. Run
+`01_e15_mge_mapping_diagnostic_20260829_172214_a3f7ca7` contains exact frozen
+code and configuration copies and a validated combined Seurat object. Jobs
+59181267, 59181383, 59182039, 59182287, and 59185031 completed successfully;
+failed environment-only jobs remain visible in provenance. The pass preserves
+all 450,788 original cells, graph clusters, and per-sample Cell Ranger UMAPs.
+Bandler/MIND is strongly concentrated in Mitotic (73.8%) and
+`Hist1h1b_Top2a` (55.0%) calls, while MapMyCells maps 99.0% to adult
+`OB-IMN GABA` and flags 3,116 named non-neural cells. No reclustering,
+integration, manual annotation, old 21-label
+reconstruction, or parameter optimization is part of this pass. Full details
+are in `PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md`.
