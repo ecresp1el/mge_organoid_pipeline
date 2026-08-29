@@ -49,6 +49,11 @@ The early processed-object and sample-metadata checkpoint completed on
 The successful replacement chain used jobs 59168348, 59168349, and 59168350.
 The visual/report stage was added with job 59169776; layout and wording
 revisions completed as jobs 59170025 and 59170165.
+The Bandler artifact recovery/inspection first succeeded as job 59171169; the
+official-supplement, hierarchy-figure, and report publication completed as job
+59171983 after a schema-whitespace correction; final exact-age wording was
+republished successfully as job 59172069. Failed attempts 59171052 and
+59171918 remain in `provenance/job_ids.tsv` rather than being hidden.
 La Manno contains embedded author annotation columns and `X_UMAP`/`X_tSNE`;
 the inspected Bandler and Mayer P0 files are counts-only and require a stable
 barcode-to-published-label artifact before their cell types can be displayed.
@@ -56,7 +61,7 @@ The evidence-based comparison is in that run's
 `REFERENCE_CURATION_REPORT.md`. No Paper 3 cell was loaded or mapped.
 
 The observed E15/MGE answer is now explicit. Bandler is the only candidate
-with a directly identified exact WT E15 MGE sample in the inspected P0
+with a directly identified exact WT E15.5 MGE sample (GEO shorthand E15) in the inspected P0
 (`CA301`/`GSM5684876`, 4,516 cells). Mayer has a directly identified MGE
 sample, but it is `MGE_E13.5_Lhx6pos` (6,515 cells), not E15 and not an
 unbiased whole-MGE census. La Manno contains exact E15.0/E15.5 cells and
@@ -72,6 +77,21 @@ tables are `LaManno2021/metadata/class_by_subclass_composition.tsv`,
 `LaManno2021/metadata/forebrain_gabaergic_celltype_composition.tsv`, and
 `tables/candidate_e15_mge_status.tsv`. The plots show only observed author
 labels/evidence and do not reconstruct missing Bandler or Mayer annotations.
+
+The Bandler recovery stage subsequently found the historical author link to
+`STICR.seuratobject.RDS` in repository commit
+`a8fa139a5ed6d8832b07b61f384982d630893c93`. The live 1.02-GB artifact is a
+21,051-feature x 65,700-cell Seurat object with author broad/refined labels and
+PCA, Harmony, and UMAP reductions. It is the postnatal STICR reference: its 18
+sample IDs exclude CA298--CA303, so it does not label CA301. Official
+Supplementary Data 1--4 and author-posted TrackerSeq metadata are cached
+separately. They establish the seven-dataset embryonic integration design and
+the complete 21-label embryonic vocabulary, but provide no barcode-to-label or
+UMAP table. A later Mayer-lab interactive atlas names a local integrated object
+(`EXCIT_INHIBIT_cleaned_sub.rds`) containing Bandler embryonic cells, labels,
+stage, study, cell IDs, and UMAP; that object and its generated TSV/HDF5 files
+are not included in the public atlas repository. Keep this later reanalysis
+distinct from the original 2022 artifact.
 
 IMPORTANT BIOLOGICAL GOAL
 -------------------------
@@ -252,6 +272,12 @@ Required first-checkpoint outputs are:
 - `tables/candidate_e15_mge_status.tsv`
 - `figures/02_candidate_e15_mge_annotation_evidence.{png,pdf}`
 - `REFERENCE_CURATION_REPORT.md`
+- `Bandler2022/BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md`
+- `Bandler2022/metadata/published_embryonic_sample_design.tsv`
+- `Bandler2022/metadata/published_{embryonic_cluster,postnatal_broad_class,postnatal_refined_cluster}_{inventory,markers}.tsv`
+- `Bandler2022/author_object_audit/author_artifact_scope.tsv`
+- `Bandler2022/author_object_audit/author_seurat_{class_by_cluster,sample_inventory}.tsv`
+- `Bandler2022/figures/01_bandler_recovered_and_published_annotation_structure.{png,pdf}`
 
 The combined summary must report both the number/IDs of published samples and
 the number/IDs demonstrably represented in the P0 object. Unresolved object
@@ -272,8 +298,11 @@ validation, `ImmutableSourceCache` owns atomic read-only materialization,
 `CheckpointPublisher` plus `CurationRequirementEvaluator` own combined output
 publication, `HierarchyComposition` and its plotter classes own the visual
 audit, and `ReferenceCurationReportBuilder` owns the observed-object report
-and label dictionaries. Do not move these responsibilities into a monolithic
-command.
+and label dictionaries. `BandlerAuthorObjectRecovery` owns atomic author and
+publisher artifact retrieval, `PublishedSampleLedger` and
+`PublishedAnnotationTables` own supplement extraction, and
+`BandlerEvidencePublisher` coordinates the Bandler evidence package. Do not
+move these responsibilities into a monolithic command.
 
 
 TASK 0 — ENVIRONMENT AND REPRODUCIBILITY
@@ -504,7 +533,7 @@ Do not collapse labels yourself during this audit.
 TASK 3 — BANDLER 2022
 ---------------------
 
-This dataset is biologically especially important because it contains a WT E15 MGE sample.
+This dataset is biologically especially important because it contains a WT MGE sample collected at E15.5 (GEO shorthand E15).
 
 GEO:
 GSE188528
@@ -568,9 +597,18 @@ Search all of:
 
 The key question is:
 
-CAN THE BARCODE/CELL IDs FROM CA301 WT E15 MGE BE MAPPED DIRECTLY TO THE PUBLISHED EMBRYONIC ANNOTATION?
+CAN THE BARCODE/CELL IDs FROM CA301 WT E15.5 MGE BE MAPPED DIRECTLY TO THE PUBLISHED EMBRYONIC ANNOTATION?
 
 Answer YES/NO/PARTIAL and prove it.
+
+Current proven answer: **NO for the original deposited CA301 matrix, with a
+later-lab lead still open**. The recovered author Seurat object is STICR and
+contains no CA301 sample or exact CA301 IDs. Supplementary Data 4 proves 21
+embryonic cluster definitions but has no cell IDs. The 2025 Mayer-lab
+interactive atlas proves that a later integrated object exists internally,
+but its public GitHub repository exposes only the preparation code and live
+plots, not the underlying object or generated cell table. Do not upgrade this
+to a CA301 join until barcodes are obtained and matched.
 
 D. Recover the exact published embryonic annotation vocabulary.
 
@@ -630,7 +668,7 @@ Highest priority plots:
 
 1. all embryonic cells colored by published broad class
 2. all embryonic cells colored by published embryonic cluster
-3. highlight CA301 WT E15 MGE
+3. highlight CA301 WT E15.5 MGE
 4. CA301-only plot using the same embedding, colored by published annotation
 5. CA301 annotation composition bar plot/table
 
@@ -973,7 +1011,7 @@ La Manno 2021:
 Potentially strongest broad developmental atlas and best coverage of non-neuronal cell types, with a directly accessible H5AD and extensive developmental taxonomy.
 
 Bandler 2022:
-Potentially strongest age/anatomy match because CA301 is WT E15 MGE, and potentially excellent MGE neuronal developmental-state annotations, but deposited CA301 RDS may be only a filtered count matrix and may require joining/reconstructing published labels.
+Potentially strongest age/anatomy match because CA301 is WT MGE collected at E15.5 (GEO shorthand E15), and potentially excellent MGE neuronal developmental-state annotations, but deposited CA301 RDS is a filtered count matrix and requires a barcode-preserving join to recover published cell labels.
 
 Mayer 2018:
 Potentially excellent canonical MGE/interneuron developmental biology and precursor-state resolution, but E13.5 rather than E15 and Lhx6+ enrichment creates important sampling bias relative to my whole E15 MGE dissection.

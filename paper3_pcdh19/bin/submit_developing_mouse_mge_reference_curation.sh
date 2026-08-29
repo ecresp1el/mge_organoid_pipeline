@@ -48,6 +48,7 @@ REPORT_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/generate_reference_curat
 PLOT_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/plot_reference_annotation_hierarchy.py"
 AUTHOR_OBJECT_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/recover_bandler_author_object.py"
 AUTHOR_OBJECT_R_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/inspect_bandler_author_seurat.R"
+AUTHOR_EVIDENCE_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/summarize_bandler_published_evidence.py"
 SOURCE_SBATCH="${BUNDLE_DIR}/slurm/00a_developing_mouse_mge_source_audit.sbatch"
 P0_SBATCH="${BUNDLE_DIR}/slurm/00b_developing_mouse_mge_p0_inspection.sbatch"
 CHECKPOINT_SBATCH="${BUNDLE_DIR}/slurm/00c_developing_mouse_mge_checkpoint.sbatch"
@@ -69,7 +70,7 @@ source "${CURATION_CONFIG}"
 
 for required in \
   "${GREATLAKES_CONFIG}" "${CURATION_CONFIG}" "${REGISTRY}" "${REQUIREMENTS}" \
-  "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" \
+  "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" "${AUTHOR_EVIDENCE_SCRIPT}" \
   "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" "${VISUAL_SBATCH}" "${AUTHOR_OBJECT_SBATCH}" \
   "${PACKAGE_README}" "${HANDOFF}" "${CURATION_PYTHON_BIN}"; do
   [[ -f "${required}" ]] || { echo "Missing required file: ${required}" >&2; exit 2; }
@@ -153,7 +154,7 @@ mkdir -p \
   "${RUN_DIR}/Mayer2018/metadata" "${RUN_DIR}/Mayer2018/figures" "${RUN_DIR}/Mayer2018/audit" \
   "${SOURCE_ROOT}"
 
-cp -p "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" \
+cp -p "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" "${AUTHOR_EVIDENCE_SCRIPT}" \
   "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" "${VISUAL_SBATCH}" "${AUTHOR_OBJECT_SBATCH}" \
   "${BASH_SOURCE[0]}" "${RUN_DIR}/code/"
 cp -p "${GREATLAKES_CONFIG}" "${RUN_DIR}/config/submitted_greatlakes.env"

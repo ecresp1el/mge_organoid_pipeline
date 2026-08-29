@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Recover an author-linked Bandler Seurat object with immutable provenance."""
+"""Recover public Bandler author objects and supplements with provenance."""
 
 from __future__ import annotations
 
@@ -39,6 +39,8 @@ class AuthorArtifact:
     name: str
     url: str
     expected_bytes: int
+    relative_path: str
+    artifact_role: str
     repository: str
     discovery_commit: str
     discovery_path: str
@@ -93,47 +95,113 @@ class ImmutableHttpCache:
 
 
 class BandlerAuthorObjectRecovery:
-    """Publish discovery evidence and immutable-download provenance."""
+    """Publish discovery evidence and cache each public artifact atomically."""
 
-    ARTIFACT = AuthorArtifact(
-        name="STICR.seuratobject.RDS",
-        url="https://keeper.mpdl.mpg.de/f/0d1a23ab36fe473481b0/?dl=1",
-        expected_bytes=1_023_351_516,
-        repository="https://github.com/mayer-lab/Bandler-et-al_lineage",
-        discovery_commit="a8fa139a5ed6d8832b07b61f384982d630893c93",
-        discovery_path="README.md",
-        current_status="Historical author link remains live; current README replaced it with <seurat_obj_url>.",
+    ARTIFACTS = (
+        AuthorArtifact(
+            name="STICR.seuratobject.RDS",
+            url="https://keeper.mpdl.mpg.de/f/0d1a23ab36fe473481b0/?dl=1",
+            expected_bytes=1_023_351_516,
+            relative_path="author_objects/STICR.seuratobject.RDS",
+            artifact_role="Author Seurat object for the postnatal STICR reference.",
+            repository="https://github.com/mayer-lab/Bandler-et-al_lineage",
+            discovery_commit="a8fa139a5ed6d8832b07b61f384982d630893c93",
+            discovery_path="README.md",
+            current_status="Historical author link remains live; current README replaced it with <seurat_obj_url>.",
+        ),
+        AuthorArtifact(
+            name="41586_2021_4237_MOESM2_ESM.xlsx",
+            url="https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-021-04237-0/MediaObjects/41586_2021_4237_MOESM2_ESM.xlsx",
+            expected_bytes=22_008,
+            relative_path="metadata_sources/41586_2021_4237_MOESM2_ESM.xlsx",
+            artifact_role="Supplementary Data 1: sample design and filtering ledger.",
+            repository="https://www.nature.com/articles/s41586-021-04237-0",
+            discovery_commit="NA",
+            discovery_path="Supplementary Data 1",
+            current_status="Public publisher supplement.",
+        ),
+        AuthorArtifact(
+            name="41586_2021_4237_MOESM3_ESM.xlsx",
+            url="https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-021-04237-0/MediaObjects/41586_2021_4237_MOESM3_ESM.xlsx",
+            expected_bytes=21_586,
+            relative_path="metadata_sources/41586_2021_4237_MOESM3_ESM.xlsx",
+            artifact_role="Supplementary Data 2: postnatal broad-class markers.",
+            repository="https://www.nature.com/articles/s41586-021-04237-0",
+            discovery_commit="NA",
+            discovery_path="Supplementary Data 2",
+            current_status="Public publisher supplement.",
+        ),
+        AuthorArtifact(
+            name="41586_2021_4237_MOESM4_ESM.xlsx",
+            url="https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-021-04237-0/MediaObjects/41586_2021_4237_MOESM4_ESM.xlsx",
+            expected_bytes=70_339,
+            relative_path="metadata_sources/41586_2021_4237_MOESM4_ESM.xlsx",
+            artifact_role="Supplementary Data 3: postnatal refined-cluster markers.",
+            repository="https://www.nature.com/articles/s41586-021-04237-0",
+            discovery_commit="NA",
+            discovery_path="Supplementary Data 3",
+            current_status="Public publisher supplement.",
+        ),
+        AuthorArtifact(
+            name="41586_2021_4237_MOESM5_ESM.xlsx",
+            url="https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-021-04237-0/MediaObjects/41586_2021_4237_MOESM5_ESM.xlsx",
+            expected_bytes=46_056,
+            relative_path="metadata_sources/41586_2021_4237_MOESM5_ESM.xlsx",
+            artifact_role="Supplementary Data 4: embryonic-cluster markers.",
+            repository="https://www.nature.com/articles/s41586-021-04237-0",
+            discovery_commit="NA",
+            discovery_path="Supplementary Data 4",
+            current_status="Public publisher supplement.",
+        ),
+        AuthorArtifact(
+            name="TrackerSeq.MUC28072.md.RDS",
+            url="https://keeper.mpdl.mpg.de/f/9b9d33a7503b4658aad1/?dl=1",
+            expected_bytes=179_390,
+            relative_path="metadata_sources/TrackerSeq.MUC28072.md.RDS",
+            artifact_role="Author-posted TrackerSeq cell-to-lineage-barcode metadata; not CA301 annotations.",
+            repository="https://github.com/mayer-lab/Bandler-et-al_lineage/issues/1",
+            discovery_commit="NA",
+            discovery_path="Issue 1 author reply, 2022-06-01",
+            current_status="Public author link remains live.",
+        ),
     )
 
-    def __init__(self, run_dir: Path, destination: Path):
+    def __init__(self, run_dir: Path, source_root: Path):
         self.run_dir = run_dir.resolve()
-        self.destination = destination.resolve()
+        self.source_root = source_root.resolve()
 
     def run(self) -> None:
-        cache = ImmutableHttpCache(self.ARTIFACT, self.destination)
-        action, digest = cache.materialize()
+        discovery_rows = []
+        download_rows = []
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        for artifact in self.ARTIFACTS:
+            destination = self.source_root / "Bandler2022" / artifact.relative_path
+            action, digest = ImmutableHttpCache(artifact, destination).materialize()
+            discovery_rows.append({
+                "artifact": artifact.name,
+                "artifact_role": artifact.artifact_role,
+                "author_url": artifact.url,
+                "repository": artifact.repository,
+                "discovery_commit": artifact.discovery_commit,
+                "discovery_path": artifact.discovery_path,
+                "current_status": artifact.current_status,
+            })
+            download_rows.append({
+                "artifact": artifact.name,
+                "artifact_role": artifact.artifact_role,
+                "resolved_path": destination,
+                "bytes": destination.stat().st_size,
+                "sha256": digest,
+                "action": action,
+                "completed_utc": now,
+            })
         audit = self.run_dir / "Bandler2022" / "author_object_audit"
         atomic_tsv(audit / "author_object_discovery.tsv", (
-            "artifact", "author_url", "repository", "discovery_commit", "discovery_path", "current_status",
-        ), ({
-            "artifact": self.ARTIFACT.name,
-            "author_url": self.ARTIFACT.url,
-            "repository": self.ARTIFACT.repository,
-            "discovery_commit": self.ARTIFACT.discovery_commit,
-            "discovery_path": self.ARTIFACT.discovery_path,
-            "current_status": self.ARTIFACT.current_status,
-        },))
+            "artifact", "artifact_role", "author_url", "repository", "discovery_commit", "discovery_path", "current_status",
+        ), discovery_rows)
         atomic_tsv(audit / "author_object_download.tsv", (
-            "artifact", "resolved_path", "bytes", "sha256", "action", "completed_utc",
-        ), ({
-            "artifact": self.ARTIFACT.name,
-            "resolved_path": self.destination,
-            "bytes": self.destination.stat().st_size,
-            "sha256": digest,
-            "action": action,
-            "completed_utc": now,
-        },))
+            "artifact", "artifact_role", "resolved_path", "bytes", "sha256", "action", "completed_utc",
+        ), download_rows)
         atomic_tsv(audit / "recovery_environment.tsv", (
             "completed_utc", "python", "executed_script", "script_sha256", "command",
         ), ({
@@ -148,9 +216,9 @@ class BandlerAuthorObjectRecovery:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", required=True, type=Path)
-    parser.add_argument("--destination", required=True, type=Path)
+    parser.add_argument("--source-root", required=True, type=Path)
     args = parser.parse_args()
-    BandlerAuthorObjectRecovery(args.run_dir, args.destination).run()
+    BandlerAuthorObjectRecovery(args.run_dir, args.source_root).run()
 
 
 if __name__ == "__main__":

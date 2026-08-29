@@ -151,9 +151,13 @@ class ReferenceCurationReportBuilder:
                 visibility = "YES: Class, Subclass, CellType, and cluster_id are embedded"
                 selection = "No selection field recovered at this checkpoint"
             elif study == "Bandler2022":
-                age_match = "Exact E15 sample"
+                age_match = "Exact E15.5 collection age (GEO shorthand E15)"
                 mge_match = "Exact WT MGE sample CA301/GSM5684876"
-                visibility = "NO: deposited P0 is a counts-only sparse matrix"
+                recovered = (self.run_dir / "Bandler2022" / "author_object_audit" / "author_seurat_structure.tsv").is_file()
+                visibility = (
+                    "CA301: no labels; recovered postnatal STICR Seurat: author labels and UMAP"
+                    if recovered else "NO: deposited P0 is a counts-only sparse matrix"
+                )
                 selection = "GEO metadata includes GFP/FACS-selected samples; CA301 is registered WT MGE"
             else:
                 age_match = "E13.5, not E15"
@@ -170,8 +174,14 @@ class ReferenceCurationReportBuilder:
                 "P0_linked_sample_ids": summary.get("processed_object_sample_ids", ""),
                 "age_match": age_match,
                 "MGE_match": mge_match,
-                "author_embedding": checkpoint.get("author_embedding_present", ""),
-                "embedded_annotations": checkpoint.get("annotation_columns_present", ""),
+                "author_embedding": (
+                    "CA301=no; recovered_STICR=yes" if study == "Bandler2022" and recovered
+                    else checkpoint.get("author_embedding_present", "")
+                ),
+                "embedded_annotations": (
+                    "CA301=none; recovered_STICR=refined_COUP_class|refined_COUP_clust"
+                    if study == "Bandler2022" and recovered else checkpoint.get("annotation_columns_present", "")
+                ),
                 "immediate_cell_type_visibility": visibility,
                 "selection_bias": selection,
                 "next_required_action": checkpoint.get("next_minimal_action", ""),
@@ -181,6 +191,23 @@ class ReferenceCurationReportBuilder:
     def _report_text(self, dictionaries: Mapping[str, Sequence[Mapping[str, str]]]) -> str:
         lamanno = dictionaries["LaManno2021"]
         count = lambda column, label: self._count_lookup(lamanno, column, label)
+        bandler_recovered = (self.run_dir / "Bandler2022" / "BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md").is_file()
+        bandler_implication = (
+            "Exact WT E15.5 MGE counts remain unlabeled. A recovered 65,700-cell author STICR Seurat object supplies postnatal labels/UMAP but contains no CA301 cells."
+            if bandler_recovered else "Exact WT E15.5 MGE sample (GEO shorthand E15), but published embryonic labels require a barcode join."
+        )
+        bandler_recovery_lines = [
+            "",
+            "A historical link recovered from the authors' Git history yielded `STICR.seuratobject.RDS`: a genuine 21,051-feature × 65,700-cell Seurat object with PCA, Harmony and UMAP reductions. It contains 11 broad `refined_COUP_class` values and 51 `refined_COUP_clust` values, including neuronal precursor, mitotic, astrocyte, OPC/oligodendrocyte, macrophage/microglia, vascular, epithelial and ependymal populations.",
+            "",
+            "This object is the **postnatal STICR reference**, not the embryonic object. Its 18 sample IDs exclude CA298–CA303 and exact CA301 cell-ID overlap is zero. Official Supplementary Data 4 defines 21 embryonic clusters and their marker genes, but supplies neither cell barcodes nor coordinates. Consequently those labels still cannot be assigned to the 4,516 deposited CA301 cells.",
+            "",
+            "The same Mayer lab's 2025 interactive GE atlas is a valuable later lead: its public code loads a local `EXCIT_INHIBIT_cleaned_sub.rds` with Bandler embryonic cell IDs, UMAP, stage, study, broad class and cluster. The object and generated cell table are not included in the public repository, so CA301 membership has not yet been verified.",
+            "",
+            "![Bandler recovered and published annotation structure](Bandler2022/figures/01_bandler_recovered_and_published_annotation_structure.png)",
+            "",
+            "The full artifact-by-artifact finding is in `Bandler2022/BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md`.",
+        ] if bandler_recovered else []
         lines = [
             "# Developing-mouse MGE reference curation: observed-object report",
             "",
@@ -193,7 +220,7 @@ class ReferenceCurationReportBuilder:
             "| Candidate | Actual P0 object | Cells | Cell annotations in P0? | Author embedding in P0? | Immediate implication |",
             "| --- | --- | ---: | --- | --- | --- |",
             "| La Manno 2021 | Backed AnnData H5AD, 31,053 genes | 292,495 | Yes: `Class`, `Subclass`, `CellType`, `cluster_id`, age and dissection | Yes: `X_UMAP`, `X_tSNE` | Only candidate immediately viewable with author cell labels; MGE subset still needs an author-supported definition. |",
-            "| Bandler 2022 | `dgCMatrix`, 19,808 genes | 4,516 | No | No | Exact WT E15 MGE sample, but published embryonic labels require a barcode join. |",
+            f"| Bandler 2022 | `dgCMatrix`, 19,808 genes | 4,516 | No in CA301 | No in CA301 | {bandler_implication} |",
             "| Mayer 2018 | Gzip CSV, 19,272 data rows | 42,418 | No | No | Samples are identifiable, including 6,515 enriched E13.5 MGE cells, but published labels/embedding require another artifact. |",
             "",
             "The checkpoint therefore does **not** yet justify choosing a final reference. La Manno is most immediately inspectable; Bandler is the closest biological match; Mayer is traceable but younger and Lhx6-positive enriched.",
@@ -233,7 +260,8 @@ class ReferenceCurationReportBuilder:
             "",
             "The deposited CA301 file has two gzip layers and resolves to a sparse `dgCMatrix` with 19,808 gene rows and 4,516 uniquely named cell columns. Cell IDs retain the `CA301_` prefix followed by a 10x barcode, providing a stable basis for a future join. The object contains no metadata columns, Seurat reductions, UMAP/tSNE coordinates, or cell-type labels. Therefore labels such as published embryonic states cannot yet be assigned to these 4,516 cells from this file alone.",
             "",
-            "Biological strength: CA301/GSM5684876 is the exact WT E15 MGE sample. Immediate limitation: find the smallest author/supplement/intermediate table mapping `CA301_<barcode>` to the published embryonic annotation and embedding.",
+            "Biological strength: CA301/GSM5684876 is the exact WT MGE sample collected at E15.5 (GEO shorthand E15). Immediate limitation: find the smallest author/supplement/intermediate table mapping `CA301_<barcode>` to the published embryonic annotation and embedding.",
+            *bandler_recovery_lines,
             "",
             "## Mayer 2018",
             "",
@@ -253,8 +281,8 @@ class ReferenceCurationReportBuilder:
             "## What can and cannot be concluded now",
             "",
             "- La Manno clearly contains the broad dissection classes requested, including radial glia, intermediate progenitors, neuroblasts, neurons, astroglial, immune/microglial, oligodendrocyte/OPC, endothelial, vascular and pericyte labels.",
-            "- La Manno is the only candidate whose author annotations and embedding coordinates are immediately available in the inspected P0 object.",
-            "- Bandler is the best exact age/anatomy match, but its deposited P0 is not annotation-ready.",
+            "- La Manno is the only candidate whose author annotations and embedding coordinates are immediately available in the candidate P0 itself.",
+            "- Bandler is the best exact age/anatomy match, but CA301 remains unannotated; the separately recovered STICR object is postnatal and does not solve the CA301 barcode join.",
             "- Mayer's relevant MGE component is E13.5 and Lhx6-positive selected, so it is not a census of an unbiased whole E15 MGE dissection.",
             "- Exact MGE-specific and age-matched label counts, author-embedding plots, and a final readiness ranking remain the next reviewed stage; they were not inferred during this checkpoint.",
             "",
@@ -274,6 +302,9 @@ class ReferenceCurationReportBuilder:
             "- `LaManno2021/metadata/forebrain_gabaergic_celltype_composition.tsv`",
             "- `LaManno2021/figures/01_author_annotation_hierarchy_composition.{png,pdf}`",
             "- `figures/02_candidate_e15_mge_annotation_evidence.{png,pdf}`",
+            "- `Bandler2022/BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md` when the recovery stage has completed",
+            "- `Bandler2022/metadata/published_*_inventory.tsv` and marker tables",
+            "- `Bandler2022/figures/01_bandler_recovered_and_published_annotation_structure.{png,pdf}`",
             "- `provenance/hierarchy_plot_output_manifest.tsv` and `provenance/hierarchy_plot_generation.tsv`",
             "- `<study>/audit/` structure, identifiers, embedding and value-count files.",
             "",

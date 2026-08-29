@@ -28,6 +28,9 @@ Directory roles:
 - `REFERENCE_CURATION_REPORT.md`: observed-object comparison generated only
   after all three inspections and the combined checkpoint pass; it embeds the
   hierarchy/evidence visuals when they are present.
+- `Bandler2022/BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md`: artifact-scope report
+  separating the exact CA301 counts, recovered postnatal STICR Seurat object,
+  published embryonic marker vocabulary, and later interactive-atlas lead.
 
 Original P0 objects are cached once under the resolved
 `PAPER3_CURATION_SOURCE_ROOT` inside `PAPER3_ROOT/inputs/`. Existing cached

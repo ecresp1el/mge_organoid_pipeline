@@ -35,9 +35,9 @@ read_nested_gzip_rds <- function(path) {
 }
 
 canonical_barcode <- function(values) {
-  found <- grepl("[ACGTN]+-[0-9]+$", values, perl = TRUE)
+  found <- grepl("[ACGTN]{16}(-[0-9]+)?$", values, perl = TRUE)
   result <- rep(NA_character_, length(values))
-  result[found] <- sub(".*?([ACGTN]+-[0-9]+)$", "\\1", values[found], perl = TRUE)
+  result[found] <- sub(".*?([ACGTN]{16})(-[0-9]+)?$", "\\1", values[found], perl = TRUE)
   result
 }
 
@@ -94,6 +94,31 @@ if (length(count_rows)) {
   write_tsv(do.call(rbind, count_rows), file.path(output_dir, "author_seurat_metadata_value_counts.tsv"))
 }
 
+if (all(c("refined_COUP_class", "refined_COUP_clust") %in% colnames(metadata))) {
+  class_cluster <- as.data.frame(
+    table(
+      broad_class = as.character(metadata$refined_COUP_class),
+      refined_cluster = as.character(metadata$refined_COUP_clust)
+    ),
+    stringsAsFactors = FALSE
+  )
+  class_cluster <- class_cluster[class_cluster$Freq > 0L, , drop = FALSE]
+  names(class_cluster)[names(class_cluster) == "Freq"] <- "cells"
+  class_cluster <- class_cluster[order(class_cluster$broad_class, -class_cluster$cells, class_cluster$refined_cluster), ]
+  write_tsv(class_cluster, file.path(output_dir, "author_seurat_class_by_cluster.tsv"))
+}
+
+if (all(c("orig.ident", "stage") %in% colnames(metadata))) {
+  sample_stage <- as.data.frame(
+    table(sample = as.character(metadata$orig.ident), injection_stage = as.character(metadata$stage)),
+    stringsAsFactors = FALSE
+  )
+  sample_stage <- sample_stage[sample_stage$Freq > 0L, , drop = FALSE]
+  names(sample_stage)[names(sample_stage) == "Freq"] <- "cells"
+  sample_stage <- sample_stage[order(sample_stage$sample), ]
+  write_tsv(sample_stage, file.path(output_dir, "author_seurat_sample_inventory.tsv"))
+}
+
 reduction_rows <- lapply(reduction_names, function(name) {
   coordinates <- SeuratObject::Embeddings(object[[name]])
   data.frame(reduction = name, cells = nrow(coordinates), dimensions = ncol(coordinates), stringsAsFactors = FALSE)
@@ -108,7 +133,7 @@ ca301_ids <- colnames(ca301)
 author_canonical <- canonical_barcode(cell_ids)
 ca301_canonical <- canonical_barcode(ca301_ids)
 overlap <- data.frame(
-  comparison = c("exact_cell_id", "canonical_10x_barcode"),
+  comparison = c("exact_cell_id", "unprefixed_10x_barcode_not_cell_identity"),
   author_cells = c(length(cell_ids), sum(!is.na(author_canonical))),
   ca301_cells = c(length(ca301_ids), sum(!is.na(ca301_canonical))),
   overlap = c(length(intersect(cell_ids, ca301_ids)), length(intersect(author_canonical, ca301_canonical))),

@@ -48,8 +48,14 @@ Steps 03–07 classifier. Its first checkpoint completed on 2026-08-29 in run
 La Manno was directly annotation/embedding-ready; the Bandler and Mayer P0
 files were counts-only and require published barcode metadata before their
 cell types can be displayed. See that run's `REFERENCE_CURATION_REPORT.md`.
+For Bandler, a historical author link has now yielded the separate 65,700-cell
+postnatal STICR Seurat object with author labels and UMAP. It contains no
+CA301/CA298--303 samples and therefore does not annotate the exact WT E15.5 MGE
+matrix. The run-scoped Bandler recovery report preserves that negative join,
+the official seven-sample embryonic design, all 21 published embryonic labels,
+and the later 2025 interactive-atlas lead without conflating these artifacts.
 The E15/MGE evidence is not equivalent across candidates: Bandler directly
-provides 4,516 WT E15 MGE cells; Mayer directly provides 6,515 MGE E13.5
+provides 4,516 WT E15.5 MGE cells (GEO shorthand E15); Mayer directly provides 6,515 MGE E13.5
 Lhx6-positive cells; and La Manno has exact E15 and ventral-forebrain cells but
 no inspected author label that proves exact E15 MGE membership. The run now
 also contains an author-label hierarchy/composition plot and a three-study
@@ -66,6 +72,11 @@ The dependency-gated checkpoint invokes the object-oriented hierarchy plotter
 before rebuilding the Markdown report, so a rerun or guarded same-step
 replacement regenerates the visual outputs rather than relying on a manual
 figure.
+The standalone Bandler recovery job likewise executes only frozen run copies
+of the downloader, Seurat inspector, supplement publisher, report builder, and
+SLURM script. Rerunning it intentionally overwrites derived tables, figures,
+and reports inside the same step while reusing validated source-cache
+artifacts; the copied executable code remains the primary record of what ran.
 
 Use `--replace-run RUN_ID` only when intentionally regenerating an existing inactive run
 within this exact step. The guarded replacement rejects unsafe names and active

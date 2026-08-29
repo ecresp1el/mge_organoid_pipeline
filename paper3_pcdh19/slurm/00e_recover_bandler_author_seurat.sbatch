@@ -12,6 +12,8 @@ AUTHOR_OBJECT="${PAPER3_CURATION_SOURCE_ROOT}/Bandler2022/author_objects/STICR.s
 CA301_OBJECT="${PAPER3_CURATION_SOURCE_ROOT}/Bandler2022/source/GSM5684876_CA301_filtered_RNA_counts.RDS.gz"
 OUTPUT_DIR="${RUN_DIR}/Bandler2022/author_object_audit"
 PYTHON_SCRIPT="${RUN_DIR}/code/recover_bandler_author_object.py"
+SUMMARY_SCRIPT="${RUN_DIR}/code/summarize_bandler_published_evidence.py"
+REPORT_SCRIPT="${RUN_DIR}/code/generate_reference_curation_report.py"
 R_SCRIPT="${RUN_DIR}/code/inspect_bandler_author_seurat.R"
 
 failed() {
@@ -24,7 +26,7 @@ trap 'failed "${LINENO}" "$?"' ERR
 
 "${PAPER3_CURATION_PYTHON_BIN}" "${PYTHON_SCRIPT}" \
   --run-dir "${RUN_DIR}" \
-  --destination "${AUTHOR_OBJECT}"
+  --source-root "${PAPER3_CURATION_SOURCE_ROOT}"
 
 module purge
 module load Bioinformatics
@@ -33,6 +35,12 @@ Rscript "${R_SCRIPT}" \
   --object "${AUTHOR_OBJECT}" \
   --ca301 "${CA301_OBJECT}" \
   --output-dir "${OUTPUT_DIR}"
+
+"${PAPER3_CURATION_PYTHON_BIN}" "${SUMMARY_SCRIPT}" \
+  --run-dir "${RUN_DIR}" \
+  --source-root "${PAPER3_CURATION_SOURCE_ROOT}"
+
+"${PAPER3_CURATION_PYTHON_BIN}" "${REPORT_SCRIPT}" --run-dir "${RUN_DIR}"
 
 rm -f "${RUN_DIR}/BANDLER_AUTHOR_OBJECT_FAILED.txt"
 printf 'PASS\ncompleted=%s\njob_id=%s\n' "$(date --iso-8601=seconds)" "${SLURM_JOB_ID:-unknown}" \

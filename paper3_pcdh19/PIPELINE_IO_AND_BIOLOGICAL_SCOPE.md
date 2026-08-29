@@ -44,8 +44,16 @@ observed-label dictionaries; absent P0 annotations remain header-only rather
 than being reconstructed from paper text. The copied object-oriented visual
 audit also publishes the observed La Manno `Class` → `Subclass` → `CellType`
 composition and a three-study E15/MGE evidence matrix with supporting TSVs.
-It establishes exact WT E15 MGE only for Bandler (`CA301`, 4,516 cells): Mayer
+It establishes exact WT E15.5 MGE only for Bandler (`CA301`, 4,516 cells; GEO shorthand E15): Mayer
 is MGE E13.5 Lhx6-positive, while La Manno exact E15 MGE remains unproven.
+The auxiliary Bandler recovery adds a separate author STICR Seurat object
+(65,700 postnatal cells with labels and UMAP), official sample/marker
+supplements, and an artifact-scope report. Because STICR contains none of the
+CA298--303 embryonic samples, it does not change CA301's cell-level annotation
+status. The 21 published embryonic clusters remain definitions without a
+barcode join. A 2025 Mayer-lab interactive atlas is tracked as a later
+reanalysis whose underlying integrated RDS is named in code but not publicly
+linked.
 
 The registered source tissue is mouse embryonic brain, MGE, and the dataset was
 generated with 10x Flex v2. This audit asks a deliberately narrow question:

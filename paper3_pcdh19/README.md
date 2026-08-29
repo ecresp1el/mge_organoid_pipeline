@@ -21,12 +21,21 @@ classification unit.
 
 The observed P0 files show that La Manno has embedded `Class`, `Subclass`,
 `CellType`, `cluster_id`, age/dissection metadata, and author UMAP/tSNE
-coordinates. Bandler's exact WT E15 MGE object and Mayer's six-sample 10x CSV
+coordinates. Bandler's exact WT E15.5 MGE object (GEO shorthand E15) and Mayer's six-sample 10x CSV
 contain counts but no cell-level annotations or saved embeddings. The complete
 checkpoint interpretation is in the run's `REFERENCE_CURATION_REPORT.md`.
 
+A follow-up Bandler recovery found and inspected the authors' 65,700-cell
+postnatal STICR Seurat object, including broad/refined annotations and UMAP.
+It is not the missing embryonic object and contains no CA301 cells. Official
+supplements preserve the complete 21-state embryonic vocabulary but no
+barcode assignments. The later Mayer-lab interactive GE atlas uses an
+unpublished local integrated RDS with Bandler embryonic cells; treat it as a
+promising later reanalysis, not as a recovered original object. See
+`Bandler2022/BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md` in the curation run.
+
 For the exact age/anatomy question: Bandler provides 4,516 directly identified
-WT E15 MGE cells (`CA301`); Mayer provides 6,515 MGE cells at E13.5 with
+WT E15.5 MGE cells (`CA301`; GEO shorthand E15); Mayer provides 6,515 MGE cells at E13.5 with
 Lhx6-positive enrichment; La Manno contains E15 cells and ventral-forebrain
 dissections, but its inspected author labels do not prove which E15 cells are
 MGE. The run includes a La Manno author hierarchy/composition plot and a
