@@ -61,8 +61,10 @@ design captures the intended public PDFs on the submission host using the
 already-frozen run copy, then SLURM validates those exact files, performs all
 vector parsing/count reconciliation, and rebuilds the reports.
 La Manno contains embedded author annotation columns and `X_UMAP`/`X_tSNE`;
-the inspected Bandler and Mayer P0 files are counts-only and require a stable
-barcode-to-published-label artifact before their cell types can be displayed.
+the inspected Bandler and Mayer P0 files themselves are counts-only. Bandler's
+separate later-MIND barcode recovery now displays later-atlas labels for 4,481
+CA301 cells; Mayer still requires a stable barcode-to-label artifact, and the
+original Bandler 2022 per-cell labels remain unavailable.
 The evidence-based comparison is in that run's
 `REFERENCE_CURATION_REPORT.md`. No Paper 3 cell was loaded or mapped.
 
@@ -81,8 +83,9 @@ the three-study evidence matrix at
 `figures/02_candidate_e15_mge_annotation_evidence.{png,pdf}`. Its supporting
 tables are `LaManno2021/metadata/class_by_subclass_composition.tsv`,
 `LaManno2021/metadata/forebrain_gabaergic_celltype_composition.tsv`, and
-`tables/candidate_e15_mge_status.tsv`. The plots show only observed author
-labels/evidence and do not reconstruct missing Bandler or Mayer annotations.
+`tables/candidate_e15_mge_status.tsv`. Those early plots show only observed
+P0 labels/evidence; the later Bandler barcode-recovery package is a distinct
+subsequent result and Mayer annotations remain unrecovered.
 
 The Bandler recovery stage subsequently found the historical author link to
 `STICR.seuratobject.RDS` in repository commit
@@ -98,13 +101,15 @@ UMAP table. A later Mayer-lab interactive atlas names a local integrated object
 stage, study, cell IDs, and UMAP; that object and its generated TSV/HDF5 files
 are not included in the public atlas repository or returned by an intended
 public object/table endpoint. However, the running Shiny app's intended public
-vector-PDF handler exposes more evidence than the repository alone: exact
+vector-PDF handlers expose more evidence than the repository alone: exact
 circle reconciliation yields 18,424 retained Bandler cells, split into 11,004
 E13 and 7,420 E15 cells, with 12 later-atlas clusters, 2,877 `Mitotic` cells,
-and 15,547 `Inhibitory Neuron Precursor` cells. The public fields do not expose
-Bandler sample or region, so the E15 panel pools CA301 MGE, CA302 CGE, and
-CA303 LGE; it is not a CA301-only result. Keep this later reanalysis distinct
-from the original 2022 artifact.
+and 15,547 `Inhibitory Neuron Precursor` cells. Although sample/region is not a
+discrete public field, 24 intended public RNA-expression vectors preserve both
+expression fingerprints and cell order. Joining those fingerprints to the
+deposited matrices definitively resolves every E15 row as 4,481 CA301 MGE,
+2,937 CA302 CGE, or 2 CA303 LGE cells. Keep these later MIND-atlas labels
+distinct from the original 2022 21-cluster taxonomy.
 
 IMPORTANT BIOLOGICAL GOAL
 -------------------------
@@ -296,6 +301,11 @@ Required first-checkpoint outputs are:
 - `Bandler2022/interactive_atlas/metadata/bandler_cluster_by_stage.tsv`
 - `Bandler2022/interactive_atlas/figures/public_umap_{cluster,class,stage}_by_study.{png,pdf}`
 - `Bandler2022/interactive_atlas/audit/{public_endpoint_scope,vector_count_validation}.tsv`
+- `Bandler2022/interactive_atlas/barcode_recovery/BANDLER_E15_BARCODE_RECOVERY_REPORT.md`
+- `Bandler2022/interactive_atlas/barcode_recovery/metadata/{bandler_e15,CA301}_later_atlas_barcode_join.tsv`
+- `Bandler2022/interactive_atlas/barcode_recovery/metadata/{sample_recovery_summary,sample_class_cluster_composition}.tsv`
+- `Bandler2022/interactive_atlas/barcode_recovery/audit/{barcode_recovery_validation,match_status_summary,fingerprint_gene_manifest}.tsv`
+- `Bandler2022/interactive_atlas/barcode_recovery/figures/ca301_later_atlas_clusters.{png,pdf}`
 
 The combined summary must report both the number/IDs of published samples and
 the number/IDs demonstrably represented in the P0 object. Unresolved object
@@ -305,8 +315,9 @@ expected for annotation dictionaries, author-embedding reproduction, broad
 class coverage, exact MGE/age-matched counts, and readiness ranking because
 those belong to the reviewed next stage. The present visual audit is limited
 to observed label hierarchy and the explicit E15/MGE evidence status above;
-it does not substitute for the still-missing Bandler/Mayer barcode-to-label
-joins or a final reference-readiness ranking.
+it does not substitute for the still-missing Mayer label join, the original
+Bandler 2022 21-state barcode assignment, or a final reference-readiness
+ranking. The later MIND-atlas Bandler E15 barcode join is now complete.
 
 The implementation must remain object-oriented. `SourceRegistry` owns source
 validation, `ImmutableSourceCache` owns atomic read-only materialization,
@@ -326,7 +337,11 @@ move these responsibilities into a monolithic command.
 `VectorCellCounter` owns circle extraction and reconciliation, and
 `AtlasEvidencePublisher` owns the later-atlas evidence package. These classes
 must preserve the distinction between publicly rendered study-level evidence
-and the still-unavailable CA301 barcode/region join.
+and the independently validated deposited-barcode join. `DepositedMatrixCache`
+owns immutable CA301--303 acquisition, `FeatureShinySession` owns intended
+public expression downloads, `VectorPlotParser` owns cell/color extraction,
+`OrderedFingerprintMatcher` owns exact subsequence and duplicate resolution,
+and `BarcodeRecoveryPublisher` owns the barcode-level evidence package.
 
 
 TASK 0 — ENVIRONMENT AND REPRODUCIBILITY
@@ -625,14 +640,17 @@ CAN THE BARCODE/CELL IDs FROM CA301 WT E15.5 MGE BE MAPPED DIRECTLY TO THE PUBLI
 
 Answer YES/NO/PARTIAL and prove it.
 
-Current proven answer: **NO for the original deposited CA301 matrix, with a
-later-lab lead still open**. The recovered author Seurat object is STICR and
-contains no CA301 sample or exact CA301 IDs. Supplementary Data 4 proves 21
-embryonic cluster definitions but has no cell IDs. The 2025 Mayer-lab
-interactive atlas proves that a later integrated object exists internally,
-but its public GitHub repository exposes only the preparation code and live
-plots, not the underlying object or generated cell table. Do not upgrade this
-to a CA301 join until barcodes are obtained and matched.
+Current proven answer: **YES for the later MIND-atlas annotation, NO for the
+original Bandler 2022 21-cluster per-cell taxonomy**. The recovered author
+Seurat object is postnatal STICR and contains no CA301 IDs; Supplementary Data
+4 defines the 21 original embryonic clusters but has no cell IDs. Separately,
+24 intended public MIND RNA-expression vectors and preserved plot order form
+an exact fingerprint subsequence of the deposited E15 matrices. They
+definitively map 4,481 CA301 barcodes to later-atlas class/cluster labels and
+public vector UMAP positions; 35 of 4,516 deposited CA301 cells were not
+retained. The same validation maps 2,937 CA302 and 2 CA303 barcodes, totaling
+all 7,420 E15 atlas cells. Do not relabel the later-atlas clusters as the
+original 2022 assignments.
 
 D. Recover the exact published embryonic annotation vocabulary.
 
@@ -693,7 +711,7 @@ Highest priority plots:
 1. all embryonic cells colored by published broad class
 2. all embryonic cells colored by published embryonic cluster
 3. highlight CA301 WT E15.5 MGE
-4. CA301-only plot using the same embedding, colored by published annotation
+4. CA301-only plot using the same public later-atlas geometry, colored by later-atlas annotation
 5. CA301 annotation composition bar plot/table
 
 If exact author UMAP coordinates are unavailable but the repository contains exact code and preprocessed integrated input:
@@ -1139,3 +1157,16 @@ atomically overwrites only the derived
 `Bandler2022/interactive_atlas/` package and regenerates the main report; it
 does not replace cached scientific inputs, the parent checkpoint, or any
 other PCDH19 step.
+
+The rerunnable deposited E15 barcode follow-up is:
+
+    ./paper3_pcdh19/bin/submit_bandler_e15_barcode_recovery.sh --dry-run \
+      /absolute/path/to/00_developing_mouse_mge_reference_curation_<run>
+    ./paper3_pcdh19/bin/submit_bandler_e15_barcode_recovery.sh \
+      /absolute/path/to/00_developing_mouse_mge_reference_curation_<run>
+
+It freezes its Python, R, shell, report, and SLURM files under `code/`, reuses
+immutable deposited matrices, captures public feature PDFs on the submission
+host, and overwrites only
+`Bandler2022/interactive_atlas/barcode_recovery/` before rebuilding the main
+report. Failed jobs remain in `provenance/job_ids.tsv`.

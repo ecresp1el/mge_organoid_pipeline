@@ -34,8 +34,10 @@ unpublished local integrated RDS with Bandler embryonic cells; treat it as a
 later reanalysis, not as a recovered original object. Its intended public
 Shiny vector outputs can nevertheless be captured: they contain 18,424
 Bandler study cells (11,004 E13; 7,420 E15) with later-atlas class and cluster
-labels. The E15 cells pool CA301 MGE, CA302 CGE, and CA303 LGE because sample
-or region is not a public plotting field. See
+labels. A 24-gene public-expression fingerprint join now maps every E15 atlas
+row back to a deposited barcode: 4,481 CA301 MGE, 2,937 CA302 CGE, and 2 CA303
+LGE cells. These are later-atlas labels, not the original 2022 21-cluster
+assignments. See
 `Bandler2022/BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md` in the curation run.
 
 For the exact age/anatomy question: Bandler provides 4,516 directly identified
@@ -79,6 +81,18 @@ That wrapper freezes copies under `code/`, captures the public PDFs from the
 submission host, then submits their validation/vector parsing/report rebuild
 to SLURM. It overwrites only the derived `Bandler2022/interactive_atlas/`
 package. Completed job: `59175410`.
+
+For the rerunnable deposited-barcode follow-up:
+
+```bash
+./paper3_pcdh19/bin/submit_bandler_e15_barcode_recovery.sh --dry-run /absolute/path/to/run
+./paper3_pcdh19/bin/submit_bandler_e15_barcode_recovery.sh /absolute/path/to/run
+```
+
+This freezes the exact Python/R/shell/SLURM code, reuses immutable GEO
+matrices, captures intended public RNA-expression vectors on the submission
+host, and overwrites only
+`Bandler2022/interactive_atlas/barcode_recovery/`.
 
 Every default submission creates a versioned package under
 `PAPER3_ROOT/results/00_developing_mouse_mge_reference_curation/`. The exact

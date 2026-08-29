@@ -49,15 +49,16 @@ is MGE E13.5 Lhx6-positive, while La Manno exact E15 MGE remains unproven.
 The auxiliary Bandler recovery adds a separate author STICR Seurat object
 (65,700 postnatal cells with labels and UMAP), official sample/marker
 supplements, and an artifact-scope report. Because STICR contains none of the
-CA298--303 embryonic samples, it does not change CA301's cell-level annotation
-status. The 21 published embryonic clusters remain definitions without a
-barcode join. A 2025 Mayer-lab interactive atlas is tracked as a later
+CA298--303 embryonic samples, it does not itself change CA301's cell-level
+annotation status. The 21 original published embryonic clusters remain
+definitions without a barcode join. A 2025 Mayer-lab interactive atlas is tracked as a later
 reanalysis whose underlying integrated RDS is named in code but not publicly
 linked or exposed by an intended object/table endpoint. Its intended public
-vector plot handler does expose exact study-level evidence: 18,424 Bandler
-cells, comprising 11,004 E13 and 7,420 E15 cells with later-atlas class and
-cluster labels. The E15 plot pools CA301 MGE, CA302 CGE, and CA303 LGE, so it
-is not a CA301 join.
+vector handlers expose 18,424 Bandler cells, comprising 11,004 E13 and 7,420
+E15 cells with later-atlas class and cluster labels. Twenty-four public
+RNA-expression vectors and preserved cell order now provide the deposited E15
+barcode join: 4,481 CA301 MGE, 2,937 CA302 CGE, and 2 CA303 LGE cells. This is
+a later-atlas join; the original Bandler 2022 per-cell taxonomy is not claimed.
 
 The registered source tissue is mouse embryonic brain, MGE, and the dataset was
 generated with 10x Flex v2. This audit asks a deliberately narrow question:

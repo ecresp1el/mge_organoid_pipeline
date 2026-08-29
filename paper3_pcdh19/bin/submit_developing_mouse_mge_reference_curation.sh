@@ -50,13 +50,17 @@ AUTHOR_OBJECT_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/recover_bandler_a
 AUTHOR_OBJECT_R_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/inspect_bandler_author_seurat.R"
 AUTHOR_EVIDENCE_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/summarize_bandler_published_evidence.py"
 ATLAS_CAPTURE_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/capture_mind_shiny_public_outputs.py"
+BARCODE_RECOVERY_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/recover_bandler_e15_barcodes.py"
+BARCODE_RECOVERY_R_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/export_bandler_e15_fingerprints.R"
 SOURCE_SBATCH="${BUNDLE_DIR}/slurm/00a_developing_mouse_mge_source_audit.sbatch"
 P0_SBATCH="${BUNDLE_DIR}/slurm/00b_developing_mouse_mge_p0_inspection.sbatch"
 CHECKPOINT_SBATCH="${BUNDLE_DIR}/slurm/00c_developing_mouse_mge_checkpoint.sbatch"
 VISUAL_SBATCH="${BUNDLE_DIR}/slurm/00d_developing_mouse_mge_visual_report.sbatch"
 AUTHOR_OBJECT_SBATCH="${BUNDLE_DIR}/slurm/00e_recover_bandler_author_seurat.sbatch"
 ATLAS_CAPTURE_SBATCH="${BUNDLE_DIR}/slurm/00f_capture_mind_shiny_public_outputs.sbatch"
+BARCODE_RECOVERY_SBATCH="${BUNDLE_DIR}/slurm/00g_recover_bandler_e15_barcodes.sbatch"
 ATLAS_CAPTURE_SUBMITTER="${BUNDLE_DIR}/bin/submit_mind_public_atlas_capture.sh"
+BARCODE_RECOVERY_SUBMITTER="${BUNDLE_DIR}/bin/submit_bandler_e15_barcode_recovery.sh"
 PACKAGE_README="${BUNDLE_DIR}/templates/REFERENCE_CURATION_OUTPUT_PACKAGE_README.md"
 HANDOFF="${BUNDLE_DIR}/PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md"
 
@@ -73,8 +77,8 @@ source "${CURATION_CONFIG}"
 
 for required in \
   "${GREATLAKES_CONFIG}" "${CURATION_CONFIG}" "${REGISTRY}" "${REQUIREMENTS}" \
-  "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" "${AUTHOR_EVIDENCE_SCRIPT}" "${ATLAS_CAPTURE_SCRIPT}" \
-  "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" "${VISUAL_SBATCH}" "${AUTHOR_OBJECT_SBATCH}" "${ATLAS_CAPTURE_SBATCH}" "${ATLAS_CAPTURE_SUBMITTER}" \
+  "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" "${AUTHOR_EVIDENCE_SCRIPT}" "${ATLAS_CAPTURE_SCRIPT}" "${BARCODE_RECOVERY_SCRIPT}" "${BARCODE_RECOVERY_R_SCRIPT}" \
+  "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" "${VISUAL_SBATCH}" "${AUTHOR_OBJECT_SBATCH}" "${ATLAS_CAPTURE_SBATCH}" "${BARCODE_RECOVERY_SBATCH}" "${ATLAS_CAPTURE_SUBMITTER}" "${BARCODE_RECOVERY_SUBMITTER}" \
   "${PACKAGE_README}" "${HANDOFF}" "${CURATION_PYTHON_BIN}"; do
   [[ -f "${required}" ]] || { echo "Missing required file: ${required}" >&2; exit 2; }
 done
@@ -157,8 +161,8 @@ mkdir -p \
   "${RUN_DIR}/Mayer2018/metadata" "${RUN_DIR}/Mayer2018/figures" "${RUN_DIR}/Mayer2018/audit" \
   "${SOURCE_ROOT}"
 
-cp -p "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" "${AUTHOR_EVIDENCE_SCRIPT}" "${ATLAS_CAPTURE_SCRIPT}" \
-  "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" "${VISUAL_SBATCH}" "${AUTHOR_OBJECT_SBATCH}" "${ATLAS_CAPTURE_SBATCH}" "${ATLAS_CAPTURE_SUBMITTER}" \
+cp -p "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" "${AUTHOR_EVIDENCE_SCRIPT}" "${ATLAS_CAPTURE_SCRIPT}" "${BARCODE_RECOVERY_SCRIPT}" "${BARCODE_RECOVERY_R_SCRIPT}" \
+  "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" "${VISUAL_SBATCH}" "${AUTHOR_OBJECT_SBATCH}" "${ATLAS_CAPTURE_SBATCH}" "${BARCODE_RECOVERY_SBATCH}" "${ATLAS_CAPTURE_SUBMITTER}" "${BARCODE_RECOVERY_SUBMITTER}" \
   "${BASH_SOURCE[0]}" "${RUN_DIR}/code/"
 cp -p "${GREATLAKES_CONFIG}" "${RUN_DIR}/config/submitted_greatlakes.env"
 cp -p "${CURATION_CONFIG}" "${RUN_DIR}/config/submitted_curation.env"

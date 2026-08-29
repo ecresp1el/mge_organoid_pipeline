@@ -32,10 +32,14 @@ Directory roles:
   separating the exact CA301 counts, recovered postnatal STICR Seurat object,
   published embryonic marker vocabulary, and later interactive-atlas lead.
 - `Bandler2022/interactive_atlas/`: rerunnable intended-public Shiny vector
-captures, exact study/stage/class/cluster counts, endpoint-scope audit, and
+  captures, exact study/stage/class/cluster counts, endpoint-scope audit, and
   report. Public acquisition runs from the submission host with frozen code;
-  SLURM validates and parses the exact captures. Its Bandler E15 total pools
-  MGE/CGE/LGE and is not a CA301 join.
+  SLURM validates and parses the exact captures.
+- `Bandler2022/interactive_atlas/barcode_recovery/`: deposited E15 barcode
+  join built from 24 intended public RNA-expression vectors and preserved cell
+  order. It resolves 4,481 CA301 MGE, 2,937 CA302 CGE, and 2 CA303 LGE cells,
+  includes later-atlas labels/plot coordinates and confidence fields, and does
+  not claim the original 2022 labels.
 
 Original P0 objects are cached once under the resolved
 `PAPER3_CURATION_SOURCE_ROOT` inside `PAPER3_ROOT/inputs/`. Existing cached

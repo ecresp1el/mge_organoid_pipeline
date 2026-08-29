@@ -23,10 +23,13 @@ scope and stop conditions are in
 It is reference-only at this stage: it cannot load or map the Paper 3 query,
 alter GSE94641 outputs, or feed information into this frozen classification
 unit.
-Its later public-atlas follow-up has now recovered exact Bandler study-level
-E13/E15 class and cluster counts from the intended Shiny vector exports. Those
-exports pool the E15 MGE/CGE/LGE samples and therefore do not annotate CA301
-or alter any Step 03–07 classification.
+Its later public-atlas follow-up recovered exact Bandler study-level E13/E15
+class and cluster counts from intended Shiny vector exports. A subsequent
+24-gene expression-fingerprint/order join now resolves the 7,420 E15 atlas
+cells as 4,481 CA301 MGE, 2,937 CA302 CGE, and 2 CA303 LGE deposited barcodes,
+with later-atlas labels and public-vector plot coordinates. This auxiliary
+result does not alter any Step 03–07 classification, and it is not the original
+Bandler 2022 21-cluster per-cell taxonomy.
 
 That auxiliary module uses versioned run packages by default and has an
 explicit guarded `--replace-run RUN_ID` mode for intentional inactive-run reruns inside its

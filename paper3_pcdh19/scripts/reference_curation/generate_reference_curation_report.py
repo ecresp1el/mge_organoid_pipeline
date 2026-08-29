@@ -154,7 +154,10 @@ class ReferenceCurationReportBuilder:
                 age_match = "Exact E15.5 collection age (GEO shorthand E15)"
                 mge_match = "Exact WT MGE sample CA301/GSM5684876"
                 recovered = (self.run_dir / "Bandler2022" / "author_object_audit" / "author_seurat_structure.tsv").is_file()
+                barcode_recovered = (self.run_dir / "Bandler2022" / "interactive_atlas" / "barcode_recovery" / "metadata" / "CA301_later_atlas_barcode_join.tsv").is_file()
                 visibility = (
+                    "CA301: 4,481 deposited barcodes joined to later-atlas labels/UMAP; original 2022 labels remain unavailable"
+                    if barcode_recovered else
                     "CA301: no labels; recovered postnatal STICR Seurat: author labels and UMAP"
                     if recovered else "NO: deposited P0 is a counts-only sparse matrix"
                 )
@@ -175,10 +178,13 @@ class ReferenceCurationReportBuilder:
                 "age_match": age_match,
                 "MGE_match": mge_match,
                 "author_embedding": (
-                    "CA301=no; recovered_STICR=yes" if study == "Bandler2022" and recovered
+                    "CA301=later_atlas_public_vector_coordinates; recovered_STICR=yes" if study == "Bandler2022" and barcode_recovered
+                    else "CA301=no; recovered_STICR=yes" if study == "Bandler2022" and recovered
                     else checkpoint.get("author_embedding_present", "")
                 ),
                 "embedded_annotations": (
+                    "CA301=later_atlas_class|later_atlas_cluster; original_2022_labels=unavailable; recovered_STICR=refined_COUP_class|refined_COUP_clust"
+                    if study == "Bandler2022" and barcode_recovered else
                     "CA301=none; recovered_STICR=refined_COUP_class|refined_COUP_clust"
                     if study == "Bandler2022" and recovered else checkpoint.get("annotation_columns_present", "")
                 ),
@@ -194,7 +200,11 @@ class ReferenceCurationReportBuilder:
         bandler_recovered = (self.run_dir / "Bandler2022" / "BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md").is_file()
         atlas_dir = self.run_dir / "Bandler2022" / "interactive_atlas"
         atlas_capture = (atlas_dir / "MIND_PUBLIC_ATLAS_CAPTURE_REPORT.md").is_file()
+        barcode_dir = atlas_dir / "barcode_recovery"
+        barcode_recovered = (barcode_dir / "metadata" / "CA301_later_atlas_barcode_join.tsv").is_file()
         bandler_implication = (
+            "4,481 of 4,516 deposited CA301 barcodes are definitively joined to later-MIND-atlas class/cluster labels and public vector UMAP coordinates; original 2022 per-cell labels remain unavailable."
+            if barcode_recovered else
             "CA301 itself remains unlabeled. The later public MIND atlas supplies Bandler study/stage/class/cluster UMAP evidence, but its E15 panel pools MGE, CGE, and LGE."
             if atlas_capture else
             "Exact WT E15.5 MGE counts remain unlabeled. A recovered 65,700-cell author STICR Seurat object supplies postnatal labels/UMAP but contains no CA301 cells."
@@ -215,13 +225,26 @@ class ReferenceCurationReportBuilder:
                 "",
                 "![Public MIND atlas by cluster and study](Bandler2022/interactive_atlas/figures/public_umap_cluster_by_study.png)",
                 "",
-                "This still does not create a CA301 barcode join. The app's public plotting fields distinguish study and stage, not Bandler sample/region, so its 7,420 E15 cells pool CA301 MGE, CA302 CGE, and CA303 LGE. The server-resident RDS/table are used server-side but are not returned by an intended public object/table endpoint. See `Bandler2022/interactive_atlas/MIND_PUBLIC_ATLAS_CAPTURE_REPORT.md`.",
+                "The discrete public fields alone do not expose sample/region. The barcode-recovery follow-up uses 24 independently captured public expression vectors plus preserved cell order to join all 7,420 E15 cells back to the deposited matrices: 4,481 CA301 MGE, 2,937 CA302 CGE, and 2 CA303 LGE. See `Bandler2022/interactive_atlas/barcode_recovery/BANDLER_E15_BARCODE_RECOVERY_REPORT.md`." if barcode_recovered else "This still does not create a CA301 barcode join. The app's public plotting fields distinguish study and stage, not Bandler sample/region, so its 7,420 E15 cells pool CA301 MGE, CA302 CGE, and CA303 LGE. The server-resident RDS/table are used server-side but are not returned by an intended public object/table endpoint. See `Bandler2022/interactive_atlas/MIND_PUBLIC_ATLAS_CAPTURE_REPORT.md`.",
             ]
+            if barcode_recovered:
+                recovery_summary = read_tsv(barcode_dir / "metadata" / "sample_recovery_summary.tsv")
+                ca301_composition = [row for row in read_tsv(barcode_dir / "metadata" / "sample_class_cluster_composition.tsv") if row["sample"] == "CA301"]
+                atlas_lines.extend([
+                    "", "### Deposited-barcode recovery for E15", "",
+                    "The missing sample bridge is now directly resolved. Every retained E15 atlas row has a definitive deposited barcode under the 24-gene expression-plus-order validation.", "",
+                    "| Sample | Region | Deposited cells | Retained in later atlas | Excluded |", "| --- | --- | ---: | ---: | ---: |",
+                    *(f"| `{row['sample']}` | {row['region']} | {int(row['deposited_cells']):,} | {int(row['later_atlas_E15_cells_recovered']):,} | {int(row['deposited_cells_not_in_later_atlas']):,} |" for row in recovery_summary),
+                    "", "| CA301 later-atlas cluster | Cells |", "| --- | ---: |",
+                    *(f"| `{row['later_atlas_cluster']}` | {int(row['cells']):,} |" for row in ca301_composition),
+                    "", "![Recovered CA301 WT E15.5 MGE cells](Bandler2022/interactive_atlas/barcode_recovery/figures/ca301_later_atlas_clusters.png)", "",
+                    "These are later MIND-atlas reanalysis labels, not the original Bandler 2022 21-cluster per-cell assignments.",
+                ])
         bandler_recovery_lines = [
             "",
             "A historical link recovered from the authors' Git history yielded `STICR.seuratobject.RDS`: a genuine 21,051-feature × 65,700-cell Seurat object with PCA, Harmony and UMAP reductions. It contains 11 broad `refined_COUP_class` values and 51 `refined_COUP_clust` values, including neuronal precursor, mitotic, astrocyte, OPC/oligodendrocyte, macrophage/microglia, vascular, epithelial and ependymal populations.",
             "",
-            "This object is the **postnatal STICR reference**, not the embryonic object. Its 18 sample IDs exclude CA298–CA303 and exact CA301 cell-ID overlap is zero. Official Supplementary Data 4 defines 21 embryonic clusters and their marker genes, but supplies neither cell barcodes nor coordinates. Consequently those labels still cannot be assigned to the 4,516 deposited CA301 cells.",
+            "This object is the **postnatal STICR reference**, not the embryonic object. Its 18 sample IDs exclude CA298–CA303 and exact CA301 cell-ID overlap is zero. Official Supplementary Data 4 defines 21 original embryonic clusters and their marker genes, but supplies neither cell barcodes nor coordinates. Consequently the original 2022 labels still cannot be assigned to the 4,516 deposited CA301 cells from those artifacts. The separate later-atlas expression-fingerprint recovery now joins 4,481 CA301 cells to the later MIND taxonomy.",
             "",
             "The same Mayer lab's 2025 interactive GE atlas loads a local `EXCIT_INHIBIT_cleaned_sub.rds` with Bandler embryonic cell IDs, UMAP, stage, study, broad class and cluster. Its intended public vector plots are now captured below; the underlying object/generated cell table still are not included in the public repository or returned by an intended app endpoint.",
             "",
@@ -279,9 +302,9 @@ class ReferenceCurationReportBuilder:
             "",
             "## Bandler 2022",
             "",
-            "The deposited CA301 file has two gzip layers and resolves to a sparse `dgCMatrix` with 19,808 gene rows and 4,516 uniquely named cell columns. Cell IDs retain the `CA301_` prefix followed by a 10x barcode, providing a stable basis for a future join. The object contains no metadata columns, Seurat reductions, UMAP/tSNE coordinates, or cell-type labels. Therefore labels such as published embryonic states cannot yet be assigned to these 4,516 cells from this file alone.",
+            "The deposited CA301 file has two gzip layers and resolves to a sparse `dgCMatrix` with 19,808 gene rows and 4,516 uniquely named cell columns. Cell IDs retain the `CA301_` prefix followed by a 10x barcode. The object itself contains no metadata columns, Seurat reductions, UMAP/tSNE coordinates, or cell-type labels. The later-atlas recovery now maps 4,481 of those exact IDs to later MIND class/cluster labels and public vector coordinates; 35 deposited CA301 cells were not retained in that atlas.",
             "",
-            "Biological strength: CA301/GSM5684876 is the exact WT MGE sample collected at E15.5 (GEO shorthand E15). Immediate limitation: find the smallest author/supplement/intermediate table mapping `CA301_<barcode>` to the published embryonic annotation and embedding.",
+            "Biological strength: CA301/GSM5684876 is the exact WT MGE sample collected at E15.5 (GEO shorthand E15). Current boundary: the later MIND barcode/label/plot join is solved, while the original Bandler 2022 21-label per-cell assignment remains unavailable.",
             *bandler_recovery_lines,
             *atlas_lines,
             "",
@@ -304,7 +327,7 @@ class ReferenceCurationReportBuilder:
             "",
             "- La Manno clearly contains the broad dissection classes requested, including radial glia, intermediate progenitors, neuroblasts, neurons, astroglial, immune/microglial, oligodendrocyte/OPC, endothelial, vascular and pericyte labels.",
             "- La Manno is the only candidate whose author annotations and embedding coordinates are immediately available in the candidate P0 itself.",
-            "- Bandler is the best exact age/anatomy match. The public later atlas now supplies exact Bandler study-level E13/E15 class and cluster composition, but CA301 remains inseparable from the E15 CGE/LGE samples in those public fields.",
+            "- Bandler is the best exact age/anatomy match. Expression fingerprints now separate the public later-atlas E15 cells into 4,481 CA301 MGE, 2,937 CA302 CGE, and 2 CA303 LGE cells and attach later-atlas labels/plot coordinates to their deposited barcodes.",
             "- Mayer's relevant MGE component is E13.5 and Lhx6-positive selected, so it is not a census of an unbiased whole E15 MGE dissection.",
             "- Exact MGE-specific and age-matched label counts, author-embedding plots, and a final readiness ranking remain the next reviewed stage; they were not inferred during this checkpoint.",
             "",
@@ -328,6 +351,7 @@ class ReferenceCurationReportBuilder:
             "- `Bandler2022/metadata/published_*_inventory.tsv` and marker tables",
             "- `Bandler2022/figures/01_bandler_recovered_and_published_annotation_structure.{png,pdf}`",
             "- `Bandler2022/interactive_atlas/MIND_PUBLIC_ATLAS_CAPTURE_REPORT.md` and its exact count tables/public plot captures when the standalone atlas stage has completed",
+            "- `Bandler2022/interactive_atlas/barcode_recovery/BANDLER_E15_BARCODE_RECOVERY_REPORT.md`, barcode joins, confidence audit, and CA301 plot when the standalone barcode stage has completed",
             "- `provenance/hierarchy_plot_output_manifest.tsv` and `provenance/hierarchy_plot_generation.tsv`",
             "- `<study>/audit/` structure, identifiers, embedding and value-count files.",
             "",
