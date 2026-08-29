@@ -29,7 +29,8 @@ class and cluster counts from intended Shiny vector exports. A subsequent
 cells as 4,481 CA301 MGE, 2,937 CA302 CGE, and 2 CA303 LGE deposited barcodes,
 with later-atlas labels and public-vector plot coordinates. This auxiliary
 result does not alter any Step 03–07 classification, and it is not the original
-Bandler 2022 21-cluster per-cell taxonomy.
+Bandler 2022 21-cluster per-cell taxonomy. Barcode-recovery job 59179410
+completed successfully; failed environment attempt 59177809 remains recorded.
 
 That auxiliary module uses versioned run packages by default and has an
 explicit guarded `--replace-run RUN_ID` mode for intentional inactive-run reruns inside its

@@ -268,11 +268,12 @@ class BandlerEvidencePublisher:
 
     def _artifact_scope(self) -> list[dict[str, object]]:
         atlas_captured = (self.run_dir / "Bandler2022" / "interactive_atlas" / "MIND_PUBLIC_ATLAS_CAPTURE_REPORT.md").is_file()
+        barcode_recovered = (self.run_dir / "Bandler2022" / "interactive_atlas" / "barcode_recovery" / "metadata" / "CA301_later_atlas_barcode_join.tsv").is_file()
         return [
             {"artifact": "CA301/GSM5684876 deposited counts", "cells": 4516, "cell_labels": "no", "embedding": "no", "contains_CA301": "yes", "role": "Exact WT E15.5 MGE expression matrix; stable CA301-prefixed barcodes."},
             {"artifact": "Recovered STICR.seuratobject.RDS", "cells": 65700, "cell_labels": "yes", "embedding": "yes", "contains_CA301": "no", "role": "Postnatal forebrain reference with broad classes and refined clusters."},
             {"artifact": "Supplementary Data 4", "cells": "NA", "cell_labels": "definitions only", "embedding": "no", "contains_CA301": "not mappable", "role": "Twenty-one embryonic cluster definitions and marker genes; no cell IDs."},
-            {"artifact": "2025 Mayer-lab interactive GE atlas", "cells": 18424 if atlas_captured else "public vector counts not yet captured", "cell_labels": "study-level labels in public vector plots", "embedding": "yes in public vector plots", "contains_CA301": "Bandler E15 pooled; CA301 not separable", "role": "Later Mayer-lab reanalysis; intended public plot downloads can be quantified, but underlying EXCIT_INHIBIT_cleaned_sub.rds is not publicly linked."},
+            {"artifact": "2025 Mayer-lab interactive GE atlas", "cells": 18424 if atlas_captured else "public vector counts not yet captured", "cell_labels": "later-atlas class/cluster labels", "embedding": "yes in public vector plots", "contains_CA301": "4,481 deposited CA301 barcodes recovered" if barcode_recovered else "Bandler E15 pooled in discrete fields", "role": "Later Mayer-lab reanalysis; 24 public expression vectors plus preserved order recover E15 deposited barcodes, but the underlying EXCIT_INHIBIT_cleaned_sub.rds is not publicly linked." if barcode_recovered else "Later Mayer-lab reanalysis; intended public plot downloads can be quantified, but underlying EXCIT_INHIBIT_cleaned_sub.rds is not publicly linked."},
         ]
 
     def _report(self, samples: Sequence[Mapping[str, object]], inventories: Mapping[str, Sequence[Mapping[str, object]]]) -> str:

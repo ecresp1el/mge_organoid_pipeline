@@ -60,6 +60,9 @@ the public WebSocket; they also remain recorded. The corrected rerunnable
 design captures the intended public PDFs on the submission host using the
 already-frozen run copy, then SLURM validates those exact files, performs all
 vector parsing/count reconciliation, and rebuilds the reports.
+The subsequent deposited-barcode workflow completed successfully as job
+59179410 (7,420/7,420 E15 joins definitive); its environment-only failed
+attempt 59177809 remains recorded rather than hidden.
 La Manno contains embedded author annotation columns and `X_UMAP`/`X_tSNE`;
 the inspected Bandler and Mayer P0 files themselves are counts-only. Bandler's
 separate later-MIND barcode recovery now displays later-atlas labels for 4,481

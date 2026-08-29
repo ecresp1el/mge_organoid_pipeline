@@ -97,7 +97,9 @@ The standalone `bin/submit_bandler_e15_barcode_recovery.sh RUN_DIRECTORY`
 follow-up applies the same frozen-code rule, overwrites only
 `Bandler2022/interactive_atlas/barcode_recovery/`, reuses immutable deposited
 matrices, captures intended public expression PDFs on the submission host,
-and performs the fingerprint/order join under SLURM.
+and performs the fingerprint/order join under SLURM. Job 59179410 completed
+the definitive 7,420-cell join; environment-only failure 59177809 remains in
+provenance.
 
 Use `--replace-run RUN_ID` only when intentionally regenerating an existing inactive run
 within this exact step. The guarded replacement rejects unsafe names and active
