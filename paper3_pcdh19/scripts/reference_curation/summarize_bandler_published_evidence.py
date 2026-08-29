@@ -267,11 +267,12 @@ class BandlerEvidencePublisher:
         self.paths = PublishedArtifactPaths.from_source_root(self.source_root)
 
     def _artifact_scope(self) -> list[dict[str, object]]:
+        atlas_captured = (self.run_dir / "Bandler2022" / "interactive_atlas" / "MIND_PUBLIC_ATLAS_CAPTURE_REPORT.md").is_file()
         return [
             {"artifact": "CA301/GSM5684876 deposited counts", "cells": 4516, "cell_labels": "no", "embedding": "no", "contains_CA301": "yes", "role": "Exact WT E15.5 MGE expression matrix; stable CA301-prefixed barcodes."},
             {"artifact": "Recovered STICR.seuratobject.RDS", "cells": 65700, "cell_labels": "yes", "embedding": "yes", "contains_CA301": "no", "role": "Postnatal forebrain reference with broad classes and refined clusters."},
             {"artifact": "Supplementary Data 4", "cells": "NA", "cell_labels": "definitions only", "embedding": "no", "contains_CA301": "not mappable", "role": "Twenty-one embryonic cluster definitions and marker genes; no cell IDs."},
-            {"artifact": "2025 Mayer-lab interactive GE atlas", "cells": "not exported", "cell_labels": "yes in live app", "embedding": "yes in live app", "contains_CA301": "not yet proven", "role": "Later Mayer-lab reanalysis; underlying EXCIT_INHIBIT_cleaned_sub.rds is not publicly linked."},
+            {"artifact": "2025 Mayer-lab interactive GE atlas", "cells": 18424 if atlas_captured else "public vector counts not yet captured", "cell_labels": "study-level labels in public vector plots", "embedding": "yes in public vector plots", "contains_CA301": "Bandler E15 pooled; CA301 not separable", "role": "Later Mayer-lab reanalysis; intended public plot downloads can be quantified, but underlying EXCIT_INHIBIT_cleaned_sub.rds is not publicly linked."},
         ]
 
     def _report(self, samples: Sequence[Mapping[str, object]], inventories: Mapping[str, Sequence[Mapping[str, object]]]) -> str:
@@ -306,7 +307,7 @@ class BandlerEvidencePublisher:
             "- Proven: CA301 is WT MGE collected at E15.5, made from six pooled brains using 10x v2 and NovaSeq/Broad sequencing.",
             "- Proven: the paper used CA298–CA303 plus MUC28072 in its integrated embryonic analysis and published 21 embryonic cluster names.",
             "- Not recovered: the original integrated embryonic Seurat object or a barcode-to-cluster/UMAP table for CA301.",
-            "- Later lead: the Mayer lab's 2025 interactive atlas uses a local `EXCIT_INHIBIT_cleaned_sub.rds` containing Bandler embryonic cells, stages, UMAP, classes, clusters, study, and cell IDs. The GitHub deployment code names this object but does not publish it or its generated TSV/HDF5 files.",
+            "- Later atlas: the Mayer lab's 2025 interactive atlas uses a local `EXCIT_INHIBIT_cleaned_sub.rds` containing Bandler embryonic cells, stages, UMAP, classes, clusters, study, and cell IDs. Its intended public vector plots can be captured and quantified by the standalone `00f` stage, although the GitHub repository and app do not expose the underlying RDS/generated cell table through an intended download endpoint.",
             "",
             "Therefore CA301 remains the strongest anatomical/age match, but its 4,516 deposited cells must not be assigned the 21 published embryonic labels until a barcode-preserving author or later-lab artifact is obtained.",
             "",

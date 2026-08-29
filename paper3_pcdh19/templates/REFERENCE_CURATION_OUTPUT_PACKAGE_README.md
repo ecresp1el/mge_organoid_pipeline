@@ -31,6 +31,11 @@ Directory roles:
 - `Bandler2022/BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md`: artifact-scope report
   separating the exact CA301 counts, recovered postnatal STICR Seurat object,
   published embryonic marker vocabulary, and later interactive-atlas lead.
+- `Bandler2022/interactive_atlas/`: rerunnable intended-public Shiny vector
+captures, exact study/stage/class/cluster counts, endpoint-scope audit, and
+  report. Public acquisition runs from the submission host with frozen code;
+  SLURM validates and parses the exact captures. Its Bandler E15 total pools
+  MGE/CGE/LGE and is not a CA301 join.
 
 Original P0 objects are cached once under the resolved
 `PAPER3_CURATION_SOURCE_ROOT` inside `PAPER3_ROOT/inputs/`. Existing cached

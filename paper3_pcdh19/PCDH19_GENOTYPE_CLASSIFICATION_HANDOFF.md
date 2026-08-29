@@ -23,6 +23,10 @@ scope and stop conditions are in
 It is reference-only at this stage: it cannot load or map the Paper 3 query,
 alter GSE94641 outputs, or feed information into this frozen classification
 unit.
+Its later public-atlas follow-up has now recovered exact Bandler study-level
+E13/E15 class and cluster counts from the intended Shiny vector exports. Those
+exports pool the E15 MGE/CGE/LGE samples and therefore do not annotate CA301
+or alter any Step 03–07 classification.
 
 That auxiliary module uses versioned run packages by default and has an
 explicit guarded `--replace-run RUN_ID` mode for intentional inactive-run reruns inside its

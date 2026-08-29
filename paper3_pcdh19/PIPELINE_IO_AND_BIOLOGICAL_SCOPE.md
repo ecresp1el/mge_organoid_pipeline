@@ -53,7 +53,11 @@ CA298--303 embryonic samples, it does not change CA301's cell-level annotation
 status. The 21 published embryonic clusters remain definitions without a
 barcode join. A 2025 Mayer-lab interactive atlas is tracked as a later
 reanalysis whose underlying integrated RDS is named in code but not publicly
-linked.
+linked or exposed by an intended object/table endpoint. Its intended public
+vector plot handler does expose exact study-level evidence: 18,424 Bandler
+cells, comprising 11,004 E13 and 7,420 E15 cells with later-atlas class and
+cluster labels. The E15 plot pools CA301 MGE, CA302 CGE, and CA303 LGE, so it
+is not a CA301 join.
 
 The registered source tissue is mouse embryonic brain, MGE, and the dataset was
 generated with 10x Flex v2. This audit asks a deliberately narrow question:
@@ -93,7 +97,9 @@ source/result ledger and safe provenance options.
   checkpoint publishes object structure plus sample/library inventories and
   observed hierarchy/evidence visuals, and precedes missing-label
   reconstruction, heavy analysis, reference selection, and all Paper 3
-  mapping.
+  mapping. The standalone `submit_mind_public_atlas_capture.sh` follow-up runs
+  frozen code copies and may overwrite only the derived interactive-atlas
+  subpackage within this step.
 - `00_gse94641_reference_download_validation`: independent rapid-annotation
   preprocessing; 225 processed published reference cells and all GEO cell
   metadata are checksum-locked and validated; complete.

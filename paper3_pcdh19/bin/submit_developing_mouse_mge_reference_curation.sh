@@ -49,11 +49,14 @@ PLOT_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/plot_reference_annotation_
 AUTHOR_OBJECT_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/recover_bandler_author_object.py"
 AUTHOR_OBJECT_R_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/inspect_bandler_author_seurat.R"
 AUTHOR_EVIDENCE_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/summarize_bandler_published_evidence.py"
+ATLAS_CAPTURE_SCRIPT="${BUNDLE_DIR}/scripts/reference_curation/capture_mind_shiny_public_outputs.py"
 SOURCE_SBATCH="${BUNDLE_DIR}/slurm/00a_developing_mouse_mge_source_audit.sbatch"
 P0_SBATCH="${BUNDLE_DIR}/slurm/00b_developing_mouse_mge_p0_inspection.sbatch"
 CHECKPOINT_SBATCH="${BUNDLE_DIR}/slurm/00c_developing_mouse_mge_checkpoint.sbatch"
 VISUAL_SBATCH="${BUNDLE_DIR}/slurm/00d_developing_mouse_mge_visual_report.sbatch"
 AUTHOR_OBJECT_SBATCH="${BUNDLE_DIR}/slurm/00e_recover_bandler_author_seurat.sbatch"
+ATLAS_CAPTURE_SBATCH="${BUNDLE_DIR}/slurm/00f_capture_mind_shiny_public_outputs.sbatch"
+ATLAS_CAPTURE_SUBMITTER="${BUNDLE_DIR}/bin/submit_mind_public_atlas_capture.sh"
 PACKAGE_README="${BUNDLE_DIR}/templates/REFERENCE_CURATION_OUTPUT_PACKAGE_README.md"
 HANDOFF="${BUNDLE_DIR}/PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md"
 
@@ -70,8 +73,8 @@ source "${CURATION_CONFIG}"
 
 for required in \
   "${GREATLAKES_CONFIG}" "${CURATION_CONFIG}" "${REGISTRY}" "${REQUIREMENTS}" \
-  "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" "${AUTHOR_EVIDENCE_SCRIPT}" \
-  "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" "${VISUAL_SBATCH}" "${AUTHOR_OBJECT_SBATCH}" \
+  "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" "${AUTHOR_EVIDENCE_SCRIPT}" "${ATLAS_CAPTURE_SCRIPT}" \
+  "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" "${VISUAL_SBATCH}" "${AUTHOR_OBJECT_SBATCH}" "${ATLAS_CAPTURE_SBATCH}" "${ATLAS_CAPTURE_SUBMITTER}" \
   "${PACKAGE_README}" "${HANDOFF}" "${CURATION_PYTHON_BIN}"; do
   [[ -f "${required}" ]] || { echo "Missing required file: ${required}" >&2; exit 2; }
 done
@@ -150,12 +153,12 @@ fi
 mkdir -p \
   "${RUN_DIR}/code" "${RUN_DIR}/config" "${RUN_DIR}/tables" "${RUN_DIR}/logs" "${RUN_DIR}/provenance" \
   "${RUN_DIR}/LaManno2021/metadata" "${RUN_DIR}/LaManno2021/figures" "${RUN_DIR}/LaManno2021/audit" \
-  "${RUN_DIR}/Bandler2022/metadata" "${RUN_DIR}/Bandler2022/figures" "${RUN_DIR}/Bandler2022/audit" \
+  "${RUN_DIR}/Bandler2022/metadata" "${RUN_DIR}/Bandler2022/figures" "${RUN_DIR}/Bandler2022/audit" "${RUN_DIR}/Bandler2022/interactive_atlas" \
   "${RUN_DIR}/Mayer2018/metadata" "${RUN_DIR}/Mayer2018/figures" "${RUN_DIR}/Mayer2018/audit" \
   "${SOURCE_ROOT}"
 
-cp -p "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" "${AUTHOR_EVIDENCE_SCRIPT}" \
-  "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" "${VISUAL_SBATCH}" "${AUTHOR_OBJECT_SBATCH}" \
+cp -p "${PY_SCRIPT}" "${R_SCRIPT}" "${REPORT_SCRIPT}" "${PLOT_SCRIPT}" "${AUTHOR_OBJECT_SCRIPT}" "${AUTHOR_OBJECT_R_SCRIPT}" "${AUTHOR_EVIDENCE_SCRIPT}" "${ATLAS_CAPTURE_SCRIPT}" \
+  "${SOURCE_SBATCH}" "${P0_SBATCH}" "${CHECKPOINT_SBATCH}" "${VISUAL_SBATCH}" "${AUTHOR_OBJECT_SBATCH}" "${ATLAS_CAPTURE_SBATCH}" "${ATLAS_CAPTURE_SUBMITTER}" \
   "${BASH_SOURCE[0]}" "${RUN_DIR}/code/"
 cp -p "${GREATLAKES_CONFIG}" "${RUN_DIR}/config/submitted_greatlakes.env"
 cp -p "${CURATION_CONFIG}" "${RUN_DIR}/config/submitted_curation.env"

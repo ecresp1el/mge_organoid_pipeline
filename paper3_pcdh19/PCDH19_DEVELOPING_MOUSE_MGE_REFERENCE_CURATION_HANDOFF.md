@@ -54,6 +54,12 @@ official-supplement, hierarchy-figure, and report publication completed as job
 59171983 after a schema-whitespace correction; final exact-age wording was
 republished successfully as job 59172069. Failed attempts 59171052 and
 59171918 remain in `provenance/job_ids.tsv` rather than being hidden.
+The public MIND-atlas package was finalized by job 59175410. Network-only
+attempts 59175246 and 59175304 failed because the compute-node proxy rejects
+the public WebSocket; they also remain recorded. The corrected rerunnable
+design captures the intended public PDFs on the submission host using the
+already-frozen run copy, then SLURM validates those exact files, performs all
+vector parsing/count reconciliation, and rebuilds the reports.
 La Manno contains embedded author annotation columns and `X_UMAP`/`X_tSNE`;
 the inspected Bandler and Mayer P0 files are counts-only and require a stable
 barcode-to-published-label artifact before their cell types can be displayed.
@@ -90,8 +96,15 @@ the complete 21-label embryonic vocabulary, but provide no barcode-to-label or
 UMAP table. A later Mayer-lab interactive atlas names a local integrated object
 (`EXCIT_INHIBIT_cleaned_sub.rds`) containing Bandler embryonic cells, labels,
 stage, study, cell IDs, and UMAP; that object and its generated TSV/HDF5 files
-are not included in the public atlas repository. Keep this later reanalysis
-distinct from the original 2022 artifact.
+are not included in the public atlas repository or returned by an intended
+public object/table endpoint. However, the running Shiny app's intended public
+vector-PDF handler exposes more evidence than the repository alone: exact
+circle reconciliation yields 18,424 retained Bandler cells, split into 11,004
+E13 and 7,420 E15 cells, with 12 later-atlas clusters, 2,877 `Mitotic` cells,
+and 15,547 `Inhibitory Neuron Precursor` cells. The public fields do not expose
+Bandler sample or region, so the E15 panel pools CA301 MGE, CA302 CGE, and
+CA303 LGE; it is not a CA301-only result. Keep this later reanalysis distinct
+from the original 2022 artifact.
 
 IMPORTANT BIOLOGICAL GOAL
 -------------------------
@@ -278,6 +291,11 @@ Required first-checkpoint outputs are:
 - `Bandler2022/author_object_audit/author_artifact_scope.tsv`
 - `Bandler2022/author_object_audit/author_seurat_{class_by_cluster,sample_inventory}.tsv`
 - `Bandler2022/figures/01_bandler_recovered_and_published_annotation_structure.{png,pdf}`
+- `Bandler2022/interactive_atlas/MIND_PUBLIC_ATLAS_CAPTURE_REPORT.md`
+- `Bandler2022/interactive_atlas/metadata/atlas_{cluster,class,stage}_by_study.tsv`
+- `Bandler2022/interactive_atlas/metadata/bandler_cluster_by_stage.tsv`
+- `Bandler2022/interactive_atlas/figures/public_umap_{cluster,class,stage}_by_study.{png,pdf}`
+- `Bandler2022/interactive_atlas/audit/{public_endpoint_scope,vector_count_validation}.tsv`
 
 The combined summary must report both the number/IDs of published samples and
 the number/IDs demonstrably represented in the P0 object. Unresolved object
@@ -303,6 +321,12 @@ publisher artifact retrieval, `PublishedSampleLedger` and
 `PublishedAnnotationTables` own supplement extraction, and
 `BandlerEvidencePublisher` coordinates the Bandler evidence package. Do not
 move these responsibilities into a monolithic command.
+`ShinySockJsSession` owns the intended public app session,
+`GhostscriptRenderer` owns deterministic PDF rendering/vector conversion,
+`VectorCellCounter` owns circle extraction and reconciliation, and
+`AtlasEvidencePublisher` owns the later-atlas evidence package. These classes
+must preserve the distinction between publicly rendered study-level evidence
+and the still-unavailable CA301 barcode/region join.
 
 
 TASK 0 — ENVIRONMENT AND REPRODUCIBILITY
@@ -1100,3 +1124,18 @@ small GEO/author metadata registries needed to publish the sample/library
 inventories above. It stops after the early object/sample-metadata checkpoint;
 missing Bandler/Mayer label reconstruction and any final reference selection
 must be separately reviewed later stages.
+
+The rerunnable later-atlas follow-up for an existing completed run is:
+
+    ./paper3_pcdh19/bin/submit_mind_public_atlas_capture.sh --dry-run \
+      /absolute/path/to/00_developing_mouse_mge_reference_curation_<run>
+    ./paper3_pcdh19/bin/submit_mind_public_atlas_capture.sh \
+      /absolute/path/to/00_developing_mouse_mge_reference_curation_<run>
+
+It freezes exact executable copies into that run's `code/` directory, uses
+that frozen copy for public acquisition on the submission host, and has SLURM
+independently validate and parse the captured files. A repeat submission
+atomically overwrites only the derived
+`Bandler2022/interactive_atlas/` package and regenerates the main report; it
+does not replace cached scientific inputs, the parent checkpoint, or any
+other PCDH19 step.

@@ -53,7 +53,13 @@ postnatal STICR Seurat object with author labels and UMAP. It contains no
 CA301/CA298--303 samples and therefore does not annotate the exact WT E15.5 MGE
 matrix. The run-scoped Bandler recovery report preserves that negative join,
 the official seven-sample embryonic design, all 21 published embryonic labels,
-and the later 2025 interactive-atlas lead without conflating these artifacts.
+and the later 2025 interactive-atlas evidence without conflating these artifacts.
+The live atlas has now been queried through its intended public Shiny session
+and vector-plot download handler. It contains 18,424 Bandler cells in the
+later filtered embryonic atlas: 11,004 E13 and 7,420 E15, with 12 later-atlas
+clusters, 2,877 mitotic cells, and 15,547 inhibitory neuron precursors. The
+public fields do not expose Bandler sample/region, so the E15 total pools
+CA301 MGE, CA302 CGE, and CA303 LGE and is not a CA301 count.
 The E15/MGE evidence is not equivalent across candidates: Bandler directly
 provides 4,516 WT E15.5 MGE cells (GEO shorthand E15); Mayer directly provides 6,515 MGE E13.5
 Lhx6-positive cells; and La Manno has exact E15 and ventral-forebrain cells but
@@ -77,6 +83,13 @@ of the downloader, Seurat inspector, supplement publisher, report builder, and
 SLURM script. Rerunning it intentionally overwrites derived tables, figures,
 and reports inside the same step while reusing validated source-cache
 artifacts; the copied executable code remains the primary record of what ran.
+The standalone `bin/submit_mind_public_atlas_capture.sh RUN_DIRECTORY`
+follow-up follows the same rule: it freezes the exact Python/report/SLURM code
+under the run's `code/`, captures the public PDFs from the submission host,
+and has SLURM validate/parse those exact files. It intentionally overwrites
+only `Bandler2022/interactive_atlas/` and refreshes the main report when
+rerun. Job 59175410 completed this package; failed compute-node network
+attempts 59175246 and 59175304 remain visible in provenance.
 
 Use `--replace-run RUN_ID` only when intentionally regenerating an existing inactive run
 within this exact step. The guarded replacement rejects unsafe names and active

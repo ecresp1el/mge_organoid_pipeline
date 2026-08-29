@@ -31,7 +31,11 @@ It is not the missing embryonic object and contains no CA301 cells. Official
 supplements preserve the complete 21-state embryonic vocabulary but no
 barcode assignments. The later Mayer-lab interactive GE atlas uses an
 unpublished local integrated RDS with Bandler embryonic cells; treat it as a
-promising later reanalysis, not as a recovered original object. See
+later reanalysis, not as a recovered original object. Its intended public
+Shiny vector outputs can nevertheless be captured: they contain 18,424
+Bandler study cells (11,004 E13; 7,420 E15) with later-atlas class and cluster
+labels. The E15 cells pool CA301 MGE, CA302 CGE, and CA303 LGE because sample
+or region is not a public plotting field. See
 `Bandler2022/BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md` in the curation run.
 
 For the exact age/anatomy question: Bandler provides 4,516 directly identified
@@ -63,6 +67,18 @@ Prepare or submit the required first checkpoint with:
 ./paper3_pcdh19/bin/submit_developing_mouse_mge_reference_curation.sh --dry-run
 ./paper3_pcdh19/bin/submit_developing_mouse_mge_reference_curation.sh
 ```
+
+For the rerunnable public-atlas follow-up inside a completed curation run:
+
+```bash
+./paper3_pcdh19/bin/submit_mind_public_atlas_capture.sh --dry-run /absolute/path/to/run
+./paper3_pcdh19/bin/submit_mind_public_atlas_capture.sh /absolute/path/to/run
+```
+
+That wrapper freezes copies under `code/`, captures the public PDFs from the
+submission host, then submits their validation/vector parsing/report rebuild
+to SLURM. It overwrites only the derived `Bandler2022/interactive_atlas/`
+package. Completed job: `59175410`.
 
 Every default submission creates a versioned package under
 `PAPER3_ROOT/results/00_developing_mouse_mge_reference_curation/`. The exact

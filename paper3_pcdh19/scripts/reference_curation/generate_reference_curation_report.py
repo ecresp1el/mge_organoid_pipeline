@@ -192,17 +192,38 @@ class ReferenceCurationReportBuilder:
         lamanno = dictionaries["LaManno2021"]
         count = lambda column, label: self._count_lookup(lamanno, column, label)
         bandler_recovered = (self.run_dir / "Bandler2022" / "BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md").is_file()
+        atlas_dir = self.run_dir / "Bandler2022" / "interactive_atlas"
+        atlas_capture = (atlas_dir / "MIND_PUBLIC_ATLAS_CAPTURE_REPORT.md").is_file()
         bandler_implication = (
+            "CA301 itself remains unlabeled. The later public MIND atlas supplies Bandler study/stage/class/cluster UMAP evidence, but its E15 panel pools MGE, CGE, and LGE."
+            if atlas_capture else
             "Exact WT E15.5 MGE counts remain unlabeled. A recovered 65,700-cell author STICR Seurat object supplies postnatal labels/UMAP but contains no CA301 cells."
             if bandler_recovered else "Exact WT E15.5 MGE sample (GEO shorthand E15), but published embryonic labels require a barcode join."
         )
+        atlas_lines: List[str] = []
+        if atlas_capture:
+            cluster_stage = read_tsv(atlas_dir / "metadata" / "bandler_cluster_by_stage.tsv")
+            atlas_lines = [
+                "",
+                "### Later public MIND atlas: recovered Bandler composition",
+                "",
+                "The live Mayer-lab Shiny app's intended vector-PDF download exposes substantially more evidence than the GitHub repository alone. Exact vector-circle reconciliation shows **18,424 Bandler embryonic cells: 11,004 E13 and 7,420 E15**. The broad classes are 2,877 `Mitotic` and 15,547 `Inhibitory Neuron Precursor` cells.",
+                "",
+                "| Later-atlas cluster | E13 | E15 | Total |",
+                "| --- | ---: | ---: | ---: |",
+                *(f"| `{row['cluster']}` | {int(row['E13_cells']):,} | {int(row['E15_cells']):,} | {int(row['total_cells']):,} |" for row in cluster_stage),
+                "",
+                "![Public MIND atlas by cluster and study](Bandler2022/interactive_atlas/figures/public_umap_cluster_by_study.png)",
+                "",
+                "This still does not create a CA301 barcode join. The app's public plotting fields distinguish study and stage, not Bandler sample/region, so its 7,420 E15 cells pool CA301 MGE, CA302 CGE, and CA303 LGE. The server-resident RDS/table are used server-side but are not returned by an intended public object/table endpoint. See `Bandler2022/interactive_atlas/MIND_PUBLIC_ATLAS_CAPTURE_REPORT.md`.",
+            ]
         bandler_recovery_lines = [
             "",
             "A historical link recovered from the authors' Git history yielded `STICR.seuratobject.RDS`: a genuine 21,051-feature × 65,700-cell Seurat object with PCA, Harmony and UMAP reductions. It contains 11 broad `refined_COUP_class` values and 51 `refined_COUP_clust` values, including neuronal precursor, mitotic, astrocyte, OPC/oligodendrocyte, macrophage/microglia, vascular, epithelial and ependymal populations.",
             "",
             "This object is the **postnatal STICR reference**, not the embryonic object. Its 18 sample IDs exclude CA298–CA303 and exact CA301 cell-ID overlap is zero. Official Supplementary Data 4 defines 21 embryonic clusters and their marker genes, but supplies neither cell barcodes nor coordinates. Consequently those labels still cannot be assigned to the 4,516 deposited CA301 cells.",
             "",
-            "The same Mayer lab's 2025 interactive GE atlas is a valuable later lead: its public code loads a local `EXCIT_INHIBIT_cleaned_sub.rds` with Bandler embryonic cell IDs, UMAP, stage, study, broad class and cluster. The object and generated cell table are not included in the public repository, so CA301 membership has not yet been verified.",
+            "The same Mayer lab's 2025 interactive GE atlas loads a local `EXCIT_INHIBIT_cleaned_sub.rds` with Bandler embryonic cell IDs, UMAP, stage, study, broad class and cluster. Its intended public vector plots are now captured below; the underlying object/generated cell table still are not included in the public repository or returned by an intended app endpoint.",
             "",
             "![Bandler recovered and published annotation structure](Bandler2022/figures/01_bandler_recovered_and_published_annotation_structure.png)",
             "",
@@ -262,6 +283,7 @@ class ReferenceCurationReportBuilder:
             "",
             "Biological strength: CA301/GSM5684876 is the exact WT MGE sample collected at E15.5 (GEO shorthand E15). Immediate limitation: find the smallest author/supplement/intermediate table mapping `CA301_<barcode>` to the published embryonic annotation and embedding.",
             *bandler_recovery_lines,
+            *atlas_lines,
             "",
             "## Mayer 2018",
             "",
@@ -282,7 +304,7 @@ class ReferenceCurationReportBuilder:
             "",
             "- La Manno clearly contains the broad dissection classes requested, including radial glia, intermediate progenitors, neuroblasts, neurons, astroglial, immune/microglial, oligodendrocyte/OPC, endothelial, vascular and pericyte labels.",
             "- La Manno is the only candidate whose author annotations and embedding coordinates are immediately available in the candidate P0 itself.",
-            "- Bandler is the best exact age/anatomy match, but CA301 remains unannotated; the separately recovered STICR object is postnatal and does not solve the CA301 barcode join.",
+            "- Bandler is the best exact age/anatomy match. The public later atlas now supplies exact Bandler study-level E13/E15 class and cluster composition, but CA301 remains inseparable from the E15 CGE/LGE samples in those public fields.",
             "- Mayer's relevant MGE component is E13.5 and Lhx6-positive selected, so it is not a census of an unbiased whole E15 MGE dissection.",
             "- Exact MGE-specific and age-matched label counts, author-embedding plots, and a final readiness ranking remain the next reviewed stage; they were not inferred during this checkpoint.",
             "",
@@ -305,6 +327,7 @@ class ReferenceCurationReportBuilder:
             "- `Bandler2022/BANDLER_AUTHOR_OBJECT_RECOVERY_REPORT.md` when the recovery stage has completed",
             "- `Bandler2022/metadata/published_*_inventory.tsv` and marker tables",
             "- `Bandler2022/figures/01_bandler_recovered_and_published_annotation_structure.{png,pdf}`",
+            "- `Bandler2022/interactive_atlas/MIND_PUBLIC_ATLAS_CAPTURE_REPORT.md` and its exact count tables/public plot captures when the standalone atlas stage has completed",
             "- `provenance/hierarchy_plot_output_manifest.tsv` and `provenance/hierarchy_plot_generation.tsv`",
             "- `<study>/audit/` structure, identifiers, embedding and value-count files.",
             "",
