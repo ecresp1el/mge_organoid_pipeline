@@ -47,10 +47,13 @@ Step 00 computed run
 successful Great Lakes job `59279775`. The 6.60-GB canonical H5AD contains
 450,788 cells × 19,071 genes and 1,295,361,777 sparse raw-count entries; all
 221 validations passed. The user explicitly **APPROVED** this exact Step 00
-run on 2026-08-30. Step 01 Scanpy QC metrics are authorized, but no Step 02
-threshold or filtering work may begin until the resulting Step 01 run is
-explicitly approved. The detailed result and failed-start/replacement history
-are in
+run on 2026-08-30. Step 01 run
+`01_qc_metrics_20260830_115715_2b57907` then completed in Great Lakes job
+`59281063` with all 450,788 cells and 19,071 genes retained, 40/40 validation
+checks passing, and no thresholds or filtering. Its pooled and per-sample QC
+distributions and 6.62-GB H5AD checkpoint are **IN_REVIEW**. No Step 02 work
+may begin until this exact Step 01 run is explicitly approved. The detailed
+results and execution history are in
 [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
 
 ## New auxiliary work: three-reference MGE curation

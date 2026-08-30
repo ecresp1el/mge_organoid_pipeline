@@ -125,8 +125,9 @@ Only `APPROVED` can be consumed by the next major step.
 ## Current authorization
 
 Step 00 was explicitly **APPROVED** by the user on 2026-08-30. Step 01 QC
-metrics are now authorized. Do not begin Step 02 or any later processing until
-the user explicitly approves the exact Step 01 run.
+metrics have now been computed and remain **IN_REVIEW**. Do not begin Step 02
+or any later processing until the user explicitly approves the exact Step 01
+run below.
 
 ### Approved Step 00 run
 
@@ -157,7 +158,38 @@ generated environment file. Commit `7fe06d5` fixed that execution defect. The
 authorized guarded replacement retained the failed job ID and logs, froze the
 corrected code, and produced successful job `59279775` in the same run.
 
-### Step 01 authorized scope
+### Step 01 computed run — IN_REVIEW
+
+- Run ID: `01_qc_metrics_20260830_115715_2b57907`.
+- Successful Great Lakes job: `59281063` (`COMPLETED`, exit `0:0`, 5 minutes
+  21 seconds, 27,382,536 KB maximum resident memory).
+- Frozen executable commit:
+  `2b57907b4a31e0f99e7d235715ccf6084750de11`.
+- Checkpoint: `objects/pcdh19_step01_qc_metrics.h5ad`.
+- Checkpoint size: 6,617,737,368 bytes.
+- Dimensions: 450,788 cells x 19,071 genes; 1,295,361,777 sparse nonzeros.
+- Validation: 40 PASS, 0 FAIL, including exact logical sparse-matrix
+  fingerprint preservation and a successful H5AD round trip.
+- Output H5AD SHA-256:
+  `5bf137f0b19b9a734fe4085d47fb28b073deca36dbd00c9b2c2cba6e1ebeaa0e`.
+- Figures: 15 PNG plus matching 15 PDF files: one pooled diagnostic, one for
+  each of the 12 samples, and sample/design-group comparisons.
+- Filtering, thresholds, exclusions, normalization, reductions, graphs,
+  clustering, and annotation: none.
+
+Pooled medians are 4,014 total counts, 2,601 detected genes, and 0.648%
+mitochondrial counts. The pooled 5th-95th percentile intervals are
+1,647-12,560 counts, 1,281-5,358 genes, and 0.145%-1.819% mitochondrial
+counts. Across samples, medians range from 2,978 to 4,591 counts, 2,042 to
+2,867 genes, and 0.285% to 0.980% mitochondrial counts. These are descriptive
+review observations only and do not define high/low quality or a threshold.
+
+The run-local report, all plots, complete summary tables, software versions,
+validation ledger, frozen executed code/configuration, and output manifest
+are inside the run directory. Request additional Step 01 diagnostics or
+explicitly approve this exact run before any Step 02 work.
+
+### Step 01 implemented scope
 
 Step 01 must load only the approved Step 00 H5AD and use
 `scanpy.pp.calculate_qc_metrics()` to add descriptive QC metadata. It must

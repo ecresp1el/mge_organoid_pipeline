@@ -44,6 +44,13 @@ a step `IN_REVIEW`; only explicit user approval promotes a checkpoint for use
 by the next step. Existing mapping, probe, and classification results are
 downstream-only and do not enter primary preprocessing.
 
+Current checkpoint: Step 00 run
+`00_input_validation_and_canonical_anndata_20260830_113749_d8b6bf7` is
+approved. Step 01 run `01_qc_metrics_20260830_115715_2b57907` completed in
+Great Lakes job `59281063`, retained all 450,788 cells and 19,071 genes, and
+passed 40/40 validations without thresholds or filtering. It remains
+`IN_REVIEW`; Step 02 is not authorized.
+
 The operational handoff is copied here as `HANDOFF.md`; its canonical source is
 the version-controlled file in the repository.
 

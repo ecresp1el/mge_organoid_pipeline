@@ -62,7 +62,7 @@ cells × 19,071 genes and 1,295,361,777 nonzero entries. All 221 validations and
 all 66 documentation checks passed. The user explicitly approved this exact
 run on 2026-08-30.
 
-### Primary-processing Step 01 contract
+### Primary-processing Step 01 current I/O — IN_REVIEW
 
 Step `01_qc_metrics` consumes only the approved Step 00 H5AD. It uses
 `scanpy.pp.calculate_qc_metrics()` with raw `.X`, `qc_vars=["mt"]`,
@@ -73,7 +73,14 @@ ribosomal fraction is explicitly unavailable. Step 01 must preserve exact
 matrix arrays, cells, genes, order, layers, `.raw`, and reduction/graph state;
 it creates no thresholds, filter flags, or exclusions. Its figures cover each
 sample individually plus pooled, sample-comparison, and design-group views.
-The computed Step 01 run must stop `IN_REVIEW` before Step 02.
+Run `01_qc_metrics_20260830_115715_2b57907`, Great Lakes job `59281063`,
+completed this contract with 40/40 validation checks passing. Its output
+`objects/pcdh19_step01_qc_metrics.h5ad` is 6,617,737,368 bytes and retains
+450,788 cells × 19,071 genes and the exact Step 00 sparse-matrix fingerprint.
+It adds the standard cell-level count/gene/mitochondrial fields to `obs` and
+the standard Scanpy gene-level QC fields plus `mt`/`ribo` flags to `var`.
+Pooled, each-sample, sample-comparison, and design-group figures are published
+in PNG and PDF. The checkpoint remains `IN_REVIEW`; Step 02 is unauthorized.
 
 An independent Step 00 GSE94641 reference-mapping workstream has completed
 reference validation and an E15.5-focused kNN transfer to all query cells. Its

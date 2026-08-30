@@ -35,9 +35,11 @@ Last updated: 2026-08-30
 > sparse unnormalized integer counts in `.X`; 221 validations passed and no
 > filtering, transformation, graph, embedding, cluster, or annotation was
 > created. The user explicitly **APPROVED** this exact run on 2026-08-30.
-> Step 01 Scanpy QC metrics are authorized; they must preserve all cells and
-> genes and stop without thresholds or filtering. Stop before Step 02 unless
-> the user explicitly approves the resulting Step 01 run. See
+> Step 01 run `01_qc_metrics_20260830_115715_2b57907` completed in job
+> `59281063`; it retained all cells/genes/counts, passed 40/40 validations,
+> and produced pooled, 12 per-sample, and grouped QC diagnostics without
+> thresholds or filtering. It is **IN_REVIEW**. Stop before Step 02 unless the
+> user explicitly approves this exact Step 01 run. See
 > [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
 
 ## Independent developing-mouse MGE reference curation (first checkpoint complete)
