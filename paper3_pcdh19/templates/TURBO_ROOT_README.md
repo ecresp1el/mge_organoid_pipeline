@@ -49,7 +49,9 @@ Current checkpoint: Step 00 run
 approved. Step 01 run `01_qc_metrics_20260830_115715_2b57907` completed in
 Great Lakes job `59281063`, retained all 450,788 cells and 19,071 genes, and
 passed 40/40 validations without thresholds or filtering. It remains
-`IN_REVIEW`; Step 02 is not authorized.
+`IN_REVIEW`. Step 01a is authorized to add per-technical-sample 3/4/5 scaled-
+MAD candidate sensitivity visualizations without filtering. Step 02 is not
+authorized.
 
 The operational handoff is copied here as `HANDOFF.md`; its canonical source is
 the version-controlled file in the repository.

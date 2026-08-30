@@ -125,9 +125,10 @@ Only `APPROVED` can be consumed by the next major step.
 ## Current authorization
 
 Step 00 was explicitly **APPROVED** by the user on 2026-08-30. Step 01 QC
-metrics have now been computed and remain **IN_REVIEW**. Do not begin Step 02
-or any later processing until the user explicitly approves the exact Step 01
-run below.
+metrics have been computed and remain **IN_REVIEW**. Before approval, the user
+authorized a separate Step 01a per-sample MAD sensitivity amendment. Do not
+begin Step 02 or any later processing until the user explicitly approves the
+combined evidence from the exact Step 01 and Step 01a runs.
 
 ### Approved Step 00 run
 
@@ -188,6 +189,27 @@ The run-local report, all plots, complete summary tables, software versions,
 validation ledger, frozen executed code/configuration, and output manifest
 are inside the run directory. Request additional Step 01 diagnostics or
 explicitly approve this exact run before any Step 02 work.
+
+### Step 01a authorized scope
+
+Step `01a_qc_mad_sensitivity` consumes the exact in-review Step 01 H5AD in
+backed read-only mode. It calculates candidate boundaries independently for
+each of the 12 technical samples; design group, genotype, and sex cannot
+contribute to boundary definition. The evaluated stringencies are 3, 4, and
+5 scaled MAD, where scaled MAD is `1.4826 * median(abs(x - median(x)))`.
+
+Low total counts and low detected genes are evaluated on `log1p` values and
+back-transformed to the original metric scale. High mitochondrial percentage
+is evaluated on the observed percentage scale. Outputs include every
+boundary, per-cell candidate flags, individual and joint counts/percentages,
+exact overlap patterns, per-sample distribution plots with all boundaries,
+and cross-sample boundary/flag/overlap visualizations in PNG and PDF.
+
+Step 01a must not calculate an upper total-count or upper detected-gene
+candidate rule. High-complexity cells are reserved for the later Scrublet
+step. It must not remove cells or genes, write a replacement H5AD, define a QC
+pass/fail decision, start Step 02, or treat a candidate flag as an exclusion.
+Its successful result remains `IN_REVIEW` with Step 01.
 
 ### Step 01 implemented scope
 

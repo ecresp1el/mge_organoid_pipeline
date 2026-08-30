@@ -38,8 +38,11 @@ Last updated: 2026-08-30
 > Step 01 run `01_qc_metrics_20260830_115715_2b57907` completed in job
 > `59281063`; it retained all cells/genes/counts, passed 40/40 validations,
 > and produced pooled, 12 per-sample, and grouped QC diagnostics without
-> thresholds or filtering. It is **IN_REVIEW**. Stop before Step 02 unless the
-> user explicitly approves this exact Step 01 run. See
+> thresholds or filtering. It is **IN_REVIEW**. Step 01a is authorized to add
+> per-technical-sample 3/4/5 scaled-MAD candidate sensitivity tables and
+> boundary plots only; it cannot filter, use design groups, or define upper
+> count/gene rules. Stop before Step 02 until the user explicitly approves the
+> combined exact Step 01/01a evidence. See
 > [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
 
 ## Independent developing-mouse MGE reference curation (first checkpoint complete)

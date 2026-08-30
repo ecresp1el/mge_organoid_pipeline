@@ -52,8 +52,11 @@ run on 2026-08-30. Step 01 run
 `59281063` with all 450,788 cells and 19,071 genes retained, 40/40 validation
 checks passing, and no thresholds or filtering. Its pooled and per-sample QC
 distributions and 6.62-GB H5AD checkpoint are **IN_REVIEW**. No Step 02 work
-may begin until this exact Step 01 run is explicitly approved. The detailed
-results and execution history are in
+may begin yet. Before approval, Step 01a was authorized to visualize 3/4/5
+scaled-MAD candidate boundaries independently within each technical sample,
+without filtering or upper count/gene rules. The combined Step 01/01a evidence
+must be explicitly approved before Step 02. The detailed results and execution
+history are in
 [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
 
 ## New auxiliary work: three-reference MGE curation

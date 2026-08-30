@@ -82,6 +82,23 @@ the standard Scanpy gene-level QC fields plus `mt`/`ribo` flags to `var`.
 Pooled, each-sample, sample-comparison, and design-group figures are published
 in PNG and PDF. The checkpoint remains `IN_REVIEW`; Step 02 is unauthorized.
 
+### Primary-processing Step 01a contract
+
+Step `01a_qc_mad_sensitivity` is a read-only diagnostic amendment to the exact
+Step 01 checkpoint. It uses only `technical_sample_id`, `total_counts`,
+`n_genes_by_counts`, and `pct_counts_mt`. Within each technical sample it
+evaluates 3/4/5 scaled-MAD boundaries for low `log1p(total_counts)`, low
+`log1p(n_genes_by_counts)`, and high mitochondrial percentage. Boundaries are
+reported on the original metric scale. Design/genotype groups are excluded
+from the calculation. Individual, union, intersection, and exact-overlap
+candidate counts/percentages are retained per sample and stringency.
+
+All boundaries are overlaid on per-sample distributions and summarized across
+samples in PNG/PDF figures. No upper count/gene rule is calculated because
+high-complexity assessment is reserved for Scrublet. The Step 01 H5AD is
+opened backed/read-only; no H5AD is written and no cell/gene is removed. Step
+01a remains `IN_REVIEW` with Step 01 and cannot authorize Step 02.
+
 An independent Step 00 GSE94641 reference-mapping workstream has completed
 reference validation and an E15.5-focused kNN transfer to all query cells. Its
 I/O, published annotation inventory, mapping contract, actual results, and
