@@ -190,7 +190,7 @@ validation ledger, frozen executed code/configuration, and output manifest
 are inside the run directory. Request additional Step 01 diagnostics or
 explicitly approve this exact run before any Step 02 work.
 
-### Step 01a authorized scope
+### Step 01a implemented scope
 
 Step `01a_qc_mad_sensitivity` consumes the exact in-review Step 01 H5AD in
 backed read-only mode. It calculates candidate boundaries independently for
@@ -210,6 +210,45 @@ candidate rule. High-complexity cells are reserved for the later Scrublet
 step. It must not remove cells or genes, write a replacement H5AD, define a QC
 pass/fail decision, start Step 02, or treat a candidate flag as an exclusion.
 Its successful result remains `IN_REVIEW` with Step 01.
+
+### Step 01a computed run — IN_REVIEW
+
+- Review-target run ID:
+  `01a_qc_mad_sensitivity_20260830_121931_d5936f9`.
+- Successful Great Lakes job: `59282437` (`COMPLETED`, exit `0:0`, 52
+  seconds, 6,519,380 KB maximum resident memory).
+- Frozen executable commit:
+  `d5936f97bb47ece7f6c10d2a5ca041e7a63cafa8`.
+- Exact input: Step 01 run
+  `01_qc_metrics_20260830_115715_2b57907` and its byte-identical 6.62-GB
+  checkpoint.
+- Dimensions represented: 450,788 cells x 19,071 genes; no cells or genes
+  removed and no replacement H5AD written.
+- Validation: 71 PASS, 0 FAIL.
+- Outputs: 108 boundary rows, 36 sample/stringency summary rows, 288 exact-
+  overlap rows, one 450,788-row compressed per-cell candidate table, and 15
+  PNG plus matching 15 PDF figures.
+
+Across all cells, the per-sample rules flag any criterion in 21,482 cells
+(4.765%) at 3 MAD, 9,125 (2.024%) at 4 MAD, and 4,439 (0.985%) at 5 MAD.
+Low-count candidates number 1,036 (0.230%) at 3 MAD and zero at 4 or 5 MAD.
+Low-gene candidates number 3,142 (0.697%), 376 (0.083%), and 67 (0.015%).
+High-mitochondrial candidates number 18,527 (4.110%), 8,756 (1.942%), and
+4,372 (0.970%). Candidate criteria are therefore dominated by the
+mitochondrial tail at every stringency. Only 77 cells (0.017%) meet all three
+criteria at 3 MAD; none meet all three at 4 or 5 MAD.
+
+`15662-JZ-3` has the strongest persistent mitochondrial sensitivity: 10.448%
+at 3 MAD, 6.815% at 4 MAD, and 4.402% at 5 MAD. This is a descriptive
+sample-specific observation, not a removal decision. The exact mitochondrial
+boundaries for that sample are 1.025%, 1.272%, and 1.519%, respectively.
+
+The first completed presentation run,
+`01a_qc_mad_sensitivity_20260830_121655_96f0829` (job `59282322`), is retained
+for provenance. Visual inspection found title/legend and color-bar crowding in
+two cross-sample figures. The review-target run corrected only those layouts;
+its boundary, flag-summary, overlap, and decompressed per-cell tables are
+identical to the first run. No run was overwritten.
 
 ### Step 01 implemented scope
 

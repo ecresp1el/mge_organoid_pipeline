@@ -38,10 +38,14 @@ Last updated: 2026-08-30
 > Step 01 run `01_qc_metrics_20260830_115715_2b57907` completed in job
 > `59281063`; it retained all cells/genes/counts, passed 40/40 validations,
 > and produced pooled, 12 per-sample, and grouped QC diagnostics without
-> thresholds or filtering. It is **IN_REVIEW**. Step 01a is authorized to add
+> thresholds or filtering. It is **IN_REVIEW**. Step 01a adds
 > per-technical-sample 3/4/5 scaled-MAD candidate sensitivity tables and
 > boundary plots only; it cannot filter, use design groups, or define upper
-> count/gene rules. Stop before Step 02 until the user explicitly approves the
+> count/gene rules. Review-target run
+> `01a_qc_mad_sensitivity_20260830_121931_d5936f9`, job `59282437`, passed
+> 71/71 validations and retained all cells. Any-criterion candidates are
+> 4.765%, 2.024%, and 0.985% at 3/4/5 MAD, predominantly high-mitochondrial
+> candidates. Stop before Step 02 until the user explicitly approves the
 > combined exact Step 01/01a evidence. See
 > [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
 

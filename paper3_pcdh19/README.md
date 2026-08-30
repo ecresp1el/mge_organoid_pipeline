@@ -54,8 +54,12 @@ checks passing, and no thresholds or filtering. Its pooled and per-sample QC
 distributions and 6.62-GB H5AD checkpoint are **IN_REVIEW**. No Step 02 work
 may begin yet. Before approval, Step 01a was authorized to visualize 3/4/5
 scaled-MAD candidate boundaries independently within each technical sample,
-without filtering or upper count/gene rules. The combined Step 01/01a evidence
-must be explicitly approved before Step 02. The detailed results and execution
+without filtering or upper count/gene rules. Review-target Step 01a run
+`01a_qc_mad_sensitivity_20260830_121931_d5936f9` completed in job `59282437`
+with 71/71 validations passing and all 450,788 cells retained. Any-criterion
+candidate percentages are 4.765%, 2.024%, and 0.985% at 3/4/5 MAD and are
+dominated by the mitochondrial tail. The combined Step 01/01a evidence must
+be explicitly approved before Step 02. The detailed results and execution
 history are in
 [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
 

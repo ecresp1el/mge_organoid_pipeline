@@ -99,6 +99,15 @@ high-complexity assessment is reserved for Scrublet. The Step 01 H5AD is
 opened backed/read-only; no H5AD is written and no cell/gene is removed. Step
 01a remains `IN_REVIEW` with Step 01 and cannot authorize Step 02.
 
+Review-target run `01a_qc_mad_sensitivity_20260830_121931_d5936f9`, Great
+Lakes job `59282437`, completed this contract with 71/71 checks passing. It
+publishes 108 sample/metric/stringency boundaries, 36 sample/stringency
+summaries, 288 exact-overlap rows, a manifested 450,788-cell candidate table,
+and 30 figure files. The input Step 01 H5AD is unchanged. Across cells, the
+union is 4.765%, 2.024%, and 0.985% at 3/4/5 MAD; low-count candidates are
+0.230%, 0%, and 0%, while the high-mitochondrial criterion contributes
+4.110%, 1.942%, and 0.970%. These remain candidate sensitivities, not filters.
+
 An independent Step 00 GSE94641 reference-mapping workstream has completed
 reference validation and an E15.5-focused kNN transfer to all query cells. Its
 I/O, published annotation inventory, mapping contract, actual results, and
