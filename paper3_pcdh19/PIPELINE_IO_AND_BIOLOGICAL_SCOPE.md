@@ -37,6 +37,31 @@ inputs; they remain available for optional downstream integration after
 cleanup. Each computed primary-processing checkpoint remains `IN_REVIEW`
 until explicitly approved.
 
+### Primary-processing Step 00 current I/O
+
+The Step 00 run awaiting review is
+`00_input_validation_and_canonical_anndata_20260830_113749_d8b6bf7`.
+Successful job `59279775` read, for each `15662-JZ-1` through `-12`:
+
+- `sample_filtered_feature_bc_matrix.h5` as the canonical called-cell counts;
+- `sample_filtered_barcodes.csv` and `metrics_summary.csv` as independent
+  barcode/count checks;
+- `config/sample_key.csv` as registered biological metadata;
+- `config/sample_manifest_draft.tsv` as registered technical metadata; and
+- `sample_raw_feature_bc_matrix.h5` structurally and by path only for possible
+  later ambient-RNA work.
+
+The canonical output is
+`objects/pcdh19_step00_canonical_raw_counts.h5ad` inside the run. Its `.X` is a
+CSR `int32` matrix of sparse unnormalized Cell Ranger counts; `.raw`, layers,
+`obsm`, and `obsp` are empty. Observation IDs are
+`<technical_sample_id>_<cellranger_barcode>`. Variable IDs are unique Ensembl
+IDs (plus the delivered custom `EGFP` feature), with Cell Ranger symbols,
+feature type, and GRCm39 genome retained in `var`. The object contains 450,788
+cells × 19,071 genes and 1,295,361,777 nonzero entries. All 221 validations and
+all 66 documentation checks passed. It remains `IN_REVIEW` and cannot feed
+Step 01 without explicit approval.
+
 An independent Step 00 GSE94641 reference-mapping workstream has completed
 reference validation and an E15.5-focused kNN transfer to all query cells. Its
 I/O, published annotation inventory, mapping contract, actual results, and

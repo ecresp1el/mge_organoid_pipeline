@@ -29,6 +29,15 @@ Last updated: 2026-08-30
 > are preserved only for later downstream integration and are not preprocessing
 > inputs.
 
+> **Current primary-processing checkpoint:** Step 00 run
+> `00_input_validation_and_canonical_anndata_20260830_113749_d8b6bf7` completed
+> in Great Lakes job `59279775`. It contains 450,788 cells × 19,071 genes as
+> sparse unnormalized integer counts in `.X`; 221 validations passed and no
+> filtering, transformation, graph, embedding, cluster, or annotation was
+> created. The run remains **IN_REVIEW**. Stop before Step 01 unless the user
+> explicitly approves this exact run. See
+> [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
+
 ## Independent developing-mouse MGE reference curation (first checkpoint complete)
 
 The authoritative instructions for auditing La Manno 2021, Bandler 2022, and

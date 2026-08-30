@@ -124,6 +124,55 @@ Only `APPROVED` can be consumed by the next major step.
 
 ## Current authorization
 
-Implement and run Step 00 only. Present its validation results and stop. Do
-not begin Step 01 or any later processing until the user explicitly approves
-the Step 00 run.
+Step 00 has been computed and is **IN REVIEW**. Do not begin Step 01 or any
+later processing until the user explicitly approves this exact run.
+
+### Step 00 run awaiting review
+
+- Run ID:
+  `00_input_validation_and_canonical_anndata_20260830_113749_d8b6bf7`
+- Successful Great Lakes job: `59279775` (`COMPLETED`, exit `0:0`, 2 minutes
+  12 seconds, approximately 28.97 GB maximum resident memory).
+- Frozen executable commit: `7fe06d5e2d7034deda5fd3fcc9dd63c544cca750`.
+- Canonical checkpoint:
+  `objects/pcdh19_step00_canonical_raw_counts.h5ad`.
+- Checkpoint size: 6,601,426,576 bytes.
+- Dimensions: 450,788 cells × 19,071 genes.
+- Sparse nonzero entries: 1,295,361,777.
+- Validation: 221 PASS, 0 FAIL.
+- Documentation audit: 66 module/class/function definitions PASS, 0 FAIL.
+- H5AD SHA-256:
+  `c420d501cc0acca6567014d8f6c7962a6b7ba1c80036c5a7c39fe593033848a6`.
+
+The raw matrices contain 19,404 Gene Expression features and therefore 333
+genes not present in the filtered matrices. All 19,071 canonical filtered
+genes occur in the raw matrices with their feature definitions and order
+preserved. The raw matrices remain path-registered only; their extra genes and
+uncalled droplets do not enter Step 00.
+
+The first scheduler attempt, job `59279713`, failed before scientific code ran
+because a space-containing Cell Ranger path was not shell-escaped in the
+generated environment file. Commit `7fe06d5` fixed that execution defect. The
+authorized guarded replacement retained the failed job ID and logs, froze the
+corrected code, and produced successful job `59279775` in the same run.
+
+### Step 00 implementation map
+
+- `scripts/primary_processing/models.py`: immutable settings, path resolution,
+  source-structure records, and validation-ledger records.
+- `scripts/primary_processing/loaders.py`: biological/technical registry join,
+  non-loading 10x HDF5 inspection, exact barcode/metrics checks, and sparse
+  raw-count AnnData loading.
+- `scripts/primary_processing/validation.py`: structural, matrix-state,
+  forbidden-analysis, and Python-docstring audits.
+- `scripts/primary_processing/publishing.py`: atomic staging/publication,
+  software and output manifests, review report, and approval-ledger updates.
+- `scripts/primary_processing/workflow.py`: Step 00 orchestration only.
+- `scripts/primary_processing/cli.py`: explicit frozen command-line interface.
+- `bin/submit_primary_processing_step_00.sh`: validation, run freezing,
+  versioning/guarded replacement, provenance capture, and SLURM submission.
+- `slurm/primary_processing_00_input_validation_and_canonical_anndata.sbatch`:
+  thin Great Lakes executor with runtime/failure markers; no scientific logic.
+
+Every frozen Python module, class, and function has a docstring. The run-level
+`tables/documentation_audit.tsv` enforces that contract mechanically.
