@@ -99,9 +99,10 @@ class Step01aPlotPublisher:
             for row in range(matrix.shape[0]):
                 for column in range(matrix.shape[1]):
                     axis.text(column, row, f"{matrix[row, column]:.2f}", ha="center", va="center", fontsize=7, color="black" if matrix[row, column] > maximum * 0.55 else "white")
-        figure.colorbar(image, ax=axes, label="Cells flagged (%)", fraction=0.02, pad=0.02)
-        figure.suptitle("Per-sample MAD candidate flags — descriptive sensitivity only; no filtering", fontsize=15)
-        figure.subplots_adjust(left=0.10, right=0.94, bottom=0.18, top=0.88, wspace=0.28)
+        color_axis = figure.add_axes((0.955, 0.18, 0.012, 0.66))
+        figure.colorbar(image, cax=color_axis, label="Cells flagged (%)")
+        figure.suptitle("Per-sample MAD candidate flags — descriptive sensitivity only; no filtering", fontsize=15, y=0.98)
+        figure.subplots_adjust(left=0.10, right=0.925, bottom=0.18, top=0.88, wspace=0.30)
         return figure
 
     def _overlap_figure(self, overlap: pd.DataFrame) -> plt.Figure:
@@ -148,9 +149,9 @@ class Step01aPlotPublisher:
             axis.grid(axis="y", alpha=0.25)
         axes[0].set_ylabel("Boundary on original metric scale")
         handles, labels = axes[0].get_legend_handles_labels()
-        figure.legend(handles, labels, loc="upper center", ncol=3, frameon=False)
-        figure.suptitle("Per-sample robust candidate boundaries; no upper count/gene boundary", fontsize=15)
-        figure.tight_layout(rect=(0, 0, 1, 0.90))
+        figure.legend(handles, labels, loc="upper center", ncol=3, frameon=False, bbox_to_anchor=(0.5, 0.94))
+        figure.suptitle("Per-sample robust candidate boundaries; no upper count/gene boundary", fontsize=15, y=0.995)
+        figure.tight_layout(rect=(0, 0, 1, 0.86))
         return figure
 
     def _save(self, figure: plt.Figure, stem: Path, scope: str, description: str) -> list[dict[str, str]]:
