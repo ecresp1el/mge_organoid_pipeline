@@ -17,13 +17,6 @@ set -Eeuo pipefail
 : "${PAPER3_PRIMARY_PYTHON_BIN:?Python interpreter is required}"
 
 RUN_DIR="${PAPER3_PRIMARY_RUN_DIR}"
-# shellcheck disable=SC1090
-source "${RUN_DIR}/config/resolved.env"
-export PYTHONPATH="${RUN_DIR}/code"
-export PYTHONHASHSEED=0
-export LC_ALL=C
-export TZ=UTC
-
 failed() {
   local line="$1" status="$2"
   printf 'COMPUTATION_FAILED\nstep=00_input_validation_and_canonical_anndata\njob_id=%s\nline=%s\nexit_status=%s\ntime=%s\n' \
@@ -31,6 +24,13 @@ failed() {
     > "${RUN_DIR}/COMPUTATION_FAILED.txt"
 }
 trap 'failed "${LINENO}" "$?"' ERR
+
+# shellcheck disable=SC1090
+source "${RUN_DIR}/config/resolved.env"
+export PYTHONPATH="${RUN_DIR}/code"
+export PYTHONHASHSEED=0
+export LC_ALL=C
+export TZ=UTC
 
 {
   echo "started=$(date --iso-8601=seconds)"

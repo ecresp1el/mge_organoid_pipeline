@@ -103,7 +103,9 @@ if [[ "$(dirname "$(realpath -m "${RUN_DIR}")")" != "$(realpath -m "${STEP_ROOT}
   exit 2
 fi
 
+PREVIOUS_JOB_IDS=""
 if [[ "${OUTPUT_MODE}" == replace && -f "${RUN_DIR}/provenance/job_ids.tsv" ]]; then
+  PREVIOUS_JOB_IDS="$(awk -F '\t' 'NR > 1 && $2 != "" {print $2}' "${RUN_DIR}/provenance/job_ids.tsv" | paste -sd, -)"
   while IFS= read -r prior_job; do
     [[ -n "${prior_job}" ]] || continue
     prior_state="$(squeue -h -j "${prior_job}" -o '%T' | head -n 1)"
@@ -111,7 +113,7 @@ if [[ "${OUTPUT_MODE}" == replace && -f "${RUN_DIR}/provenance/job_ids.tsv" ]]; 
       echo "Refusing to replace ${RUN_ID}; job ${prior_job} is ${prior_state}." >&2
       exit 2
     fi
-  done < <(awk -F '\t' 'NR > 1 && $2 != "" {print $2}' "${RUN_DIR}/provenance/job_ids.tsv")
+  done < <(tr ',' '\n' <<< "${PREVIOUS_JOB_IDS}")
 fi
 
 echo "Step: ${STEP}"
@@ -177,14 +179,15 @@ cp -p "${PACKAGE_README}" "${RUN_DIR}/README.md"
 cp -p "${RUN_DIR}/code/$(basename "${SBATCH_SOURCE}")" "${JOB_FILE}"
 
 {
-  echo "REPO_ROOT=${REPO_ROOT}"
-  echo "PAPER3_ROOT=${PAPER3_ROOT}"
-  echo "PAPER3_CELLRANGER_ROOT=${PAPER3_CELLRANGER_ROOT}"
+  printf 'REPO_ROOT=%q\n' "${REPO_ROOT}"
+  printf 'PAPER3_ROOT=%q\n' "${PAPER3_ROOT}"
+  printf 'PAPER3_CELLRANGER_ROOT=%q\n' "${PAPER3_CELLRANGER_ROOT}"
   echo "STEP=${STEP}"
   echo "RUN_ID=${RUN_ID}"
   echo "RUN_DIR=${RUN_DIR}"
   echo "WORKFLOW_ROOT=${WORKFLOW_ROOT}"
   echo "OUTPUT_MODE=${OUTPUT_MODE}"
+  echo "REPLACED_PREVIOUS_JOB_IDS=${PREVIOUS_JOB_IDS}"
   echo "ACCOUNT=${ACCOUNT}"
   echo "PARTITION=${PARTITION}"
   echo "PRIMARY_PROCESSING_PYTHON_BIN=${PRIMARY_PROCESSING_PYTHON_BIN}"
@@ -204,6 +207,12 @@ cp -p "${RUN_DIR}/code/$(basename "${SBATCH_SOURCE}")" "${JOB_FILE}"
   printf '%q ' "$0" "${ORIGINAL_ARGS[@]}"
   printf '\n'
 } > "${RUN_DIR}/provenance/submission.txt"
+if [[ -n "${PREVIOUS_JOB_IDS}" ]]; then
+  {
+    echo "previous_job_id"
+    tr ',' '\n' <<< "${PREVIOUS_JOB_IDS}"
+  } > "${RUN_DIR}/provenance/replaced_previous_job_ids.txt"
+fi
 {
   echo "git_commit=$(git -C "${REPO_ROOT}" rev-parse HEAD)"
   echo "git_short=${GIT_SHORT}"
