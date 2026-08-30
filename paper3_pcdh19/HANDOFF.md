@@ -1,12 +1,21 @@
 # Paper 3 Ziobro PCDH19 MGE single-cell RNA-seq: operational handoff
 
-Last updated: 2026-08-29
+Last updated: 2026-08-30
 
 > **Classification freeze:** Steps 03–07 are complete and immutable. The
 > authoritative resume document is
 > [`PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md`](PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md).
 > Do not change any existing model, threshold, classification, or result
 > package. Post-freeze analyses must remain separate and downstream.
+
+> **Critical query-data state:** There is no joint or integrated Scanpy/Seurat
+> UMAP for the 12 Paper 3 samples yet. The available clusters and UMAPs are
+> per-sample Cell Ranger outputs and are not mutually comparable. The Step 01
+> combined Seurat RDS is a mapping/annotation container—original counts,
+> per-sample Cell Ranger coordinates, and transferred labels—not a completed
+> integrated analysis. No joint neighbor graph, reclustering, or UMAP was run.
+> See
+> [`PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md`](PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md).
 
 ## Independent developing-mouse MGE reference curation (first checkpoint complete)
 

@@ -4,6 +4,25 @@ This workstream is reserved for the Ziobro PCDH19 MGE single-cell paper. It is
 separate from the Paper 2 cross-study atlas and uses the Ziobro Turbo
 allocation, independent step numbering, and independent outputs.
 
+## Critical current query-data state: no joint UMAP yet
+
+The 12 Paper 3 samples have **not** yet undergone a unified Scanpy or Seurat
+processing/integration workflow. The source delivery provides a filtered
+feature-barcode matrix, graph-cluster assignments, and UMAP coordinates from
+Cell Ranger for each sample. Each sample's graph and UMAP were computed
+independently; cluster numbers and distances are therefore not comparable
+between samples.
+
+Step 01 subsequently created a derived Seurat mapping container with the
+original counts, metadata, per-sample Cell Ranger coordinates, Bandler/MIND
+predictions, and MapMyCells predictions. Seurat normalization and reference
+PCA projection were used internally for label transfer, but this object is
+**not** a completed processed or integrated analysis object. No joint batch
+correction/integration, neighbor graph, clustering, or UMAP has been run in
+Scanpy or Seurat. All current query UMAP plots must remain faceted by sample;
+placing the 12 coordinate sets in one panel would imply a geometry that does
+not exist.
+
 ## New auxiliary work: three-reference MGE curation
 
 A standalone module audits three published WT developing-mouse

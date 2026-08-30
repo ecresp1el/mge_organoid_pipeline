@@ -12,6 +12,19 @@ resume entry point is
 the sections below retain the detailed I/O contracts. Step 08 is a separately
 versioned post-freeze biological analysis and cannot modify that unit.
 
+## Current query analysis state
+
+No joint or integrated Scanpy/Seurat UMAP currently exists for the 12 Paper 3
+samples. The delivery contains per-sample Cell Ranger filtered matrices,
+graph-cluster assignments, and independently computed UMAP coordinates. Step
+01 added Bandler/MIND and MapMyCells labels to a derived Seurat container and
+used Seurat normalization/reference projection for transfer, but it did not
+perform integration, joint neighbors, reclustering, or UMAP recomputation.
+Consequently, the current UMAPs are valid only as sample-faceted Cell Ranger
+views. See
+[`PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md`](PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md)
+for the exact mapping-object contract.
+
 An independent Step 00 GSE94641 reference-mapping workstream has completed
 reference validation and an E15.5-focused kNN transfer to all query cells. Its
 I/O, published annotation inventory, mapping contract, actual results, and

@@ -6,6 +6,23 @@ Test two fast annotation approaches on the same Paper 3 cells while preserving
 the existing analysis. This is downstream of reference curation and independent
 of PCDH19 genotype classification.
 
+## Critical data-state clarification
+
+There is currently **no single joint or integrated Scanpy/Seurat UMAP** for the
+12 Paper 3 samples. The delivered embeddings and graph clusters are Cell
+Ranger outputs computed separately for each sample. They are retained for
+within-sample visualization only and are never a shared coordinate space.
+
+The final 31.84-GB combined Seurat RDS from this diagnostic is a label-transfer
+container, not a completed integrated Seurat analysis. It stores original
+counts, metadata, the 12 independent Cell Ranger coordinate sets, and the two
+mapping branches' predictions. `NormalizeData` and reference-PCA projection
+were used only to support Bandler/MIND label transfer. This workflow did not
+run `IntegrateData`, Harmony, CCA integration, scVI, a joint neighbor graph,
+`FindClusters`, or `RunUMAP`. A future unified processing/integration step must
+be versioned separately and must not reinterpret this diagnostic as though it
+already supplied a joint UMAP.
+
 ## Immutable query contract
 
 - 12 Cell Ranger samples, 450,788 total cells, 19,071 Ensembl features.
