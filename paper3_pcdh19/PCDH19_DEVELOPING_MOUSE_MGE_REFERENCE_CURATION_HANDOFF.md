@@ -62,6 +62,14 @@ MapMyCells assigned 99.0% to adult `OB-IMN GABA` and separately flagged 3,116
 named non-neural cells. These are diagnostics, not final annotations. See
 `PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md` for its exact contract.
 
+That diagnostic is not the Paper 3 primary-processing object. The next true
+bioinformatics workflow will restart from the original per-sample Cell Ranger
+outputs and will independently construct the canonical object, perform
+sample-aware QC/filtering, assess integration, and compute new reductions,
+neighbors, clusters, and a unified UMAP. Labels recovered by this reference
+curation may be attached only afterward as downstream evidence. No primary
+cleanup implementation or job is claimed by this handoff.
+
 The early processed-object and sample-metadata checkpoint completed on
 2026-08-29 in run
 `00_developing_mouse_mge_reference_curation_20260829_141944_3b2ad52`.
