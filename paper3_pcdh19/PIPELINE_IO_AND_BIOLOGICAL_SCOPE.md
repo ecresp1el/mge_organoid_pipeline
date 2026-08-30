@@ -126,6 +126,13 @@ sample assignments. It is documented in
 `PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`; scDblFinder cannot run until
 the user approves that capture definition.
 
+Run `02_qc_filtering_20260830_124611_97e1bb5`, Great Lakes job `59287494`,
+completed Step 02 with 38/38 checks passing. It excluded 4,439 cells and
+retained 446,349 cells × all 19,071 genes. The output
+`objects/pcdh19_step02_qc_filtered.h5ad` is sparse `int32` raw counts with no
+derived expression, embedding, or graph. The complete 450,788-row disposition
+table preserves exact reasons. This checkpoint remains `IN_REVIEW`.
+
 An independent Step 00 GSE94641 reference-mapping workstream has completed
 reference validation and an E15.5-focused kNN transfer to all query cells. Its
 I/O, published annotation inventory, mapping contract, actual results, and

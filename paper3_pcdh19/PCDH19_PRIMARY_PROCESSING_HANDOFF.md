@@ -125,11 +125,10 @@ Only `APPROVED` can be consumed by the next major step.
 ## Current authorization
 
 Steps 00, 01, and the Step 01a sensitivity amendment were explicitly
-**APPROVED** by the user on 2026-08-30. Step 02 is authorized to apply exactly
-the reviewed per-sample 5-MAD union: low total counts OR low detected genes OR
-high mitochondrial percentage. It must retain exact per-cell reasons, publish
-before/after counts by technical sample and design group, save a raw-count
-filtered H5AD, and stop `IN_REVIEW`. Step 03 scDblFinder is not authorized yet.
+**APPROVED** by the user on 2026-08-30. Step 02 applied exactly the reviewed
+per-sample 5-MAD union and is now **IN_REVIEW**. Step 03 scDblFinder is not
+authorized: both the Step 02 checkpoint and proposed one-`GEX_1`-capture
+definition require explicit approval first.
 
 ### Approved Step 00 run
 
@@ -278,6 +277,35 @@ Implementation is object-oriented across `step02_models.py`,
 `step02_cli.py`. The frozen Great Lakes entry points are
 `bin/submit_primary_processing_step_02.sh` and
 `slurm/primary_processing_02_qc_filtering.sbatch`.
+
+### Step 02 computed run — IN_REVIEW
+
+- Run ID: `02_qc_filtering_20260830_124611_97e1bb5`.
+- Successful Great Lakes job: `59287494` (`COMPLETED`, exit `0:0`, 3 minutes
+  44 seconds, 37,408,160 KB maximum resident memory).
+- Frozen executable commit:
+  `97e1bb59baeacc3b04ea3af15b7a5bd044ff4ddf`.
+- Exact inputs: approved Step 01 run
+  `01_qc_metrics_20260830_115715_2b57907` and approved Step 01a run
+  `01a_qc_mad_sensitivity_20260830_121931_d5936f9`.
+- Checkpoint: `objects/pcdh19_step02_qc_filtered.h5ad`.
+- Checkpoint size: 6,554,152,927 bytes.
+- Checkpoint SHA-256:
+  `fadba4a25a7b6b7320219b21c189b6325687493519ba0fe1bd27efd79606b103`.
+- Dimensions: 446,349 cells × 19,071 genes; zero genes removed.
+- Validation: 38 PASS, 0 FAIL; output manifest sizes and SHA-256 values also
+  pass independent verification.
+- Figures: three PNG plus matching three PDF files.
+- Normalization, reductions, graphs, clustering, integration, annotation, and
+  doublet detection/removal: none.
+
+The complete disposition table contains all 450,788 original cells: 4,439
+excluded and 446,349 retained. Exclusions comprise 0 low-count, 67 low-gene,
+and 4,372 high-mitochondrial cells with no criterion overlaps. `15662-JZ-3`
+has the largest removal fraction (1,120/25,354; 4.417%). All other samples
+range from 0.433% to 1.536% removed. The retained H5AD remains sparse `int32`
+raw counts with no layers, `.raw`, embedding, or graph; its logical matrix
+fingerprint matches before and after serialization.
 
 ### Step 01 implemented scope
 

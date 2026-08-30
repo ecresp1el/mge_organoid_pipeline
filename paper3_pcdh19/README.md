@@ -68,6 +68,12 @@ capture definition is explicitly approved. The detailed results and execution hi
 The capture evidence is in
 [`PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`](PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md).
 
+Step 02 run `02_qc_filtering_20260830_124611_97e1bb5` completed in Great Lakes
+job `59287494` with 38/38 validation checks passing. It excluded 4,439 reviewed
+5-MAD candidates and retained 446,349 cells × all 19,071 genes as sparse raw
+integer counts. Exact reasons remain available for every original cell. The
+checkpoint is **IN_REVIEW**; scDblFinder was not run.
+
 ## New auxiliary work: three-reference MGE curation
 
 A standalone module audits three published WT developing-mouse

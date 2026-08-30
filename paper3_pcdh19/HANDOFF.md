@@ -52,6 +52,9 @@ Last updated: 2026-08-30
 > must not run until the proposed one-`GEX_1`-capture definition is explicitly
 > approved. See
 > [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
+> Step 02 run `02_qc_filtering_20260830_124611_97e1bb5`, job `59287494`, is
+> now **IN_REVIEW** with 446,349 cells × 19,071 genes and 38/38 checks passing.
+> It excluded 4,439 cells with exact reasons and performed no doublet detection.
 
 ## Independent developing-mouse MGE reference curation (first checkpoint complete)
 
