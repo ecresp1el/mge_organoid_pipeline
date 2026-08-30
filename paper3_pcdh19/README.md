@@ -23,16 +23,16 @@ Scanpy or Seurat. All current query UMAP plots must remain faceted by sample;
 placing the 12 coordinate sets in one panel would imply a geometry that does
 not exist.
 
-The **next true primary bioinformatics workflow** is now planned as the
-standalone `primary_processing` sequence with its own Steps 00–09. It begins
-from the original per-sample Cell Ranger outputs, exposes every scientific
-decision in a tunable registry, and maps each stage's inputs, outputs, planned
-script, and object-oriented implementation. Expression values will not be
-imported from the Step 01 mapping RDS; the registered sample key may be joined
-only as metadata. Reference labels can be evaluated or attached downstream,
-after cleanup. No primary-processing script or SLURM job has yet been created
-or run. The authoritative plan is
-[`primary_processing/README.md`](primary_processing/README.md).
+The **next true primary bioinformatics workflow** will begin from the original
+per-sample Cell Ranger outputs. Steps 03, 04, and 10 are reserved as one
+sequence for canonical input construction, sample-aware QC/filtering, and
+primary analysis. Expression values will not be imported from the Step 01
+mapping RDS; the registered sample key may be joined only as metadata. The new
+workflow will decide integration from diagnostics and will construct its own
+clean analysis object, reductions, neighbors, clusters, and unified UMAP.
+Bandler/MIND and MapMyCells labels can be evaluated or attached downstream,
+after cleanup. This statement registers the workflow boundary only: no primary
+processing implementation or SLURM job has yet been created or run.
 
 ## New auxiliary work: three-reference MGE curation
 

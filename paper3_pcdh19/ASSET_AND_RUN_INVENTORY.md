@@ -13,14 +13,15 @@ The separate three-candidate reference-curation audit is governed by
 its first checkpoint completed on 2026-08-29 in run
 `00_developing_mouse_mge_reference_curation_20260829_141944_3b2ad52`.
 
-The next true Paper 3 bioinformatics cleanup is the standalone
-`primary_processing` workflow with its own Steps 00–09. It uses the original
-per-sample Cell Ranger outputs as expression input; neither the Step 01 mapping
-RDS nor inherited Cell Ranger geometry is a primary-analysis input. Its
-complete stage input/output and decision-to-script registry is in
-[`primary_processing/README.md`](primary_processing/README.md). Reference and
-frozen-classification fields may be joined only after cleanup. No
-implementation, run package, or result for this primary sequence exists yet.
+The next true Paper 3 bioinformatics cleanup is reserved as the Steps 03/04/10
+primary-processing sequence. It will use the original per-sample Cell Ranger
+outputs as expression input, create a new canonical object, perform
+sample-aware QC/filtering, assess whether integration is justified, and
+compute new reductions, neighbors, clusters, and a unified UMAP. Neither the
+Step 01 mapping RDS nor inherited Cell Ranger geometry is a primary-analysis
+input. Reference and frozen-classification fields may be joined only after
+cleanup. No implementation, run package, or result for this primary sequence
+exists yet.
 
 ## Status at a glance
 
@@ -37,7 +38,7 @@ implementation, run package, or result for this primary sequence exists yet.
 | `05_pcdh19_logistic_regression_baseline` | Preserved logistic packages plus raw-count, paired-model, and biological-sample diagnostics | Complete: prior packages plus sample diagnostic 29/29 manifested files passed byte-size/SHA-256 verification | JZ-12 is only modestly weaker in raw B+C evidence; its performance reversal is concentrated in one-UMI cells. HET females remain withheld. |
 | `06_pcdh19_het_female_inference` | Frozen Step 05 probabilities applied to JZ-7–9 without calls | Complete, 13/13 manifested files passed byte-size/SHA-256 verification | 101,102 HET cells retain raw evidence and both frozen model probabilities; `000` remains uncalled. |
 | `07_pcdh19_het_female_wt_ko_like_classification` | Control-derived four-state HET classification | Complete, 14/14 manifested files passed byte-size/SHA-256 verification | Final frozen result: 3,964 WT-like, 140 KO-like, 16,123 uncertain, and 80,875 `000`. |
-| `primary_processing/00-09` | Standalone primary cleanup and analysis beginning from original per-sample Cell Ranger outputs | Complete plan and tunable decision registry present; no implementation or run | Inputs/outputs, planned scripts, object classes, decision gates, exact-code-copy provenance, and guarded rerun behavior are mapped in `primary_processing/README.md`. |
+| Primary QC and cell biology (reserved Steps 03/04/10) | New canonical object and cleanup beginning from original per-sample Cell Ranger outputs | Identified as the next true bioinformatics workflow; not yet implemented or run | Must perform sample-aware QC/filtering and compute new reductions, neighbors, clusters, and unified UMAP; mapping/classification fields may be joined only downstream. |
 | Figures | Publication or exploratory figures | `final_figures/` was empty at inspection | No Paper 3 figure asset is claimed. |
 
 The thirteen result manifests had no missing, size-mismatched, or checksum-
@@ -59,7 +60,6 @@ Each manifest is intentionally not self-listed.
 
 | Asset class | Files | Role |
 | --- | --- | --- |
-| Primary-processing plan and decision registry | `primary_processing/README.md`; `primary_processing/config/decision_registry.tsv` | Authoritative standalone Steps 00–09 architecture. Maps every stage's Cell Ranger/upstream inputs to named outputs and planned scripts/classes; exposes fixed contracts, pending choices, diagnostic gates, and provenance/rerun rules. These are planning assets, not an implemented workflow or completed run. |
 | Reference-curation instructions | `PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md` | Authoritative curation-only scope, candidate datasets, required audit products, early checkpoint, ranking criteria, and explicit prohibitions before any future label transfer. |
 | Reference-curation implementation | Main curation, Bandler recovery/inspection/supplement publishing, public-atlas capture/vector counting, expression-fingerprint barcode recovery, hierarchy/report scripts, `config/developing_mouse_mge_*`, submit/status wrappers, and `slurm/00a-00g_*.sbatch` | Object-oriented registry/cache, metadata parsing, H5AD/RDS/CSV inspection, reconciliation, intended public Shiny capture, vector validation, ordered fingerprint matching, artifact-scope evaluation, supplement extraction, plotting, and report publication. It records published versus object-linked IDs/counts, exact observed/later-atlas labels, explicit gaps, and barcode confidence. Submission freezes executable copies and supports confined same-step overwriting. |
 | Python computation | `scripts/pcdh19_probe_audit.py`, `scripts/xgfp_probe_compatibility_audit.py`, `scripts/egfp_probe_audit.py`, `scripts/Step_03_PCDH19_Genotype_Classification_Setup.py`, `scripts/Step_04_PCDH19_Empirical_Pattern_Classifier.py`, `scripts/Step_05_PCDH19_Logistic_Regression_Baseline.py` | Reference validation, count extraction/alignment, metadata joins, empirical and logistic modeling, probability comparison, plotting, validation, atomic publication, and manifests. Steps 03-05 use the object-oriented modular classification pattern. |
