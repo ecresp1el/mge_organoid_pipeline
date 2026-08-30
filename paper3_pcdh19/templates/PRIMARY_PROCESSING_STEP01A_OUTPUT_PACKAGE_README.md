@@ -7,11 +7,10 @@ MAD candidate boundaries independently within each technical sample.
 The source H5AD is opened read-only. No cell or gene is removed, no output
 H5AD is created, and no design/genotype group contributes to a boundary.
 Upper total-count and detected-gene thresholds are out of scope because
-high-complexity cells will be assessed separately with Scrublet.
+high-complexity cells will be assessed separately with Step 03 scDblFinder.
 
 `code/` and `config/` contain exact submitted copies. `tables/` contains
 boundaries, per-cell flags, individual/joint summaries, validation, software,
 and the output manifest. `figures/` contains every boundary and candidate-
 percentage visualization in PNG and PDF. `STEP_STATUS.tsv` remains
 `IN_REVIEW` until explicit user approval.
-

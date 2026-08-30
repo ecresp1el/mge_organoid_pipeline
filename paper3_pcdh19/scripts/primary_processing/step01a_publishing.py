@@ -121,7 +121,7 @@ class Step01aProvenancePublisher:
             "- Scaled MAD: `1.4826 × median(abs(x - median(x)))`.",
             "- Low counts/genes use `log1p` values and are back-transformed to original units.",
             "- High mitochondrial percentage uses the observed percentage scale.",
-            "- Upper counts/genes: not calculated; high-complexity assessment is reserved for Scrublet.",
+            "- Upper counts/genes: not calculated; high-complexity assessment is reserved for Step 03 scDblFinder.",
             f"- Validation checks: **{len(checks) - failures} PASS, {failures} FAIL**.",
             f"- Diagnostic figure files: **{plot_count}**.",
             "",
@@ -185,4 +185,3 @@ class Step01aApprovalLedger:
         temporary = path.with_suffix(path.suffix + ".tmp")
         ledger.to_csv(temporary, sep="\t", index=False)
         os.replace(temporary, path)
-

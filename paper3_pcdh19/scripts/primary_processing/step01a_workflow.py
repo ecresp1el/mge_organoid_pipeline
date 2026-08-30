@@ -76,7 +76,7 @@ class Step01aWorkflow:
             {"field_or_concept": "high_pct_counts_mt", "definition": "mitochondrial percentage above sample median plus k scaled MAD", "decision_status": "candidate only"},
             {"field_or_concept": "any_candidate", "definition": "union of the three candidate criteria", "decision_status": "candidate only"},
             {"field_or_concept": "all_three_candidate", "definition": "intersection of the three candidate criteria", "decision_status": "candidate only"},
-            {"field_or_concept": "upper counts/genes", "definition": "not calculated; high-complexity evaluation reserved for Scrublet", "decision_status": "out of scope"},
+            {"field_or_concept": "upper counts/genes", "definition": "not calculated; high-complexity evaluation reserved for Step 03 scDblFinder", "decision_status": "out of scope"},
             {"field_or_concept": "filtering", "definition": "none; source H5AD opened read-only and no output H5AD created", "decision_status": "prohibited"},
         ]
         return pd.DataFrame(rows)
@@ -86,4 +86,3 @@ class Step01aWorkflow:
 
         path = self.paths.run_dir / "provenance" / "repository_state.txt"
         return path.read_text(encoding="utf-8").strip().replace("\n", "; ") if path.exists() else "unavailable"
-

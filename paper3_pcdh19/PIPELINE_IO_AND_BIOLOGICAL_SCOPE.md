@@ -62,7 +62,7 @@ cells × 19,071 genes and 1,295,361,777 nonzero entries. All 221 validations and
 all 66 documentation checks passed. The user explicitly approved this exact
 run on 2026-08-30.
 
-### Primary-processing Step 01 current I/O — IN_REVIEW
+### Primary-processing Step 01 current I/O — APPROVED
 
 Step `01_qc_metrics` consumes only the approved Step 00 H5AD. It uses
 `scanpy.pp.calculate_qc_metrics()` with raw `.X`, `qc_vars=["mt"]`,
@@ -80,7 +80,7 @@ completed this contract with 40/40 validation checks passing. Its output
 It adds the standard cell-level count/gene/mitochondrial fields to `obs` and
 the standard Scanpy gene-level QC fields plus `mt`/`ribo` flags to `var`.
 Pooled, each-sample, sample-comparison, and design-group figures are published
-in PNG and PDF. The checkpoint remains `IN_REVIEW`; Step 02 is unauthorized.
+in PNG and PDF. The user approved the exact run on 2026-08-30.
 
 ### Primary-processing Step 01a contract
 
@@ -95,9 +95,10 @@ candidate counts/percentages are retained per sample and stringency.
 
 All boundaries are overlaid on per-sample distributions and summarized across
 samples in PNG/PDF figures. No upper count/gene rule is calculated because
-high-complexity assessment is reserved for Scrublet. The Step 01 H5AD is
+high-complexity assessment is reserved for Step 03 scDblFinder. The Step 01 H5AD is
 opened backed/read-only; no H5AD is written and no cell/gene is removed. Step
-01a remains `IN_REVIEW` with Step 01 and cannot authorize Step 02.
+01a remained `IN_REVIEW` with Step 01 until the user approved both exact runs
+on 2026-08-30.
 
 Review-target run `01a_qc_mad_sensitivity_20260830_121931_d5936f9`, Great
 Lakes job `59282437`, completed this contract with 71/71 checks passing. It
@@ -107,6 +108,23 @@ and 30 figure files. The input Step 01 H5AD is unchanged. Across cells, the
 union is 4.765%, 2.024%, and 0.985% at 3/4/5 MAD; low-count candidates are
 0.230%, 0%, and 0%, while the high-mitochondrial criterion contributes
 4.110%, 1.942%, and 0.970%. These remain candidate sensitivities, not filters.
+
+### Primary-processing Step 02 authorized I/O
+
+Step 02 reads the approved Step 01 H5AD and approved Step 01a per-cell flag
+table. It applies only the per-sample 5-MAD union for low counts, low genes, or
+high mitochondrial percentage. The complete original cell universe and exact
+reason combinations are written to `step02_per_cell_disposition.tsv.gz`; the
+filtered H5AD is expected to contain 446,349 cells × 19,071 genes as sparse
+integer raw counts. No upper-complexity rule, gene filtering, normalization,
+embedding, clustering, integration, annotation, or doublet removal occurs.
+
+Step 02 performs no doublet-rate audit and no doublet detection. The separate
+Step 03 capture decision uses the Cell Ranger multi configuration and library
+QC to distinguish the one physical `GEX_1` capture from its 12 Probe Barcode
+sample assignments. It is documented in
+`PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`; scDblFinder cannot run until
+the user approves that capture definition.
 
 An independent Step 00 GSE94641 reference-mapping workstream has completed
 reference validation and an E15.5-focused kNN transfer to all query cells. Its

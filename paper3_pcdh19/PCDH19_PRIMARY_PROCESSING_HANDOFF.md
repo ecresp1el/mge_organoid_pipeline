@@ -124,11 +124,12 @@ Only `APPROVED` can be consumed by the next major step.
 
 ## Current authorization
 
-Step 00 was explicitly **APPROVED** by the user on 2026-08-30. Step 01 QC
-metrics have been computed and remain **IN_REVIEW**. Before approval, the user
-authorized a separate Step 01a per-sample MAD sensitivity amendment. Do not
-begin Step 02 or any later processing until the user explicitly approves the
-combined evidence from the exact Step 01 and Step 01a runs.
+Steps 00, 01, and the Step 01a sensitivity amendment were explicitly
+**APPROVED** by the user on 2026-08-30. Step 02 is authorized to apply exactly
+the reviewed per-sample 5-MAD union: low total counts OR low detected genes OR
+high mitochondrial percentage. It must retain exact per-cell reasons, publish
+before/after counts by technical sample and design group, save a raw-count
+filtered H5AD, and stop `IN_REVIEW`. Step 03 scDblFinder is not authorized yet.
 
 ### Approved Step 00 run
 
@@ -159,7 +160,7 @@ generated environment file. Commit `7fe06d5` fixed that execution defect. The
 authorized guarded replacement retained the failed job ID and logs, froze the
 corrected code, and produced successful job `59279775` in the same run.
 
-### Step 01 computed run — IN_REVIEW
+### Approved Step 01 computed run
 
 - Run ID: `01_qc_metrics_20260830_115715_2b57907`.
 - Successful Great Lakes job: `59281063` (`COMPLETED`, exit `0:0`, 5 minutes
@@ -187,8 +188,7 @@ review observations only and do not define high/low quality or a threshold.
 
 The run-local report, all plots, complete summary tables, software versions,
 validation ledger, frozen executed code/configuration, and output manifest
-are inside the run directory. Request additional Step 01 diagnostics or
-explicitly approve this exact run before any Step 02 work.
+are inside the run directory. The user approved this exact run on 2026-08-30.
 
 ### Step 01a implemented scope
 
@@ -206,12 +206,13 @@ exact overlap patterns, per-sample distribution plots with all boundaries,
 and cross-sample boundary/flag/overlap visualizations in PNG and PDF.
 
 Step 01a must not calculate an upper total-count or upper detected-gene
-candidate rule. High-complexity cells are reserved for the later Scrublet
+candidate rule. High-complexity cells are reserved for the later scDblFinder
 step. It must not remove cells or genes, write a replacement H5AD, define a QC
 pass/fail decision, start Step 02, or treat a candidate flag as an exclusion.
-Its successful result remains `IN_REVIEW` with Step 01.
+Its successful result remained `IN_REVIEW` with Step 01 until both were
+approved together on 2026-08-30.
 
-### Step 01a computed run — IN_REVIEW
+### Approved Step 01a computed run
 
 - Review-target run ID:
   `01a_qc_mad_sensitivity_20260830_121931_d5936f9`.
@@ -249,6 +250,34 @@ for provenance. Visual inspection found title/legend and color-bar crowding in
 two cross-sample figures. The review-target run corrected only those layouts;
 its boundary, flag-summary, overlap, and decompressed per-cell tables are
 identical to the first run. No run was overwritten.
+
+### Step 02 authorized scope
+
+Step `02_qc_filtering` consumes only the exact approved Step 01 raw-count H5AD
+and the exact approved Step 01a per-cell flag table. It selects the 5-MAD
+columns and excludes the union of low total counts, low detected genes, or
+high mitochondrial percentage. It does not use an upper count/gene rule,
+recalculate thresholds, remove genes, normalize, reduce, cluster, integrate,
+annotate, run scDblFinder, or remove doublets.
+
+The expected reviewed disposition is 4,439 excluded cells (0 low-count, 67
+low-gene, and 4,372 high-mitochondrial candidates; no overlaps), leaving
+446,349 cells and all 19,071 genes. Every original cell is retained in a
+compressed disposition table with each applicable exclusion reason. The H5AD
+contains only retained cells, preserves sparse integer counts, and records its
+processing state explicitly.
+
+Step 03 is now planned around scDblFinder. Its capture-definition
+evidence and proposed one-capture conclusion are isolated in
+`PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`. That conclusion must receive
+explicit user approval before any Step 03 code is executed.
+
+Implementation is object-oriented across `step02_models.py`,
+`step02_filtering.py`, `step02_plots.py`,
+`step02_validation.py`, `step02_publishing.py`, `step02_workflow.py`, and
+`step02_cli.py`. The frozen Great Lakes entry points are
+`bin/submit_primary_processing_step_02.sh` and
+`slurm/primary_processing_02_qc_filtering.sbatch`.
 
 ### Step 01 implemented scope
 

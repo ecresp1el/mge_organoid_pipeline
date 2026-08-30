@@ -85,7 +85,7 @@ class Step01aValidator:
         self.ledger.add("unique_cell_ids", "results", result.per_cell["cell_id"].is_unique, result.per_cell["cell_id"].nunique(), self.settings.expected_cells, "Candidate records must remain one-to-one with cells.")
         self.ledger.add("no_design_group_definition", "results", "design_group" not in result.per_cell.columns and "design_group" not in result.boundaries.columns, "absent", "absent", "Genotype/design groups cannot influence Step 01a boundaries.")
         forbidden = [column for column in result.per_cell if column.startswith(("high_total_counts", "high_n_genes"))]
-        self.ledger.add("no_upper_complexity_flags", "results", not forbidden, forbidden or "none", "none", "High counts and high detected genes are reserved for later Scrublet assessment.")
+        self.ledger.add("no_upper_complexity_flags", "results", not forbidden, forbidden or "none", "none", "High counts and high detected genes are reserved for later scDblFinder assessment.")
         for sample, frame in result.per_cell.groupby(self.settings.sample_field, sort=False, observed=True):
             for base in ("low_total_counts", "low_n_genes_by_counts", "high_pct_counts_mt", "any_candidate"):
                 flags = [frame[f"{base}_{value:g}mad"].to_numpy(dtype=bool) for value in self.settings.stringencies]

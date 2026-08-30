@@ -50,18 +50,23 @@ successful Great Lakes job `59279775`. The 6.60-GB canonical H5AD contains
 run on 2026-08-30. Step 01 run
 `01_qc_metrics_20260830_115715_2b57907` then completed in Great Lakes job
 `59281063` with all 450,788 cells and 19,071 genes retained, 40/40 validation
-checks passing, and no thresholds or filtering. Its pooled and per-sample QC
-distributions and 6.62-GB H5AD checkpoint are **IN_REVIEW**. No Step 02 work
-may begin yet. Before approval, Step 01a was authorized to visualize 3/4/5
+checks passing, and no thresholds or filtering. Before approval, Step 01a was
+authorized to visualize 3/4/5
 scaled-MAD candidate boundaries independently within each technical sample,
 without filtering or upper count/gene rules. Review-target Step 01a run
 `01a_qc_mad_sensitivity_20260830_121931_d5936f9` completed in job `59282437`
 with 71/71 validations passing and all 450,788 cells retained. Any-criterion
 candidate percentages are 4.765%, 2.024%, and 0.985% at 3/4/5 MAD and are
-dominated by the mitochondrial tail. The combined Step 01/01a evidence must
-be explicitly approved before Step 02. The detailed results and execution
-history are in
+dominated by the mitochondrial tail. The user explicitly **APPROVED** the
+exact Step 01 and review-target Step 01a runs on 2026-08-30 and authorized
+Step 02 to apply the per-sample 5-MAD low-count OR low-gene OR high-mt union.
+Step 02 must preserve every exclusion reason, retain all genes/raw counts,
+report sample/design before-after counts, and stop for review. Step 03 will use
+scDblFinder, but cannot run until the proposed one-`GEX_1`-
+capture definition is explicitly approved. The detailed results and execution history are in
 [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
+The capture evidence is in
+[`PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`](PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md).
 
 ## New auxiliary work: three-reference MGE curation
 
