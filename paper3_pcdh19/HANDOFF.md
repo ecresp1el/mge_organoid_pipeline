@@ -17,16 +17,15 @@ Last updated: 2026-08-30
 > See
 > [`PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md`](PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md).
 
-> **Next primary workflow:** Steps 03, 04, and 10 will form the true
-> bioinformatics cleanup and primary-analysis sequence. Expression input must
-> come from the original per-sample Cell Ranger outputs, with the sample key
-> joined only as metadata. The workflow must create a new canonical object,
-> apply sample-aware QC/filtering, assess whether integration is justified,
-> and compute its own reductions, neighbors, clusters, and unified UMAP. It
-> must not start from the Step 01 mapping RDS or inherit mapping labels,
-> Cell Ranger UMAPs, or Cell Ranger clusters as analysis results. Mapping
-> annotations remain optional downstream evidence after cleanup. No code or
-> job for this primary sequence has yet been created or run.
+> **Next primary workflow:** The true cleanup is the standalone
+> `primary_processing` workflow with its own Steps 00–09. Expression input
+> comes from the original per-sample Cell Ranger outputs, with the sample key
+> joined only as metadata. Every stage has an explicit input/output contract,
+> tunable decision IDs, and a planned script/object mapping in
+> [`primary_processing/README.md`](primary_processing/README.md). It must not
+> start from the Step 01 mapping RDS or inherit mapping labels, Cell Ranger
+> UMAPs, or Cell Ranger clusters as analysis results. No implementation or job
+> has yet been created or run.
 
 ## Independent developing-mouse MGE reference curation (first checkpoint complete)
 
@@ -652,9 +651,7 @@ not use those fields to alter counts or classify cells.
 | `02a_pcdh19_probe_audit` | Completed | Checksum-lock the v2.0.0/GRCm39-2024-A probe references and reproduce raw three-probe Pcdh19 counts and binary patterns for all 12 technical samples without biological labels. |
 | `02b_xgfp_probe_compatibility_audit` | Completed | Validate the exact three custom Flex EGFP probes against the original Nagy/Kalantry D4/XEGFP construct-level reporter sequence before any GFP count interpretation. |
 | `02c_egfp_probe_audit` | Completed | Extract raw UMI counts for the same three exact EGFP probes from every vendor-filtered barcode, reproduce Cell Ranger's EGFP row, and report all eight detection patterns across all 12 samples. |
-| `03_canonical_inputs` | Next primary-workflow stage; not started | Build and validate a new canonical object directly from the original per-sample Cell Ranger outputs; join the sample key as metadata only. |
-| `04_qc_and_filtering` | Reserved; not designed | Perform the true sample-aware cell/gene cleanup and artifact assessment without inheriting mapping-object labels, clusters, or embeddings. |
-| `10_primary_analysis` | Reserved; not designed | Normalize, assess whether integration is justified, and compute new reductions, neighbors, clusters, unified UMAP, and downstream annotations. |
+| `primary_processing/00-09` | Planned; not implemented or run | Standalone primary workflow from Cell Ranger input registration through canonical counts, QC diagnostics/filtering, artifact assessment, normalization, unintegrated baseline, integration decision, final graph/clusters/UMAP, and downstream annotation/publication. |
 | `20_validation` | Not designed | Evaluate robustness, replicate structure, PCDH19 biology, and reference mappings. |
 | `30_final_figures` | Not designed | Create provenance-complete, versioned Paper 3 figure packages. |
 

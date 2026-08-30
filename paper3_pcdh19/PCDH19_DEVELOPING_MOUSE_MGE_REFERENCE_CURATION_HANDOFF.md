@@ -63,11 +63,12 @@ named non-neural cells. These are diagnostics, not final annotations. See
 `PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md` for its exact contract.
 
 That diagnostic is not the Paper 3 primary-processing object. The next true
-bioinformatics workflow will restart from the original per-sample Cell Ranger
-outputs and will independently construct the canonical object, perform
-sample-aware QC/filtering, assess integration, and compute new reductions,
-neighbors, clusters, and a unified UMAP. Labels recovered by this reference
-curation may be attached only afterward as downstream evidence. No primary
+bioinformatics workflow is the standalone `primary_processing` sequence with
+its own Steps 00–09, beginning again from the original per-sample Cell Ranger
+outputs. Labels recovered by this reference curation may be attached only
+afterward as downstream evidence. Its stage-level input/output and
+decision-to-script plan is in
+[`primary_processing/README.md`](primary_processing/README.md). No primary
 cleanup implementation or job is claimed by this handoff.
 
 The early processed-object and sample-metadata checkpoint completed on

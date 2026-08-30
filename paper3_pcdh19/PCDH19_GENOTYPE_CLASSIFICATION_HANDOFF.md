@@ -5,14 +5,14 @@ one completed methodological unit. Do not refit a model, alter a
 threshold, relabel a cell, or overwrite a result package. This document is the
 entry point for resuming the PCDH19 classification work.
 
-The next true bioinformatics cleanup is a separate primary-processing
-sequence, reserved as Steps 03/04/10 in the overall Paper 3 workflow. It must
-start from the original per-sample Cell Ranger outputs, build a new canonical
-object, perform sample-aware QC/filtering, assess integration, and compute new
-reductions, neighbors, clusters, and a unified UMAP. It must not use this
-frozen classification unit or the Step 01 mapping RDS to define cell
-retention, geometry, or clusters. Frozen classification and reference labels
-may be joined only downstream after cleanup. This primary sequence has not yet
+The next true bioinformatics cleanup is the separate, standalone
+`primary_processing` workflow with its own Steps 00–09. It starts from the
+original per-sample Cell Ranger outputs and must not use this frozen
+classification unit or the Step 01 mapping RDS to define cell retention,
+geometry, or clusters. Frozen classification and reference labels may be
+joined only downstream after cleanup. The complete input/output and
+decision-to-script plan is in
+[`primary_processing/README.md`](primary_processing/README.md); it has not yet
 been implemented or run.
 
 Post-freeze Step 08 has since begun a separate biological analysis of broad

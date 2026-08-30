@@ -11,12 +11,13 @@ E11.5–E17.5 reference, all raw label fields, and an all-age contextual transfe
 are retained alongside them.
 
 This completed transfer is not a primary processed or integrated Paper 3
-analysis. The next true cleanup workflow will start from the original
-per-sample Cell Ranger outputs, not this mapping package, and will construct a
-new canonical object with sample-aware QC/filtering, integration assessment,
-and newly computed reductions, neighbors, clusters, and unified UMAP. These
-GSE94641 calls may be joined only later as annotation evidence. That primary
-workflow has not yet been implemented or run.
+analysis. The next true cleanup is the standalone `primary_processing`
+workflow with its own Steps 00–09, starting from the original per-sample Cell
+Ranger outputs rather than this mapping package. These GSE94641 calls may be
+joined only later as annotation evidence. Its input/output and
+decision-to-script plan is in
+[`primary_processing/README.md`](primary_processing/README.md); it has not yet
+been implemented or run.
 
 GSE94641 was selected because it contains published single-cell RNA-seq from
 actual mouse embryonic medial ganglionic eminence at E11.5, E13.5, E15.5, and
