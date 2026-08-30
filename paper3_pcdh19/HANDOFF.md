@@ -34,8 +34,10 @@ Last updated: 2026-08-30
 > in Great Lakes job `59279775`. It contains 450,788 cells × 19,071 genes as
 > sparse unnormalized integer counts in `.X`; 221 validations passed and no
 > filtering, transformation, graph, embedding, cluster, or annotation was
-> created. The run remains **IN_REVIEW**. Stop before Step 01 unless the user
-> explicitly approves this exact run. See
+> created. The user explicitly **APPROVED** this exact run on 2026-08-30.
+> Step 01 Scanpy QC metrics are authorized; they must preserve all cells and
+> genes and stop without thresholds or filtering. Stop before Step 02 unless
+> the user explicitly approves the resulting Step 01 run. See
 > [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
 
 ## Independent developing-mouse MGE reference curation (first checkpoint complete)

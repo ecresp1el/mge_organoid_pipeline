@@ -42,13 +42,15 @@ copies before submission, run those copies on Great Lakes, and keep scheduler
 scripts and logs under `PAPER3_ROOT/jobs/` and
 `PAPER3_ROOT/logs/primary_processing/`, respectively.
 
-Step 00 has now computed run
+Step 00 computed run
 `00_input_validation_and_canonical_anndata_20260830_113749_d8b6bf7` with
 successful Great Lakes job `59279775`. The 6.60-GB canonical H5AD contains
 450,788 cells × 19,071 genes and 1,295,361,777 sparse raw-count entries; all
-221 validations passed. Its status is **IN_REVIEW**, not approved. Do not
-begin Step 01 until the user explicitly approves this run. The detailed result
-and the recorded failed-start/replacement history are in
+221 validations passed. The user explicitly **APPROVED** this exact Step 00
+run on 2026-08-30. Step 01 Scanpy QC metrics are authorized, but no Step 02
+threshold or filtering work may begin until the resulting Step 01 run is
+explicitly approved. The detailed result and failed-start/replacement history
+are in
 [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
 
 ## New auxiliary work: three-reference MGE curation

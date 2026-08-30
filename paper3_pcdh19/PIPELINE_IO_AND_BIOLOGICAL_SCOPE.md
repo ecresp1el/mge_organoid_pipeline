@@ -39,7 +39,7 @@ until explicitly approved.
 
 ### Primary-processing Step 00 current I/O
 
-The Step 00 run awaiting review is
+The approved Step 00 run is
 `00_input_validation_and_canonical_anndata_20260830_113749_d8b6bf7`.
 Successful job `59279775` read, for each `15662-JZ-1` through `-12`:
 
@@ -59,8 +59,21 @@ CSR `int32` matrix of sparse unnormalized Cell Ranger counts; `.raw`, layers,
 IDs (plus the delivered custom `EGFP` feature), with Cell Ranger symbols,
 feature type, and GRCm39 genome retained in `var`. The object contains 450,788
 cells × 19,071 genes and 1,295,361,777 nonzero entries. All 221 validations and
-all 66 documentation checks passed. It remains `IN_REVIEW` and cannot feed
-Step 01 without explicit approval.
+all 66 documentation checks passed. The user explicitly approved this exact
+run on 2026-08-30.
+
+### Primary-processing Step 01 contract
+
+Step `01_qc_metrics` consumes only the approved Step 00 H5AD. It uses
+`scanpy.pp.calculate_qc_metrics()` with raw `.X`, `qc_vars=["mt"]`,
+`percent_top=None`, and `log1p=True`. Log1p fields are cell/gene metadata only;
+the expression matrix is not transformed. The 13 delivered `mt-` genes define
+mitochondrial metrics. No `Rpl`/`Rps` features exist in the targeted panel, so
+ribosomal fraction is explicitly unavailable. Step 01 must preserve exact
+matrix arrays, cells, genes, order, layers, `.raw`, and reduction/graph state;
+it creates no thresholds, filter flags, or exclusions. Its figures cover each
+sample individually plus pooled, sample-comparison, and design-group views.
+The computed Step 01 run must stop `IN_REVIEW` before Step 02.
 
 An independent Step 00 GSE94641 reference-mapping workstream has completed
 reference validation and an E15.5-focused kNN transfer to all query cells. Its

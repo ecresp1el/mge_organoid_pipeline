@@ -124,10 +124,11 @@ Only `APPROVED` can be consumed by the next major step.
 
 ## Current authorization
 
-Step 00 has been computed and is **IN REVIEW**. Do not begin Step 01 or any
-later processing until the user explicitly approves this exact run.
+Step 00 was explicitly **APPROVED** by the user on 2026-08-30. Step 01 QC
+metrics are now authorized. Do not begin Step 02 or any later processing until
+the user explicitly approves the exact Step 01 run.
 
-### Step 00 run awaiting review
+### Approved Step 00 run
 
 - Run ID:
   `00_input_validation_and_canonical_anndata_20260830_113749_d8b6bf7`
@@ -155,6 +156,28 @@ because a space-containing Cell Ranger path was not shell-escaped in the
 generated environment file. Commit `7fe06d5` fixed that execution defect. The
 authorized guarded replacement retained the failed job ID and logs, froze the
 corrected code, and produced successful job `59279775` in the same run.
+
+### Step 01 authorized scope
+
+Step 01 must load only the approved Step 00 H5AD and use
+`scanpy.pp.calculate_qc_metrics()` to add descriptive QC metadata. It must
+calculate total counts, detected genes, and mitochondrial counts/fraction;
+preserve every cell, gene, and raw count; create pooled, each-sample, and
+design-group summaries/plots; and stop `IN_REVIEW` without thresholds or
+filtering.
+
+Mitochondrial genes are the 13 delivered symbols beginning `mt-`. The targeted
+Flex panel has no `Rpl`/`Rps` genes, so Step 01 records ribosomal fraction as
+unavailable instead of fabricating an all-zero metric. `percent_top=None`
+avoids an expensive, unrequested top-gene calculation and does not affect the
+required totals, detected-gene, or mitochondrial metrics.
+
+Step 01 implementation files are `step01_models.py`, `step01_metrics.py`,
+`step01_plots.py`, `step01_validation.py`, `step01_publishing.py`,
+`step01_workflow.py`, and `step01_cli.py`. The thin submitter is
+`bin/submit_primary_processing_step_01.sh`; the thin Great Lakes wrapper is
+`slurm/primary_processing_01_qc_metrics.sbatch`. Every frozen Python
+definition is docstring-audited in the run.
 
 ### Step 00 implementation map
 
