@@ -25,15 +25,17 @@ views. See
 [`PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md`](PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md)
 for the exact mapping-object contract.
 
-The next true bioinformatics workflow is the reserved Steps 03/04/10 primary
-processing sequence. Its expression inputs will be the original per-sample
-Cell Ranger outputs; the registered sample key may be joined as metadata, but
-the Step 01 mapping RDS is not an input. That sequence must build a new
-canonical object, perform sample-aware QC/filtering and artifact assessment,
-decide whether integration is justified, and compute new reductions,
-neighbors, clusters, and a unified UMAP. Reference labels remain downstream
-evidence after cleanup. No implementation or execution of that primary
-sequence is claimed here.
+The true bioinformatics workflow is the independent `primary_processing`
+Steps 00–07 sequence. Its authoritative scope and approval gates are in
+[`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
+It starts from the original per-sample Cell Ranger filtered matrices and joins
+the registered sample key and technical manifest as metadata. Step 00 builds a
+canonical sparse raw-count AnnData and performs structural validation only.
+The Step 01 mapping RDS, transferred reference labels, probe results,
+classifications, and inherited Cell Ranger geometry are not preprocessing
+inputs; they remain available for optional downstream integration after
+cleanup. Each computed primary-processing checkpoint remains `IN_REVIEW`
+until explicitly approved.
 
 An independent Step 00 GSE94641 reference-mapping workstream has completed
 reference validation and an E15.5-focused kNN transfer to all query cells. Its

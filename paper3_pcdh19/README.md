@@ -23,16 +23,24 @@ Scanpy or Seurat. All current query UMAP plots must remain faceted by sample;
 placing the 12 coordinate sets in one panel would imply a geometry that does
 not exist.
 
-The **next true primary bioinformatics workflow** will begin from the original
-per-sample Cell Ranger outputs. Steps 03, 04, and 10 are reserved as one
-sequence for canonical input construction, sample-aware QC/filtering, and
-primary analysis. Expression values will not be imported from the Step 01
-mapping RDS; the registered sample key may be joined only as metadata. The new
-workflow will decide integration from diagnostics and will construct its own
-clean analysis object, reductions, neighbors, clusters, and unified UMAP.
-Bandler/MIND and MapMyCells labels can be evaluated or attached downstream,
-after cleanup. This statement registers the workflow boundary only: no primary
-processing implementation or SLURM job has yet been created or run.
+The **true primary bioinformatics workflow** is now a separate namespace with
+its own Steps 00–07. Start with
+[`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
+Its expression inputs are the original 12 per-sample Cell Ranger filtered
+feature-barcode matrices; the registered sample key and technical manifest are
+joined only as metadata. Step 00 constructs the canonical raw-count AnnData
+without QC filtering, normalization, reduction, clustering, or annotation.
+Every computed step remains `IN_REVIEW` until explicitly approved, and only an
+approved checkpoint may feed the next step. Existing Bandler/MIND,
+MapMyCells, GSE94641, probe, and classification results remain preserved for
+later downstream integration; they are not primary-processing inputs.
+
+Primary-processing code is object-oriented Python under
+`scripts/primary_processing/`. Submissions create versioned packages under
+`PAPER3_ROOT/results/primary_processing/`, freeze exact executable and metadata
+copies before submission, run those copies on Great Lakes, and keep scheduler
+scripts and logs under `PAPER3_ROOT/jobs/` and
+`PAPER3_ROOT/logs/primary_processing/`, respectively.
 
 ## New auxiliary work: three-reference MGE curation
 
@@ -227,6 +235,8 @@ counts range from 11,085 to 60,680.
 - Registered biological sample key:
   [`config/sample_key.csv`](config/sample_key.csv)
 - Operational handoff: [`HANDOFF.md`](HANDOFF.md)
+- Primary-processing handoff:
+  [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md)
 - Three-candidate developing-mouse MGE reference-curation handoff:
   [`PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md`](PCDH19_DEVELOPING_MOUSE_MGE_REFERENCE_CURATION_HANDOFF.md)
 - Complete pipeline I/O and interpretation contract:

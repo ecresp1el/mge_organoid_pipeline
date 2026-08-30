@@ -23,13 +23,14 @@ run `IntegrateData`, Harmony, CCA integration, scVI, a joint neighbor graph,
 be versioned separately and must not reinterpret this diagnostic as though it
 already supplied a joint UMAP.
 
-The next primary bioinformatics workflow must therefore start again from the
-original per-sample Cell Ranger outputs, not from this 31.84-GB RDS. It will
-own canonical-object construction, sample-aware QC/filtering, integration
-assessment, and new reductions, neighbors, clusters, and unified UMAP.
-Predictions produced here may be joined later as downstream annotation
-evidence; they are not cleanup inputs or ground truth. That primary workflow
-has been identified but has not yet been implemented or submitted.
+The independent `primary_processing` Steps 00–07 workflow therefore starts
+again from the original per-sample Cell Ranger outputs, not from this 31.84-GB
+RDS. Its authoritative scope is
+[`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
+It owns canonical-object construction, QC, artifact assessment, and later
+technical diagnostics. Predictions produced here may be joined only after
+cleanup as downstream annotation evidence; they are not preprocessing inputs
+or ground truth.
 
 ## Immutable query contract
 

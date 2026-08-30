@@ -37,6 +37,13 @@ offer an explicit guarded `--replace-run RUN_ID` option to regenerate one named
 inactive run inside that same step. Such replacement does not authorize
 changes to frozen steps or shared read-only/cached inputs.
 
+The primary-processing workflow has its own Steps 00–07 namespace beneath
+`results/primary_processing/`. Its exact Python, shell, SLURM, configuration,
+and registered metadata are frozen into every run. Computation success leaves
+a step `IN_REVIEW`; only explicit user approval promotes a checkpoint for use
+by the next step. Existing mapping, probe, and classification results are
+downstream-only and do not enter primary preprocessing.
+
 The operational handoff is copied here as `HANDOFF.md`; its canonical source is
 the version-controlled file in the repository.
 

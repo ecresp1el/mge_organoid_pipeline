@@ -17,16 +17,17 @@ Last updated: 2026-08-30
 > See
 > [`PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md`](PCDH19_E15_MGE_MAPPING_DIAGNOSTIC_HANDOFF.md).
 
-> **Next primary workflow:** Steps 03, 04, and 10 will form the true
-> bioinformatics cleanup and primary-analysis sequence. Expression input must
-> come from the original per-sample Cell Ranger outputs, with the sample key
-> joined only as metadata. The workflow must create a new canonical object,
-> apply sample-aware QC/filtering, assess whether integration is justified,
-> and compute its own reductions, neighbors, clusters, and unified UMAP. It
-> must not start from the Step 01 mapping RDS or inherit mapping labels,
-> Cell Ranger UMAPs, or Cell Ranger clusters as analysis results. Mapping
-> annotations remain optional downstream evidence after cleanup. No code or
-> job for this primary sequence has yet been created or run.
+> **Primary processing:** The true cleanup workflow is the independent
+> `primary_processing` Steps 00–07 sequence governed by
+> [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
+> Step 00 starts from the 12 original per-sample Cell Ranger filtered matrices
+> plus the registered sample key and technical manifest. It creates a canonical
+> raw-count AnnData without filtering, normalization, reduction, clustering,
+> or annotation. Each computed step remains `IN_REVIEW` until the user
+> explicitly approves that exact run. The Step 01 mapping RDS, transferred
+> labels, probe results, classifications, and Cell Ranger embeddings/clusters
+> are preserved only for later downstream integration and are not preprocessing
+> inputs.
 
 ## Independent developing-mouse MGE reference curation (first checkpoint complete)
 
