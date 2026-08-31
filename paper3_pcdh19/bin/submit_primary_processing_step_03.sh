@@ -87,7 +87,7 @@ expected <- read.delim(args[[1]], stringsAsFactors=FALSE, check.names=FALSE)
 observed <- vapply(expected$package, function(package) {
   if (package == "R") paste(R.version$major, R.version$minor, sep=".") else as.character(packageVersion(package))
 }, character(1L))
-if (!identical(observed, expected$version)) {
+if (!identical(unname(observed), expected$version)) {
   stop("Step 03 native-R environment mismatch: ", paste(expected$package, observed, sep="=", collapse=", "))
 }
 parse(file=args[[2]])
