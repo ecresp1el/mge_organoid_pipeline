@@ -73,7 +73,7 @@ class Step03ReportBuilder:
 
     @staticmethod
     def summaries(frame: pd.DataFrame, sample_field: str, design_field: str) -> dict[str, pd.DataFrame]:
-        """Create overall, sample, design, cluster, score, and concordance tables."""
+        """Create overall, sample, design, and score-distribution tables."""
 
         def grouped(field: str) -> pd.DataFrame:
             """Summarize primary calls and scores for one metadata field."""
@@ -88,58 +88,21 @@ class Step03ReportBuilder:
             return table
 
         primary_doublets = int((frame["primary_class"] == "doublet").sum())
-        replicate_doublets = int((frame["replicate_class"] == "doublet").sum())
-        agreement = int((frame["primary_class"] == frame["replicate_class"]).sum())
         overall = pd.DataFrame([{
             "cells": len(frame),
             "primary_called_doublets": primary_doublets,
             "primary_called_doublet_pct": 100 * primary_doublets / len(frame),
-            "replicate_called_doublets": replicate_doublets,
-            "replicate_called_doublet_pct": 100 * replicate_doublets / len(frame),
-            "class_agreement_n": agreement,
-            "class_agreement_pct": 100 * agreement / len(frame),
-            "score_pearson": float(np_corr(frame["primary_score"], frame["replicate_score"])),
             "empirical_lowest_doublet_score": float(frame.loc[frame["primary_class"] == "doublet", "primary_score"].min()),
             "cells_removed": 0,
         }])
-        cluster = grouped("primary_cluster").sort_values("primary_cluster")
         quantiles = frame.groupby(sample_field, observed=True)["primary_score"].quantile([0, 0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99, 1]).unstack().reset_index()
         quantiles.columns = [sample_field, "q000", "q001", "q005", "q025", "q050", "q075", "q095", "q099", "q100"]
-        confusion = pd.crosstab(frame["primary_class"], frame["replicate_class"]).rename_axis("primary_class").reset_index()
-        reproducibility_sample = Step03ReportBuilder._reproducibility_by_group(frame, sample_field)
-        reproducibility_design = Step03ReportBuilder._reproducibility_by_group(frame, design_field)
         return {
             "overall": overall,
             "sample": grouped(sample_field),
             "design": grouped(design_field),
-            "cluster": cluster,
             "score_quantiles": quantiles,
-            "confusion": confusion,
-            "reproducibility_sample": reproducibility_sample,
-            "reproducibility_design": reproducibility_design,
         }
-
-    @staticmethod
-    def _reproducibility_by_group(frame: pd.DataFrame, field: str) -> pd.DataFrame:
-        """Summarize concordant and discordant calls for one metadata grouping."""
-
-        rows = []
-        for group, subset in frame.groupby(field, observed=True):
-            primary_doublet = subset["primary_class"].eq("doublet")
-            replicate_doublet = subset["replicate_class"].eq("doublet")
-            agreement = primary_doublet.eq(replicate_doublet)
-            rows.append({
-                field: group,
-                "cells": len(subset),
-                "call_agreement_n": int(agreement.sum()),
-                "call_agreement_pct": 100 * float(agreement.mean()),
-                "both_doublet": int((primary_doublet & replicate_doublet).sum()),
-                "primary_only_doublet": int((primary_doublet & ~replicate_doublet).sum()),
-                "replicate_only_doublet": int((~primary_doublet & replicate_doublet).sum()),
-                "both_singlet": int((~primary_doublet & ~replicate_doublet).sum()),
-                "score_pearson": np_corr(subset["primary_score"], subset["replicate_score"]),
-            })
-        return pd.DataFrame(rows)
 
     @staticmethod
     def data_dictionary() -> pd.DataFrame:
@@ -150,20 +113,13 @@ class Step03ReportBuilder:
             ("capture_id", "Constant GEX_1; the independently processed capture passed to scDblFinder samples", "approved"),
             ("scDblFinder_score", "Primary-seed scDblFinder score", "review-only; no filtering"),
             ("scDblFinder_class", "Primary-seed package call: singlet or doublet", "review-only; no filtering"),
-            ("scDblFinder_cluster", "Fast cluster generated internally because clusters=TRUE", "diagnostic"),
-            ("scDblFinder_replicate_score", "Second-seed score with otherwise identical model arguments", "reproducibility diagnostic"),
-            ("scDblFinder_replicate_class", "Second-seed package call", "reproducibility diagnostic"),
-            ("scDblFinder_call_reproduced", "Whether primary and second-seed package calls agree", "reproducibility diagnostic"),
-            ("obsm['X_scdblfinder_pca']", "Real-cell coordinates from the primary run's internal normalized PCA; artificial doublets excluded", "diagnostic expression space, not an integrated UMAP"),
             ("layers/.raw/obsp", "Empty; no normalized expression layer, raw alias, or neighbor graph is saved", "object state"),
-            ("scdblfinder_per_cell_details.tsv.gz", "Complete real-cell native-R output fields plus primary and repeat results", "audit evidence"),
-            ("scdblfinder_primary_stats.rds", "Package-generated primary threshold/model statistics only; no expression matrix", "native-R audit object"),
-            ("scdblfinder_internal_pca.rds", "Exact native-R real-cell internal PCA matrix", "native-R diagnostic object; no counts"),
+            ("scdblfinder_per_cell_details.tsv.gz", "One cell ID, score, and singlet/doublet annotation for every retained cell", "audit evidence"),
         ]
         return pd.DataFrame(rows, columns=["asset_or_field", "definition", "decision_status"])
 
     @staticmethod
-    def report(run_id: str, input_run_id: str, summaries: dict[str, pd.DataFrame], checks: pd.DataFrame, pca_dimensions: int) -> str:
+    def report(run_id: str, input_run_id: str, summaries: dict[str, pd.DataFrame], checks: pd.DataFrame) -> str:
         """Render the human-readable Step 03 review report and mandatory stop."""
 
         overall = summaries["overall"].iloc[0]
@@ -175,12 +131,9 @@ class Step03ReportBuilder:
             f"- Approved Step 02 input: `{input_run_id}`.",
             "- Capture definition: one independently processed capture, `GEX_1`; the 12 Probe Barcode samples remain reporting metadata.",
             "- Scientific arguments: `samples='capture_id'`, `clusters=TRUE`, `dbr.sd=1`, no supplied `dbr`; other model parameters were package defaults.",
-            "- Output-only return settings: primary `returnType='full'` to retain the exact internal PCA/model diagnostics; second seed `returnType='scores'` for reproducibility. These do not change classifier training or thresholding.",
+            "- Execution/observability settings: one primary-seed invocation with `returnType='scores'`, `verbose=TRUE`, and `SerialParam(progressbar=TRUE)`.",
             f"- Cells/genes retained: **{int(overall.cells):,} cells x 19,071 genes; zero removed**.",
             f"- Primary calls: **{int(overall.primary_called_doublets):,} doublets ({overall.primary_called_doublet_pct:.3f}%)**.",
-            f"- Second-seed calls: **{int(overall.replicate_called_doublets):,} doublets ({overall.replicate_called_doublet_pct:.3f}%)**.",
-            f"- Reproducibility: **{overall.class_agreement_pct:.3f}% call agreement**; score Pearson correlation **{overall.score_pearson:.5f}**.",
-            f"- Preserved expression-space diagnostic: {pca_dimensions} internal PCA coordinates for every real cell; this is not a final normalized, integrated, or clustered analysis object.",
             f"- Validation: **{len(checks)-failures} PASS, {failures} FAIL**.",
             "",
             "## Primary calls by technical sample",
@@ -196,18 +149,12 @@ class Step03ReportBuilder:
             "",
             "## Review boundary",
             "",
-            "This run remains **IN_REVIEW**. No predicted doublet was removed. Review the score distribution, called fraction, second-seed reproducibility, sample/design composition, generated-cluster composition, and internal-PCA localization before deciding whether any call should become an exclusion in a later approved step.",
+            "This run remains **IN_REVIEW**. No predicted doublet was removed. Review the score distribution, called fraction, and sample/design composition before deciding whether any annotation should become an exclusion in a later approved step.",
             "",
             "The withdrawn Howitt preprint is not used or cited. Methods provenance is limited to Germain et al. and the current scDblFinder documentation.",
             "",
         ])
         return "\n".join(lines)
-
-
-def np_corr(left: pd.Series, right: pd.Series) -> float:
-    """Calculate a finite Pearson correlation without another dependency."""
-
-    return float(left.astype(float).corr(right.astype(float), method="pearson"))
 
 
 class Step03ProvenancePublisher:
@@ -277,8 +224,8 @@ class Step03ApprovalLedger:
             "genes_before": "19071",
             "genes_after": "19071",
             "important_parameters": "samples=GEX_1 capture; clusters=TRUE; dbr.sd=1; dbr omitted; otherwise model defaults",
-            "important_findings": f"{calls:,} primary called doublets ({call_pct:.3f}%); no exclusions; see reproducibility and PCA diagnostics.",
-            "outstanding_questions": "User review of score separation, called fraction, reproducibility, sample composition, generated clusters, and internal-PCA localization",
+            "important_findings": f"{calls:,} primary called doublets ({call_pct:.3f}%); annotations only; no exclusions.",
+            "outstanding_questions": "User review of score separation, called fraction, and sample/design composition",
         })
         temporary = path.with_suffix(path.suffix + ".tmp")
         pd.concat([ledger, pd.DataFrame([row])], ignore_index=True).to_csv(temporary, sep="\t", index=False)

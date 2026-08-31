@@ -31,7 +31,6 @@ def parser() -> argparse.ArgumentParser:
     command.add_argument("--sample-field", default="technical_sample_id")
     command.add_argument("--design-field", default="design_group")
     command.add_argument("--primary-seed", type=int, default=20_260_830)
-    command.add_argument("--reproducibility-seed", type=int, default=20_260_831)
     command.add_argument("--plot-dpi", type=int, default=180)
     command.add_argument("--compression", default="lzf")
     return command
@@ -48,7 +47,6 @@ def main() -> None:
         sample_field=arguments.sample_field,
         design_field=arguments.design_field,
         primary_seed=arguments.primary_seed,
-        reproducibility_seed=arguments.reproducibility_seed,
         plot_dpi=arguments.plot_dpi,
         compression=arguments.compression,
     )

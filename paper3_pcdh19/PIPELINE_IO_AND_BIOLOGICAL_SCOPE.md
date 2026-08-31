@@ -143,18 +143,16 @@ technical samples and four design groups are reporting fields; neither defines
 an independent capture, expected rate, model, or threshold.
 
 The scientific call is `samples="capture_id"`, `clusters=TRUE`, `dbr.sd=1`,
-with no supplied `dbr` and otherwise package-default model parameters. A
-second seed repeats the same scientific call to measure reproducibility. The
-primary output-only `returnType="full"` preserves scDblFinder's exact internal
-PCA for the requested expression-space diagnostic; only real-cell coordinates
-are saved. This is not a final Scanpy/Seurat normalization, integrated UMAP,
-neighbor graph, or biological clustering.
+with no supplied `dbr` and otherwise package-default model parameters. It runs
+once with the primary seed, `returnType="scores"`, `verbose=TRUE`, and an
+explicit serial progress-enabled BiocParallel parameter. This produces cell
+scores and singlet/doublet annotations without saving an internal PCA or
+changing the classifier's scientific settings.
 
 The checkpoint preserves all 446,349 approved cells, all 19,071 genes, and the
 exact sparse raw counts. Scores and package calls are metadata under review,
 not exclusions. Tables and plots report overall separation, called fraction,
-technical-sample/design/generated-cluster composition, second-seed agreement,
-and internal-PCA localization. Successful computation stops `IN_REVIEW` and
+and technical-sample/design composition. Successful computation stops `IN_REVIEW` and
 cannot be consumed as a filtered singlet object without a later explicit user
 decision.
 

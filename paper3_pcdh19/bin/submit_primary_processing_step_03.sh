@@ -6,8 +6,8 @@
 #   Exact approved Step 02 raw-count H5AD and approved one-GEX_1-capture policy.
 #
 # OUTPUT
-#   A versioned 03 run with scores, calls, reproducibility, composition, and
-#   internal-PCA diagnostics. No called cell is removed.
+#   A versioned 03 run with scores, calls, composition, and live resource
+#   diagnostics. No called cell is removed.
 set -Eeuo pipefail
 
 usage() {

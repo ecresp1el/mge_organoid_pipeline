@@ -1,4 +1,4 @@
-"""Generate review plots for Step 03 calls, scores, composition, and PCA."""
+"""Generate review plots for Step 03 scores, calls, and composition."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from .step03_models import Step03Settings
 
 
 class Step03PlotPublisher:
-    """Publish deterministic primary, composition, reproducibility, and PCA plots."""
+    """Publish deterministic score and annotation-composition plots."""
 
     def __init__(self, settings: Step03Settings, figures_dir: Path):
         """Store rendering settings and the staged figure directory."""
@@ -20,7 +20,7 @@ class Step03PlotPublisher:
         self.settings = settings
         self.figures_dir = figures_dir
 
-    def publish_all(self, frame: pd.DataFrame, pca: np.ndarray) -> pd.DataFrame:
+    def publish_all(self, frame: pd.DataFrame) -> pd.DataFrame:
         """Render every required diagnostic in PNG and vector PDF forms."""
 
         records: list[dict[str, str]] = []
@@ -30,10 +30,6 @@ class Step03PlotPublisher:
             (self._group_score_distributions(frame, self.settings.design_field, "Design group"), "score_distributions_by_design_group", "design_score", "Primary score distributions by design group for reporting only."),
             (self._called_fraction(frame, self.settings.sample_field, "Technical sample"), "called_fraction_by_technical_sample", "sample", "Called-doublet fraction for each retained probe-barcode technical sample."),
             (self._called_fraction(frame, self.settings.design_field, "Design group"), "called_fraction_by_design_group", "design_group", "Called-doublet fraction by design group for reporting only."),
-            (self._called_fraction(frame, "primary_cluster", "Generated cluster"), "called_fraction_by_generated_cluster", "generated_cluster", "Called-doublet fraction by the cluster generated internally because clusters=TRUE."),
-            (self._reproducibility(frame), "primary_vs_replicate_reproducibility", "reproducibility", "Primary-versus-repeat score density and class concordance under a second seed."),
-            (self._pca_score(frame, pca), "internal_pca_mean_score", "expression_space", "Mean primary score across the exact internal scDblFinder PCA expression space."),
-            (self._pca_called_fraction(frame, pca), "internal_pca_called_fraction", "expression_space", "Called-doublet fraction across the exact internal scDblFinder PCA expression space."),
         )
         for figure, stem, scope, description in specifications:
             records.extend(self._save(figure, stem, scope, description))
@@ -96,70 +92,6 @@ class Step03PlotPublisher:
         axis.set_title(f"Step 03 called-doublet fraction by {title.lower()}")
         for index, row in summary.reset_index(drop=True).iterrows():
             axis.text(index, 100 * row["fraction"], f"{100*row['fraction']:.2f}%\n({row['doublets']:,})", ha="center", va="bottom", fontsize=8)
-        figure.tight_layout()
-        return figure
-
-    @staticmethod
-    def _reproducibility(frame: pd.DataFrame) -> plt.Figure:
-        """Show score agreement and the two-run classification confusion matrix."""
-
-        figure, axes = plt.subplots(1, 2, figsize=(14, 6))
-        axes[0].hexbin(frame["primary_score"], frame["replicate_score"], gridsize=100, bins="log", mincnt=1, cmap="viridis")
-        axes[0].plot([0, 1], [0, 1], color="white", linewidth=1, linestyle="--")
-        axes[0].set(xlabel="Primary score", ylabel="Second-seed score", title="Score reproducibility (hexbin density)")
-        confusion = pd.crosstab(frame["primary_class"], frame["replicate_class"]).reindex(index=["singlet", "doublet"], columns=["singlet", "doublet"], fill_value=0)
-        image = axes[1].imshow(confusion.to_numpy(), cmap="Blues")
-        axes[1].set_xticks([0, 1], confusion.columns)
-        axes[1].set_yticks([0, 1], confusion.index)
-        axes[1].set_xlabel("Second-seed call")
-        axes[1].set_ylabel("Primary call")
-        axes[1].set_title("Call concordance")
-        for row in range(2):
-            for column in range(2):
-                axes[1].text(column, row, f"{confusion.iloc[row, column]:,}", ha="center", va="center", color="black")
-        figure.colorbar(image, ax=axes[1], fraction=0.046)
-        figure.tight_layout()
-        return figure
-
-    @staticmethod
-    def _binned_pca(pca: np.ndarray, values: np.ndarray, reducer: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Aggregate all cells into stable PCA-plane bins for interpretable plots."""
-
-        x, y = pca[:, 0], pca[:, 1]
-        x_limits = np.quantile(x, [0.001, 0.999])
-        y_limits = np.quantile(y, [0.001, 0.999])
-        x_edges = np.linspace(*x_limits, 181)
-        y_edges = np.linspace(*y_limits, 181)
-        x = np.clip(x, np.nextafter(x_limits[0], x_limits[1]), np.nextafter(x_limits[1], x_limits[0]))
-        y = np.clip(y, np.nextafter(y_limits[0], y_limits[1]), np.nextafter(y_limits[1], y_limits[0]))
-        counts, _, _ = np.histogram2d(x, y, bins=(x_edges, y_edges))
-        sums, _, _ = np.histogram2d(x, y, bins=(x_edges, y_edges), weights=values)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            aggregate = sums / counts if reducer == "mean" else counts
-        aggregate[counts == 0] = np.nan
-        return x_edges, y_edges, aggregate.T
-
-    def _pca_score(self, frame: pd.DataFrame, pca: np.ndarray) -> plt.Figure:
-        """Plot local mean primary score on the internal PCA plane."""
-
-        x_edges, y_edges, values = self._binned_pca(pca, frame["primary_score"].to_numpy(float), "mean")
-        return self._pca_heatmap(x_edges, y_edges, values, "Mean scDblFinder score", "Step 03 internal PCA — local mean primary score", "magma", 0, 1)
-
-    def _pca_called_fraction(self, frame: pd.DataFrame, pca: np.ndarray) -> plt.Figure:
-        """Plot local called-doublet fraction on the internal PCA plane."""
-
-        calls = (frame["primary_class"].to_numpy(str) == "doublet").astype(float)
-        x_edges, y_edges, values = self._binned_pca(pca, calls, "mean")
-        return self._pca_heatmap(x_edges, y_edges, values, "Called-doublet fraction", "Step 03 internal PCA — local called-doublet fraction", "viridis", 0, 1)
-
-    @staticmethod
-    def _pca_heatmap(x_edges: np.ndarray, y_edges: np.ndarray, values: np.ndarray, label: str, title: str, cmap: str, vmin: float, vmax: float) -> plt.Figure:
-        """Render one complete-cell binned PCA diagnostic."""
-
-        figure, axis = plt.subplots(figsize=(9, 7))
-        image = axis.pcolormesh(x_edges, y_edges, values, cmap=cmap, shading="auto", vmin=vmin, vmax=vmax)
-        figure.colorbar(image, ax=axis, label=label)
-        axis.set(xlabel="scDblFinder internal PC1", ylabel="scDblFinder internal PC2", title=title)
         figure.tight_layout()
         return figure
 

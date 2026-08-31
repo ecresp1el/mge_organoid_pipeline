@@ -7,7 +7,6 @@ import shutil
 from pathlib import Path
 
 import anndata as ad
-import numpy as np
 import pandas as pd
 
 from .models import ValidationLedger
@@ -70,19 +69,17 @@ class Step03FinalizationWorkflow:
             adata = ad.read_h5ad(self.paths.input_h5ad)
             original_fingerprint = Step02MatrixFingerprint.h5ad(self.paths.input_h5ad)
             results = pd.read_csv(self.paths.r_output_dir / "scdblfinder_per_cell_results.tsv.gz", sep="\t", compression="gzip", low_memory=False)
-            pca_ids, pca = self._read_pca(self.paths.r_output_dir / "scdblfinder_internal_pca.tsv.gz")
-            Step03ResultValidator(self.settings, self.ledger).validate(adata, results, pca_ids, pca, original_fingerprint)
-            frame = self._attach_results(adata, results, pca)
+            Step03ResultValidator(self.settings, self.ledger).validate(adata, results, original_fingerprint)
+            frame = self._attach_results(adata, results)
 
             documentation = self._documentation_audit()
             documented = bool((documentation["status"] == "PASS").all())
             self.ledger.add("documented_definitions", "frozen_code", documented, int((documentation["status"] == "PASS").sum()), len(documentation), "Every frozen Python module/class/function and native-R function/R6 class must be documented.")
 
-            plot_manifest = Step03PlotPublisher(self.settings, publisher.figures_dir).publish_all(frame, pca)
+            plot_manifest = Step03PlotPublisher(self.settings, publisher.figures_dir).publish_all(frame)
             report_builder = Step03ReportBuilder()
             summaries = report_builder.summaries(frame, self.settings.sample_field, self.settings.design_field)
             self._write_tables(publisher, frame, summaries, plot_manifest, documentation)
-            self._copy_native_r_audit_objects(publisher)
 
             output_relative = "objects/pcdh19_step03_scdblfinder.h5ad"
             output_h5ad = publisher.stage_dir / output_relative
@@ -91,7 +88,7 @@ class Step03FinalizationWorkflow:
             self.ledger.add("serialized_raw_matrix_unchanged", "object", output_fingerprint == original_fingerprint, output_fingerprint, original_fingerprint, "The published checkpoint must preserve every raw sparse count exactly.")
             reopened = ad.read_h5ad(output_h5ad, backed="r")
             self.ledger.add("h5ad_roundtrip_shape", "object", reopened.shape == adata.shape, reopened.shape, adata.shape, "The checkpoint must reopen with every approved cell and gene.")
-            self.ledger.add("h5ad_roundtrip_pca", "object", "X_scdblfinder_pca" in reopened.obsm and reopened.obsm["X_scdblfinder_pca"].shape == pca.shape, list(reopened.obsm.keys()), f"X_scdblfinder_pca {pca.shape}", "The exact real-cell internal PCA must round-trip.")
+            self.ledger.add("h5ad_roundtrip_annotations", "object", all(field in reopened.obs for field in ("capture_id", "scDblFinder_score", "scDblFinder_class")), list(reopened.obs.columns), "capture_id, scDblFinder_score, scDblFinder_class", "The non-filtering annotations must round-trip.")
             reopened.file.close()
 
             checks = pd.concat([prepare_checks, self.ledger.to_frame()], ignore_index=True)
@@ -101,7 +98,7 @@ class Step03FinalizationWorkflow:
                 raise ValueError(f"Step 03 validation failed: {', '.join(failed)}")
             run_id = self.paths.run_dir.name
             Step03ProvenancePublisher().status_frame(run_id, self.paths.expected_step02_run_id, adata.n_obs, adata.n_vars).to_csv(publisher.stage_dir / "STEP_STATUS.tsv", sep="\t", index=False)
-            report = report_builder.report(run_id, self.paths.expected_step02_run_id, summaries, checks, pca.shape[1])
+            report = report_builder.report(run_id, self.paths.expected_step02_run_id, summaries, checks)
             (publisher.stage_dir / "STEP03_SCDBLFINDER_REPORT.md").write_text(report, encoding="utf-8")
             Step03ProvenancePublisher().output_manifest(publisher.stage_dir).to_csv(publisher.tables_dir / "output_manifest.tsv", sep="\t", index=False)
             publisher.publish()
@@ -119,25 +116,12 @@ class Step03FinalizationWorkflow:
             publisher.discard()
             raise
 
-    @staticmethod
-    def _read_pca(path: Path) -> tuple[pd.Index, np.ndarray]:
-        """Read the aligned real-cell PCA written by native R."""
-
-        table = pd.read_csv(path, sep="\t", compression="gzip")
-        identifiers = pd.Index(table.pop("cell_id").astype(str))
-        return identifiers, table.to_numpy(dtype=float)
-
-    def _attach_results(self, adata: ad.AnnData, results: pd.DataFrame, pca: np.ndarray) -> pd.DataFrame:
+    def _attach_results(self, adata: ad.AnnData, results: pd.DataFrame) -> pd.DataFrame:
         """Attach review-only fields and describe the exact saved object state."""
 
         adata.obs["capture_id"] = pd.Categorical([self.settings.capture_id] * adata.n_obs)
         adata.obs["scDblFinder_score"] = results["primary_score"].to_numpy(float)
         adata.obs["scDblFinder_class"] = pd.Categorical(results["primary_class"], categories=["singlet", "doublet"])
-        adata.obs["scDblFinder_cluster"] = pd.Categorical(results["primary_cluster"].astype(str))
-        adata.obs["scDblFinder_replicate_score"] = results["replicate_score"].to_numpy(float)
-        adata.obs["scDblFinder_replicate_class"] = pd.Categorical(results["replicate_class"], categories=["singlet", "doublet"])
-        adata.obs["scDblFinder_call_reproduced"] = results["primary_class"].astype(str).to_numpy() == results["replicate_class"].astype(str).to_numpy()
-        adata.obsm["X_scdblfinder_pca"] = np.asarray(pca, dtype=np.float32)
         adata.uns["step03_scdblfinder"] = {
             "capture_definition": "one independently processed capture",
             "capture_id": self.settings.capture_id,
@@ -147,9 +131,11 @@ class Step03FinalizationWorkflow:
             "dbr": "not supplied",
             "other_model_parameters": "scDblFinder package defaults",
             "primary_seed": self.settings.primary_seed,
-            "reproducibility_seed": self.settings.reproducibility_seed,
+            "return_type": "scores",
+            "bpparam": "SerialParam(progressbar=TRUE)",
+            "verbose": True,
+            "invocations": 1,
             "cells_removed": 0,
-            "pca_state": "internal primary-run diagnostic PCA for real cells; not an integrated UMAP",
         }
         frame = pd.DataFrame({
             "cell_id": adata.obs_names.astype(str),
@@ -157,9 +143,6 @@ class Step03FinalizationWorkflow:
             self.settings.design_field: adata.obs[self.settings.design_field].astype(str).to_numpy(),
             "primary_score": results["primary_score"].to_numpy(float),
             "primary_class": results["primary_class"].astype(str).to_numpy(),
-            "primary_cluster": results["primary_cluster"].astype(str).to_numpy(),
-            "replicate_score": results["replicate_score"].to_numpy(float),
-            "replicate_class": results["replicate_class"].astype(str).to_numpy(),
         })
         return frame
 
@@ -179,26 +162,16 @@ class Step03FinalizationWorkflow:
             ("overall", "scdblfinder_overall_summary.tsv"),
             ("sample", "scdblfinder_by_technical_sample.tsv"),
             ("design", "scdblfinder_by_design_group.tsv"),
-            ("cluster", "scdblfinder_by_generated_cluster.tsv"),
             ("score_quantiles", "scdblfinder_score_quantiles_by_sample.tsv"),
-            ("confusion", "scdblfinder_reproducibility_confusion.tsv"),
-            ("reproducibility_sample", "scdblfinder_reproducibility_by_technical_sample.tsv"),
-            ("reproducibility_design", "scdblfinder_reproducibility_by_design_group.tsv"),
         ):
             summaries[key].to_csv(publisher.tables_dir / filename, sep="\t", index=False)
-        frame[["cell_id", "primary_score", "primary_class", "primary_cluster", "replicate_score", "replicate_class"]].to_csv(publisher.tables_dir / "scdblfinder_canonical_calls.tsv.gz", sep="\t", index=False, compression="gzip")
+        frame[["cell_id", "primary_score", "primary_class"]].to_csv(publisher.tables_dir / "scdblfinder_canonical_calls.tsv.gz", sep="\t", index=False, compression="gzip")
         Step03ReportBuilder.data_dictionary().to_csv(publisher.tables_dir / "step03_data_dictionary.tsv", sep="\t", index=False)
         plot_manifest.to_csv(publisher.tables_dir / "plot_manifest.tsv", sep="\t", index=False)
         documentation.to_csv(publisher.tables_dir / "documentation_audit.tsv", sep="\t", index=False)
         Step03ProvenancePublisher().python_versions().to_csv(publisher.tables_dir / "python_software_versions.tsv", sep="\t", index=False)
         for filename in ("r_software_versions.tsv", "r_session_info.txt", "scdblfinder_method_contract.tsv"):
             shutil.copy2(self.paths.r_output_dir / filename, publisher.tables_dir / filename)
-
-    def _copy_native_r_audit_objects(self, publisher: AtomicStep03Publisher) -> None:
-        """Retain native-R model statistics and internal PCA evidence."""
-
-        shutil.copy2(self.paths.r_output_dir / "scdblfinder_primary_stats.rds", publisher.objects_dir / "scdblfinder_primary_stats.rds")
-        shutil.copy2(self.paths.r_output_dir / "scdblfinder_internal_pca.rds", publisher.objects_dir / "scdblfinder_internal_pca.rds")
 
     def _code_version(self) -> str:
         """Return the clean repository identity recorded during submission."""

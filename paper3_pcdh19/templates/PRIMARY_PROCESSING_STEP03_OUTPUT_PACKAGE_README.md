@@ -16,23 +16,22 @@ expected key-package versions and the complete installed-package inventory.
   technical samples remain reporting metadata.
 - Detector: native R scDblFinder with `clusters=TRUE`, `dbr.sd=1`, no supplied
   `dbr`, and otherwise model defaults.
-- Reproducibility: one second-seed run with identical model arguments.
+- Execution: one primary-seed serial run with verbose progress and independent
+  resource heartbeats.
 - Filtering: none. Calls and scores are retained for review.
 
-The primary output-only `returnType="full"` retains scDblFinder's exact
-internal PCA for the requested expression-space diagnostic. Artificial
-doublets are excluded from the saved PCA and checkpoint. This return choice
-does not change classifier training or thresholding.
+The output-only `returnType="scores"` avoids the unsupported split-sample full
+return and saves exactly one score and singlet/doublet annotation per cell.
 
 ## Outputs
 
-- `objects/pcdh19_step03_scdblfinder.h5ad`: unchanged raw counts plus primary
-  and repeat scores/calls and the diagnostic internal PCA.
-- `tables/scdblfinder_per_cell_details.tsv.gz`: complete native-R real-cell
-  result fields.
-- `tables/`: call fractions, sample/design/cluster composition,
-  reproducibility, versions, validation, method contract, and dictionaries.
-- `figures/`: score, called-fraction, reproducibility, and internal-PCA plots.
+- `objects/pcdh19_step03_scdblfinder.h5ad`: unchanged raw counts plus one score
+  and singlet/doublet annotation per retained cell.
+- `tables/scdblfinder_per_cell_details.tsv.gz`: aligned cell IDs, scores, and calls.
+- `tables/`: call fractions, sample/design composition, versions, validation,
+  method contract, and dictionaries.
+- `figures/`: score-distribution and called-fraction plots.
+- `logs/`: line-buffered R stdout/stderr and 60-second resource heartbeats.
 - `STEP03_SCDBLFINDER_REPORT.md`: the review report.
 - `STEP_STATUS.tsv`: remains `IN_REVIEW` until explicit user approval.
 

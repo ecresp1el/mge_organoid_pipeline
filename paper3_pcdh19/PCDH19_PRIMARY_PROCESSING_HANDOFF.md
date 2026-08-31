@@ -85,8 +85,8 @@ Preserve pass/fail state and exclusion reasons. Stop for review.
 
 Run native-R scDblFinder on the approved Step 02 raw counts as one `GEX_1`
 capture, using `clusters=TRUE`, `dbr.sd=1`, no supplied `dbr`, and otherwise
-model defaults. Generate primary scores/calls, a second-seed reproducibility
-pass, sample/design/generated-cluster summaries, and internal-PCA diagnostics.
+model defaults. Generate one primary-seed scores/calls result with explicit
+serial progress and timestamped resource logging, plus sample/design summaries.
 Do not automatically remove tool-called cells. Stop for review.
 
 ### Step 04 — ambient RNA and contamination assessment
@@ -321,18 +321,17 @@ gene-by-cell CSC representation without numerical conversion. Native R passes
 all cells with the constant `capture_id=GEX_1` and retains the 12
 `technical_sample_id` values only for post hoc reporting.
 
-The primary call is `scDblFinder(samples="capture_id", clusters=TRUE,
-dbr.sd=1, returnType="full")`; `dbr` is not supplied and every other model
-parameter remains at its package default. `returnType="full"` is an
-output-only technical requirement to preserve the exact internal PCA and
-model diagnostics requested for review; artificial doublets are not copied to
-the checkpoint. A second declared seed repeats identical scientific settings
-with score-only output for reproducibility. Neither run removes cells.
+The single call is `scDblFinder(samples="capture_id", clusters=TRUE,
+dbr.sd=1, verbose=TRUE, BPPARAM=SerialParam(progressbar=TRUE),
+returnType="scores")`; `dbr` is not supplied and every other model parameter
+remains at its package default. The serial execution, verbose output, progress
+bar, and scores-only return are execution/observability settings. The call
+annotates every retained cell and removes none.
 
 Object-oriented Python implementation is in `step03_models.py`,
 `step03_io.py`, `step03_validation.py`, `step03_plots.py`,
 `step03_publishing.py`, `step03_workflow.py`, and `step03_cli.py`. Native R
-uses documented R6 collaborators in `step03_scdblfinder.R`. The frozen Great
+uses documented checkpointed functions in `step03_scdblfinder.R`. The frozen Great
 Lakes entry points are `bin/submit_primary_processing_step_03.sh` and
 `slurm/primary_processing_03_scdblfinder.sbatch`; the project-scoped R library
 is recreated/verified by
@@ -340,13 +339,11 @@ is recreated/verified by
 Python, R, shell, SLURM, environment, package-version contract, approval
 evidence, and metadata into its own run package and executes those copies.
 
-The output H5AD retains sparse raw integer counts in `.X`, adds primary and
-repeat scores/calls plus generated clusters to `.obs`, and adds only the
-internal real-cell PCA to `.obsm`. It has no normalized expression layer,
-`.raw` alias, graph, UMAP, integrated representation, or cell/gene deletion.
-Successful computation must stop `IN_REVIEW` for score separation, called
-fraction, reproducibility, sample composition, generated-cluster composition,
-and PCA-localization review.
+The output H5AD retains sparse raw integer counts in `.X` and adds only
+`capture_id`, `scDblFinder_score`, and `scDblFinder_class` to `.obs`. It has no
+normalized expression layer, `.raw` alias, embedding, graph, UMAP, integrated
+representation, or cell/gene deletion. Successful computation must stop
+`IN_REVIEW` for score separation, called fraction, and sample/design review.
 
 ### Step 01 implemented scope
 

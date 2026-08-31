@@ -11,6 +11,9 @@ set -Eeuo pipefail
 : "${PAPER3_PRIMARY_WORKFLOW_ROOT:?Workflow root is required}"
 : "${PAPER3_PRIMARY_PYTHON_BIN:?Python interpreter is required}"
 RUN_DIR="${PAPER3_PRIMARY_RUN_DIR}"
+R_STDOUT="${RUN_DIR}/logs/r.stdout.log"
+R_STDERR="${RUN_DIR}/logs/r.stderr.log"
+HEARTBEAT="${RUN_DIR}/logs/resource_heartbeat.tsv"
 
 failed() {
   local line="$1" status="$2"
@@ -26,11 +29,35 @@ export PYTHONPATH="${RUN_DIR}/code"
 export PYTHONHASHSEED=0
 export LC_ALL=C
 export TZ=UTC
-export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
-export OPENBLAS_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
-export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
 export MPLCONFIGDIR="${RUN_DIR}/provenance/matplotlib-cache"
 mkdir -p "${MPLCONFIGDIR}"
+mkdir -p "${RUN_DIR}/logs"
+: > "${R_STDOUT}"
+: > "${R_STDERR}"
+printf 'timestamp\tjob_id\telapsed\tCPUTime\tAveCPU\tRSS_kb\tMaxRSS\tVMSize_kb\tMaxVMSize\tstate\tnode\tpid\n' > "${HEARTBEAT}"
+
+heartbeat() {
+  local r_pid="$1"
+  while kill -0 "${r_pid}" 2>/dev/null; do
+    local timestamp elapsed state node stats ave_cpu max_rss max_vm_size ps_values cpu_time rss_kb vm_size_kb
+    timestamp="$(date --iso-8601=seconds)"
+    elapsed="$(squeue -h -j "${SLURM_JOB_ID}" -o '%M' | head -n 1)"
+    state="$(squeue -h -j "${SLURM_JOB_ID}" -o '%T' | head -n 1)"
+    node="$(squeue -h -j "${SLURM_JOB_ID}" -o '%N' | head -n 1)"
+    stats="$(sstat -j "${SLURM_JOB_ID}.batch" --noheader --parsable2 --format=AveCPU,MaxRSS,MaxVMSize 2>/dev/null | head -n 1 || true)"
+    IFS='|' read -r ave_cpu max_rss max_vm_size <<< "${stats}"
+    ps_values="$(ps -p "${r_pid}" -o time=,rss=,vsz= 2>/dev/null | awk '{$1=$1; print}' || true)"
+    read -r cpu_time rss_kb vm_size_kb <<< "${ps_values}"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "${timestamp}" "${SLURM_JOB_ID}" "${elapsed:-NA}" "${cpu_time:-NA}" "${ave_cpu:-NA}" \
+      "${rss_kb:-NA}" "${max_rss:-NA}" "${vm_size_kb:-NA}" "${max_vm_size:-NA}" \
+      "${state:-NA}" "${node:-NA}" "${r_pid}" >> "${HEARTBEAT}"
+    sleep 60
+  done
+}
 
 {
   echo "started=$(date --iso-8601=seconds)"
@@ -59,22 +86,44 @@ COMMON=(
   --sample-field "${PRIMARY_PROCESSING_STEP03_SAMPLE_FIELD}"
   --design-field "${PRIMARY_PROCESSING_STEP03_DESIGN_FIELD}"
   --primary-seed "${PRIMARY_PROCESSING_STEP03_PRIMARY_SEED}"
-  --reproducibility-seed "${PRIMARY_PROCESSING_STEP03_REPRODUCIBILITY_SEED}"
   --plot-dpi "${PRIMARY_PROCESSING_STEP03_PLOT_DPI}"
   --compression "${PRIMARY_PROCESSING_STEP03_COMPRESSION}"
 )
 
 "${PAPER3_PRIMARY_PYTHON_BIN}" -m primary_processing.step03_cli prepare "${COMMON[@]}"
 
-Rscript "${RUN_DIR}/code/primary_processing/step03_scdblfinder.R" \
+stdbuf -oL -eL Rscript --vanilla "${RUN_DIR}/code/primary_processing/step03_scdblfinder.R" \
   --bridge-h5 "${RUN_DIR}/intermediate/step02_counts_for_scdblfinder.h5" \
   --metadata-tsv "${RUN_DIR}/intermediate/step03_cell_metadata.tsv" \
+  --prepare-checks-tsv "${RUN_DIR}/intermediate/prepare_validation_checks.tsv" \
+  --input-h5ad "${INPUT_H5AD}" \
+  --expected-input-sha256 "${PRIMARY_PROCESSING_STEP03_INPUT_SHA256}" \
   --output-dir "${RUN_DIR}/intermediate/r_output" \
   --expected-cells "${PRIMARY_PROCESSING_STEP03_EXPECTED_CELLS}" \
   --expected-genes "${PRIMARY_PROCESSING_STEP03_EXPECTED_GENES}" \
   --capture-id "${PRIMARY_PROCESSING_STEP03_CAPTURE_ID}" \
   --primary-seed "${PRIMARY_PROCESSING_STEP03_PRIMARY_SEED}" \
-  --reproducibility-seed "${PRIMARY_PROCESSING_STEP03_REPRODUCIBILITY_SEED}"
+  > >(stdbuf -oL tee -a "${R_STDOUT}") \
+  2> >(stdbuf -oL tee -a "${R_STDERR}" >&2) &
+R_PID=$!
+
+heartbeat "${R_PID}" &
+HEARTBEAT_PID=$!
+
+set +e
+wait "${R_PID}"
+R_STATUS=$?
+wait "${HEARTBEAT_PID}"
+HEARTBEAT_STATUS=$?
+set -e
+if [[ "${R_STATUS}" -ne 0 ]]; then
+  echo "Step 03 R process failed with status ${R_STATUS}" >&2
+  exit "${R_STATUS}"
+fi
+if [[ "${HEARTBEAT_STATUS}" -ne 0 ]]; then
+  echo "Step 03 resource heartbeat failed with status ${HEARTBEAT_STATUS}" >&2
+  exit "${HEARTBEAT_STATUS}"
+fi
 
 "${PAPER3_PRIMARY_PYTHON_BIN}" -m primary_processing.step03_cli finalize "${COMMON[@]}"
 

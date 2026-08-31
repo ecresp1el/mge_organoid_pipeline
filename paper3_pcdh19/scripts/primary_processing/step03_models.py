@@ -16,7 +16,6 @@ class Step03Settings:
     sample_field: str = "technical_sample_id"
     design_field: str = "design_group"
     primary_seed: int = 20_260_830
-    reproducibility_seed: int = 20_260_831
     plot_dpi: int = 180
     compression: str = "lzf"
 

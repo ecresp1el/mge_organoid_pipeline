@@ -82,8 +82,8 @@ Step 03 is object-oriented across `step03_models.py`, `step03_io.py`,
 `step03_scdblfinder.R`. The frozen entry points are
 `bin/submit_primary_processing_step_03.sh` and
 `slurm/primary_processing_03_scdblfinder.sbatch`. The primary run uses
-`returnType="full"` only to retain the exact internal PCA needed for review;
-all artificial cells are excluded from the saved diagnostic and H5AD.
+one observable serial `returnType="scores"` invocation; it attaches scores and
+singlet/doublet annotations while retaining every cell.
 
 ## New auxiliary work: three-reference MGE curation
 
