@@ -83,8 +83,11 @@ Preserve pass/fail state and exclusion reasons. Stop for review.
 
 ### Step 03 — doublet assessment
 
-Generate reproducible scores and candidate calls. Do not automatically remove
-tool-called cells. Stop for review.
+Run native-R scDblFinder on the approved Step 02 raw counts as one `GEX_1`
+capture, using `clusters=TRUE`, `dbr.sd=1`, no supplied `dbr`, and otherwise
+model defaults. Generate primary scores/calls, a second-seed reproducibility
+pass, sample/design/generated-cluster summaries, and internal-PCA diagnostics.
+Do not automatically remove tool-called cells. Stop for review.
 
 ### Step 04 — ambient RNA and contamination assessment
 
@@ -126,9 +129,11 @@ Only `APPROVED` can be consumed by the next major step.
 
 Steps 00, 01, and the Step 01a sensitivity amendment were explicitly
 **APPROVED** by the user on 2026-08-30. Step 02 applied exactly the reviewed
-per-sample 5-MAD union and is now **IN_REVIEW**. Step 03 scDblFinder is not
-authorized: both the Step 02 checkpoint and proposed one-`GEX_1`-capture
-definition require explicit approval first.
+per-sample 5-MAD union and was explicitly **APPROVED** on 2026-08-30. The
+one-`GEX_1`-capture definition was approved at the same time. Step 03
+scDblFinder is authorized with `clusters=TRUE`, `dbr.sd=1`, no manual `dbr`,
+and otherwise defaults unless a technical change is documented. Calls must
+not remove cells before review.
 
 ### Approved Step 00 run
 
@@ -266,10 +271,9 @@ compressed disposition table with each applicable exclusion reason. The H5AD
 contains only retained cells, preserves sparse integer counts, and records its
 processing state explicitly.
 
-Step 03 is now planned around scDblFinder. Its capture-definition
-evidence and proposed one-capture conclusion are isolated in
-`PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`. That conclusion must receive
-explicit user approval before any Step 03 code is executed.
+Step 03 uses scDblFinder. Its capture-definition evidence and approved
+one-capture conclusion are isolated in
+`PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`.
 
 Implementation is object-oriented across `step02_models.py`,
 `step02_filtering.py`, `step02_plots.py`,
@@ -278,7 +282,7 @@ Implementation is object-oriented across `step02_models.py`,
 `bin/submit_primary_processing_step_02.sh` and
 `slurm/primary_processing_02_qc_filtering.sbatch`.
 
-### Step 02 computed run — IN_REVIEW
+### Approved Step 02 computed run
 
 - Run ID: `02_qc_filtering_20260830_124611_97e1bb5`.
 - Successful Great Lakes job: `59287494` (`COMPLETED`, exit `0:0`, 3 minutes
@@ -306,6 +310,43 @@ has the largest removal fraction (1,120/25,354; 4.417%). All other samples
 range from 0.433% to 1.536% removed. The retained H5AD remains sparse `int32`
 raw counts with no layers, `.raw`, embedding, or graph; its logical matrix
 fingerprint matches before and after serialization.
+
+The user explicitly approved this exact checkpoint on 2026-08-30 for Step 03.
+
+### Step 03 implemented scope
+
+Step `03_scdblfinder` consumes only the exact approved Step 02 checkpoint. A
+lossless 10x-schema HDF5 bridge reuses the H5AD CSR arrays as the transposed
+gene-by-cell CSC representation without numerical conversion. Native R passes
+all cells with the constant `capture_id=GEX_1` and retains the 12
+`technical_sample_id` values only for post hoc reporting.
+
+The primary call is `scDblFinder(samples="capture_id", clusters=TRUE,
+dbr.sd=1, returnType="full")`; `dbr` is not supplied and every other model
+parameter remains at its package default. `returnType="full"` is an
+output-only technical requirement to preserve the exact internal PCA and
+model diagnostics requested for review; artificial doublets are not copied to
+the checkpoint. A second declared seed repeats identical scientific settings
+with score-only output for reproducibility. Neither run removes cells.
+
+Object-oriented Python implementation is in `step03_models.py`,
+`step03_io.py`, `step03_validation.py`, `step03_plots.py`,
+`step03_publishing.py`, `step03_workflow.py`, and `step03_cli.py`. Native R
+uses documented R6 collaborators in `step03_scdblfinder.R`. The frozen Great
+Lakes entry points are `bin/submit_primary_processing_step_03.sh` and
+`slurm/primary_processing_03_scdblfinder.sbatch`; the project-scoped R library
+is recreated/verified by
+`bin/install_primary_processing_step03_r_environment.sh`. Every run copies the exact
+Python, R, shell, SLURM, environment, package-version contract, approval
+evidence, and metadata into its own run package and executes those copies.
+
+The output H5AD retains sparse raw integer counts in `.X`, adds primary and
+repeat scores/calls plus generated clusters to `.obs`, and adds only the
+internal real-cell PCA to `.obsm`. It has no normalized expression layer,
+`.raw` alias, graph, UMAP, integrated representation, or cell/gene deletion.
+Successful computation must stop `IN_REVIEW` for score separation, called
+fraction, reproducibility, sample composition, generated-cluster composition,
+and PCA-localization review.
 
 ### Step 01 implemented scope
 

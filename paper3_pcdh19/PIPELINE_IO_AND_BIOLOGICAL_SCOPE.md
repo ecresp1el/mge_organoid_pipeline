@@ -123,15 +123,40 @@ Step 02 performs no doublet-rate audit and no doublet detection. The separate
 Step 03 capture decision uses the Cell Ranger multi configuration and library
 QC to distinguish the one physical `GEX_1` capture from its 12 Probe Barcode
 sample assignments. It is documented in
-`PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`; scDblFinder cannot run until
-the user approves that capture definition.
+`PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`. The user approved that
+one-capture definition on 2026-08-30.
 
 Run `02_qc_filtering_20260830_124611_97e1bb5`, Great Lakes job `59287494`,
 completed Step 02 with 38/38 checks passing. It excluded 4,439 cells and
 retained 446,349 cells × all 19,071 genes. The output
 `objects/pcdh19_step02_qc_filtered.h5ad` is sparse `int32` raw counts with no
 derived expression, embedding, or graph. The complete 450,788-row disposition
-table preserves exact reasons. This checkpoint remains `IN_REVIEW`.
+table preserves exact reasons. The user explicitly approved this checkpoint
+on 2026-08-30 for Step 03 scDblFinder.
+
+### Primary-processing Step 03 authorized I/O
+
+Step 03 reads only the exact approved Step 02 H5AD and frozen approval
+evidence. It exports a lossless gene-by-cell sparse bridge for native R and
+passes a constant `capture_id=GEX_1` to scDblFinder. The 12 Probe Barcode
+technical samples and four design groups are reporting fields; neither defines
+an independent capture, expected rate, model, or threshold.
+
+The scientific call is `samples="capture_id"`, `clusters=TRUE`, `dbr.sd=1`,
+with no supplied `dbr` and otherwise package-default model parameters. A
+second seed repeats the same scientific call to measure reproducibility. The
+primary output-only `returnType="full"` preserves scDblFinder's exact internal
+PCA for the requested expression-space diagnostic; only real-cell coordinates
+are saved. This is not a final Scanpy/Seurat normalization, integrated UMAP,
+neighbor graph, or biological clustering.
+
+The checkpoint preserves all 446,349 approved cells, all 19,071 genes, and the
+exact sparse raw counts. Scores and package calls are metadata under review,
+not exclusions. Tables and plots report overall separation, called fraction,
+technical-sample/design/generated-cluster composition, second-seed agreement,
+and internal-PCA localization. Successful computation stops `IN_REVIEW` and
+cannot be consumed as a filtered singlet object without a later explicit user
+decision.
 
 An independent Step 00 GSE94641 reference-mapping workstream has completed
 reference validation and an E15.5-focused kNN transfer to all query cells. Its

@@ -1,0 +1,9 @@
+package	version
+R	4.5.1
+scDblFinder	1.24.10
+SingleCellExperiment	1.32.0
+DropletUtils	1.30.0
+data.table	1.17.8
+R6	2.6.1
+rhdf5	2.54.1
+BiocParallel	1.44.0

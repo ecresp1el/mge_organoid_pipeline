@@ -46,15 +46,20 @@ Last updated: 2026-08-30
 > `01a_qc_mad_sensitivity_20260830_121931_d5936f9`, job `59282437`, passed
 > 71/71 validations and retained all cells. Any-criterion candidates are
 > 4.765%, 2.024%, and 0.985% at 3/4/5 MAD, predominantly high-mitochondrial
-> candidates. Step 02 is now authorized to apply only the reviewed per-sample
-> 5-MAD union, preserve complete exclusion provenance and raw counts, report
-> before/after counts, and stop `IN_REVIEW`. Step 03 will use scDblFinder, but
-> must not run until the proposed one-`GEX_1`-capture definition is explicitly
-> approved. See
+> candidates. Step 02 applied only the reviewed per-sample 5-MAD union,
+> preserved complete exclusion provenance and raw counts, reported
+> before/after counts, and was approved. Step 03 uses scDblFinder under the
+> approved one-`GEX_1`-capture definition. See
 > [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
 > Step 02 run `02_qc_filtering_20260830_124611_97e1bb5`, job `59287494`, is
-> now **IN_REVIEW** with 446,349 cells × 19,071 genes and 38/38 checks passing.
-> It excluded 4,439 cells with exact reasons and performed no doublet detection.
+> now has 446,349 cells × 19,071 genes and 38/38 checks passing. It excluded
+> 4,439 cells with exact reasons and performed no doublet detection. The user
+> explicitly **APPROVED** this run and the one-`GEX_1` capture definition on
+> 2026-08-30, authorizing Step 03 under the registered no-removal contract.
+> Step 03 code, native-R environment contract, frozen submit wrapper, SLURM
+> entry point, output package template, validation, reproducibility, and
+> internal-PCA review diagnostics are implemented. A successful run must stop
+> `IN_REVIEW`; no scDblFinder call is an exclusion at this stage.
 
 ## Independent developing-mouse MGE reference curation (first checkpoint complete)
 

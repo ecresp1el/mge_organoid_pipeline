@@ -2,9 +2,9 @@
 
 ## Decision status
 
-**PROPOSED — awaiting explicit user approval. scDblFinder has not run.**
+**APPROVED by the user on 2026-08-30. scDblFinder has not run yet.**
 
-The proposed `scDblFinder(samples=...)` unit is one capture, identified as
+The approved `scDblFinder(samples=...)` unit is one capture, identified as
 `GEX_1`. The 12 `15662-JZ-*` records must remain cell metadata for reporting,
 but must not be passed as 12 independently processed captures.
 
@@ -48,8 +48,8 @@ Sources:
 
 ## Consequence for the future Step 03 call
 
-After—and only after—the exact Step 02 checkpoint and this capture definition
-are approved, Step 03 should:
+The exact Step 02 checkpoint and this capture definition were approved on
+2026-08-30. Step 03 is therefore authorized to:
 
 1. load the approved Step 02 cells and sparse raw integer gene-count matrix;
 2. construct one `SingleCellExperiment` with a constant capture field

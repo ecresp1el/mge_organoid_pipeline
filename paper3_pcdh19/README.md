@@ -60,10 +60,10 @@ candidate percentages are 4.765%, 2.024%, and 0.985% at 3/4/5 MAD and are
 dominated by the mitochondrial tail. The user explicitly **APPROVED** the
 exact Step 01 and review-target Step 01a runs on 2026-08-30 and authorized
 Step 02 to apply the per-sample 5-MAD low-count OR low-gene OR high-mt union.
-Step 02 must preserve every exclusion reason, retain all genes/raw counts,
-report sample/design before-after counts, and stop for review. Step 03 will use
-scDblFinder, but cannot run until the proposed one-`GEX_1`-
-capture definition is explicitly approved. The detailed results and execution history are in
+Step 02 preserved every exclusion reason, retained all genes/raw counts,
+reported sample/design before-after counts, and stopped for review. Step 03
+uses scDblFinder under the approved one-`GEX_1`-capture definition. The
+detailed results and execution history are in
 [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
 The capture evidence is in
 [`PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`](PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md).
@@ -72,7 +72,18 @@ Step 02 run `02_qc_filtering_20260830_124611_97e1bb5` completed in Great Lakes
 job `59287494` with 38/38 validation checks passing. It excluded 4,439 reviewed
 5-MAD candidates and retained 446,349 cells × all 19,071 genes as sparse raw
 integer counts. Exact reasons remain available for every original cell. The
-checkpoint is **IN_REVIEW**; scDblFinder was not run.
+checkpoint and one-`GEX_1`-capture definition were explicitly **APPROVED** on
+2026-08-30. Step 03 is authorized and implemented for Great Lakes submission;
+its computed package must remain `IN_REVIEW` and remove no called cells.
+
+Step 03 is object-oriented across `step03_models.py`, `step03_io.py`,
+`step03_validation.py`, `step03_plots.py`, `step03_publishing.py`,
+`step03_workflow.py`, and `step03_cli.py`, with native R execution in
+`step03_scdblfinder.R`. The frozen entry points are
+`bin/submit_primary_processing_step_03.sh` and
+`slurm/primary_processing_03_scdblfinder.sbatch`. The primary run uses
+`returnType="full"` only to retain the exact internal PCA needed for review;
+all artificial cells are excluded from the saved diagnostic and H5AD.
 
 ## New auxiliary work: three-reference MGE curation
 
