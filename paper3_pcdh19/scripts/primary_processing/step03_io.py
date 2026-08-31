@@ -49,7 +49,7 @@ class TenXBridgeWriter:
         """Copy one large sparse array in bounded chunks without conversion."""
 
         chunk = min(max(1, 8 * 1024 * 1024 // source.dtype.itemsize), len(source))
-        destination = group.create_dataset(name, shape=source.shape, dtype=source.dtype, chunks=(chunk,), compression="lzf")
+        destination = group.create_dataset(name, shape=source.shape, dtype=source.dtype, chunks=(chunk,), compression="gzip", compression_opts=4)
         for start in range(0, len(source), chunk):
             destination[start : start + chunk] = source[start : start + chunk]
 
