@@ -134,8 +134,9 @@ input object/path/representation, dimensions, scientific parameters, random
 seed where applicable, and resulting dimensions/files. The atomically updated
 `step06_progress_latest.json` provides current state, and
 `step06_progress_cli.py --follow --details` displays the stream. The original
-job `59983804` predates this instrumentation and must continue untouched; this
-requirement applies to all later submissions and reruns.
+job `59983804` predated this instrumentation and completed successfully with
+its frozen code left untouched; this requirement applies to all later
+submissions and reruns.
 
 ### Step 07 — freeze validated HiCAT input
 

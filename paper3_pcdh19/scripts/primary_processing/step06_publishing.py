@@ -37,6 +37,7 @@ class AtomicStep06Publisher:
     def publish(self) -> None:
         """Atomically expose all validated output groups and status files."""
 
+        self._quarantine_incidental_files()
         targets = {
             self.objects_dir: self.run_dir / "objects",
             self.tables_dir: self.run_dir / "tables",
@@ -47,9 +48,29 @@ class AtomicStep06Publisher:
         for target in targets.values():
             if target.exists():
                 raise FileExistsError(f"Refusing to replace published Step 06 asset: {target}")
+        expected_sources = set(targets)
+        unexpected = sorted(
+            str(path.relative_to(self.stage_dir))
+            for path in self.stage_dir.iterdir()
+            if path not in expected_sources
+        )
+        if unexpected:
+            raise RuntimeError(
+                f"Refusing partial publication with unexpected staging entries: {unexpected}"
+            )
         for source, target in targets.items():
             os.replace(source, target)
         self.stage_dir.rmdir()
+
+    def _quarantine_incidental_files(self) -> None:
+        """Preserve browser metadata outside staging before publication."""
+
+        destination = self.run_dir / "provenance" / "incidental_files"
+        for index, path in enumerate(sorted(self.stage_dir.rglob(".DS_Store")), start=1):
+            destination.mkdir(parents=True, exist_ok=True)
+            relative = str(path.relative_to(self.stage_dir)).replace("/", "__")
+            target = destination / f"{index:03d}__{relative}"
+            os.replace(path, target)
 
     def discard(self) -> None:
         """Remove only unpublished staging outputs after an error."""
@@ -80,6 +101,8 @@ class Step06ProvenancePublisher:
         rows = []
         for path in sorted(item for item in stage_dir.rglob("*") if item.is_file()):
             if path.name == "output_manifest.tsv":
+                continue
+            if path.name == ".DS_Store":
                 continue
             rows.append({
                 "relative_path": str(path.relative_to(stage_dir)),

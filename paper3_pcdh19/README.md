@@ -109,8 +109,9 @@ Future Step 06 runs also expose durable live function-level provenance through
 `provenance/step06_progress_latest.json`. The progress viewer reports each
 major function's actual representation/path, dimensions, parameters, outputs,
 elapsed time, and peak memory instead of leaving long analysis phases silent.
-The already-running job `59983804` remains untouched and therefore retains its
-original coarse start/end logging.
+Job `59983804` was allowed to complete untouched and therefore retains its
+original coarse start/end logging. All future submissions use the live event
+stream.
 
 ## New auxiliary work: three-reference MGE curation
 
