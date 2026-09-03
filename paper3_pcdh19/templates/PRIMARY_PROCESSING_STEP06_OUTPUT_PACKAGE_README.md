@@ -25,6 +25,18 @@ Matplotlib. It invokes no R runtime or R-based single-cell/plotting package.
   validation ledger, output manifest, and rendering-cell IDs.
 - `STEP06_DIAGNOSTIC_REPORT.md`: concise methods and provisional outcome.
 - `STEP_STATUS.tsv`: remains `IN_REVIEW`.
+- `provenance/step06_progress_events.jsonl`: append-only live events with the
+  exact inputs, parameters, outputs, elapsed time, and peak memory for every
+  major function.
+- `provenance/step06_progress_latest.json`: atomically refreshed current event.
+
+Watch a running package, including full function inputs and outputs, with:
+
+```bash
+PYTHONPATH="RUN_DIR/code" /home/elcrespo/miniconda3/envs/mge-organoid-python/bin/python \
+  -m primary_processing.step06_progress_cli \
+  --run-dir "RUN_DIR" --follow --details
+```
 
 All numerical analyses use every cell. The deterministic balanced subset in
 `tables/rendering_cell_ids.tsv.gz` affects rendering only. This run performs

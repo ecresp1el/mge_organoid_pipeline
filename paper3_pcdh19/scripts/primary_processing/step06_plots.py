@@ -14,6 +14,7 @@ import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 
 from .step06_models import Step06Artifacts, Step06Results, Step06Settings
+from .step06_progress import NullStep06ProgressTracker
 
 
 class Step06Palette:
@@ -37,11 +38,12 @@ class Step06Palette:
 class Step06ReportPlotter:
     """Assemble one primary multi-page A-L report from shared coordinates."""
 
-    def __init__(self, settings: Step06Settings, output_dir: Path):
-        """Store immutable plotting settings and create the figure directory."""
+    def __init__(self, settings: Step06Settings, output_dir: Path, progress=None):
+        """Store plotting settings, output location, and progress publisher."""
 
         self.settings = settings
         self.output_dir = output_dir
+        self.progress = progress or NullStep06ProgressTracker()
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def publish(
@@ -61,12 +63,50 @@ class Step06ReportPlotter:
         pca = artifacts.pca[positions]
         umap = artifacts.umap[positions]
         pdf_path = self.output_dir / "step06_primary_diagnostic_report.pdf"
-        pages = [
-            ("page_1_panels_A_D", self._page_a_d(obs, plot_obs, pca, artifacts, results, palette)),
-            ("page_2_panels_E_G", self._page_e_g(plot_obs, umap, palette)),
-            ("page_3_panels_H_I", self._page_h_i(plot_obs, plot_annotations, umap, artifacts, results)),
-            ("page_4_panels_J_L", self._page_j_l(plot_obs, plot_annotations, results, palette)),
+        page_builders = [
+            (
+                "page_1_panels_A_D",
+                "Step06ReportPlotter._page_a_d",
+                lambda: self._page_a_d(
+                    obs, plot_obs, pca, artifacts, results, palette
+                ),
+            ),
+            (
+                "page_2_panels_E_G",
+                "Step06ReportPlotter._page_e_g",
+                lambda: self._page_e_g(plot_obs, umap, palette),
+            ),
+            (
+                "page_3_panels_H_I",
+                "Step06ReportPlotter._page_h_i",
+                lambda: self._page_h_i(
+                    plot_obs, plot_annotations, umap, artifacts, results
+                ),
+            ),
+            (
+                "page_4_panels_J_L",
+                "Step06ReportPlotter._page_j_l",
+                lambda: self._page_j_l(
+                    plot_obs, plot_annotations, results, palette
+                ),
+            ),
         ]
+        pages = []
+        for name, function, builder in page_builders:
+            with self.progress.track(
+                "output.report.page",
+                function,
+                {
+                    "page": name,
+                    "all_numerical_cells": len(obs),
+                    "rendering_cells": len(plot_obs),
+                    "rendering_only_downsampling": True,
+                    "coordinate_sources": ["X_pca", "X_umap"],
+                },
+            ) as event:
+                figure = builder()
+                pages.append((name, figure))
+                event.outputs["figure_axes"] = len(figure.axes)
         with PdfPages(pdf_path) as pdf:
             for _, figure in pages:
                 pdf.savefig(figure, bbox_inches="tight")

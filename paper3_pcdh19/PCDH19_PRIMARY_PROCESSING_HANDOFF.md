@@ -127,6 +127,16 @@ scikit-learn for numerical/sample-level summaries; and uses Matplotlib for the
 assembled report. Step 06 must not invoke R, Seurat, R-based Harmony,
 SingleCellExperiment, an R bridge, or R-based plotting.
 
+Every future Step 06 execution must publish live function-level provenance to
+`provenance/step06_progress_events.jsonl`. Each major function records START
+and COMPLETE or FAILED events with UTC time, elapsed time, peak memory, exact
+input object/path/representation, dimensions, scientific parameters, random
+seed where applicable, and resulting dimensions/files. The atomically updated
+`step06_progress_latest.json` provides current state, and
+`step06_progress_cli.py --follow --details` displays the stream. The original
+job `59983804` predates this instrumentation and must continue untouched; this
+requirement applies to all later submissions and reruns.
+
 ### Step 07 — freeze validated HiCAT input
 
 Publish the exact representation required by HiCAT with raw-count provenance,

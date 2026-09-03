@@ -8,6 +8,7 @@ import scanpy as sc
 from scipy import sparse
 
 from .step06_models import Step06Artifacts, Step06Settings
+from .step06_progress import NullStep06ProgressTracker
 
 
 def marker_programs() -> dict[str, tuple[str, ...]]:
@@ -106,22 +107,51 @@ class RenderingSampler:
 class Step06Analyzer:
     """Run the documented diagnostic workflow without batch correction."""
 
-    def __init__(self, settings: Step06Settings):
-        """Store immutable analysis settings."""
+    def __init__(self, settings: Step06Settings, progress=None):
+        """Store immutable settings and the run-scoped progress publisher."""
 
         self.settings = settings
+        self.progress = progress or NullStep06ProgressTracker()
 
     def run(self, adata) -> Step06Artifacts:
         """Compute HVGs, PCA, neighbors, UMAP, Leiden, states, and pseudobulk."""
 
-        sc.settings.n_jobs = self.settings.n_jobs
-        sc.pp.highly_variable_genes(
-            adata,
-            flavor=self.settings.hvg_flavor,
-            n_top_genes=self.settings.n_top_genes,
-            batch_key=self.settings.sample_field,
-            subset=False,
+        self.progress.note(
+            "analysis",
+            "Step06Analyzer.run",
+            {
+                "object_type": type(adata).__name__,
+                "shape": list(adata.shape),
+                "matrix_type": type(adata.X).__name__,
+                "matrix_dtype": str(adata.X.dtype),
+                "sample_field": self.settings.sample_field,
+                "sample_count": int(adata.obs[self.settings.sample_field].nunique()),
+            },
+            {"analysis_mode": "unintegrated", "cells_removed": 0},
         )
+        sc.settings.n_jobs = self.settings.n_jobs
+        with self.progress.track(
+            "analysis.hvg",
+            "scanpy.pp.highly_variable_genes",
+            {
+                "input_representation": "approved Step 02 raw integer adata.X",
+                "input_shape": list(adata.shape),
+                "flavor": self.settings.hvg_flavor,
+                "n_top_genes": self.settings.n_top_genes,
+                "batch_key": self.settings.sample_field,
+                "subset": False,
+            },
+        ) as event:
+            sc.pp.highly_variable_genes(
+                adata,
+                flavor=self.settings.hvg_flavor,
+                n_top_genes=self.settings.n_top_genes,
+                batch_key=self.settings.sample_field,
+                subset=False,
+            )
+            event.outputs["highly_variable_genes"] = int(
+                adata.var["highly_variable"].sum()
+            )
         hvg = adata.var["highly_variable"].to_numpy(bool)
         hvg_columns = [
             column
@@ -138,53 +168,203 @@ class Step06Analyzer:
         ]
         hvg_table = adata.var[hvg_columns].copy()
         hvg_table.insert(0, "gene_id", adata.var_names.astype(str))
-        pseudobulk = PseudobulkBuilder().build(adata, self.settings.sample_field, hvg)
+        with self.progress.track(
+            "analysis.pseudobulk",
+            "PseudobulkBuilder.build",
+            {
+                "input_representation": "approved Step 02 raw integer adata.X",
+                "cells": adata.n_obs,
+                "genes": int(hvg.sum()),
+                "sample_field": self.settings.sample_field,
+                "aggregation": "sum raw counts by sample; log1p CPM",
+            },
+        ) as event:
+            pseudobulk = PseudobulkBuilder().build(
+                adata, self.settings.sample_field, hvg
+            )
+            event.outputs.update(
+                {"samples": pseudobulk.shape[0], "genes": pseudobulk.shape[1]}
+            )
 
-        sc.pp.normalize_total(adata, target_sum=self.settings.target_sum)
-        sc.pp.log1p(adata)
-        diagnostic = adata[:, hvg].copy()
-        sc.pp.scale(diagnostic, zero_center=False, max_value=10)
-        sc.tl.pca(
-            diagnostic,
-            n_comps=self.settings.pca_components,
-            zero_center=True,
-            svd_solver="arpack",
-            random_state=self.settings.random_seed,
-        )
-        sc.pp.neighbors(
-            diagnostic,
-            n_neighbors=self.settings.n_neighbors,
-            n_pcs=self.settings.pca_components,
-            metric=self.settings.neighbor_metric,
-            random_state=self.settings.random_seed,
-            method="umap",
-        )
-        sc.tl.umap(
-            diagnostic,
-            min_dist=self.settings.umap_min_dist,
-            spread=self.settings.umap_spread,
-            random_state=self.settings.random_seed,
-        )
-        sc.tl.leiden(
-            diagnostic,
-            resolution=self.settings.leiden_resolution,
-            random_state=self.settings.random_seed,
-            flavor="igraph",
-            directed=False,
-            n_iterations=2,
-            key_added="step06_leiden",
-        )
+        with self.progress.track(
+            "analysis.normalization",
+            "scanpy.pp.normalize_total",
+            {
+                "input_representation": "approved Step 02 raw integer adata.X",
+                "input_shape": list(adata.shape),
+                "target_sum": self.settings.target_sum,
+                "exclude_highly_expressed": False,
+                "inplace": True,
+            },
+        ) as event:
+            sc.pp.normalize_total(adata, target_sum=self.settings.target_sum)
+            event.outputs["representation"] = "library-size-normalized adata.X"
+        with self.progress.track(
+            "analysis.normalization",
+            "scanpy.pp.log1p",
+            {
+                "input_representation": "library-size-normalized adata.X",
+                "input_shape": list(adata.shape),
+                "base": "natural logarithm",
+            },
+        ) as event:
+            sc.pp.log1p(adata)
+            event.outputs["representation"] = "log1p-normalized adata.X"
+        with self.progress.track(
+            "analysis.scaling",
+            "scanpy.pp.scale",
+            {
+                "input_representation": "log1p-normalized HVG subset",
+                "input_shape": [adata.n_obs, int(hvg.sum())],
+                "zero_center": False,
+                "max_value": 10,
+            },
+        ) as event:
+            diagnostic = adata[:, hvg].copy()
+            sc.pp.scale(diagnostic, zero_center=False, max_value=10)
+            event.outputs.update(
+                {
+                    "output_shape": list(diagnostic.shape),
+                    "output_matrix_type": type(diagnostic.X).__name__,
+                }
+            )
+        with self.progress.track(
+            "analysis.pca",
+            "scanpy.tl.pca",
+            {
+                "input_representation": "scaled log1p HVGs",
+                "input_shape": list(diagnostic.shape),
+                "n_comps": self.settings.pca_components,
+                "zero_center": True,
+                "svd_solver": "arpack",
+                "random_state": self.settings.random_seed,
+            },
+        ) as event:
+            sc.tl.pca(
+                diagnostic,
+                n_comps=self.settings.pca_components,
+                zero_center=True,
+                svd_solver="arpack",
+                random_state=self.settings.random_seed,
+            )
+            event.outputs["X_pca_shape"] = list(diagnostic.obsm["X_pca"].shape)
+        with self.progress.track(
+            "analysis.neighbors",
+            "scanpy.pp.neighbors",
+            {
+                "input_representation": "X_pca",
+                "input_shape": list(diagnostic.obsm["X_pca"].shape),
+                "n_neighbors": self.settings.n_neighbors,
+                "n_pcs": self.settings.pca_components,
+                "metric": self.settings.neighbor_metric,
+                "random_state": self.settings.random_seed,
+                "method": "umap",
+                "n_jobs": self.settings.n_jobs,
+                "batch_correction": "none",
+            },
+        ) as event:
+            sc.pp.neighbors(
+                diagnostic,
+                n_neighbors=self.settings.n_neighbors,
+                n_pcs=self.settings.pca_components,
+                metric=self.settings.neighbor_metric,
+                random_state=self.settings.random_seed,
+                method="umap",
+            )
+            event.outputs.update(
+                {
+                    "distances_shape": list(diagnostic.obsp["distances"].shape),
+                    "distances_nnz": diagnostic.obsp["distances"].nnz,
+                    "connectivities_nnz": diagnostic.obsp["connectivities"].nnz,
+                }
+            )
+        with self.progress.track(
+            "analysis.umap",
+            "scanpy.tl.umap",
+            {
+                "input_representation": "unintegrated neighbors graph",
+                "cells": diagnostic.n_obs,
+                "min_dist": self.settings.umap_min_dist,
+                "spread": self.settings.umap_spread,
+                "random_state": self.settings.random_seed,
+            },
+        ) as event:
+            sc.tl.umap(
+                diagnostic,
+                min_dist=self.settings.umap_min_dist,
+                spread=self.settings.umap_spread,
+                random_state=self.settings.random_seed,
+            )
+            event.outputs["X_umap_shape"] = list(diagnostic.obsm["X_umap"].shape)
+        with self.progress.track(
+            "analysis.clustering",
+            "scanpy.tl.leiden",
+            {
+                "input_representation": "unintegrated neighbors graph",
+                "cells": diagnostic.n_obs,
+                "resolution": self.settings.leiden_resolution,
+                "random_state": self.settings.random_seed,
+                "flavor": "igraph",
+                "directed": False,
+                "n_iterations": 2,
+                "key_added": "step06_leiden",
+            },
+        ) as event:
+            sc.tl.leiden(
+                diagnostic,
+                resolution=self.settings.leiden_resolution,
+                random_state=self.settings.random_seed,
+                flavor="igraph",
+                directed=False,
+                n_iterations=2,
+                key_added="step06_leiden",
+            )
+            event.outputs["clusters"] = int(
+                diagnostic.obs["step06_leiden"].nunique()
+            )
 
-        scores, cluster_scores = ProgramScorer().score(
-            adata, diagnostic.obs["step06_leiden"]
-        )
+        with self.progress.track(
+            "analysis.marker_programs",
+            "ProgramScorer.score",
+            {
+                "input_representation": "full log1p-normalized adata.X",
+                "input_shape": list(adata.shape),
+                "cluster_field": "step06_leiden",
+                "marker_programs": {
+                    name: list(genes) for name, genes in marker_programs().items()
+                },
+                "purpose": "descriptive provisional states only",
+            },
+        ) as event:
+            scores, cluster_scores = ProgramScorer().score(
+                adata, diagnostic.obs["step06_leiden"]
+            )
+            event.outputs.update(
+                {
+                    "cell_score_columns": list(scores.columns),
+                    "cluster_score_rows": len(cluster_scores),
+                }
+            )
         state_map = cluster_scores.set_index("leiden")["provisional_state"]
         annotations = scores.copy()
         annotations["step06_leiden"] = diagnostic.obs["step06_leiden"].astype(str)
         annotations["step06_provisional_state"] = (
             annotations["step06_leiden"].map(state_map).astype(str)
         )
-        render = RenderingSampler(self.settings).select(adata.obs)
+        with self.progress.track(
+            "analysis.rendering_subset",
+            "RenderingSampler.select",
+            {
+                "input_cells": adata.n_obs,
+                "sample_field": self.settings.sample_field,
+                "sample_count": int(adata.obs[self.settings.sample_field].nunique()),
+                "render_max_cells": self.settings.render_max_cells,
+                "random_seed": self.settings.random_seed,
+                "numerical_analysis_downsampled": False,
+            },
+        ) as event:
+            render = RenderingSampler(self.settings).select(adata.obs)
+            event.outputs["rendering_cells"] = len(render)
         return Step06Artifacts(
             annotations=annotations,
             pca=np.asarray(diagnostic.obsm["X_pca"], dtype=np.float32),

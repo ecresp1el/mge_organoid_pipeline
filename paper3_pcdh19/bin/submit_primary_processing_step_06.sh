@@ -52,7 +52,7 @@ APPROVAL_LEDGER="${PAPER3_ROOT}/results/primary_processing/APPROVAL_LEDGER.tsv"
 for required in "${GREATLAKES_CONFIG}" "${STEP_CONFIG}" "${REQUIREMENTS}" "${SBATCH_SOURCE}" "${PACKAGE_README}" "${HANDOFF}" "${BYPASS_DECISION}" "${SPECIFICATION}" "${SAMPLE_KEY}" "${TECHNICAL_MANIFEST}" "${INPUT_H5AD}" "${STEP02_STATUS}" "${STEP02_MANIFEST}" "${APPROVAL_LEDGER}" "${PRIMARY_PROCESSING_PYTHON_BIN}"; do
   [[ -f "${required}" ]] || { echo "Missing required Step 06 asset: ${required}" >&2; exit 2; }
 done
-for module in step06_cli.py step06_models.py step06_analysis.py step06_metrics.py step06_plots.py step06_publishing.py step06_validation.py step06_workflow.py; do
+for module in step06_cli.py step06_models.py step06_analysis.py step06_metrics.py step06_plots.py step06_progress.py step06_progress_cli.py step06_publishing.py step06_validation.py step06_workflow.py; do
   [[ -f "${PYTHON_PACKAGE}/${module}" ]] || { echo "Missing Step 06 module: ${module}" >&2; exit 2; }
 done
 
@@ -79,6 +79,7 @@ if observed != expected:
 PY
 PYTHONPATH="${BUNDLE_DIR}/scripts" "${PRIMARY_PROCESSING_PYTHON_BIN}" -m compileall -q "${PYTHON_PACKAGE}"
 PYTHONPATH="${BUNDLE_DIR}/scripts" "${PRIMARY_PROCESSING_PYTHON_BIN}" -m primary_processing.step06_cli --help >/dev/null
+PYTHONPATH="${BUNDLE_DIR}/scripts" "${PRIMARY_PROCESSING_PYTHON_BIN}" -m primary_processing.step06_progress_cli --help >/dev/null
 
 STEP="06_technical_sample_batch_diagnostics"
 WORKFLOW_ROOT="${PAPER3_ROOT}/results/primary_processing"

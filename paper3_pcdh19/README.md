@@ -104,6 +104,14 @@ machine-readable tables, and one A–L multi-page report, then stops
 `IN_REVIEW` without correction, integration, annotation finalization, or cell
 removal.
 
+Future Step 06 runs also expose durable live function-level provenance through
+`provenance/step06_progress_events.jsonl` and
+`provenance/step06_progress_latest.json`. The progress viewer reports each
+major function's actual representation/path, dimensions, parameters, outputs,
+elapsed time, and peak memory instead of leaving long analysis phases silent.
+The already-running job `59983804` remains untouched and therefore retains its
+original coarse start/end logging.
+
 ## New auxiliary work: three-reference MGE curation
 
 A standalone module audits three published WT developing-mouse
