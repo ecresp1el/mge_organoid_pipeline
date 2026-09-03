@@ -83,36 +83,57 @@ Preserve pass/fail state and exclusion reasons. Stop for review.
 
 ### Step 03 — doublet assessment
 
-Run native-R scDblFinder on the approved Step 02 raw counts as one `GEX_1`
-capture, using `clusters=TRUE`, `dbr.sd=1`, no supplied `dbr`, and otherwise
-model defaults. Generate one primary-seed scores/calls result with explicit
-serial progress and timestamped resource logging, plus sample/design summaries.
-Do not automatically remove tool-called cells. Stop for review.
+Native-R scDblFinder was run on the approved Step 02 raw counts as one
+`GEX_1` capture for assessment only. Its unexpectedly high 42.026% call rate
+was reviewed, and on 2026-09-03 the user explicitly directed that scDblFinder
+not be used in this workflow. The run is retained as rejected diagnostic
+provenance; none of its scores, calls, annotations, or derived filtering may
+enter a downstream checkpoint.
 
 ### Step 04 — ambient RNA and contamination assessment
 
-First determine whether meaningful ambient contamination exists. Do not apply
-CellBender or another correction automatically. Review evidence, method, and
-consequences before correction. Stop for review.
+**Skipped by explicit user decision on 2026-09-03.** No ambient-RNA assessment,
+CellBender run, contamination correction, corrected-count layer, or related
+cell/gene filtering will be performed. This step produces no checkpoint.
 
 ### Step 05 — broad biological contaminant assessment
 
-Assess clearly unwanted broad populations without treating this as fine cell-
-type annotation. Any biological removal requires review. Stop for review.
+**Skipped by explicit user decision on 2026-09-03.** No broad biological
+contaminant assessment or biological population removal will be performed.
+This step produces no checkpoint.
 
 ### Step 06 — technical, sample, and batch diagnostics
 
+Consume the exact approved Step 02 checkpoint directly, bypassing rejected
+Step 03 and skipped Steps 04–05. Do not read or propagate any Step 03 output.
 Use diagnostic normalization and reductions when needed to determine whether
 technical structure matters. Do not apply Harmony, scVI, Seurat integration,
 or another correction without first demonstrating need and obtaining review.
 Stop for review.
 
+Step 06 implementation must be additive and object-oriented. Do not rewrite or
+modify Steps 00–03 or the approved Step 02 checkpoint. Separate immutable
+settings and paths, analysis, metrics, plotting, validation, publication, and
+workflow orchestration into focused classes/modules. Every submitted run must
+freeze its exact code, configuration, input status and manifest, approval
+ledger, bypass decisions, package versions, seeds, and resolved parameters.
+Outputs must use a new versioned run directory, publish atomically only after
+validation, and remain `IN_REVIEW` with no automatic integration or correction.
+
+The scientific runtime is Python-only. It operates directly on the approved
+AnnData/H5AD with `anndata`; uses `scanpy` for normalization, HVG selection,
+PCA, neighbors, UMAP, and Leiden clustering; uses NumPy, pandas, SciPy, and
+scikit-learn for numerical/sample-level summaries; and uses Matplotlib for the
+assembled report. Step 06 must not invoke R, Seurat, R-based Harmony,
+SingleCellExperiment, an R bridge, or R-based plotting.
+
 ### Step 07 — freeze validated HiCAT input
 
 Publish the exact representation required by HiCAT with raw-count provenance,
-cell/gene metadata, QC and doublet evidence, exclusion history, configuration,
-and final dimensions. Confirm HiCAT requirements before finalization. Do not
-begin HiCAT without explicit instruction.
+cell/gene metadata, QC evidence, the explicit scDblFinder non-use decision,
+exclusion history, configuration, and final dimensions. Confirm HiCAT
+requirements before finalization. Do not begin HiCAT without explicit
+instruction.
 
 ## Approval ledger
 
@@ -121,19 +142,24 @@ checkpoint, timestamps, code/configuration identity, dimensions, parameters,
 findings, requested additions, reruns, outstanding questions, approval
 decision, and approved run ID.
 
-The only valid states for a computed checkpoint are `IN_REVIEW` and
-`APPROVED`; submission and failure states may also be recorded operationally.
-Only `APPROVED` can be consumed by the next major step.
+The valid review states for a computed checkpoint are `IN_REVIEW`, `APPROVED`,
+and `REJECTED`; `SKIPPED` records a step that was explicitly bypassed before
+computation, and submission/failure states may also be recorded operationally.
+Only `APPROVED` checkpoints can be consumed by a later major step. A
+documented bypass may return to an earlier approved checkpoint, but must never
+consume a rejected checkpoint or imply that a skipped step produced output.
 
 ## Current authorization
 
 Steps 00, 01, and the Step 01a sensitivity amendment were explicitly
 **APPROVED** by the user on 2026-08-30. Step 02 applied exactly the reviewed
-per-sample 5-MAD union and was explicitly **APPROVED** on 2026-08-30. The
-one-`GEX_1`-capture definition was approved at the same time. Step 03
-scDblFinder is authorized with `clusters=TRUE`, `dbr.sd=1`, no manual `dbr`,
-and otherwise defaults unless a technical change is documented. Calls must
-not remove cells before review.
+per-sample 5-MAD union and was explicitly **APPROVED** on 2026-08-30. Step 03
+scDblFinder completed as a non-filtering assessment, but the user explicitly
+**REJECTED** its use on 2026-09-03. No scDblFinder score, class, annotation, or
+cell removal is authorized downstream. On the same date, the user explicitly
+skipped Steps 04 and 05. Step 06 is authorized to start from the exact approved
+Step 02 checkpoint, bypassing Step 03 and producing no intermediate Step 04 or
+Step 05 checkpoint.
 
 ### Approved Step 00 run
 
@@ -271,8 +297,8 @@ compressed disposition table with each applicable exclusion reason. The H5AD
 contains only retained cells, preserves sparse integer counts, and records its
 processing state explicitly.
 
-Step 03 uses scDblFinder. Its capture-definition evidence and approved
-one-capture conclusion are isolated in
+Step 03 historically assessed scDblFinder. Its capture-definition evidence,
+completed-run disposition, and final non-use decision are isolated in
 `PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`.
 
 Implementation is object-oriented across `step02_models.py`,
@@ -344,6 +370,40 @@ The output H5AD retains sparse raw integer counts in `.X` and adds only
 normalized expression layer, `.raw` alias, embedding, graph, UMAP, integrated
 representation, or cell/gene deletion. Successful computation must stop
 `IN_REVIEW` for score separation, called fraction, and sample/design review.
+
+### Rejected Step 03 computed run and bypass decision
+
+- Run ID: `03_scdblfinder_20260831_161535_050e36b`.
+- Great Lakes job: `59401787` (`COMPLETED`, exit `0:0`).
+- Exact input: approved Step 02 run
+  `02_qc_filtering_20260830_124611_97e1bb5`.
+- Dimensions: 446,349 cells x 19,071 genes; zero cells or genes removed.
+- Validation: 29 PASS, 0 FAIL.
+- Result: 187,582 cells (42.026%) called doublets.
+- Final decision: **REJECTED for downstream use by the user on 2026-09-03**.
+
+The completed package remains immutable diagnostic provenance. Its annotated
+H5AD is not an approved checkpoint, and its `capture_id`,
+`scDblFinder_score`, and `scDblFinder_class` fields must not be joined,
+propagated, interpreted as exclusions, or used by Step 04 or any later step.
+There will be no scDblFinder-based cell removal. The downstream lineage resumes
+from the approved Step 02 raw-count checkpoint.
+
+### Skipped Steps 04–05 and authorized Step 06 lineage
+
+The user explicitly skipped both the ambient RNA/contamination assessment
+(Step 04) and broad biological contaminant assessment (Step 05) on 2026-09-03.
+Neither step was computed, neither has an output checkpoint, and neither
+authorizes correction or removal. Step 06 must consume only:
+
+- approved run: `02_qc_filtering_20260830_124611_97e1bb5`;
+- checkpoint: `objects/pcdh19_step02_qc_filtered.h5ad`;
+- SHA-256:
+  `fadba4a25a7b6b7320219b21c189b6325687493519ba0fe1bd27efd79606b103`;
+- dimensions: 446,349 cells x 19,071 genes.
+
+The binding bypass record is
+`PCDH19_PRIMARY_PROCESSING_STEP04_STEP05_BYPASS_DECISION.md`.
 
 ### Step 01 implemented scope
 

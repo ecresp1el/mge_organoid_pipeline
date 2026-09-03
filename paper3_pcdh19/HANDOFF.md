@@ -1,8 +1,10 @@
 # Paper 3 Ziobro PCDH19 MGE single-cell RNA-seq: operational handoff
 
-Last updated: 2026-08-30
+Last updated: 2026-09-03
 
-> **Classification freeze:** Steps 03–07 are complete and immutable. The
+> **Classification freeze:** the separate classification workflow is complete
+> and immutable. Primary processing is currently authorized through Step 06.
+> The
 > authoritative resume document is
 > [`PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md`](PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md).
 > Do not change any existing model, threshold, classification, or result
@@ -24,42 +26,26 @@ Last updated: 2026-08-30
 > plus the registered sample key and technical manifest. It creates a canonical
 > raw-count AnnData without filtering, normalization, reduction, clustering,
 > or annotation. Each computed step remains `IN_REVIEW` until the user
-> explicitly approves that exact run. The Step 01 mapping RDS, transferred
-> labels, probe results, classifications, and Cell Ranger embeddings/clusters
-> are preserved only for later downstream integration and are not preprocessing
-> inputs.
+> explicitly approves or rejects that exact run. The Step 01 mapping RDS,
+> transferred labels, probe results, classifications, and Cell Ranger
+> embeddings/clusters are preserved only for later downstream integration and
+> are not preprocessing inputs.
 
-> **Current primary-processing checkpoint:** Step 00 run
-> `00_input_validation_and_canonical_anndata_20260830_113749_d8b6bf7` completed
-> in Great Lakes job `59279775`. It contains 450,788 cells × 19,071 genes as
-> sparse unnormalized integer counts in `.X`; 221 validations passed and no
-> filtering, transformation, graph, embedding, cluster, or annotation was
-> created. The user explicitly **APPROVED** this exact run on 2026-08-30.
-> Step 01 run `01_qc_metrics_20260830_115715_2b57907` completed in job
-> `59281063`; it retained all cells/genes/counts, passed 40/40 validations,
-> and produced pooled, 12 per-sample, and grouped QC diagnostics without
-> thresholds or filtering. The exact Step 01 and review-target Step 01a runs
-> were **APPROVED** on 2026-08-30. Step 01a adds
-> per-technical-sample 3/4/5 scaled-MAD candidate sensitivity tables and
-> boundary plots only; it cannot filter, use design groups, or define upper
-> count/gene rules. Review-target run
-> `01a_qc_mad_sensitivity_20260830_121931_d5936f9`, job `59282437`, passed
-> 71/71 validations and retained all cells. Any-criterion candidates are
-> 4.765%, 2.024%, and 0.985% at 3/4/5 MAD, predominantly high-mitochondrial
-> candidates. Step 02 applied only the reviewed per-sample 5-MAD union,
-> preserved complete exclusion provenance and raw counts, reported
-> before/after counts, and was approved. Step 03 uses scDblFinder under the
-> approved one-`GEX_1`-capture definition. See
+> **Current primary-processing checkpoint:** Steps 00, 01, 01a, and 02 are
+> approved. Step 02 run `02_qc_filtering_20260830_124611_97e1bb5`, Great
+> Lakes job `59287494`, retained 446,349 cells × 19,071 genes after excluding
+> 4,439 reviewed per-sample 5-MAD QC candidates; it passed 38/38 checks and
+> preserves sparse raw integer counts plus complete exclusion provenance.
+> Step 03 run `03_scdblfinder_20260831_161535_050e36b`, job `59401787`,
+> retained every Step 02 cell, passed 29/29 checks, and called 187,582 cells
+> (42.026%) as doublets. On 2026-09-03 the user explicitly **REJECTED**
+> scDblFinder for all downstream use. Its package remains diagnostic provenance
+> only: no score, class, annotation, or cell removal may propagate. The user
+> also explicitly skipped Steps 04 and 05 on 2026-09-03. Step 06 technical,
+> sample, and batch diagnostics is authorized to bypass Steps 03–05 and consume
+> the exact approved Step 02 checkpoint directly. No Step 04 or Step 05
+> checkpoint exists. See
 > [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
-> Step 02 run `02_qc_filtering_20260830_124611_97e1bb5`, job `59287494`, is
-> now has 446,349 cells × 19,071 genes and 38/38 checks passing. It excluded
-> 4,439 cells with exact reasons and performed no doublet detection. The user
-> explicitly **APPROVED** this run and the one-`GEX_1` capture definition on
-> 2026-08-30, authorizing Step 03 under the registered no-removal contract.
-> Step 03 code, native-R environment contract, frozen submit wrapper, SLURM
-> entry point, output package template, validation, reproducibility, and
-> internal-PCA review diagnostics are implemented. A successful run must stop
-> `IN_REVIEW`; no scDblFinder call is an exclusion at this stage.
 
 ## Independent developing-mouse MGE reference curation (first checkpoint complete)
 

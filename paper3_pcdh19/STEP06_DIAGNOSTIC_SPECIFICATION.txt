@@ -1,0 +1,199 @@
+.
+
+Panel C — Unintegrated PCA colored by sample
+
+Calculate PCA using an explicitly documented diagnostic preprocessing workflow.
+
+Show the same PCA embedding colored by:
+
+1. biological sample
+2. genotype
+3. sex
+
+The sample-colored version is the primary batch-structure diagnostic.
+
+Panel D — PCA sample centroids / sample-level structure
+
+Summarize the position of each sample in PCA space using sample centroids or an equivalent sample-level representation.
+
+The goal is to distinguish:
+
+* cell-level heterogeneity
+    from
+* systematic displacement of entire biological samples.
+
+If useful, include confidence ellipses or a sample-centroid distance matrix.
+
+Panel E — Unintegrated UMAP colored by sample
+
+Generate an unintegrated UMAP from the diagnostic neighbor graph.
+
+Show all cells colored by biological sample.
+
+This must remain genuinely unintegrated: the graph and embedding must be constructed without any batch-correction method.
+
+Panel F — Small multiples: one UMAP per sample
+
+Using the exact same global UMAP coordinates, create one facet for each biological sample showing only that sample’s cells highlighted against the full dataset in the background.
+
+Do not independently recompute UMAPs per sample.
+
+This panel is intended to reveal:
+
+* whether particular samples occupy unique regions
+* whether samples span the same biological manifold
+* whether apparent mixing in the combined UMAP hides strong sample-specific structure.
+
+Panel G — Unintegrated UMAP colored by biological design variables
+
+Using the identical coordinates from Panel E, show:
+
+* genotype
+* sex
+* relevant experimental group
+
+The purpose is to determine whether sample separation corresponds to known biology rather than automatically labeling all between-sample structure as batch.
+
+Panel H — Preliminary biological-state view
+
+Use descriptive clustering and/or a compact set of established MGE developmental marker programs to visualize broad biological structure before correction.
+
+At minimum assess major axes such as:
+
+* proliferative / cycling progenitors
+* radial glial / progenitor-like states
+* intermediate progenitor / neuroblast states
+* immature inhibitory neuronal states
+* other obvious contaminating or non-neural populations if present
+
+This does not constitute final annotation.
+
+The purpose is to ask whether sample structure corresponds to recognizable biology.
+
+Panel I — Sample contribution to preliminary states
+
+For each descriptive cluster or broad provisional state, show the contribution from every sample.
+
+Produce both:
+
+* absolute cell counts
+* within-state or within-sample percentages
+
+A sample × state heatmap or stacked-bar representation is appropriate.
+
+Absolute n must remain visible somewhere in the report.
+
+This panel is critical because an apparent shared state should not be considered cross-sample merely because multiple colors appear nearby on a UMAP.
+
+Panel J — Local sample diversity / mixing diagnostic
+
+Quantify how many biological samples contribute to local neighborhoods in the unintegrated representation.
+
+Use a transparent metric such as:
+
+* neighborhood sample entropy
+* inverse Simpson / iLISI-style sample diversity
+* or another clearly documented local sample-mixing statistic.
+
+This is descriptive only and must not be interpreted as “higher mixing is always better.”
+
+Report the distribution globally and, where possible, by provisional biological state.
+
+Panel K — Sample-pair similarity
+
+Calculate a sample-level similarity measure based on a biologically interpretable representation, for example:
+
+* pseudobulk expression correlations
+* PCA centroid distances
+* correlation of broad state profiles
+
+Display this as a sample × sample heatmap.
+
+Samples should be annotated by genotype and sex.
+
+This panel should help determine whether the strongest differences are aligned with:
+
+* genotype
+* sex
+* sample identity
+* or unexplained technical variation.
+
+Panel L — Explicit pre-integration decision summary
+
+End the multi-panel report with a compact summary table stating, for each sample:
+
+* cell number
+* major QC characteristics
+* major PCA/UMAP displacement
+* broad states represented
+* evidence of missing states
+* evidence of unusual sample-specific structure
+* whether the observed difference appears plausibly biological, technical, or unresolved
+
+Do not make a final integration-method decision automatically.
+
+The report should conclude with one of three diagnostic outcomes:
+
+1. Minimal sample-associated structure — integration may not be necessary.
+2. Clear sample-associated technical structure superimposed on shared biology — integration is likely justified.
+3. Strong sample differences potentially caused by biological composition or confounding — integration should not proceed until those differences are understood.
+
+Figure/report design requirements
+
+The main output should be a single coherent figure or report, preferably organized approximately as:
+
+A–B: sample composition and QC
+C–G: unintegrated dimensional structure
+H–I: biological-state composition
+J–K: quantitative sample/batch diagnostics
+L: decision summary
+
+The figure should be readable as a left-to-right / top-to-bottom story.
+
+Use:
+
+* one fixed color for each biological sample throughout the entire report
+* consistent sample ordering across every panel
+* consistent genotype and sex colors
+* shared UMAP coordinates wherever UMAP is reused
+* rasterization or downsampling only for rendering when necessary; numerical analyses must use all cells unless explicitly documented otherwise
+
+Do not create dozens of isolated PDFs as the primary review output.
+
+Save individual component plots if useful, but also assemble them automatically into:
+
+one primary multi-panel Step 06 diagnostic report
+
+and, if needed for readability, one supplementary multi-page PDF containing the same diagnostics at larger scale.
+
+Required numerical companion tables
+
+The report must be backed by machine-readable tables containing at minimum:
+
+* cells per sample
+* QC summaries per sample
+* PCA centroid coordinates
+* pairwise sample distances/similarities
+* provisional state counts per sample
+* provisional state percentages per sample
+* local sample-diversity metric summaries
+* any statistical comparisons used in the report
+
+Reproducibility
+
+Record:
+
+* exact input checkpoint and checksum
+* random seeds
+* package versions
+* normalization method
+* HVG-selection method and number of genes
+* PCA dimensions used
+* neighbor parameters
+* UMAP parameters
+* clustering parameters, if used
+* whether any plot rendering used downsampling
+
+The raw 446,349-cell Step 02 checkpoint must remain unchanged.
+
+Step 06 should stop after producing and validating this report. It must not proceed automatically into integration or batch correction.

@@ -30,8 +30,8 @@ Its expression inputs are the original 12 per-sample Cell Ranger filtered
 feature-barcode matrices; the registered sample key and technical manifest are
 joined only as metadata. Step 00 constructs the canonical raw-count AnnData
 without QC filtering, normalization, reduction, clustering, or annotation.
-Every computed step remains `IN_REVIEW` until explicitly approved, and only an
-approved checkpoint may feed the next step. Existing Bandler/MIND,
+Every computed step remains `IN_REVIEW` until explicitly approved or rejected,
+and only an approved checkpoint may feed the next step. Existing Bandler/MIND,
 MapMyCells, GSE94641, probe, and classification results remain preserved for
 later downstream integration; they are not primary-processing inputs.
 
@@ -62,8 +62,9 @@ exact Step 01 and review-target Step 01a runs on 2026-08-30 and authorized
 Step 02 to apply the per-sample 5-MAD low-count OR low-gene OR high-mt union.
 Step 02 preserved every exclusion reason, retained all genes/raw counts,
 reported sample/design before-after counts, and stopped for review. Step 03
-uses scDblFinder under the approved one-`GEX_1`-capture definition. The
-detailed results and execution history are in
+tested scDblFinder under the one-`GEX_1`-capture definition, but the user
+rejected the completed result for all downstream use on 2026-09-03. The
+detailed results, execution history, and non-use decision are in
 [`PCDH19_PRIMARY_PROCESSING_HANDOFF.md`](PCDH19_PRIMARY_PROCESSING_HANDOFF.md).
 The capture evidence is in
 [`PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md`](PCDH19_STEP03_SCDBLFINDER_CAPTURE_DECISION.md).
@@ -73,8 +74,11 @@ job `59287494` with 38/38 validation checks passing. It excluded 4,439 reviewed
 5-MAD candidates and retained 446,349 cells × all 19,071 genes as sparse raw
 integer counts. Exact reasons remain available for every original cell. The
 checkpoint and one-`GEX_1`-capture definition were explicitly **APPROVED** on
-2026-08-30. Step 03 is authorized and implemented for Great Lakes submission;
-its computed package must remain `IN_REVIEW` and remove no called cells.
+2026-08-30. Step 03 run `03_scdblfinder_20260831_161535_050e36b` completed in
+Great Lakes job `59401787`, retained every cell, passed 29/29 validation
+checks, and called 187,582 cells (42.026%) as doublets. The user explicitly
+**REJECTED** scDblFinder for this workflow on 2026-09-03. No score, call,
+annotation, or cell removal from that run may be used downstream.
 
 Step 03 is object-oriented across `step03_models.py`, `step03_io.py`,
 `step03_validation.py`, `step03_plots.py`, `step03_publishing.py`,
@@ -82,8 +86,23 @@ Step 03 is object-oriented across `step03_models.py`, `step03_io.py`,
 `step03_scdblfinder.R`. The frozen entry points are
 `bin/submit_primary_processing_step_03.sh` and
 `slurm/primary_processing_03_scdblfinder.sbatch`. The primary run uses
-one observable serial `returnType="scores"` invocation; it attaches scores and
-singlet/doublet annotations while retaining every cell.
+one observable serial `returnType="scores"` invocation; it attached scores and
+singlet/doublet annotations while retaining every cell. That output is
+diagnostic provenance only. On 2026-09-03, the user explicitly skipped Steps
+04 and 05. Step 06 technical, sample, and batch diagnostics is now authorized
+to consume the approved Step 02 checkpoint directly. It must not load Step 03,
+and no Step 04/05 output exists. See
+[`PCDH19_PRIMARY_PROCESSING_STEP04_STEP05_BYPASS_DECISION.md`](PCDH19_PRIMARY_PROCESSING_STEP04_STEP05_BYPASS_DECISION.md).
+
+Step 06 is implemented as additive, object-oriented Python modules under
+`scripts/primary_processing/step06_*.py`, with frozen configuration,
+requirements, submit wrapper, and SLURM entry point. Its scientific runtime
+uses the Python AnnData/Scanpy ecosystem directly on the approved Step 02 H5AD;
+it has no R, Seurat, Harmony-through-R, SingleCellExperiment, or R-plotting
+dependency. A successful run publishes a new unintegrated diagnostic H5AD,
+machine-readable tables, and one A–L multi-page report, then stops
+`IN_REVIEW` without correction, integration, annotation finalization, or cell
+removal.
 
 ## New auxiliary work: three-reference MGE curation
 
