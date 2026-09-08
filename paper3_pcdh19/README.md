@@ -1,10 +1,24 @@
 # Paper 3: Ziobro PCDH19 MGE single-cell RNA-seq
 
+**Biological context: dissected mouse medial ganglionic eminence (MGE), E14.5.**
+These samples are not organoids. Repository and environment names do not
+describe the tissue. See [experiment context](EXPERIMENT_CONTEXT.md).
+
+**Current primary-processing checkpoint: Step 07 — HiCAT hierarchy validation
+and parameter sensitivity.** The authorized analysis uses the existing
+12,000-cell pilot, its two seed fits, and provisional biological hypotheses.
+Step 06 already supplies a joint, unintegrated UMAP for display. Full-data
+marker scores and overlays are allowed; full-data clustering is not.
+See [Step 07 protocol and asset contract](HICAT_VALIDATION_PROTOCOL.md).
+
 This workstream is reserved for the Ziobro PCDH19 MGE single-cell paper. It is
 separate from the Paper 2 cross-study atlas and uses the Ziobro Turbo
 allocation, independent step numbering, and independent outputs.
 
-## Critical current query-data state: no joint UMAP yet
+## Historical mapping-workstream state before primary-processing Step 06
+
+The following describes the earlier mapping workstream. It predates the
+primary-processing Step 06 joint unintegrated display and the HiCAT pilot.
 
 The 12 Paper 3 samples have **not** yet undergone a unified Scanpy or Seurat
 processing/integration workflow. The source delivery provides a filtered

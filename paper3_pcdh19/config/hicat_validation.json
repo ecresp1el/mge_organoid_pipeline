@@ -1,0 +1,72 @@
+{
+  "schema_version": "pcdh19_hicat_validation_v1",
+  "scope": "E14.5_dissected_mouse_MGE_pilot_validation_only",
+  "biological_context": {
+    "species": "Mus musculus",
+    "tissue": "dissected medial ganglionic eminence",
+    "developmental_age": "E14.5",
+    "organoid": false
+  },
+  "step02_run_id": "02_qc_filtering_20260830_124611_97e1bb5",
+  "baseline_run": "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/hicat/01_coarse_fine_expanded_pilot/hicat_coarse_fine_20260908_203708_7e050f23/outputs",
+  "pilot_sha256": "70cb5690cfb2d2a1b13c9b9ead89051ec6423f6d813984515490ad2084208e27",
+  "full_data_source": "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/primary_processing/06_technical_sample_batch_diagnostics/06_technical_sample_batch_diagnostics_20260903_114110_6087eeb/objects/pcdh19_step06_unintegrated_diagnostics.h5ad",
+  "full_data_sha256": "63736c1f8d67055ba44dbcc2368cf130017a9468a8e35f1d03dc059d06ad85b8",
+  "upstream_commit": "99154957c74023235763025fda9dc4eb3ca952c6",
+  "pilot_cells": 12000,
+  "cells_per_sample": 1000,
+  "samples": 12,
+  "genes": 19071,
+  "full_cells": 446349,
+  "seed": 20260908,
+  "fine_changes": {
+    "q1_thresh": 0.4,
+    "qdiff_thresh": 0.7
+  },
+  "fixed_fine_score": 150,
+  "fixed_baseline_parents": true,
+  "full_data_clustering": false,
+  "batch_correction": false,
+  "regression": false,
+  "lock_annotations": false,
+  "chunk_size": 4096,
+  "report_dpi": 140,
+  "stability_thresholds": {
+    "high_jaccard": 0.75,
+    "high_precision": 0.8,
+    "high_recall": 0.8,
+    "moderate_jaccard": 0.5,
+    "split_fraction": 0.1,
+    "partial_jaccard": 0.35,
+    "partial_recall": 0.5
+  },
+  "sample_thresholds": {
+    "max_sample_fraction": 0.25,
+    "min_effective_samples": 6,
+    "min_cells_for_flag": 30
+  },
+  "phase_thresholds": {
+    "min_cells_per_phase": 20,
+    "effect_threshold": 0.5,
+    "cycle_tv_threshold": 0.4
+  },
+  "normalization": "Use saved pilot log1p_cpm unchanged; full display computes natural log(1 + raw counts / all-gene cell total * 1000000).",
+  "review_state": "IN_REVIEW",
+  "review_thresholds": {
+    "program_mean_positive": 0.1,
+    "marker_detection_fraction": 0.1,
+    "canonical_minimum_markers": 2,
+    "strong_hypothesis_minimum_markers": 3,
+    "cycle_fraction": 0.7,
+    "cycle_phase_tv": 0.4,
+    "maturation_z": 0.7,
+    "technical_robust_z": 3.0,
+    "minimum_review_cells": 30,
+    "readiness_minimum_nonlow_seed_fraction": 0.25,
+    "readiness_median_seed_jaccard": 0.5,
+    "readiness_minimum_surviving_allen_fraction": 0.25,
+    "readiness_major_parent_fraction": 0.05,
+    "maturation_max_regional_effect": 0.3,
+    "maturation_max_phase_tv": 0.2
+  }
+}

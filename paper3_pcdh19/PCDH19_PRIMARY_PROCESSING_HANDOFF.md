@@ -147,13 +147,21 @@ job `59983804` predated this instrumentation and completed successfully with
 its frozen code left untouched; this requirement applies to all later
 submissions and reruns.
 
-### Step 07 — freeze validated HiCAT input
+### Step 07 — HiCAT hierarchy validation and parameter sensitivity
 
-Publish the exact representation required by HiCAT with raw-count provenance,
-cell/gene metadata, QC evidence, the explicit scDblFinder non-use decision,
-exclusion history, configuration, and final dimensions. Confirm HiCAT
-requirements before finalization. Do not begin HiCAT without explicit
-instruction.
+The user replaced the previously planned input-freeze checkpoint with a
+dedicated review of the existing 12,000-cell coarse/fine pilot. Evaluate seed
+stability, sample representation, cell-cycle/maturation dependence, canonical
+regional identity, and one fine-parameter comparison (q1=0.4, qdiff=0.7,
+DE score=150) within fixed baseline coarse parents. The biological material is
+dissected E14.5 mouse MGE. Provisional labels are review hypotheses only.
+
+Full-data marker scoring and existing Step 06 UMAP displays are authorized;
+full-data clustering, label transfer, batch correction, regression, cluster
+removal, and locked annotations are outside this checkpoint. See
+[the Step 07 protocol](HICAT_VALIDATION_PROTOCOL.md). Successful outputs remain
+IN_REVIEW. Qualifying/freezing a full HiCAT input is deferred to a later
+explicitly authorized checkpoint.
 
 ## Approval ledger
 
@@ -178,7 +186,7 @@ source pin, adapter differences, asset schema, plots and review boundary are in
 [HICAT_CLUSTER_DISCOVERY_PROTOCOL.md](HICAT_CLUSTER_DISCOVERY_PROTOCOL.md).
 This separate pilot uses approved Step 02 expression and Step 06 coordinates
 only for display. It does not change existing checkpoint review statuses,
-constitute the full Step 07 input freeze, or authorize treating pilot K as the
+constitute a full-data input freeze, or authorize treating pilot K as the
 full-data count. After pilot review, qualify/freeze the full input and proceed
 through the full cluster-discovery checkpoints using the same review model.
 

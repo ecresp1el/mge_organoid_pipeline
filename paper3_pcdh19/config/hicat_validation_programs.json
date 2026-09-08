@@ -1,0 +1,905 @@
+{
+  "schema_version": "pcdh19_hicat_validation_programs_v1",
+  "experiment": {
+    "species": "Mus musculus",
+    "tissue": "dissected medial ganglionic eminence",
+    "developmental_age": "E14.5",
+    "culture": "not cultured; not organoids"
+  },
+  "sources": {
+    "mayer2018": "https://www.nature.com/articles/nature25999",
+    "mge2017": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5374502/",
+    "pollen2015": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4583716/",
+    "gelman2011": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6633309/",
+    "poa_hmx3": "https://elifesciences.org/articles/32017",
+    "dissociation2017": "https://www.nature.com/articles/nmeth.4437",
+    "vascular2018": "https://www.nature.com/articles/nature25739",
+    "vascular_embryonic": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6838536/",
+    "scanpy_cycle": "https://scanpy.scverse.org/en/stable/how-to/cell-cycle.html",
+    "seurat_aliases": "https://satijalab.org/seurat/reference/cc.genes.updated.2019.html",
+    "erythroid_gata1": "https://www.ncbi.nlm.nih.gov/gene/14460",
+    "erythroid_klf1": "https://www.ncbi.nlm.nih.gov/gene/16596"
+  },
+  "programs": [
+    {
+      "name": "rg_stemness",
+      "title": "RG / neural progenitor",
+      "genes": [
+        "Sox2",
+        "Sox1",
+        "Fabp7",
+        "Slc1a3",
+        "Vim",
+        "Nes",
+        "Hes1",
+        "Hes5",
+        "Notch1",
+        "Glul",
+        "Aldoc",
+        "Ptprz1"
+      ],
+      "group": "development",
+      "sources": [
+        "mayer2018",
+        "mge2017"
+      ],
+      "caution": "Neural stemness is not an anatomical RG subtype."
+    },
+    {
+      "name": "apical_RG_like",
+      "title": "Apical RG-like",
+      "genes": [
+        "Sox2",
+        "Hes1",
+        "Hes5",
+        "Pard3",
+        "Mpp5",
+        "Cdh2",
+        "Prom1",
+        "Ezr",
+        "Scrib",
+        "Tjp1",
+        "Vim"
+      ],
+      "group": "development",
+      "sources": [
+        "mayer2018"
+      ],
+      "caution": "Polarity/adhesion supports an apical-like state, not verified ventricular position."
+    },
+    {
+      "name": "basal_RG_like",
+      "title": "Basal RG-like (exploratory)",
+      "genes": [
+        "Hopx",
+        "Ptprz1",
+        "Tnc",
+        "Pdgfd",
+        "Lpar1",
+        "Fbln1",
+        "Fbln2",
+        "Ptn",
+        "Hmga2"
+      ],
+      "group": "development",
+      "sources": [
+        "pollen2015"
+      ],
+      "caution": "Human cortical basal/oRG-associated candidates are an exploratory comparator; translation to dissected E14.5 mouse MGE is uncertain. ECM expression also occurs in vascular/stromal cells. Never infer anatomical oRG identity from this score."
+    },
+    {
+      "name": "ipc_neurogenic",
+      "title": "Subpallial IPC / neurogenic",
+      "genes": [
+        "Ascl1",
+        "Insm1",
+        "Dlx1",
+        "Dlx2",
+        "Dlx5",
+        "Dlx6",
+        "Ccnd2",
+        "Dll1",
+        "Dll3",
+        "Hes6",
+        "Sp9"
+      ],
+      "group": "development",
+      "sources": [
+        "mayer2018",
+        "mge2017"
+      ],
+      "caution": "Ccnd2 overlaps cycle; phase-matched identity analysis excludes explicit cycle genes. Eomes is not required for an MGE IPC."
+    },
+    {
+      "name": "S_phase",
+      "title": "S phase",
+      "genes": [
+        "MCM5",
+        "PCNA",
+        "TYMS",
+        "FEN1",
+        "MCM2",
+        "MCM4",
+        "RRM1",
+        "UNG",
+        "GINS2",
+        "MCM6",
+        "CDCA7",
+        "DTL",
+        "PRIM1",
+        "UHRF1",
+        "MLF1IP",
+        "HELLS",
+        "RFC2",
+        "RPA2",
+        "NASP",
+        "RAD51AP1",
+        "GMNN",
+        "WDR76",
+        "SLBP",
+        "CCNE2",
+        "UBR7",
+        "POLD3",
+        "MSH2",
+        "ATAD2",
+        "RAD51",
+        "RRM2",
+        "CDC45",
+        "CDC6",
+        "EXO1",
+        "TIPIN",
+        "DSCC1",
+        "BLM",
+        "CASP8AP2",
+        "USP1",
+        "CLSPN",
+        "POLA1",
+        "CHAF1B",
+        "BRIP1",
+        "E2F8"
+      ],
+      "group": "cycle",
+      "sources": [
+        "scanpy_cycle",
+        "seurat_aliases"
+      ],
+      "caution": "Human reference symbols are mapped case-insensitively to mouse symbols, with three documented renamed aliases. Mapping is reported gene by gene; this is a conserved-symbol mapping, not a new orthology inference."
+    },
+    {
+      "name": "G2M",
+      "title": "G2/M",
+      "genes": [
+        "HMGB2",
+        "CDK1",
+        "NUSAP1",
+        "UBE2C",
+        "BIRC5",
+        "TPX2",
+        "TOP2A",
+        "NDC80",
+        "CKS2",
+        "NUF2",
+        "CKS1B",
+        "MKI67",
+        "TMPO",
+        "CENPF",
+        "TACC3",
+        "FAM64A",
+        "SMC4",
+        "CCNB2",
+        "CKAP2L",
+        "CKAP2",
+        "AURKB",
+        "BUB1",
+        "KIF11",
+        "ANP32E",
+        "TUBB4B",
+        "GTSE1",
+        "KIF20B",
+        "HJURP",
+        "CDCA3",
+        "HN1",
+        "CDC20",
+        "TTK",
+        "CDC25C",
+        "KIF2C",
+        "RANGAP1",
+        "NCAPD2",
+        "DLGAP5",
+        "CDCA2",
+        "CDCA8",
+        "ECT2",
+        "KIF23",
+        "HMMR",
+        "AURKA",
+        "PSRC1",
+        "ANLN",
+        "LBR",
+        "CKAP5",
+        "CENPE",
+        "CTCF",
+        "NEK2",
+        "G2E3",
+        "GAS2L3",
+        "CBX5",
+        "CENPA"
+      ],
+      "group": "cycle",
+      "sources": [
+        "scanpy_cycle",
+        "seurat_aliases"
+      ],
+      "caution": "G2/M score includes proliferation genes also expressed outside G2/M; phase calls are transcriptional proxies."
+    },
+    {
+      "name": "neuroblast",
+      "title": "Neuroblast / commitment",
+      "genes": [
+        "Dcx",
+        "Tubb3",
+        "Stmn2",
+        "Stmn4",
+        "Sox11",
+        "Sox4",
+        "Elavl3",
+        "Elavl4",
+        "Gap43",
+        "Map1b",
+        "Myt1l"
+      ],
+      "group": "development",
+      "sources": [
+        "mayer2018",
+        "mge2017"
+      ],
+      "caution": "Neuronal commitment can coexist with cycling. Tbr1 is kept in an excitatory comparator rather than required for ventral neuroblasts."
+    },
+    {
+      "name": "immature_inhibitory",
+      "title": "Immature inhibitory lineage",
+      "genes": [
+        "Gad1",
+        "Gad2",
+        "Slc32a1",
+        "Dlx1",
+        "Dlx2",
+        "Dlx5",
+        "Dlx6",
+        "Arx",
+        "Sox6",
+        "Erbb4"
+      ],
+      "group": "development",
+      "sources": [
+        "mayer2018",
+        "mge2017"
+      ],
+      "caution": "GABAergic program is not uniquely MGE-derived."
+    },
+    {
+      "name": "early_neuronal_maturation",
+      "title": "Early neuronal maturation",
+      "genes": [
+        "Dcx",
+        "Tubb3",
+        "Sox11",
+        "Sox4",
+        "Map1b",
+        "Gap43",
+        "Elavl3",
+        "Elavl4"
+      ],
+      "group": "maturation",
+      "sources": [
+        "mayer2018"
+      ],
+      "caution": "Overlaps commitment; not a pseudotime estimate."
+    },
+    {
+      "name": "later_neuronal_maturation",
+      "title": "Later neuronal maturation",
+      "genes": [
+        "Snap25",
+        "Syt1",
+        "Rbfox3",
+        "Map2",
+        "Stmn2",
+        "Nefl",
+        "Nefm",
+        "Syp"
+      ],
+      "group": "maturation",
+      "sources": [
+        "mayer2018"
+      ],
+      "caution": "Relative differentiation only; adult interneuron subtype markers can be absent at E14.5."
+    },
+    {
+      "name": "MGE",
+      "title": "MGE regional progenitor",
+      "genes": [
+        "Nkx2-1",
+        "Olig2",
+        "Shh",
+        "Lhx8",
+        "Gli1"
+      ],
+      "group": "region",
+      "sources": [
+        "mge2017",
+        "mayer2018"
+      ],
+      "caution": "Nkx2-1/Shh overlap POA; Nkx2-1 may decrease after neuronal migration. Not required in every MGE-derived neuron."
+    },
+    {
+      "name": "MGE_interneuron",
+      "title": "MGE interneuron trajectory",
+      "genes": [
+        "Lhx6",
+        "Sox6",
+        "Arx",
+        "Erbb4",
+        "Gad1",
+        "Gad2"
+      ],
+      "group": "region",
+      "sources": [
+        "mge2017",
+        "mayer2018"
+      ],
+      "caution": "Multiple markers are required. This trajectory score is not a mature subtype annotation."
+    },
+    {
+      "name": "LGE",
+      "title": "LGE / striatal comparator",
+      "genes": [
+        "Gsx2",
+        "Meis2",
+        "Isl1",
+        "Ebf1",
+        "Foxp1",
+        "Foxp2",
+        "Sp8",
+        "Sp9",
+        "Rarb",
+        "Gpr88"
+      ],
+      "group": "region",
+      "sources": [
+        "mge2017",
+        "mayer2018"
+      ],
+      "caution": "Individual genes are not region-exclusive; mature striatal markers may be absent at E14.5."
+    },
+    {
+      "name": "CGE",
+      "title": "CGE-like comparator",
+      "genes": [
+        "Nr2f1",
+        "Nr2f2",
+        "Prox1",
+        "Htr3a",
+        "Reln",
+        "Sp8",
+        "Sp9"
+      ],
+      "group": "region",
+      "sources": [
+        "mayer2018"
+      ],
+      "caution": "Prox1, Nr2f genes and Reln are not individually specific to CGE origin; mature markers may be absent."
+    },
+    {
+      "name": "POA",
+      "title": "POA-like comparator",
+      "genes": [
+        "Dbx1",
+        "Hmx3",
+        "Nkx6-2",
+        "Six3",
+        "Lhx1",
+        "Lhx5"
+      ],
+      "group": "region",
+      "sources": [
+        "gelman2011",
+        "poa_hmx3"
+      ],
+      "caution": "POA lineages are heterogeneous and transient TFs may be lost. Shared Nkx2-1 alone cannot distinguish MGE from POA."
+    },
+    {
+      "name": "basal_forebrain_alternative",
+      "title": "Basal forebrain / projection comparator",
+      "genes": [
+        "Lhx8",
+        "Isl1",
+        "Gbx2",
+        "Chat",
+        "Slc18a3"
+      ],
+      "group": "region",
+      "sources": [
+        "mge2017",
+        "mayer2018"
+      ],
+      "caution": "Early precursors may lack terminal cholinergic genes. This is an alternative hypothesis, not a locked fate."
+    },
+    {
+      "name": "cortical_excitatory_comparator",
+      "title": "Cortical excitatory comparator",
+      "genes": [
+        "Eomes",
+        "Neurog1",
+        "Neurog2",
+        "Tbr1",
+        "Slc17a6",
+        "Slc17a7"
+      ],
+      "group": "region",
+      "sources": [
+        "mayer2018"
+      ],
+      "caution": "Comparator to avoid requiring cortical glutamatergic IPC/neuroblast genes in ventral MGE lineages."
+    },
+    {
+      "name": "stress",
+      "title": "Stress / dissociation",
+      "genes": [
+        "Fos",
+        "Jun",
+        "Junb",
+        "Egr1",
+        "Atf3",
+        "Ddit3",
+        "Hspa1a",
+        "Hspa1b",
+        "Hsp90aa1",
+        "Ier2",
+        "Ier3",
+        "Dusp1"
+      ],
+      "group": "quality",
+      "sources": [
+        "dissociation2017"
+      ],
+      "caution": "Stress association does not establish low viability or justify automatic removal."
+    },
+    {
+      "name": "mitochondrial",
+      "title": "Mitochondrial expression",
+      "genes": [
+        "mt-Nd1",
+        "mt-Nd2",
+        "mt-Nd3",
+        "mt-Nd4",
+        "mt-Nd4l",
+        "mt-Nd5",
+        "mt-Nd6",
+        "mt-Co1",
+        "mt-Co2",
+        "mt-Co3",
+        "mt-Atp6",
+        "mt-Atp8",
+        "mt-Cytb"
+      ],
+      "group": "quality",
+      "sources": [
+        "mge2017"
+      ],
+      "caution": "Expression score is separate from raw mitochondrial count percentage and does not identify a cell type."
+    },
+    {
+      "name": "ribosomal",
+      "title": "Ribosomal (assay coverage required)",
+      "genes": [
+        "Rpl3",
+        "Rpl4",
+        "Rpl5",
+        "Rpl6",
+        "Rpl7",
+        "Rpl8",
+        "Rpl9",
+        "Rpl10",
+        "Rpl11",
+        "Rpl12",
+        "Rpl13",
+        "Rpl14",
+        "Rpl15",
+        "Rpl18",
+        "Rpl19",
+        "Rpl22",
+        "Rpl23",
+        "Rpl24",
+        "Rpl26",
+        "Rpl27",
+        "Rpl28",
+        "Rpl29",
+        "Rpl30",
+        "Rpl32",
+        "Rpl34",
+        "Rpl35",
+        "Rpl36",
+        "Rpl37",
+        "Rpl38",
+        "Rpl39",
+        "Rpl41",
+        "Rps2",
+        "Rps3",
+        "Rps4x",
+        "Rps5",
+        "Rps6",
+        "Rps7",
+        "Rps8",
+        "Rps9",
+        "Rps10",
+        "Rps11",
+        "Rps12",
+        "Rps13",
+        "Rps14",
+        "Rps15",
+        "Rps16",
+        "Rps17",
+        "Rps18",
+        "Rps19",
+        "Rps20",
+        "Rps21",
+        "Rps23",
+        "Rps24",
+        "Rps25",
+        "Rps26",
+        "Rps27",
+        "Rps28",
+        "Rps29"
+      ],
+      "group": "quality",
+      "sources": [
+        "mge2017"
+      ],
+      "caution": "Rpl/Rps genes are absent from the current targeted assay. Scores and fractions are NA, not zero; no ribosomal dependence can be excluded."
+    },
+    {
+      "name": "translation_proxy",
+      "title": "Translation proxy (not ribosomal)",
+      "genes": [
+        "Eef1a1",
+        "Eef2",
+        "Eif1",
+        "Eif2s1",
+        "Eif2s2",
+        "Eif3a",
+        "Eif3b",
+        "Eif4a1",
+        "Eif4g1"
+      ],
+      "group": "quality",
+      "sources": [
+        "mge2017"
+      ],
+      "caution": "Available translation-factor comparator; it is not a substitute for the unmeasurable ribosomal fraction."
+    },
+    {
+      "name": "endothelial",
+      "title": "Endothelial",
+      "genes": [
+        "Pecam1",
+        "Cdh5",
+        "Cldn5",
+        "Kdr",
+        "Flt1",
+        "Tek",
+        "Esam",
+        "Egfl7",
+        "Emcn",
+        "Eng",
+        "Ramp2"
+      ],
+      "group": "non_neural",
+      "sources": [
+        "vascular2018",
+        "vascular_embryonic"
+      ],
+      "caution": "Coherent vascular identity evidence is required; do not remove clusters at this review."
+    },
+    {
+      "name": "pericyte",
+      "title": "Pericyte / mural comparator",
+      "genes": [
+        "Pdgfrb",
+        "Rgs5",
+        "Cspg4",
+        "Des",
+        "Kcnj8",
+        "Abcc9"
+      ],
+      "group": "non_neural",
+      "sources": [
+        "vascular2018",
+        "vascular_embryonic"
+      ],
+      "caution": "Some progenitors express individual candidates; inspect the whole panel and endothelial counter-markers."
+    },
+    {
+      "name": "erythroid",
+      "title": "Embryonic erythroid",
+      "genes": [
+        "Gata1",
+        "Klf1",
+        "Epor",
+        "Alas2",
+        "Slc4a1",
+        "Fech",
+        "Hbb-y",
+        "Hba-x",
+        "Hbb-bh1",
+        "Hba-a1",
+        "Hba-a2",
+        "Hbb-bs",
+        "Hbb-bt"
+      ],
+      "group": "non_neural",
+      "sources": [
+        "erythroid_gata1",
+        "erythroid_klf1"
+      ],
+      "caution": "Multiple lineage/heme/globin genes must co-occur to distinguish blood cells from ambient hemoglobin."
+    }
+  ],
+  "dotplot_groups": {
+    "RG / polarity": [
+      "Sox2",
+      "Fabp7",
+      "Slc1a3",
+      "Hes1",
+      "Hes5",
+      "Prom1",
+      "Pard3",
+      "Hopx",
+      "Tnc"
+    ],
+    "IPC": [
+      "Ascl1",
+      "Insm1",
+      "Ccnd2",
+      "Dlx1",
+      "Dlx2",
+      "Dll1"
+    ],
+    "Cell cycle": [
+      "Mki67",
+      "Top2a",
+      "Pcna",
+      "Mcm2",
+      "Mcm5",
+      "Ube2c"
+    ],
+    "Neuroblast": [
+      "Dcx",
+      "Tubb3",
+      "Sox11",
+      "Stmn2",
+      "Map1b",
+      "Myt1l"
+    ],
+    "Inhibitory": [
+      "Gad1",
+      "Gad2",
+      "Slc32a1",
+      "Arx",
+      "Sox6",
+      "Erbb4"
+    ],
+    "MGE": [
+      "Nkx2-1",
+      "Lhx6",
+      "Lhx8",
+      "Olig2",
+      "Shh"
+    ],
+    "LGE": [
+      "Gsx2",
+      "Meis2",
+      "Isl1",
+      "Ebf1",
+      "Foxp1"
+    ],
+    "CGE / POA": [
+      "Nr2f1",
+      "Nr2f2",
+      "Prox1",
+      "Dbx1",
+      "Hmx3"
+    ],
+    "Maturation": [
+      "Snap25",
+      "Syt1",
+      "Rbfox3",
+      "Map2"
+    ],
+    "Stress": [
+      "Fos",
+      "Jun",
+      "Atf3",
+      "Hspa1a"
+    ],
+    "Vascular": [
+      "Pecam1",
+      "Cdh5",
+      "Cldn5",
+      "Kdr",
+      "Pdgfrb",
+      "Rgs5"
+    ],
+    "Erythroid": [
+      "Gata1",
+      "Klf1",
+      "Alas2",
+      "Slc4a1",
+      "Hbb-y",
+      "Hbb-bh1"
+    ]
+  },
+  "scoring": {
+    "normalization_target": 1000000,
+    "log_base": "natural",
+    "n_bins": 25,
+    "control_size": 50,
+    "random_seed": 20260908,
+    "min_available_genes": 3,
+    "positive_score_threshold": 0.1,
+    "min_detected_genes_positive": 2,
+    "full_chunk_size": 4096
+  },
+  "cycle_reference": {
+    "path": "hicat_validation_references/regev_lab_cell_cycle_genes.txt",
+    "sha256": "eb666ba4f7b7a8b2845e1586d42687feaf813e9fa1fdadba89dacd4093411ac0",
+    "n_S": 43,
+    "n_G2M": 54,
+    "source_archive": "https://www.dropbox.com/s/3dby3bjsaf5arrw/cell_cycle_vignette_files.zip?dl=1",
+    "renamed_aliases": {
+      "MLF1IP": "Cenpu",
+      "FAM64A": "Pimreg",
+      "HN1": "Jpt1"
+    }
+  },
+  "identity_cycle_exclusions": [
+    "Ccnd1",
+    "Ccnd2",
+    "Ccnd3",
+    "Mki67",
+    "Top2a",
+    "Pcna",
+    "MCM5",
+    "PCNA",
+    "TYMS",
+    "FEN1",
+    "MCM2",
+    "MCM4",
+    "RRM1",
+    "UNG",
+    "GINS2",
+    "MCM6",
+    "CDCA7",
+    "DTL",
+    "PRIM1",
+    "UHRF1",
+    "MLF1IP",
+    "HELLS",
+    "RFC2",
+    "RPA2",
+    "NASP",
+    "RAD51AP1",
+    "GMNN",
+    "WDR76",
+    "SLBP",
+    "CCNE2",
+    "UBR7",
+    "POLD3",
+    "MSH2",
+    "ATAD2",
+    "RAD51",
+    "RRM2",
+    "CDC45",
+    "CDC6",
+    "EXO1",
+    "TIPIN",
+    "DSCC1",
+    "BLM",
+    "CASP8AP2",
+    "USP1",
+    "CLSPN",
+    "POLA1",
+    "CHAF1B",
+    "BRIP1",
+    "E2F8",
+    "HMGB2",
+    "CDK1",
+    "NUSAP1",
+    "UBE2C",
+    "BIRC5",
+    "TPX2",
+    "TOP2A",
+    "NDC80",
+    "CKS2",
+    "NUF2",
+    "CKS1B",
+    "MKI67",
+    "TMPO",
+    "CENPF",
+    "TACC3",
+    "FAM64A",
+    "SMC4",
+    "CCNB2",
+    "CKAP2L",
+    "CKAP2",
+    "AURKB",
+    "BUB1",
+    "KIF11",
+    "ANP32E",
+    "TUBB4B",
+    "GTSE1",
+    "KIF20B",
+    "HJURP",
+    "CDCA3",
+    "HN1",
+    "CDC20",
+    "TTK",
+    "CDC25C",
+    "KIF2C",
+    "RANGAP1",
+    "NCAPD2",
+    "DLGAP5",
+    "CDCA2",
+    "CDCA8",
+    "ECT2",
+    "KIF23",
+    "HMMR",
+    "AURKA",
+    "PSRC1",
+    "ANLN",
+    "LBR",
+    "CKAP5",
+    "CENPE",
+    "CTCF",
+    "NEK2",
+    "G2E3",
+    "GAS2L3",
+    "CBX5",
+    "CENPA"
+  ],
+  "candidate_gene_decisions": [
+    {
+      "genes": [
+        "Eomes",
+        "Neurog1",
+        "Neurog2"
+      ],
+      "decision": "Separate cortical excitatory comparator; not required in MGE IPC.",
+      "source": "mayer2018"
+    },
+    {
+      "genes": [
+        "Tbr1"
+      ],
+      "decision": "Separate cortical excitatory comparator; not a core MGE neuroblast requirement.",
+      "source": "mayer2018"
+    },
+    {
+      "genes": [
+        "Hopx",
+        "Tnc",
+        "Pdgfd",
+        "Lpar1"
+      ],
+      "decision": "Exploratory basal-RG-like comparator; no anatomical oRG claim.",
+      "source": "pollen2015"
+    },
+    {
+      "genes": [
+        "Pvalb",
+        "Sst"
+      ],
+      "decision": "Not required for immature E14.5 neuronal identity; can remain weak before adult subtype maturation.",
+      "source": "mayer2018"
+    }
+  ]
+}

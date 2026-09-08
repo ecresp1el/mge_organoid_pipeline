@@ -36,7 +36,8 @@ class PilotStatusLedger:
             with self.path.open() as handle:
                 rows={row['run_id']:row for row in csv.DictReader(handle,delimiter='\t')}
         stages={'00_method_and_technical_pilot':'pcdh19_hicat_pilot.h5ad',
-                '01_coarse_fine_expanded_pilot':'pcdh19_hicat_coarse_fine.h5ad'}
+                '01_coarse_fine_expanded_pilot':'pcdh19_hicat_coarse_fine.h5ad',
+                '02_hierarchy_validation':'pcdh19_hicat_hierarchy_validation.h5ad'}
         runs=sorted(run for stage in stages for run in (self.root/stage).glob('hicat_*') if run.is_dir())
         for run in runs:
             if rows.get(run.name,{}).get('status') in ('APPROVED','REJECTED'):
@@ -44,7 +45,8 @@ class PilotStatusLedger:
             statusfile=run/'outputs/STEP_STATUS.json'
             failure=run/'COMPUTATION_FAILED.txt'
             if not statusfile.exists() and not failure.exists():continue
-            cfg=json.loads((run/'config/hicat_pilot.json').read_text())
+            config_name='hicat_validation.json' if run.parent.name=='02_hierarchy_validation' else 'hicat_pilot.json'
+            cfg=json.loads((run/'config'/config_name).read_text())
             success=statusfile.exists()
             identityfile=run/'inputs/input_identity.json'
             shape=json.loads(identityfile.read_text())['shape'] if identityfile.exists() else ['','']
