@@ -126,6 +126,17 @@ stream.
 
 ## HiCAT cluster discovery: method and technical pilot
 
+The next authorized checkpoint is the
+[expanded coarse-to-fine pilot](HICAT_COARSE_FINE_PROTOCOL.md): 1,000 cells per
+sample (12,000 total), explicit coarse parents and recursive fine children,
+ranked top-20 genes plus complete gene statistics, dendrograms and per-cluster
+heatmaps. Normalization is performed once; no batch correction is added.
+
+The [completed coarse/fine handoff](HICAT_COARSE_FINE_HANDOFF.md) links the
+89-page gene/dendrogram report, individual cluster-location views, ranked gene
+tables, AnnData and validation. Baseline found 4 coarse/38 fine groups; the seed
+repeat found 5/39, with weak pairs and fine membership instability still IN_REVIEW.
+
 On 2026-09-08 the user authorized the method/asset specification and a small
 technical pilot for pooled cluster discovery, with no biological annotation.
 The [HiCAT protocol](HICAT_CLUSTER_DISCOVERY_PROTOCOL.md) defines the pinned

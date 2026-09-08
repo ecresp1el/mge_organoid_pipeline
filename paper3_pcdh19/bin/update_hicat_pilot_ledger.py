@@ -35,7 +35,10 @@ class PilotStatusLedger:
         if self.path.exists():
             with self.path.open() as handle:
                 rows={row['run_id']:row for row in csv.DictReader(handle,delimiter='\t')}
-        for run in sorted((self.root/'00_method_and_technical_pilot').glob('hicat_pilot_*')):
+        stages={'00_method_and_technical_pilot':'pcdh19_hicat_pilot.h5ad',
+                '01_coarse_fine_expanded_pilot':'pcdh19_hicat_coarse_fine.h5ad'}
+        runs=sorted(run for stage in stages for run in (self.root/stage).glob('hicat_*') if run.is_dir())
+        for run in runs:
             if rows.get(run.name,{}).get('status') in ('APPROVED','REJECTED'):
                 continue
             statusfile=run/'outputs/STEP_STATUS.json'
@@ -46,12 +49,12 @@ class PilotStatusLedger:
             identityfile=run/'inputs/input_identity.json'
             shape=json.loads(identityfile.read_text())['shape'] if identityfile.exists() else ['','']
             row={key:'' for key in self.fields}
-            row.update(stage='00_method_and_technical_pilot',run_id=run.name,
+            row.update(stage=run.parent.name,run_id=run.name,
                        status='IN_REVIEW' if success else 'FAILED',
                        job_id=(run/'provenance/job_id.txt').read_text().strip(),
                        scope=cfg['scope'],source_step02_run_id=cfg['step02_run_id'],
                        cells=shape[0],genes=shape[1],
-                       output_checkpoint=str(run/'outputs/pcdh19_hicat_pilot.h5ad') if success else '',
+                       output_checkpoint=str(run/'outputs'/stages[run.parent.name]) if success else '',
                        notes='Technical pilot only; no full-data K or annotation.' if success else 'See immutable failure marker and scheduler logs; no output checkpoint published.')
             rows[run.name]=row
         temporary=self.path.with_suffix('.tsv.tmp')
