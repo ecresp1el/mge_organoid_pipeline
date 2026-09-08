@@ -54,6 +54,9 @@ display computes the same formula using totals across all 19,071 genes before
 selecting canonical genes. Neither scoring nor plotting changes raw counts.
 
 The output root is `results/hicat/02_hierarchy_validation/<RUN_ID>/outputs/`.
+Here `02` is the HiCAT subworkflow's third asset stage (after method pilot `00`
+and expanded pilot `01`); the requested primary-workflow checkpoint is **Step
+07**. These refer to the same validation run, not two different analyses.
 
 | Asset | Saved content and intended use |
 |---|---|
@@ -79,6 +82,14 @@ statistics remain in the earlier immutable pilot; Step 07 links them and copies
 the top-marker source table for review. Fewer than 20 qualifying genes is
 reported faithfully; C0001.F0011 has 197 cells and complete statistics but no
 qualifying positive marker genes in those prior reporting contexts.
+
+In the new pilot object, `uns['hicat']` preserves the original expanded-pilot
+provenance. Its historical relative model/marker paths resolve under
+`uns['hicat_validation']['original_hicat_assets_root']`. The new
+`uns['hicat_validation']` block describes this Step 07 run;
+`uns['validation_program_names']` names the score-matrix columns. The complete
+JSON and slot inventories expose these contents directly. Hypothesis labels
+and review-category tables are external assets, not adopted `obs` annotations.
 
 ## Parameters to inspect and tune in a later checkpoint
 
@@ -117,3 +128,16 @@ review and reporting. Functions document their representations and outputs.
 `provenance/hicat_progress_events.jsonl` and scheduler logs contain durable
 START/COMPLETE/FAILED messages, parameters, dimensions and elapsed time.
 Failed runs retain evidence and never receive an `IN_REVIEW` success record.
+
+Full-data metadata is read selectively with h5py: cell/gene IDs, source
+sample/QC fields, matrix shape and existing UMAP. Unneeded Step 06 `uns`
+encodings are not parsed by the older Allen-compatible AnnData environment.
+This avoids a format-compatibility failure without rewriting the source object.
+
+A failed downstream display/report step may be recovered in a new versioned
+run using `reuse_completed_sensitivity_run` and its fixed manifest SHA-256.
+Recovery requires identical pilot bytes, seed, complete engine controls,
+upstream pin and fitting-code hashes; all completed candidate files are
+verified and copied. The original failed run is preserved. Reuse is recorded
+in provenance and does not fit another comparison. Omit the reuse keys for a
+fresh fit; a changed scientific configuration is never silently reused.

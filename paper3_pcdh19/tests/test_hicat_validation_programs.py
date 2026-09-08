@@ -1,5 +1,7 @@
 """Independent reference and streamed-source checks for Step07 score assets."""
 import json
+import hashlib
+import h5py
 from pathlib import Path
 import tempfile
 import unittest
@@ -9,7 +11,7 @@ import pandas as pd
 import scanpy as sc
 from scipy import sparse
 from hicat.validation_programs import CanonicalProgramScorer, normalize_log1p_cpm
-from hicat.validation_full import FullDataProjector
+from hicat.validation_full import FullDataProjector, read_full_metadata
 
 
 class ProgramScoringContracts(unittest.TestCase):
@@ -93,6 +95,42 @@ class ProgramScoringContracts(unittest.TestCase):
             pilot.obs.iloc[0,pilot.obs.columns.get_loc('technical_sample_id')]='wrong_sample'
             with self.assertRaisesRegex(ValueError,'technical sample identity'):
                 FullDataProjector(source,directory/'mismatch',chunk_size=13).run(pilot,scorer)
+
+
+    def test_modern_null_uns_is_ignored_without_changing_source(self):
+        """Selective metadata reading survives modern uns unsupported by old Allen env."""
+        full,cfg=self.fixture()
+        full.obs['submitted_sample_name']=['sample α','sample β']*40
+        full.obs['n_genes_by_counts']=pd.array([None]+list(range(1,80)),dtype='Int64')
+        with tempfile.TemporaryDirectory() as directory:
+            directory=Path(directory)
+            source=directory/'modern_uns_full.h5ad'
+            full.write_h5ad(source)
+            with h5py.File(source,'r+') as handle:
+                marker=handle['uns'].create_dataset('modern_null',data=h5py.Empty('f'))
+                marker.attrs['encoding-type']='null'
+                marker.attrs['encoding-version']='0.1.0'
+            before=hashlib.sha256(source.read_bytes()).hexdigest()
+            obs,var,coords,shape=read_full_metadata(source)
+            self.assertEqual(shape,full.shape)
+            self.assertEqual(obs['submitted_sample_name'].astype(str).iloc[0],'sample α')
+            self.assertTrue(pd.isna(obs['n_genes_by_counts'].iloc[0]))
+            self.assertEqual(obs['n_genes_by_counts'].iloc[1],1)
+            np.testing.assert_array_equal(coords,full.obsm['X_umap'])
+            # Reproduce the actual compatibility failure in the pinned 0.8 env.
+            if tuple(int(v) for v in ad.__version__.split('.')[:2]) < (0,10):
+                with self.assertRaises(Exception) as error:
+                    ad.read_h5ad(source,backed='r')
+                self.assertIn('null',str(error.exception))
+            pilot=full[:40].copy()
+            pilot.obsm['X_umap_step06_display']=pilot.obsm['X_umap'].copy()
+            pilot.layers['log1p_cpm']=normalize_log1p_cpm(pilot.X)
+            scorer=CanonicalProgramScorer(cfg)
+            scorer.fit_transform(pilot,directory/'programs')
+            summary=FullDataProjector(source,directory/'full',chunk_size=13).run(pilot,scorer)
+            self.assertEqual(summary['source_metadata_reader'],'selective_h5py_without_uns')
+            self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(),before)
+            self.assertLess(summary['pilot_score_max_abs_difference'],2e-5)
 
 
 if __name__=='__main__':

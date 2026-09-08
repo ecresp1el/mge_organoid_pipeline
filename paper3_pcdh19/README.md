@@ -10,6 +10,8 @@ and parameter sensitivity.** The authorized analysis uses the existing
 Step 06 already supplies a joint, unintegrated UMAP for display. Full-data
 marker scores and overlays are allowed; full-data clustering is not.
 See [Step 07 protocol and asset contract](HICAT_VALIDATION_PROTOCOL.md).
+The [current Step 07 run handoff](HICAT_VALIDATION_HANDOFF.md) identifies its
+versioned package, submitted job, progress logs, and review boundary.
 
 This workstream is reserved for the Ziobro PCDH19 MGE single-cell paper. It is
 separate from the Paper 2 cross-study atlas and uses the Ziobro Turbo

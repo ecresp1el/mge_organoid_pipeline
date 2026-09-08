@@ -21,7 +21,7 @@ import anndata as ad
 from scipy import sparse
 from .provenance import Progress, write_json, sha256, manifest, json_value
 from .validation_metrics import partition_overlap, sample_composition, phase_matched_identity
-from .validation_sensitivity import FixedParentSensitivity
+from .validation_sensitivity import FixedParentSensitivity, resolve_sensitivity_config
 from .validation_programs import CanonicalProgramScorer
 from .validation_full import FullDataProjector
 from .validation_report import create_report
@@ -57,6 +57,10 @@ class ValidationWorkflow:
     def load_input(self):
         """Verify exact source identity and expression before any fit or scoring."""
         cfg = self.cfg
+        self.check('authorized_review_scope', all(cfg[key] is False for key in
+                   ['full_data_clustering', 'batch_correction', 'regression', 'lock_annotations']))
+        self.check('correct_biological_context', cfg['biological_context']['developmental_age'] == 'E14.5'
+                   and cfg['biological_context']['organoid'] is False)
         source = Path(cfg['baseline_run'])/'pcdh19_hicat_coarse_fine.h5ad'
         self.check('pilot_sha256', sha256(source) == cfg['pilot_sha256'])
         self.check('full_source_sha256', sha256(cfg['full_data_source']) == cfg['full_data_sha256'])
@@ -142,14 +146,64 @@ class ValidationWorkflow:
                                     interpretation='descriptive association; not causal or corrected'))
         pd.DataFrame(records).to_csv(self.output/'tables/axis_association.tsv', sep='\t', index=False)
 
+    def reuse_completed_sensitivity(self, pilot, baseline_config):
+        """Copy a hash-verified completed candidate from a failed reporting run.
+
+        This recovery path avoids repeating the scientific comparison when a
+        later display/I/O step failed. It requires identical pilot bytes,
+        fitting code, upstream pin, complete engine controls and seed. Original
+        run evidence is preserved, and the new package records its source.
+        No missing parent, partial candidate or changed fit is accepted.
+        """
+        donor = Path(self.cfg['reuse_completed_sensitivity_run'])
+        source = donor/'staging/outputs/parameter_sensitivity'
+        donor_cfg = json.loads((donor/'config/hicat_validation.json').read_text())
+        for key in ['pilot_sha256', 'baseline_run', 'pilot_cells', 'genes', 'seed',
+                    'fine_changes', 'fixed_fine_score', 'fixed_baseline_parents', 'upstream_commit']:
+            self.check('reused_sensitivity_'+key, donor_cfg[key] == self.cfg[key])
+        resolved, _ = resolve_sensitivity_config(baseline_config, self.cfg)
+        self.check('reused_sensitivity_complete_engine_config',
+                   json.loads((source/'resolved_engine_config.json').read_text()) == resolved)
+        for name in ['engine.py', 'validation_sensitivity.py']:
+            self.check('reused_fitting_code_'+name,
+                       sha256(donor/'code/hicat'/name) == sha256(self.root/'code/hicat'/name))
+        identity = json.loads((donor/'inputs/input_identity.json').read_text())
+        self.check('reused_candidate_input_identity', identity['input_pilot_sha256'] == self.cfg['pilot_sha256'])
+        declared_path = donor/'provenance/completed_sensitivity_manifest.tsv'
+        self.check('reuse_manifest_identity', sha256(declared_path) == self.cfg['reuse_sensitivity_manifest_sha256'])
+        declared = pd.read_csv(declared_path, sep='\t')
+        measured = manifest(source)
+        self.check('reused_candidate_all_files_exact', measured.equals(declared))
+        for parent in sorted(pilot.obs.hicat_coarse_baseline.astype(str).unique()):
+            summary = json.loads((source/('fine_'+parent)/'candidate_summary.json').read_text())
+            self.check('reused_parent_completed_'+parent,
+                       summary['cells'] == int((pilot.obs.hicat_coarse_baseline.astype(str) == parent).sum()))
+        target = self.output/'parameter_sensitivity'
+        self.check('reuse_destination_empty', not any(target.iterdir()))
+        shutil.copytree(source, target, dirs_exist_ok=True)
+        alternative = pd.read_csv(target/'cell_assignments.tsv.gz', sep='\t', index_col=0).iloc[:, 0]
+        parents = pd.read_csv(target/'parent_counts.tsv', sep='\t')
+        self.check('reused_candidate_cell_order', alternative.index.equals(pilot.obs_names))
+        self.check('reused_candidate_fixed_parents',
+                   alternative.str.split('.').str[0].equals(pilot.obs.hicat_coarse_baseline.astype(str)))
+        write_json(self.root/'provenance/reused_sensitivity.json', dict(
+            donor_run=str(donor), candidate_assets=str(source), verified_files=len(declared),
+            manifest_sha256=self.cfg['reuse_sensitivity_manifest_sha256'],
+            reason='Recover completed controlled comparison after a downstream full-data metadata-reader failure.',
+            scientific_comparison_refitted=False, baseline_labels_changed=False))
+        return alternative, parents
+
     def save_checkpoint(self, pilot, original, program, report_summary, full_summary):
         """Write/round-trip the pilot object and inventory everything in uns."""
         pilot.uns['hicat_validation'] = dict(
-            stage='07_hierarchy_validation', status='IN_REVIEW', run_id=self.root.name,
+            stage='02_hierarchy_validation', primary_processing_step='07',
+            status='IN_REVIEW', run_id=self.root.name,
             tissue='dissected E14.5 mouse medial ganglionic eminence',
             annotation_locked=False, full_data_clustering=False,
             batch_correction=False, regression=False,
             input_pilot_sha256=self.cfg['pilot_sha256'],
+            original_hicat_assets_root=self.cfg['baseline_run'],
+            inherited_uns_context='uns.hicat describes the original expanded pilot; its relative external asset paths resolve under original_hicat_assets_root, not this validation package.',
             resolved_config_json=json.dumps(self.cfg, sort_keys=True),
             program_columns_json=json.dumps(program['scores'].columns.tolist()),
             program_model_asset='marker_programs/',
@@ -221,8 +275,11 @@ class ValidationWorkflow:
                 program['phase'], identity[identity_names], **self.cfg['phase_thresholds'])
             self.save_metrics('cell_cycle', 'matched_identity', metrics['phase_pairs'])
         with self.progress.track('validation.one_allen_comparison', fixed_coarse_parents=True):
-            sensitivity = FixedParentSensitivity(self.output/'parameter_sensitivity', baseline_cfg, self.cfg, self.progress)
-            alternative, parent_counts = sensitivity.run(pilot)
+            if self.cfg.get('reuse_completed_sensitivity_run'):
+                alternative, parent_counts = self.reuse_completed_sensitivity(pilot, baseline_cfg)
+            else:
+                sensitivity = FixedParentSensitivity(self.output/'parameter_sensitivity', baseline_cfg, self.cfg, self.progress)
+                alternative, parent_counts = sensitivity.run(pilot)
             pilot.obs['hicat_fine_allen_reference'] = pd.Categorical(alternative)
             metrics['allen_fine'] = partition_overlap(pilot.obs.hicat_fine_baseline, alternative,
                                                        **self.cfg['stability_thresholds'])

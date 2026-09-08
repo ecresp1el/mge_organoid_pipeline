@@ -25,4 +25,6 @@ PY
   > "${HICAT_RUN_DIR}/provenance/frozen_tests.log" 2>&1
 /home/elcrespo/miniconda3/envs/pcdh19-hicat-py38/bin/python -m hicat.validation_workflow \
   --run-dir "${HICAT_RUN_DIR}"
+/home/elcrespo/miniconda3/envs/pcdh19-hicat-py38/bin/python -m hicat.validation_verify \
+  --run-dir "${HICAT_RUN_DIR}" > "${HICAT_RUN_DIR}/provenance/independent_verification.json"
 printf 'COMPLETED\nstatus=IN_REVIEW\nscope=pilot_hierarchy_validation\n' > "${HICAT_RUN_DIR}/COMPUTATION_SUCCESS.txt"

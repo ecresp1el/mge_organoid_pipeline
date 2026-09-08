@@ -18,6 +18,83 @@ from .provenance import write_json
 from .validation_programs import normalize_log1p_cpm
 
 
+
+def _decode_column(node):
+    """Read one H5AD axis column without invoking AnnData's global registry.
+
+    Only array/string, categorical, and nullable array encodings are accepted.
+    UTF-8 strings are decoded explicitly. Categorical missing codes retain NA;
+    nullable numeric/boolean columns preserve their masks. Unsupported needed
+    columns fail clearly, while unrelated newer ``uns`` encodings are untouched.
+    """
+    if isinstance(node, h5py.Dataset):
+        if h5py.check_string_dtype(node.dtype) is not None:
+            return node.asstr()[:]
+        return node[:]
+    encoding = node.attrs.get('encoding-type', '')
+    if isinstance(encoding, bytes):
+        encoding = encoding.decode('utf-8')
+    if encoding == 'categorical' or {'codes', 'categories'}.issubset(node):
+        categories = _decode_column(node['categories'])
+        codes = np.asarray(node['codes'][:], dtype=np.int64)
+        return pd.Categorical.from_codes(codes, categories=categories,
+                                         ordered=bool(node.attrs.get('ordered', False)))
+    if {'values', 'mask'}.issubset(node):
+        values = _decode_column(node['values'])
+        mask = np.asarray(node['mask'][:], dtype=bool)
+        if len(values) != len(mask):
+            raise ValueError('Nullable column values/mask length mismatch: '+node.name)
+        if np.asarray(values).dtype.kind in 'iu':
+            result = pd.array(values, dtype='Int64')
+        elif np.asarray(values).dtype.kind == 'b':
+            result = pd.array(values, dtype='boolean')
+        elif np.asarray(values).dtype.kind in 'OUS':
+            result = pd.array(values, dtype='string')
+        else:
+            result = pd.array(values, dtype='Float64')
+        result[mask] = pd.NA
+        return result
+    raise ValueError('Unsupported required H5AD axis-column encoding %r at %s' % (encoding, node.name))
+
+
+def _read_axis(group, requested):
+    """Read an axis index and explicitly requested available columns only."""
+    index_key = group.attrs['_index']
+    if isinstance(index_key, bytes):
+        index_key = index_key.decode('utf-8')
+    index = pd.Index(_decode_column(group[index_key]), name=str(index_key))
+    if index.hasnans or not index.is_unique:
+        raise ValueError('Missing or duplicate source axis IDs: '+group.name)
+    return pd.DataFrame({key: _decode_column(group[key]) for key in requested if key in group}, index=index)
+
+
+def read_full_metadata(source):
+    """Return required source metadata and coordinates, bypassing all ``uns``.
+
+    The Step06 object was produced by a newer AnnData version than the pinned
+    Allen environment. Reading it through old AnnData would eagerly decode
+    unrelated ``uns`` entries (including modern null encodings) even in backed
+    mode. This selective HDF5 reader avoids that compatibility failure without
+    modifying the source, converting its counts, or dropping needed identity.
+    """
+    fields = ['technical_sample_id','submitted_sample_name','genotype','sex','design_group',
+              'total_counts','n_genes_by_counts','pct_counts_mt']
+    with h5py.File(source, 'r') as handle:
+        obs = _read_axis(handle['obs'], fields)
+        var = _read_axis(handle['var'], ['gene_symbol'])
+        if 'technical_sample_id' not in obs or obs['technical_sample_id'].isna().any():
+            raise ValueError('Full-data source lacks complete technical sample identity')
+        if 'gene_symbol' not in var or var['gene_symbol'].isna().any():
+            raise ValueError('Full-data source lacks complete measured gene symbols')
+        shape = tuple(int(v) for v in handle['X'].attrs['shape'])
+        if shape != (len(obs), len(var)):
+            raise ValueError('Full-data X shape disagrees with axis metadata')
+        coords = handle['obsm/X_umap'][:]
+        if coords.shape != (len(obs), 2):
+            raise ValueError('Full-data UMAP shape disagrees with cell axis')
+    return obs, var, coords, shape
+
+
 class FullDataProjector:
     """Stream fixed program scores onto the existing full-data display manifold.
 
@@ -76,35 +153,27 @@ class FullDataProjector:
             raise ValueError('Scorer must be fitted on the pilot first')
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._note('start', source=str(self.full_source), chunk_size=self.chunk_size)
-        full = ad.read_h5ad(self.full_source, backed='r')
-        try:
-            if not np.array_equal(full.var_names.astype(str), scorer.gene_ids):
-                raise ValueError('Full-data feature IDs/order do not match pilot score model')
-            if not np.array_equal(full.var['gene_symbol'].astype(str).to_numpy(), scorer.symbols):
-                raise ValueError('Full-data gene symbols do not match pilot score model')
-            if not full.obs_names.is_unique or not pilot.obs_names.is_unique:
-                raise ValueError('Cell IDs must be unique')
-            positions = full.obs_names.get_indexer(pilot.obs_names)
-            if np.any(positions < 0):
-                raise ValueError('Pilot cells are absent from full display source')
-            # Matching cell IDs is necessary but insufficient: the same cell
-            # must retain its registered sample identity in both checkpoints.
-            full_pilot_samples = full.obs['technical_sample_id'].iloc[positions].astype(str).to_numpy()
-            if not np.array_equal(full_pilot_samples, pilot.obs['technical_sample_id'].astype(str).to_numpy()):
-                raise ValueError('Full-data technical sample identity differs from pilot')
-            required = ['technical_sample_id','submitted_sample_name','genotype','sex','design_group',
-                        'total_counts','n_genes_by_counts','pct_counts_mt']
-            obs = full.obs[[c for c in required if c in full.obs]].copy()
-            for column in required[:5]:
-                if column in obs:
-                    obs[column] = obs[column].astype(str)
-            # Preserve the source coordinate values AND dtype; a float32 cast
-            # would unnecessarily alter a float64 source manifold.
-            coords = np.asarray(full.obsm['X_umap']).copy()
-            var = full.var.iloc[scorer.canonical_indices][['gene_symbol']].copy()
-            n_cells, n_genes = full.shape
-        finally:
-            full.file.close()
+        obs, full_var, coords, shape = read_full_metadata(self.full_source)
+        if not np.array_equal(full_var.index.astype(str), scorer.gene_ids):
+            raise ValueError('Full-data feature IDs/order do not match pilot score model')
+        if not np.array_equal(full_var['gene_symbol'].astype(str).to_numpy(), scorer.symbols):
+            raise ValueError('Full-data gene symbols do not match pilot score model')
+        if not pilot.obs_names.is_unique:
+            raise ValueError('Pilot cell IDs must be unique')
+        positions = obs.index.get_indexer(pilot.obs_names)
+        if np.any(positions < 0):
+            raise ValueError('Pilot cells are absent from full display source')
+        # Matching cell IDs is necessary but insufficient: the same cell must
+        # retain its registered sample identity in both checkpoints.
+        full_pilot_samples = obs['technical_sample_id'].iloc[positions].astype(str).to_numpy()
+        if not np.array_equal(full_pilot_samples, pilot.obs['technical_sample_id'].astype(str).to_numpy()):
+            raise ValueError('Full-data technical sample identity differs from pilot')
+        for column in ['technical_sample_id','submitted_sample_name','genotype','sex','design_group']:
+            if column in obs:
+                obs[column] = obs[column].astype(str)
+        # read_full_metadata preserves source coordinates and dtype exactly.
+        var = full_var.iloc[scorer.canonical_indices][['gene_symbol']].copy()
+        n_cells, n_genes = shape
         if not np.all(np.isfinite(coords)):
             raise ValueError('Full-data UMAP coordinates contain missing/nonfinite values')
         obs['is_pilot'] = False
@@ -175,7 +244,7 @@ class FullDataProjector:
                        coordinate_dtype=str(coords.dtype),coordinates_saved_without_cast=True,
                        normalization_refitted=False,score_controls_refitted_on_full_data=False,full_data_clustering=False,
                        label_transfer=False,umap_refitted=False,batch_correction=False,regression=False,
-                       full_source=str(self.full_source),asset_inventory=inventory,coverage=coverage,
+                       full_source=str(self.full_source),source_metadata_reader='selective_h5py_without_uns',asset_inventory=inventory,coverage=coverage,
                        tables=dict(cells='full_data_cells_and_umap.tsv.gz',scores='full_data_program_scores.tsv.gz',
                                    expression='full_data_canonical_expression.tsv.gz',detection='full_data_signature_detection.tsv.gz',
                                    manifold_coverage='umap_bin_pilot_coverage.tsv',program_coverage='full_vs_pilot_program_coverage.tsv'))

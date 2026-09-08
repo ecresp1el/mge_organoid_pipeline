@@ -45,9 +45,24 @@ class PilotStatusLedger:
             statusfile=run/'outputs/STEP_STATUS.json'
             failure=run/'COMPUTATION_FAILED.txt'
             if not statusfile.exists() and not failure.exists():continue
+            if run.parent.name=='02_hierarchy_validation' and statusfile.exists() and not failure.exists() and not (run/'COMPUTATION_SUCCESS.txt').exists():
+                # Step 07 publishes the object before its independent audit;
+                # do not infer final computation success while that audit runs.
+                continue
             config_name='hicat_validation.json' if run.parent.name=='02_hierarchy_validation' else 'hicat_pilot.json'
             cfg=json.loads((run/'config'/config_name).read_text())
-            success=statusfile.exists()
+            success=statusfile.exists() and not failure.exists()
+            if success:
+                note=('Step 07 pilot hierarchy validation plus full-data marker display; '
+                      'no full-data clustering or locked annotations.'
+                      if run.parent.name=='02_hierarchy_validation' else
+                      'Technical pilot only; no full-data K or annotation.')
+            elif statusfile.exists():
+                note=('Saved outputs exist, but final verification failed; '
+                      'not an accepted checkpoint. See failure marker and logs.')
+            else:
+                note=('See immutable failure marker and scheduler logs; '
+                      'no output checkpoint published.')
             identityfile=run/'inputs/input_identity.json'
             shape=json.loads(identityfile.read_text())['shape'] if identityfile.exists() else ['','']
             row={key:'' for key in self.fields}
@@ -57,7 +72,7 @@ class PilotStatusLedger:
                        scope=cfg['scope'],source_step02_run_id=cfg['step02_run_id'],
                        cells=shape[0],genes=shape[1],
                        output_checkpoint=str(run/'outputs'/stages[run.parent.name]) if success else '',
-                       notes='Technical pilot only; no full-data K or annotation.' if success else 'See immutable failure marker and scheduler logs; no output checkpoint published.')
+                       notes=note)
             rows[run.name]=row
         temporary=self.path.with_suffix('.tsv.tmp')
         with temporary.open('w',newline='') as handle:

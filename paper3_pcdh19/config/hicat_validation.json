@@ -57,6 +57,12 @@
     "marker_detection_fraction": 0.1,
     "canonical_minimum_markers": 2,
     "strong_hypothesis_minimum_markers": 3,
+    "regional_anchor_minimum_markers": 2,
+    "MGE_generic_genes_excluded_from_regional_support": [
+      "Gad1",
+      "Gad2",
+      "Arx"
+    ],
     "cycle_fraction": 0.7,
     "cycle_phase_tv": 0.4,
     "maturation_z": 0.7,
@@ -68,5 +74,7 @@
     "readiness_major_parent_fraction": 0.05,
     "maturation_max_regional_effect": 0.3,
     "maturation_max_phase_tv": 0.2
-  }
+  },
+  "reuse_completed_sensitivity_run": "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/hicat/02_hierarchy_validation/hicat_validation_20260908_220825_c8ef1930",
+  "reuse_sensitivity_manifest_sha256": "cd769fa700f766a9b3f003e4ac8df8e5dcfac6401388c3e8008b1ea3d2c8938d"
 }

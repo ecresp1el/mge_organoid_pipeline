@@ -184,6 +184,7 @@ def _overlap_order(frame):
     """Maximize correspondence within retained candidate-parent blocks only."""
     rows = list(frame.index)
     def column_key(column):
+        """Keep actual candidate parents together, then rank by baseline overlap."""
         parent = str(column).split('.')[0]
         best = int(np.argmax(frame[column].to_numpy())) if frame[column].sum() else len(rows)
         return parent, best, str(column)
@@ -408,9 +409,9 @@ def _fine_review_pages(book,pilot,review,metrics,program_cfg,config):
         _dotplot(ax,values,fraction,available,'A. Independent canonical markers: color mean ln1pCPM; dot area detection')
         if ax.get_legend():ax.get_legend().remove()
         ax=fig.add_subplot(gs[1,0]);programs=review['program_means']['fine'].loc[cluster,program_names]
-        ax.bar(np.arange(len(programs)),programs,color=['#549b81' if x>=0 else '#b4767d' for x in programs.fillna(0)])
-        ax.set_xticks(np.arange(len(programs)));ax.set_xticklabels(programs.index,rotation=90,fontsize=6)
-        ax.axhline(0,color='gray',lw=.5);ax.set_title('B. Canonical program mean scores');ax.set_ylabel('Mean signal − controls')
+        ax.barh(np.arange(len(programs)),programs,color=['#549b81' if x>=0 else '#b4767d' for x in programs.fillna(0)])
+        ax.set_yticks(np.arange(len(programs)));ax.set_yticklabels(programs.index,fontsize=6);ax.invert_yaxis()
+        ax.axvline(0,color='gray',lw=.5);ax.set_title('B. Canonical program mean scores');ax.set_xlabel('Mean signal − controls',fontsize=8)
         ax=fig.add_subplot(gs[1,1]);phase=review['phase_fractions']['fine'].loc[cluster]
         ax.bar(phase.index,phase,color=PHASE_COLORS);ax.set_ylim(0,1);ax.set_title('C. Cell-cycle composition');ax.set_ylabel('Fraction of cluster')
         ax=fig.add_subplot(gs[1,2]);sample=metrics['sample_fine']['cluster_fractions']
@@ -499,9 +500,9 @@ def _full_data_pages(book,pilot,full_context,program_cfg):
     coord_path=book.out/'full_data_projection'/'plot_coordinates.tsv.gz'
     coordinates.to_csv(coord_path,sep='\t',index_label='cell_id')
     gene_path=book.out/'full_data_projection'/'plot_gene_expression.tsv.gz'
-    genes.to_csv(gene_path,sep='\t',index_label='cell_id',float_format='%.7g')
+    genes.to_csv(gene_path,sep='\t',index_label='cell_id',float_format='%.9g')
     score_path=book.out/'full_data_projection'/'plot_program_scores.tsv.gz'
-    scores.to_csv(score_path,sep='\t',index_label='cell_id',float_format='%.7g')
+    scores.to_csv(score_path,sep='\t',index_label='cell_id',float_format='%.9g')
     sources=['full_data_projection/plot_coordinates.tsv.gz','full_data_projection/plot_gene_expression.tsv.gz','full_data_projection/plot_program_scores.tsv.gz']
     sources.append(str(Path(path).relative_to(book.out)))
     pilot_indices=full.obs_names.get_indexer(pilot.obs_names)

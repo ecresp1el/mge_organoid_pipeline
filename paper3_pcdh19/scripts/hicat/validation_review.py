@@ -20,6 +20,7 @@ EXPECTED = {'RG': 'rg_stemness', 'IPC': 'ipc_neurogenic', 'neuroblast': 'neurobl
             'endothelial': 'endothelial', 'erythroid': 'erythroid'}
 DEFAULT_THRESHOLDS = dict(program_mean_positive=0.10, marker_detection_fraction=0.10,
     canonical_minimum_markers=2, strong_hypothesis_minimum_markers=3,
+    regional_anchor_minimum_markers=2, MGE_generic_genes_excluded_from_regional_support=['Gad1','Gad2','Arx'],
     cycle_fraction=0.70, cycle_phase_tv=0.40, maturation_z=0.70,
     technical_robust_z=3.0, minimum_review_cells=30,
     readiness_minimum_nonlow_seed_fraction=0.25, readiness_median_seed_jaccard=0.50,
@@ -231,10 +232,11 @@ def review_clusters(pilot, score_frame, metrics, hypotheses_path, run_root, conf
             dev_supported = expected_dev in positive_programs
             regional_signature = (programs.get(expected_region, {}).get('genes', []) +
                 (programs.get('MGE_interneuron', {}).get('genes', []) if expected_region == 'MGE' else []))
-            regional_detected = [g for g in set(regional_signature) if g in detect and detect[g] >= thresholds['marker_detection_fraction']]
+            regional_anchor_signature=[g for g in regional_signature if expected_region!='MGE' or g not in thresholds['MGE_generic_genes_excluded_from_regional_support']]
+            regional_detected = sorted(g for g in set(regional_anchor_signature) if g in detect and detect[g] >= thresholds['marker_detection_fraction'])
             region_supported = (expected_region not in REGION or
                 ((expected_region in positive_programs or (expected_region == 'MGE' and 'MGE_interneuron' in positive_programs)) and
-                 len(regional_detected) >= thresholds['canonical_minimum_markers']))
+                 len(regional_detected) >= thresholds['regional_anchor_minimum_markers']))
             conflicts = []
             if expected_dev and _number(row.get(expected_dev)) < -thresholds['program_mean_positive']:
                 conflicts.append('Expected %s mean score is negative (%.3f)' % (expected_dev, row[expected_dev]))
@@ -242,7 +244,8 @@ def review_clusters(pilot, score_frame, metrics, hypotheses_path, run_root, conf
             counter_genes = []
             if other_region and _number(row.get(other_region)) >= thresholds['program_mean_positive']:
                 counter_genes = [g for g in programs[other_region]['genes'] if g in detect and detect[g] >= thresholds['marker_detection_fraction']]
-                if len(counter_genes) >= thresholds['canonical_minimum_markers']:
+                counter_anchors=[g for g in counter_genes if other_region!='MGE_interneuron' or g not in thresholds['MGE_generic_genes_excluded_from_regional_support']]
+                if len(counter_anchors) >= thresholds['regional_anchor_minimum_markers']:
                     conflicts.append('Alternative %s program is also positive; regional mixture/shared expression remains possible' % other_region)
             if expected_region == 'POA':
                 conflicts.append('Nkx2-1 is shared across MGE/POA; POA hypothesis requires multiple independent markers')
@@ -324,6 +327,7 @@ def review_clusters(pilot, score_frame, metrics, hypotheses_path, run_root, conf
                 Allen_merges_with=str(_get(al, ['merges_with'], '[]')), Allen_splits_into=str(_get(al, ['splits_into', 'split_targets'], '[]')),
                 stress_score=row.get('stress'), technical_concern=technical_concern, technical_flags='; '.join(qc_flags) or 'none_at_review_threshold',
                 canonical_supporting_markers='; '.join(supporting), supporting_programs='; '.join(positive_programs),
+                regional_anchor_markers='; '.join(regional_detected), regional_anchor_count=len(regional_detected),
                 conflicting_markers='; '.join(counter_genes), conflicting_evidence='; '.join(conflicts) or 'No contradiction at these descriptive thresholds; absence is not proof',
                 alternative_interpretation=h.get('alternative_interpretation', 'Unresolved'),
                 additional_markers='; '.join(h.get('additional_markers', [])),
