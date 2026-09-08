@@ -104,6 +104,17 @@ machine-readable tables, and one A–L multi-page report, then stops
 `IN_REVIEW` without correction, integration, annotation finalization, or cell
 removal.
 
+For a high-level execution map, every configurable setting, code-only marker
+and decision rules, report-to-table tracing, and a complete function index,
+read the [Step 06 code and tuning guide](STEP06_CODE_AND_TUNING_GUIDE.md).
+For the saved H5AD's exact contents, every `.uns` field, inherited metadata
+ambiguities, and information stored only in companion files, read the
+[Step 06 saved AnnData inventory](STEP06_SAVED_ANNDATA.md).
+The Python functions have NumPy-style docstrings and inline comments at
+scientific decision points. The report's automatic outcome labels remain
+heuristics requiring review; passing validation does not validate their
+biological interpretation.
+
 Future Step 06 runs also expose durable live function-level provenance through
 `provenance/step06_progress_events.jsonl` and
 `provenance/step06_progress_latest.json`. The progress viewer reports each
@@ -112,6 +123,22 @@ elapsed time, and peak memory instead of leaving long analysis phases silent.
 Job `59983804` was allowed to complete untouched and therefore retains its
 original coarse start/end logging. All future submissions use the live event
 stream.
+
+## HiCAT cluster discovery: method and technical pilot
+
+On 2026-09-08 the user authorized the method/asset specification and a small
+technical pilot for pooled cluster discovery, with no biological annotation.
+The [HiCAT protocol](HICAT_CLUSTER_DISCOVERY_PROTOCOL.md) defines the pinned
+Allen Python implementation, exact algorithm/threshold choices, source edge
+cases, saved AnnData/model/table assets, printed progress and the A–L report.
+The first pilot uses 100 randomly selected cells per sample (1,200 total),
+retaining all genes; its K is not a full-dataset estimate. Its raw expression
+comes from approved Step 02, with Step 06 coordinates used only for display.
+Full-data clustering and locking K remain later review checkpoints.
+
+The [technical-pilot handoff](HICAT_TECHNICAL_PILOT_HANDOFF.md) links the actual
+review PDF, AnnData, structured `.uns` inventory, model/evidence files and logs,
+and explains the observed 4/3/2 cluster-count sensitivity and review boundary.
 
 ## New auxiliary work: three-reference MGE curation
 

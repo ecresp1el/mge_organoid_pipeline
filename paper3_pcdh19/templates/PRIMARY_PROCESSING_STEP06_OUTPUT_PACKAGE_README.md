@@ -30,6 +30,41 @@ Matplotlib. It invokes no R runtime or R-based single-cell/plotting package.
   major function.
 - `provenance/step06_progress_latest.json`: atomically refreshed current event.
 
+## Reusable AnnData contents
+
+The H5AD contains raw sparse integer counts in `.X`, original sample/QC
+metadata, per-cell mean-log marker-program scores, descriptive Leiden labels,
+and provisional cluster-state labels in `.obs`. `.var` retains all genes and
+adds `highly_variable_step06`. `.obsm['X_pca']` and `.obsm['X_umap']` contain
+the all-cell coordinates; `.obsp` contains `distances` and `connectivities`.
+
+`.layers` is empty and `.raw` is absent: normalized/log-transformed/scaled
+matrices are not saved, and raw counts are in `.X`. PCA gene loadings are not
+saved in `.varm`. Saved coordinates can be redrawn without refitting, but
+are not a complete fitted PCA model for projecting new cells.
+
+`.uns` contains three dictionaries:
+
+| Key | Contents |
+| --- | --- |
+| `neighbors` | Graph-key names and neighbor settings: metric, neighborhood size, PC count, method, seed and unintegrated status. |
+| `primary_processing` | Inherited Step 00–02 input policies, QC calculation history and QC filtering counts/rules. |
+| `step06_diagnostics` | Upstream run ID/checksum, selected normalization/HVG/PCA/graph/UMAP/Leiden settings, seed, bypass/no-correction records and the automatic provisional outcome code/label. |
+
+The inherited `primary_processing.latest_step` remains `02_qc_filtering`;
+`step` and `forbidden_operations` retain Step 00's original scope. They are
+historical fields, not accurate current-stage or completed-operation
+indicators. `step06_diagnostics.normalization` describes the working matrix
+used to compute diagnostics, not the saved `.X`. Its input checksum refers
+to Step 02; the output H5AD checksum is in `tables/output_manifest.tsv`.
+
+The complete parameter set, PCA variance ratios, full HVG statistics,
+cluster-level standardized marker scores, mixing metrics, code/software
+identity and review status are in companion tables, frozen code/config and
+`STEP_STATUS.tsv`; they are not all embedded in `.uns`. Keep the full run
+package alongside the H5AD. The source repository's `STEP06_SAVED_ANNDATA.md`
+provides the field-by-field inventory and exact September 3 metadata snapshot.
+
 Watch a running package, including full function inputs and outputs, with:
 
 ```bash

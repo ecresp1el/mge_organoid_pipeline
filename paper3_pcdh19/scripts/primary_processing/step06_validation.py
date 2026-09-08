@@ -1,4 +1,16 @@
-"""Input-lineage, analysis-topology, and output-integrity validation."""
+"""Check approved lineage, object integrity, and diagnostic topology.
+
+Input checks bind the analysis to the exact approved Step 02 bytes and the
+rejected/skipped Steps 03-05 ledger records. Artifact checks inspect dimensions
+and finite coordinates. Serialized checks compare logical raw-count
+fingerprints and require diagnostic coordinates and graphs to round-trip.
+Methods append PASS/FAIL entries; the workflow calls require_all_pass().
+
+A passing validation ledger establishes these implementation invariants, not
+biological correctness of provisional labels or validity of heuristic cutoffs.
+The Python runtime check scans direct imports/files, not all possible runtime
+behavior or transitive dependencies.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +29,23 @@ from .step06_models import Step06Artifacts, Step06Paths, Step06Settings
 
 
 def sha256(path: Path) -> str:
-    """Calculate a streaming SHA-256 checksum."""
+    """Calculate a streaming SHA-256 checksum.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        File to read or update, as described in Notes.
+
+    Returns
+    -------
+    str
+        64-character hexadecimal SHA-256 digest.
+
+    Notes
+    -----
+    Read the supplied file in 8 MiB chunks; the file is never changed. Chunk size is an
+    I/O choice, not a scientific parameter.
+    """
 
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -27,12 +55,39 @@ def sha256(path: Path) -> str:
 
 
 class PythonRuntimeBoundaryValidator:
-    """Prove that frozen Step 06 scientific modules cannot invoke an R runtime."""
+    """Check direct Step 06 files/imports for prohibited runtime bridges.
+
+    Notes
+    -----
+    Inspect direct Step 06 source imports and suffixes against the allowed Python
+    boundary. This static check is limited; it does not prove the absence of every
+    possible dynamic/transitive runtime call.
+    """
 
     forbidden_imports = {"rpy2", "subprocess"}
 
     def validate(self, code_dir: Path, ledger: ValidationLedger) -> None:
-        """Reject R files and imports capable of bridging to an external R process."""
+        """Reject R files and imports capable of bridging to an external R process.
+
+        Parameters
+        ----------
+        code_dir : pathlib.Path
+            Frozen primary_processing directory whose direct Step 06 files are inspected.
+        ledger : ValidationLedger
+            Shared mutable PASS/FAIL ledger; caller enforces all-pass afterward.
+
+        Returns
+        -------
+        None
+            Effects are described below.
+
+        Notes
+        -----
+        Append one direct-source runtime-boundary check to ledger. Inspect only
+        step06_*.py imports and matching non-Python files in code_dir; flag rpy2 or
+        subprocess imports. This is a static guard, not proof against dynamic calls
+        or transitive dependencies. It does not execute scientific modules.
+        """
 
         step_files = sorted(code_dir.glob("step06_*.py"))
         non_python = sorted(
@@ -59,17 +114,62 @@ class PythonRuntimeBoundaryValidator:
 
 
 class Step06InputValidator:
-    """Require the approved Step 02 input and explicit Steps 03-05 bypass."""
+    """Require the approved Step 02 input and explicit Steps 03-05 bypass.
+
+    Notes
+    -----
+    Own checks binding the candidate object to the exact approved Step 02 file and
+    bypass decisions. Append evidence to the shared ledger; the workflow decides
+    when to require all checks to pass. Identity guards must not be weakened to tune
+    the analysis.
+    """
 
     def __init__(self, paths: Step06Paths, settings: Step06Settings, ledger: ValidationLedger):
-        """Store immutable contracts and the shared validation ledger."""
+        """Store immutable contracts and the shared validation ledger.
+
+        Parameters
+        ----------
+        paths : Step06Paths
+            Exact input identity, frozen lineage files, and new run destinations.
+        settings : Step06Settings
+            Resolved scientific/rendering controls; see the settings class and tuning
+            guide.
+        ledger : ValidationLedger
+            Shared mutable PASS/FAIL ledger; caller enforces all-pass afterward.
+
+        Notes
+        -----
+        Store the exact-input contract, settings, and caller-owned validation ledger.
+        """
 
         self.paths = paths
         self.settings = settings
         self.ledger = ledger
 
     def validate(self, adata: ad.AnnData) -> None:
-        """Validate lineage, bytes, checksum, matrix state, and metadata."""
+        """Validate lineage, bytes, checksum, matrix state, and metadata.
+
+        Parameters
+        ----------
+        adata : anndata.AnnData
+            Loaded approved Step 02 candidate to inspect; X should be raw counts.
+
+        Returns
+        -------
+        None
+            Effects are described below.
+
+        Notes
+        -----
+        Append checks for basic parameter consistency, exact upstream APPROVED
+        status/manifest/bytes/SHA-256, bypass ledger entries, shape, sparse integer X,
+        required metadata, absence of rejected scDblFinder fields, and ALL marker
+        genes. Does not modify AnnData. A present bypass document is checked for
+        existence, not semantically parsed. These are bounded structural checks;
+        not every possible invalid parameter or metadata inconsistency is tested.
+        Malformed/missing files can raise immediately; recorded FAIL entries are
+        raised by the workflow's subsequent require_all_pass().
+        """
 
         parameter_contract = (
             1 <= self.settings.n_jobs
@@ -137,16 +237,54 @@ class Step06InputValidator:
 
 
 class Step06OutputValidator:
-    """Validate full-cell diagnostics and raw-count preservation."""
+    """Validate full-cell diagnostics and raw-count preservation.
+
+    Notes
+    -----
+    Own structural checks on analysis artifacts and the reopened output checkpoint.
+    Verify dimensions, finite coordinates and raw-count preservation; these checks
+    do not establish biological accuracy or calibrate the outcome thresholds.
+    """
 
     def __init__(self, settings: Step06Settings, ledger: ValidationLedger):
-        """Store immutable settings and the shared ledger."""
+        """Store immutable settings and the shared ledger.
+
+        Parameters
+        ----------
+        settings : Step06Settings
+            Resolved scientific/rendering controls; see the settings class and tuning
+            guide.
+        ledger : ValidationLedger
+            Shared mutable PASS/FAIL ledger; caller enforces all-pass afterward.
+
+        Notes
+        -----
+        Store expected shapes and the shared validation ledger.
+        """
 
         self.settings = settings
         self.ledger = ledger
 
     def validate_artifacts(self, artifacts: Step06Artifacts) -> None:
-        """Validate embeddings, graphs, annotations, HVGs, and rendering scope."""
+        """Validate embeddings, graphs, annotations, HVGs, and rendering scope.
+
+        Parameters
+        ----------
+        artifacts : Step06Artifacts
+            Full-cell coordinates, graphs, scores and HVG/pseudobulk results in input
+            order.
+
+        Returns
+        -------
+        None
+            Effects are described below.
+
+        Notes
+        -----
+        Append shape, finite-coordinate, graph-size, HVG-count, annotation-row and
+        unique rendering-subset checks. Does not refit or change artifacts. These
+        checks do not validate cluster identities or the diagnostic outcome rule.
+        """
 
         expected = self.settings.expected_cells
         self.ledger.add("pca_shape", "analysis", artifacts.pca.shape == (expected, self.settings.pca_components), artifacts.pca.shape, (expected, self.settings.pca_components), "PCA must represent all cells.")
@@ -158,7 +296,29 @@ class Step06OutputValidator:
         self.ledger.add("rendering_is_subset", "rendering", len(artifacts.rendering_cells) <= self.settings.render_max_cells and artifacts.rendering_cells["cell_id"].is_unique, len(artifacts.rendering_cells), f"<= {self.settings.render_max_cells}", "Downsampling is permitted only for rendering.")
 
     def validate_serialized(self, output: ad.AnnData, original_fingerprint: str, output_fingerprint: str) -> None:
-        """Validate the published review checkpoint after round trip."""
+        """Validate the staged review checkpoint after its H5AD round trip.
+
+        Parameters
+        ----------
+        output : anndata.AnnData
+            Reopened staged output checkpoint.
+        original_fingerprint : str
+            Logical sparse-count fingerprint of approved Step 02.
+        output_fingerprint : str
+            Logical sparse-count fingerprint computed from the saved candidate H5AD.
+
+        Returns
+        -------
+        None
+            Effects are described below.
+
+        Notes
+        -----
+        Check the REOPENED staged H5AD before publication: all cells/genes, matching
+        logical raw-count fingerprints, sparse integer X, no rejected doublet fields,
+        and presence of PCA/UMAP/graphs. Append ledger entries without changing output.
+        Fingerprint computation is performed by the workflow, not this method.
+        """
 
         self.ledger.add("output_shape", "output", output.shape == (self.settings.expected_cells, self.settings.expected_genes), output.shape, (self.settings.expected_cells, self.settings.expected_genes), "The output must retain all approved cells and genes.")
         self.ledger.add("raw_matrix_unchanged", "output", output_fingerprint == original_fingerprint, output_fingerprint, original_fingerprint, "No raw count may change.")

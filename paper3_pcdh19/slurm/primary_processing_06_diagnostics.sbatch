@@ -12,6 +12,7 @@ set -Eeuo pipefail
 : "${PAPER3_PRIMARY_PYTHON_BIN:?Python interpreter is required}"
 RUN_DIR="${PAPER3_PRIMARY_RUN_DIR}"
 
+# failed(line, status): ERR trap writes a run-local failure marker with job ID/time; no retry.
 failed() {
   local line="$1" status="$2"
   printf 'COMPUTATION_FAILED\nstep=06_technical_sample_batch_diagnostics\njob_id=%s\nline=%s\nexit_status=%s\ntime=%s\n' "${SLURM_JOB_ID:-unknown}" "${line}" "${status}" "$(date --iso-8601=seconds)" > "${RUN_DIR}/COMPUTATION_FAILED.txt"
@@ -19,11 +20,13 @@ failed() {
 trap 'failed "${LINENO}" "$?"' ERR
 
 # shellcheck disable=SC1090
+# Frozen configuration -> explicit CLI options below -> dataclass settings. Repository edits have no effect.
 source "${RUN_DIR}/config/resolved.env"
 export PYTHONPATH="${RUN_DIR}/code"
 export PYTHONHASHSEED=0
 export LC_ALL=C
 export TZ=UTC
+# Execution controls only: thread limits follow the scheduler allocation, separate from scientific knobs.
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
 export OPENBLAS_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
 export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
@@ -39,6 +42,7 @@ mkdir -p "${MPLCONFIGDIR}"
   echo "python=$("${PAPER3_PRIMARY_PYTHON_BIN}" --version 2>&1)"
 } > "${RUN_DIR}/provenance/runtime_environment.txt"
 
+# This invocation runs the analysis. --help on the module lists flags without starting it.
 "${PAPER3_PRIMARY_PYTHON_BIN}" -m primary_processing.step06_cli \
   --input-h5ad "${INPUT_H5AD}" \
   --input-status "${RUN_DIR}/config/input_step02_STEP_STATUS.tsv" \
@@ -73,5 +77,6 @@ mkdir -p "${MPLCONFIGDIR}"
   --plot-dpi "${PRIMARY_PROCESSING_STEP06_PLOT_DPI}" \
   --compression "${PRIMARY_PROCESSING_STEP06_COMPRESSION}"
 
+# This marker means computation finished; the scientific review state remains IN_REVIEW.
 printf 'COMPUTATION_SUCCESS\nstep=06_technical_sample_batch_diagnostics\nstatus=IN_REVIEW\ninput=approved_step02\nsteps_03_05=bypassed\nintegration=none\ncells_removed=0\njob_id=%s\ncompleted=%s\n' "${SLURM_JOB_ID:-unknown}" "$(date --iso-8601=seconds)" > "${RUN_DIR}/COMPUTATION_SUCCESS.txt"
 rm -f "${RUN_DIR}/COMPUTATION_FAILED.txt"

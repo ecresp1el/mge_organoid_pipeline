@@ -1,4 +1,11 @@
-"""Command-line entry point for Step 06 unintegrated diagnostics."""
+"""Parse explicit Step 06 paths and settings, then execute the workflow.
+
+The SLURM wrapper supplies every argument from the frozen resolved.env.
+``parser`` declares types; ``main`` separates Step06Paths from Step06Settings
+and calls Step06Workflow.run. There is no implicit selection of latest input.
+Use --help to inspect the argument names without running analysis; read
+STEP06_CODE_AND_TUNING_GUIDE.md for units, effects and fixed code choices.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +17,18 @@ from .step06_workflow import Step06Workflow
 
 
 def parser() -> argparse.ArgumentParser:
-    """Construct the explicit approved-input and diagnostic parameter contract."""
+    """Construct the explicit approved-input and diagnostic parameter contract.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        Parser with required path, identity and scientific/rendering arguments.
+
+    Notes
+    -----
+    Declares types but does not run analysis. No Python dataclass default is silently used
+    by this CLI: every scientific setting is required.
+    """
 
     command = argparse.ArgumentParser(description=__doc__)
     command.add_argument("--input-h5ad", type=Path, required=True)
@@ -34,7 +52,19 @@ def parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    """Run the frozen Step 06 workflow and report its review boundary."""
+    """Run the frozen Step 06 workflow and report its review boundary.
+
+    Returns
+    -------
+    None
+        Effects are described below.
+
+    Notes
+    -----
+    Read process arguments, construct path/settings containers, run the full workflow, and
+    print its output path/status. This function performs analysis and file writes; --help
+    exits in argparse before workflow construction.
+    """
 
     arguments = vars(parser().parse_args())
     path_names = {

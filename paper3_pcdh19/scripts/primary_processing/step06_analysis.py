@@ -1,4 +1,17 @@
-"""Full-cell unintegrated preprocessing and descriptive state analysis."""
+"""Compute the full-cell diagnostic representations used by Step 06.
+
+Read this module in execution order: ``Step06Analyzer.run`` selects HVGs on
+raw counts, aggregates sample pseudobulks, normalizes/log-transforms a working
+AnnData, scales an HVG copy, and computes PCA -> neighbors -> UMAP/Leiden.
+``ProgramScorer`` assigns descriptive cluster states; ``RenderingSampler``
+selects cells only for displaying those already-computed results.
+
+The analyzer MUTATES its in-memory input. It never writes the approved H5AD.
+The workflow reloads pristine raw counts before assembling the output H5AD.
+Scientific settings come from ``Step06Settings``; literal algorithm options
+and marker lists are documented beside their calls. See
+``paper3_pcdh19/STEP06_CODE_AND_TUNING_GUIDE.md`` for the parameter map.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +25,21 @@ from .step06_progress import NullStep06ProgressTracker
 
 
 def marker_programs() -> dict[str, tuple[str, ...]]:
-    """Return the fixed broad marker programs used for descriptive states."""
+    """Return the fixed broad marker programs used for descriptive states.
+
+    Returns
+    -------
+    dict[str, tuple[str, ...]]
+        Fresh ordered mapping from ten broad program names to mouse gene symbols.
+
+    Notes
+    -----
+    Code-only tuning point: edit the marker tuples here. Programs overlap and
+    are descriptive axes, not mutually exclusive cell identities. MGE identity,
+    for example, competes with developmental states in the winner rule. Input
+    validation currently requires EVERY listed gene to be present in gene_symbol;
+    changing a panel therefore also changes the input contract.
+    """
 
     return {
         "Cycling progenitor": ("Mki67", "Top2a", "Pcna", "Cdk1", "Ccnb1"),
@@ -31,10 +58,46 @@ def marker_programs() -> dict[str, tuple[str, ...]]:
 
 
 class PseudobulkBuilder:
-    """Aggregate all raw counts by sample and return log-CPM expression."""
+    """Aggregate all raw counts by sample and return log-CPM expression.
+
+    Notes
+    -----
+    Own the sample-level expression summary used in panel K. Aggregate raw counts
+    before any working-object normalization; the selected-gene denominator is
+    explicit in build(). This component does not fit a differential expression
+    model.
+    """
 
     def build(self, adata, sample_field: str, gene_mask: np.ndarray) -> pd.DataFrame:
-        """Calculate sample pseudobulks using every retained cell."""
+        """Calculate sample pseudobulks using every retained cell.
+
+        Parameters
+        ----------
+        adata : anndata.AnnData
+            Raw sparse counts in X; obs contains sample_field.
+        sample_field : str
+            Registered sample column used for aggregation; default technical_sample_id.
+        gene_mask : numpy.ndarray of bool
+            Length n_genes mask; workflow passes the selected HVGs.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Samples by selected genes, containing natural-log(1 + CPM).
+
+        Raises
+        ------
+        ValueError
+            A selected-gene pseudobulk has zero total counts.
+
+        Notes
+        -----
+        Run BEFORE normalization: sum raw integer counts across all cells per sample,
+        restricted to gene_mask, then divide by each sample's total WITHIN that mask
+        and multiply by 1,000,000. This denominator is HVG-only in Step 06, not the
+        whole transcriptome. The result is used for Pearson similarity, not DE.
+        The input AnnData and counts are not mutated.
+        """
 
         samples = pd.Index(adata.obs[sample_field].astype(str).unique()).sort_values()
         codes = pd.Categorical(adata.obs[sample_field].astype(str), categories=samples).codes
@@ -43,6 +106,7 @@ class PseudobulkBuilder:
             shape=(len(samples), adata.n_obs),
         )
         counts = design @ adata.X[:, gene_mask]
+        # Denominator is selected genes only (HVGs here), not all genes in the original panel.
         totals = np.asarray(counts.sum(axis=1)).ravel()
         if np.any(totals <= 0):
             raise ValueError("A sample pseudobulk has zero total counts")
@@ -51,10 +115,48 @@ class PseudobulkBuilder:
 
 
 class ProgramScorer:
-    """Calculate transparent mean-log-expression programs and cluster labels."""
+    """Calculate transparent mean-log-expression programs and cluster labels.
+
+    Notes
+    -----
+    Own the broad-state marker scoring and cluster winner rule used in panel H. Read
+    full-gene log1p expression and precomputed Leiden labels. Scores are relative
+    descriptive evidence with no confidence calibration or unknown category.
+    """
 
     def score(self, adata, clusters: pd.Series) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Return per-cell scores and cluster-level standardized program means."""
+        """Return per-cell scores and cluster-level standardized program means.
+
+        Parameters
+        ----------
+        adata : anndata.AnnData
+            Full-gene, log1p-normalized working AnnData with unique gene_symbol lookup.
+        clusters : pandas.Series
+            Leiden labels in exactly the AnnData row order.
+
+        Returns
+        -------
+        tuple[pandas.DataFrame, pandas.DataFrame]
+            Per-cell UNSTANDARDIZED program means and cluster means of standardized
+            scores, with provisional_state.
+
+        Raises
+        ------
+        ValueError
+            A marker program has no genes available.
+
+        Notes
+        -----
+        For each program, average log1p-normalized expression of its present genes.
+        Standardize each program ACROSS ALL CELLS using population SD (ddof=0), then
+        average these standardized scores within each Leiden cluster. The largest
+        cluster mean wins; every cell in that cluster receives the same state later.
+        Ties select the first program in marker_programs order. There is no minimum
+        score, confidence margin, unknown class, or matched control-gene subtraction.
+        This is not scanpy.tl.score_genes, HiCAT, or final biological annotation.
+        Input X is read, not modified. Direct use tolerates missing genes if at least
+        one per program remains; workflow validation is stricter (all genes required).
+        """
 
         symbols = pd.Series(np.arange(adata.n_vars), index=adata.var["gene_symbol"].astype(str))
         scores: dict[str, np.ndarray] = {}
@@ -65,10 +167,12 @@ class ProgramScorer:
             positions = symbols.loc[present].to_numpy(int)
             scores[name] = np.asarray(adata.X[:, positions].mean(axis=1)).ravel()
         frame = pd.DataFrame(scores, index=adata.obs_names)
+        # Standardize programs across cells, then average by cluster; no control-gene subtraction.
         standard = (frame - frame.mean()) / frame.std(ddof=0).replace(0, 1)
         grouped = standard.assign(leiden=clusters.astype(str).to_numpy()).groupby(
             "leiden", observed=True
         ).mean()
+        # CODE-ONLY decision: highest score wins even if weak; ties use first program order.
         grouped["provisional_state"] = grouped.idxmax(axis=1)
         safe_names = {
             name: "program_" + "".join(
@@ -80,15 +184,54 @@ class ProgramScorer:
 
 
 class RenderingSampler:
-    """Choose a deterministic balanced subset exclusively for plotting."""
+    """Choose a deterministic balanced subset exclusively for plotting.
+
+    Notes
+    -----
+    Own the deterministic balanced display subset. The selected row positions are
+    reused across report panels so the views remain comparable. No numerical
+    analysis is allowed to use this subset as its fitting data.
+    """
 
     def __init__(self, settings: Step06Settings):
-        """Store the fixed cap and random seed."""
+        """Store the fixed cap and random seed.
+
+        Parameters
+        ----------
+        settings : Step06Settings
+            Resolved scientific/rendering controls; see the settings class and tuning
+            guide.
+
+        Notes
+        -----
+        Stores settings only; no random selection occurs until select().
+        """
 
         self.settings = settings
 
     def select(self, obs: pd.DataFrame) -> pd.DataFrame:
-        """Return selected cell IDs with their full-data row positions."""
+        """Return selected cell IDs with their full-data row positions.
+
+        Parameters
+        ----------
+        obs : pandas.DataFrame
+            All retained cells in artifact row order, with sample/design and raw QC
+            columns.
+
+        Returns
+        -------
+        pandas.DataFrame
+            cell_id and sorted original row_position for the display subset.
+
+        Notes
+        -----
+        Divide render_max_cells evenly across registered samples, draw without
+        replacement using random_seed, and keep all cells of smaller samples. Unused
+        quota is not redistributed. Only plots consume this subset; it never defines
+        HVGs, PCA, the graph, clusters, or numerical summaries. With a cap smaller
+        than the number of samples, the per-sample minimum of one can exceed the cap
+        and the workflow output validation will reject the result.
+        """
 
         rng = np.random.default_rng(self.settings.random_seed)
         groups = obs.groupby(self.settings.sample_field, observed=True).indices
@@ -105,16 +248,68 @@ class RenderingSampler:
 
 
 class Step06Analyzer:
-    """Run the documented diagnostic workflow without batch correction."""
+    """Run the documented diagnostic workflow without batch correction.
+
+    Notes
+    -----
+    Own transformations and full-cell numerical representations, not file
+    publication. The input is a disposable raw-count AnnData; run() mutates its X
+    and returns compact artifacts. The workflow is responsible for restoring
+    raw-count provenance in the published object.
+    """
 
     def __init__(self, settings: Step06Settings, progress=None):
-        """Store immutable settings and the run-scoped progress publisher."""
+        """Store immutable settings and the run-scoped progress publisher.
+
+        Parameters
+        ----------
+        settings : Step06Settings
+            Resolved scientific/rendering controls; see the settings class and tuning
+            guide.
+        progress : Step06ProgressTracker or None
+            Optional event publisher; None selects the no-I/O tracker.
+
+        Notes
+        -----
+        Store settings and the optional progress adapter; no analysis runs here.
+        """
 
         self.settings = settings
         self.progress = progress or NullStep06ProgressTracker()
 
     def run(self, adata) -> Step06Artifacts:
-        """Compute HVGs, PCA, neighbors, UMAP, Leiden, states, and pseudobulk."""
+        """Compute HVGs, PCA, neighbors, UMAP, Leiden, states, and pseudobulk.
+
+        Parameters
+        ----------
+        adata : anndata.AnnData
+            Disposable in-memory copy of approved Step 02, raw sparse counts, n_cells by
+            n_genes.
+
+        Returns
+        -------
+        Step06Artifacts
+            All-cell analysis arrays/tables; annotations retain input cell IDs and
+            coordinate arrays retain input row order.
+
+        Notes
+        -----
+        Mutates adata.X in memory by normalize_total(target_sum) then log1p, and adds
+        HVG metadata. Calls seurat_v3 HVG selection on raw counts with sample_field as
+        batch_key before that transformation. This is sample-aware gene selection,
+        not integration. Pseudobulk also uses counts before transformation.
+
+        A separate HVG-only copy is scaled with zero_center=False and max_value=10;
+        PCA then centers it (zero_center=True, ARPACK). All configured PCs feed the
+        cosine neighbor graph. UMAP and Leiden use that shared unintegrated graph.
+        Leiden fixes flavor=igraph, directed=False, n_iterations=2. Marker scoring
+        reads the full-gene log1p object, not the scaled HVG copy. No cells are removed.
+
+        Tuning: settings controls gene count, normalization target, PC count, graph,
+        UMAP, resolution, seed and rendering cap. Scaling, solver, Leiden iteration
+        count and marker definitions are code-only options. The workflow later
+        RELOADS approved raw counts; normalized X is not the published checkpoint X.
+        """
 
         self.progress.note(
             "analysis",
@@ -129,6 +324,7 @@ class Step06Analyzer:
             },
             {"analysis_mode": "unintegrated", "cells_removed": 0},
         )
+        # Phase 1: raw-count operations MUST precede normalize_total/log1p.
         sc.settings.n_jobs = self.settings.n_jobs
         with self.progress.track(
             "analysis.hvg",
@@ -142,6 +338,7 @@ class Step06Analyzer:
                 "subset": False,
             },
         ) as event:
+            # batch_key balances feature selection across registered samples; it does not correct expression.
             sc.pp.highly_variable_genes(
                 adata,
                 flavor=self.settings.hvg_flavor,
@@ -186,6 +383,7 @@ class Step06Analyzer:
                 {"samples": pseudobulk.shape[0], "genes": pseudobulk.shape[1]}
             )
 
+        # Phase 2: mutate only this disposable full-gene working object.
         with self.progress.track(
             "analysis.normalization",
             "scanpy.pp.normalize_total",
@@ -221,6 +419,7 @@ class Step06Analyzer:
             },
         ) as event:
             diagnostic = adata[:, hvg].copy()
+            # CODE-ONLY knobs: sparse-preserving SD scaling, upper clip=10; PCA centers afterward.
             sc.pp.scale(diagnostic, zero_center=False, max_value=10)
             event.outputs.update(
                 {
@@ -240,6 +439,7 @@ class Step06Analyzer:
                 "random_state": self.settings.random_seed,
             },
         ) as event:
+            # Phase 3: fit all cells using the HVG copy; solver/centering are fixed code options.
             sc.tl.pca(
                 diagnostic,
                 n_comps=self.settings.pca_components,
@@ -263,6 +463,7 @@ class Step06Analyzer:
                 "batch_correction": "none",
             },
         ) as event:
+            # One shared graph drives UMAP/Leiden; entropy later uses stored distance edges.
             sc.pp.neighbors(
                 diagnostic,
                 n_neighbors=self.settings.n_neighbors,
@@ -310,6 +511,7 @@ class Step06Analyzer:
                 "key_added": "step06_leiden",
             },
         ) as event:
+            # CODE-ONLY choices: igraph, undirected, two iterations. Resolution comes from config.
             sc.tl.leiden(
                 diagnostic,
                 resolution=self.settings.leiden_resolution,
@@ -345,6 +547,7 @@ class Step06Analyzer:
                     "cluster_score_rows": len(cluster_scores),
                 }
             )
+        # Broadcast a CLUSTER-level winner to its cells; this is not a per-cell classifier.
         state_map = cluster_scores.set_index("leiden")["provisional_state"]
         annotations = scores.copy()
         annotations["step06_leiden"] = diagnostic.obs["step06_leiden"].astype(str)

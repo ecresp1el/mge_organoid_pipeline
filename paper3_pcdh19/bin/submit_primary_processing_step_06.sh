@@ -3,6 +3,7 @@
 #   Freeze and submit approved Step 06 unintegrated diagnostics.
 set -Eeuo pipefail
 
+# usage: write CLI syntax to stderr; no submission or filesystem mutation.
 usage() {
   cat >&2 <<'EOF'
 Usage: submit_primary_processing_step_06.sh [--dry-run] [--replace-run RUN_ID]
@@ -24,6 +25,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Resolve editable repository assets. See STEP06_CODE_AND_TUNING_GUIDE.md for their roles.
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 GREATLAKES_CONFIG="${BUNDLE_DIR}/config/greatlakes.env"
 STEP_CONFIG="${BUNDLE_DIR}/config/primary_processing_step06.env"
@@ -56,6 +58,7 @@ for module in step06_cli.py step06_models.py step06_analysis.py step06_metrics.p
   [[ -f "${PYTHON_PACKAGE}/${module}" ]] || { echo "Missing Step 06 module: ${module}" >&2; exit 2; }
 done
 
+# Verify approval/bypass lineage before creating a run. Identity checks are not tuning knobs.
 awk -F '\t' -v run="${PRIMARY_PROCESSING_STEP06_STEP02_RUN_ID}" 'NR==1 {for(i=1;i<=NF;i++) h[$i]=i; next} $(h["run_id"])==run && $(h["status"])=="APPROVED" && $(h["approved_run_id"])==run {ok++} END {exit(ok==1?0:1)}' "${APPROVAL_LEDGER}" || { echo "Exact Step 02 run is not uniquely APPROVED" >&2; exit 2; }
 for pair in "03_scdblfinder:REJECTED" "04_ambient_rna_contamination_assessment:SKIPPED" "05_broad_biological_contaminant_assessment:SKIPPED"; do
   ledger_step="${pair%%:*}"
@@ -64,6 +67,7 @@ for pair in "03_scdblfinder:REJECTED" "04_ambient_rna_contamination_assessment:S
 done
 [[ "$(stat -c '%s' "${INPUT_H5AD}")" == "${PRIMARY_PROCESSING_STEP06_INPUT_BYTES}" ]] || { echo "Step 02 H5AD size mismatch" >&2; exit 2; }
 
+# Verify installed versions against exact pins; this does not install or update packages.
 "${PRIMARY_PROCESSING_PYTHON_BIN}" - "${REQUIREMENTS}" <<'PY'
 from importlib import metadata
 from pathlib import Path
@@ -103,11 +107,13 @@ echo "Lineage: Step 03 rejected; Steps 04-05 skipped"
 echo "Output: ${RUN_DIR}"
 echo "Resources: ${PRIMARY_PROCESSING_STEP06_CPUS} CPU, ${PRIMARY_PROCESSING_STEP06_MEMORY}, ${PRIMARY_PROCESSING_STEP06_WALLTIME}"
 echo "Boundary: unintegrated A-L diagnostics; zero removals"
+# Dry-run exits before run creation/submission, but earlier compileall may write Python bytecode caches.
 if [[ "${DRY_RUN}" == true ]]; then
   echo "Dry run passed; no directory was created and no job was submitted."
   exit 0
 fi
 
+# Actual submission requires a clean commit so the frozen run has an auditable source identity.
 [[ -z "$(git -C "${REPO_ROOT}" status --porcelain)" ]] || { echo "Refusing submission from a dirty repository; commit exact Step 06 assets first" >&2; exit 2; }
 "${BUNDLE_DIR}/bin/initialize_turbo.sh" >/dev/null
 mkdir -p "${STEP_ROOT}" "${LOG_ROOT}"
@@ -119,6 +125,7 @@ elif [[ -d "${RUN_DIR}" ]]; then
     [[ -n "${prior_job}" ]] || continue
     [[ -z "$(squeue -h -j "${prior_job}" -o '%T' | head -n 1)" ]] || { echo "Refusing active replacement" >&2; exit 2; }
   done < <(awk -F '\t' 'NR>1 {print $2}' "${RUN_DIR}/provenance/job_ids.tsv" 2>/dev/null || true)
+  # Explicit replacement is destructive within this named inactive run; default versioning avoids it.
   find "${RUN_DIR}" -mindepth 1 -depth -delete
 elif [[ -e "${RUN_DIR}" ]]; then
   echo "Replacement target is not a directory" >&2
@@ -126,6 +133,7 @@ elif [[ -e "${RUN_DIR}" ]]; then
 fi
 
 mkdir -p "${RUN_DIR}/code/primary_processing" "${RUN_DIR}/config" "${RUN_DIR}/logs" "${RUN_DIR}/provenance"
+# Freeze source/config/lineage now. Jobs use these snapshots, not later repository edits.
 cp -p "${PYTHON_PACKAGE}"/*.py "${RUN_DIR}/code/primary_processing/"
 cp -p "${BASH_SOURCE[0]}" "${SBATCH_SOURCE}" "${RUN_DIR}/code/"
 cp -p "${GREATLAKES_CONFIG}" "${RUN_DIR}/config/submitted_greatlakes.env"
@@ -167,6 +175,7 @@ cp -p "${RUN_DIR}/code/$(basename "${SBATCH_SOURCE}")" "${JOB_FILE}"
 } > "${RUN_DIR}/provenance/repository_state.txt"
 "${PRIMARY_PROCESSING_PYTHON_BIN}" -m pip freeze > "${RUN_DIR}/config/python_pip_freeze.txt"
 
+# Only this final section calls sbatch. Scheduler resources come from the Step 06 env file.
 EXPORTS="ALL,PAPER3_PRIMARY_RUN_DIR=${RUN_DIR},PAPER3_PRIMARY_WORKFLOW_ROOT=${WORKFLOW_ROOT},PAPER3_PRIMARY_PYTHON_BIN=${PRIMARY_PROCESSING_PYTHON_BIN}"
 JOB_ID="$(sbatch --parsable --job-name=pcdh19-primary-06 --account="${ACCOUNT}" --partition="${PRIMARY_PROCESSING_STEP06_PARTITION}" --nodes=1 --ntasks=1 --cpus-per-task="${PRIMARY_PROCESSING_STEP06_CPUS}" --mem="${PRIMARY_PROCESSING_STEP06_MEMORY}" --time="${PRIMARY_PROCESSING_STEP06_WALLTIME}" --output="${LOG_ROOT}/${RUN_ID}-%j.out" --error="${LOG_ROOT}/${RUN_ID}-%j.err" --export="${EXPORTS}" "${JOB_FILE}")"
 printf 'stage\tjob_id\nstep06\t%s\n' "${JOB_ID}" > "${RUN_DIR}/provenance/job_ids.tsv"

@@ -104,6 +104,15 @@ This step produces no checkpoint.
 
 ### Step 06 — technical, sample, and batch diagnostics
 
+Code navigation and tuning documentation:
+[STEP06_CODE_AND_TUNING_GUIDE.md](STEP06_CODE_AND_TUNING_GUIDE.md) maps the
+complete execution, configurable and code-only choices, marker-label and
+outcome formulas, output tables, and every Step 06 function. This documents
+repository source without modifying frozen historical run packages.
+The [saved AnnData inventory](STEP06_SAVED_ANNDATA.md) documents the actual
+September 3 H5AD, including all `.uns` values, inherited metadata ambiguities,
+and companion assets required to interpret or reproduce its diagnostics.
+
 Consume the exact approved Step 02 checkpoint directly, bypassing rejected
 Step 03 and skipped Steps 04–05. Do not read or propagate any Step 03 output.
 Use diagnostic normalization and reductions when needed to determine whether
@@ -161,6 +170,17 @@ documented bypass may return to an earlier approved checkpoint, but must never
 consume a rejected checkpoint or imply that a skipped step produced output.
 
 ## Current authorization
+
+**2026-09-08 HiCAT direction:** the user explicitly requested cluster discovery
+and cluster-count review (no biological annotation), and selected preparation
+of the method/assets plus a small technical pilot. The exact scope, Python
+source pin, adapter differences, asset schema, plots and review boundary are in
+[HICAT_CLUSTER_DISCOVERY_PROTOCOL.md](HICAT_CLUSTER_DISCOVERY_PROTOCOL.md).
+This separate pilot uses approved Step 02 expression and Step 06 coordinates
+only for display. It does not change existing checkpoint review statuses,
+constitute the full Step 07 input freeze, or authorize treating pilot K as the
+full-data count. After pilot review, qualify/freeze the full input and proceed
+through the full cluster-discovery checkpoints using the same review model.
 
 Steps 00, 01, and the Step 01a sensitivity amendment were explicitly
 **APPROVED** by the user on 2026-08-30. Step 02 applied exactly the reviewed

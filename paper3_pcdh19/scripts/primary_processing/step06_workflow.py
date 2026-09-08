@@ -1,4 +1,17 @@
-"""Orchestrate, validate, and atomically publish Step 06 diagnostics."""
+"""Trace the complete Step 06 execution and its publication boundary.
+
+Entry: ``step06_cli.main`` -> ``Step06Workflow.run``. Order: fingerprint and
+load approved Step 02 -> validate lineage -> analyze a working object ->
+validate artifacts -> build metrics -> reload raw Step 02 -> attach diagnostic
+metadata/coordinates/graphs -> stage tables/report/H5AD -> reopen and validate
+raw-count identity -> publish output groups -> record IN_REVIEW.
+
+Progress records bracket major phases; their function labels can name logical
+blocks (for example attach_diagnostics), not only standalone Python functions.
+On an exception, the workflow records failure and removes remaining staging.
+Publication uses individual atomic renames, not a transaction across all
+files and the separate approval ledger. No downstream step is launched.
+"""
 
 from __future__ import annotations
 
@@ -29,10 +42,32 @@ from .validation import DocumentationAuditor
 
 
 class Step06Workflow:
-    """Execute the additive unintegrated diagnostic workflow and stop."""
+    """Execute the additive unintegrated diagnostic workflow and stop.
+
+    Notes
+    -----
+    Own the ordered lifecycle from approved input to IN_REVIEW publication. Delegate
+    analysis, metrics, rendering and validation to focused components; retain
+    original QC metadata and reload raw counts before output assembly. No downstream
+    workflow is started here.
+    """
 
     def __init__(self, paths: Step06Paths, settings: Step06Settings):
-        """Construct the immutable path/settings contract and validation ledger."""
+        """Construct the immutable path/settings contract and validation ledger.
+
+        Parameters
+        ----------
+        paths : Step06Paths
+            Exact input identity, frozen lineage files, and new run destinations.
+        settings : Step06Settings
+            Resolved scientific/rendering controls; see the settings class and tuning
+            guide.
+
+        Notes
+        -----
+        Create the shared validation ledger and a new progress tracker. Tracker construction
+        creates provenance_dir and refuses an existing event ledger.
+        """
 
         self.paths = paths
         self.settings = settings
@@ -40,7 +75,28 @@ class Step06Workflow:
         self.progress = Step06ProgressTracker(paths.run_dir / "provenance")
 
     def run(self) -> Path:
-        """Run all-cell diagnostics and publish only after every check passes."""
+        """Run all-cell diagnostics and publish only after every check passes.
+
+        Returns
+        -------
+        pathlib.Path
+            Published objects/pcdh19_step06_unintegrated_diagnostics.h5ad in this run.
+
+        Notes
+        -----
+        This is the top-level trace of all analysis and file writes. The working
+        AnnData is transformed by Step06Analyzer; publication instead starts by
+        reloading the raw input, attaching annotations, PCA/UMAP, graphs, HVG flags
+        and provenance. X therefore remains sparse integer raw counts; no normalized
+        layer is published. Tables/report/checkpoint are staged and validated before
+        output groups are renamed. A separate shared ledger update records IN_REVIEW.
+
+        Validation failures raise through require_all_pass(). Any caught exception
+        records FAILED, discards remaining staging, and propagates; already-published
+        assets cannot be rolled back by discard(). Reading/hashing/reloading the
+        large input and output is deliberate integrity work, not repeated analysis.
+        No scientific thresholds live here: see analysis.py, metrics.py, and settings.
+        """
 
         self.progress.note(
             "workflow",
@@ -113,6 +169,7 @@ class Step06Workflow:
                 event.outputs["validation_checks_passed"] = len(
                     self.ledger.to_frame()
                 )
+            # Keep original raw-count QC metadata; analyzer mutates its working X next.
             original_obs = adata.obs.copy()
             artifacts = Step06Analyzer(self.settings, self.progress).run(adata)
             with self.progress.track(
@@ -157,6 +214,7 @@ class Step06Workflow:
                         "provisional_outcome_label": results.outcome_label,
                     }
                 )
+            # Release transformed counts; the published object is rebuilt from pristine raw input.
             del adata
             gc.collect()
 
@@ -169,6 +227,7 @@ class Step06Workflow:
                     "backed": False,
                 },
             ) as event:
+                # Crucial boundary: output.X comes from approved raw counts, not normalized/scaled X.
                 output = ad.read_h5ad(self.paths.input_h5ad)
                 event.outputs.update(
                     {
@@ -422,6 +481,7 @@ class Step06Workflow:
 
             checks = self.ledger.to_frame()
             checks.to_csv(publisher.tables_dir / "validation_checks.tsv", sep="\t", index=False)
+            # Numerical success is not approval: status remains IN_REVIEW after publication.
             self.ledger.require_all_pass()
             run_id = self.paths.run_dir.name
             Step06ProvenancePublisher().status_frame(
@@ -496,7 +556,17 @@ class Step06Workflow:
             raise
 
     def _code_version(self) -> str:
-        """Return the clean repository identity frozen at submission."""
+        """Return the clean repository identity frozen at submission.
+
+        Returns
+        -------
+        str
+            Frozen repository_state.txt flattened with semicolons, or unavailable.
+
+        Notes
+        -----
+        Reads the run snapshot, not the current Git working tree; no files are modified.
+        """
 
         path = self.paths.run_dir / "provenance" / "repository_state.txt"
         return path.read_text(encoding="utf-8").strip().replace("\n", "; ") if path.exists() else "unavailable"

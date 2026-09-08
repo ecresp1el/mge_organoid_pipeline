@@ -1,4 +1,15 @@
-"""Coherent A-L plotting for the unintegrated Step 06 review report."""
+"""Render the four-page A-L report from already-computed diagnostics.
+
+``Step06ReportPlotter.publish`` reuses one balanced display subset and shared
+PCA/UMAP coordinates. Pages A-D show composition/QC/PCA; E-G show UMAP views;
+H-I show provisional states/composition; J-L show mixing/similarity/flags.
+No fitting, normalization, clustering, or annotation is performed here.
+
+Numerical companion tables describe all cells. Scatter plots and the panel J
+boxplot use the rendering subset; panel J's printed medians use all cells.
+Colors, grids, marker sizes and font sizes are code-level presentation knobs.
+The E-G grid assumes at most 12 samples; it is not a general layout engine.
+"""
 
 from __future__ import annotations
 
@@ -18,10 +29,28 @@ from .step06_progress import NullStep06ProgressTracker
 
 
 class Step06Palette:
-    """Provide fixed colors for samples and biological design variables."""
+    """Provide fixed colors for samples and biological design variables.
+
+    Notes
+    -----
+    Own deterministic sample colors and fixed genotype/sex/design mappings.
+    Construct once per report and reuse across pages. It controls presentation only
+    and does not modify labels or group membership.
+    """
 
     def __init__(self, samples: list[str]):
-        """Create stable mappings from sorted labels."""
+        """Create stable mappings from sorted labels.
+
+        Parameters
+        ----------
+        samples : list[str]
+            Stable ordered sample IDs used across all report pages.
+
+        Notes
+        -----
+        Store sample colors in supplied order and fixed WT/HET/KO, F/M and design-group
+        colors. Caller supplies sorted samples. Colors affect display only.
+        """
 
         colors = sns.color_palette("husl", len(samples))
         self.sample = dict(zip(samples, colors, strict=True))
@@ -36,10 +65,34 @@ class Step06Palette:
 
 
 class Step06ReportPlotter:
-    """Assemble one primary multi-page A-L report from shared coordinates."""
+    """Assemble one primary multi-page A-L report from shared coordinates.
+
+    Notes
+    -----
+    Own PDF/PNG assembly from existing coordinates and summary tables. publish()
+    selects saved display indices, calls four page builders, writes assets and
+    closes figures. The plotting class never recomputes PCA, neighbors, UMAP or
+    cell-state labels.
+    """
 
     def __init__(self, settings: Step06Settings, output_dir: Path, progress=None):
-        """Store plotting settings, output location, and progress publisher."""
+        """Store plotting settings, output location, and progress publisher.
+
+        Parameters
+        ----------
+        settings : Step06Settings
+            Resolved scientific/rendering controls; see the settings class and tuning
+            guide.
+        output_dir : pathlib.Path
+            Directory for rendered PDF and PNG assets; created if absent.
+        progress : Step06ProgressTracker or None
+            Optional event publisher; None selects the no-I/O tracker.
+
+        Notes
+        -----
+        Create output_dir and store rendering controls/progress adapter. Does not fit or
+        sample cells.
+        """
 
         self.settings = settings
         self.output_dir = output_dir
@@ -52,11 +105,35 @@ class Step06ReportPlotter:
         artifacts: Step06Artifacts,
         results: Step06Results,
     ) -> pd.DataFrame:
-        """Write the primary PDF and page previews with a manifest."""
+        """Write the primary PDF and page previews with a manifest.
+
+        Parameters
+        ----------
+        obs : pandas.DataFrame
+            All retained cells in artifact row order, with sample/design and raw QC
+            columns.
+        artifacts : Step06Artifacts
+            Full-cell coordinates, graphs, scores and HVG/pseudobulk results in input
+            order.
+        results : Step06Results
+            Companion tables plus the automatic, unreviewed diagnostic outcome.
+
+        Returns
+        -------
+        pandas.DataFrame
+            asset/role manifest for one four-page PDF and four PNG previews.
+
+        Notes
+        -----
+        Slice the saved rendering positions once, build each page from shared coordinates and
+        full-data tables, save figures, then close them. plot_dpi affects PNGs; PDF scatter
+        artists are rasterized. Only rendering uses the subset.
+        """
 
         sample = self.settings.sample_field
         samples = sorted(obs[sample].astype(str).unique())
         palette = Step06Palette(samples)
+        # These indices affect display only; do not recompute embeddings on this subset.
         positions = artifacts.rendering_cells["row_position"].to_numpy(int)
         plot_obs = obs.iloc[positions].copy()
         plot_annotations = artifacts.annotations.iloc[positions].copy()
@@ -119,7 +196,37 @@ class Step06ReportPlotter:
         return pd.DataFrame(rows)
 
     def _page_a_d(self, obs, plot_obs, pca, artifacts, results, palette):
-        """Create panels A-D for composition, QC, PCA, and centroids."""
+        """Create panels A-D for composition, QC, PCA, and centroids.
+
+        Parameters
+        ----------
+        obs : pandas.DataFrame
+            All retained cells in artifact row order, with sample/design and raw QC
+            columns.
+        plot_obs : pandas.DataFrame
+            Rendering-subset metadata aligned with the supplied coordinate rows.
+        pca : numpy.ndarray
+            Rendering-subset PCA coordinates; first two components are displayed.
+        artifacts : Step06Artifacts
+            Full-cell coordinates, graphs, scores and HVG/pseudobulk results in input
+            order.
+        results : Step06Results
+            Companion tables plus the automatic, unreviewed diagnostic outcome.
+        palette : Step06Palette
+            Stable mappings from sample/design labels to display colors.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Unsaved figure; publish() writes and closes it.
+
+        Notes
+        -----
+        A/B counts and QC summaries use all cells. C displays PCs 1/2 of the saved subset by
+        sample/genotype/sex. D plots all-cell sample centers on PCs 1/2, although numeric
+        distances use centroid_components PCs. Figure dimensions, legends and fonts are
+        code-level knobs.
+        """
 
         figure = plt.figure(figsize=(21, 15))
         grid = figure.add_gridspec(2, 3)
@@ -171,7 +278,28 @@ class Step06ReportPlotter:
         return figure
 
     def _page_e_g(self, plot_obs, umap, palette):
-        """Create panels E-G from one shared global UMAP."""
+        """Create panels E-G from one shared global UMAP.
+
+        Parameters
+        ----------
+        plot_obs : pandas.DataFrame
+            Rendering-subset metadata aligned with the supplied coordinate rows.
+        umap : numpy.ndarray
+            Rendering-subset coordinates from the one global UMAP, shape (n_display, 2).
+        palette : Step06Palette
+            Stable mappings from sample/design labels to display colors.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Unsaved figure; publish() writes and closes it.
+
+        Notes
+        -----
+        E/G recolor identical global UMAP coordinates. F highlights one sample at a time
+        against the same rendering subset. No sample-specific UMAP is recomputed. The fixed
+        4x4 grid allocates twelve sample facets; layout must change for more samples.
+        """
 
         figure = plt.figure(figsize=(20, 18))
         grid = figure.add_gridspec(4, 4)
@@ -203,7 +331,33 @@ class Step06ReportPlotter:
         return figure
 
     def _page_h_i(self, plot_obs, plot_annotations, umap, artifacts, results):
-        """Create panels H-I for provisional biology and sample contributions."""
+        """Create panels H-I for provisional biology and sample contributions.
+
+        Parameters
+        ----------
+        plot_obs : pandas.DataFrame
+            Rendering-subset metadata aligned with the supplied coordinate rows.
+        plot_annotations : pandas.DataFrame
+            Rendering-subset program scores and provisional states in display row order.
+        umap : numpy.ndarray
+            Rendering-subset coordinates from the one global UMAP, shape (n_display, 2).
+        artifacts : Step06Artifacts
+            Full-cell coordinates, graphs, scores and HVG/pseudobulk results in input
+            order.
+        results : Step06Results
+            Companion tables plus the automatic, unreviewed diagnostic outcome.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Unsaved figure; publish() writes and closes it.
+
+        Notes
+        -----
+        H displays automatic cluster-program winner labels and mean standardized scores. I
+        uses all-cell counts and percentages from companion tables. State labels are
+        provisional, not validated identities. The scatter uses only the rendering subset.
+        """
 
         figure = plt.figure(figsize=(22, 16))
         grid = figure.add_gridspec(2, 3)
@@ -237,13 +391,38 @@ class Step06ReportPlotter:
         return figure
 
     def _page_j_l(self, plot_obs, plot_annotations, results, palette):
-        """Create panels J-L for mixing, similarity, and decision review."""
+        """Create panels J-L for mixing, similarity, and decision review.
+
+        Parameters
+        ----------
+        plot_obs : pandas.DataFrame
+            Rendering-subset metadata aligned with the supplied coordinate rows.
+        plot_annotations : pandas.DataFrame
+            Rendering-subset program scores and provisional states in display row order.
+        results : Step06Results
+            Companion tables plus the automatic, unreviewed diagnostic outcome.
+        palette : Step06Palette
+            Stable mappings from sample/design labels to display colors.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Unsaved figure; publish() writes and closes it.
+
+        Notes
+        -----
+        J boxplots use the rendering subset; printed entropy/effective-sample medians use ALL
+        cells. K plots HVG pseudobulk Pearson correlations on a fixed 0..1 color scale
+        (negative values would saturate). L copies heuristic sample flags and headline without
+        making a new decision.
+        """
 
         figure = plt.figure(figsize=(20, 15))
         grid = figure.add_gridspec(2, 2, height_ratios=[1, 1.2])
         ax_j = figure.add_subplot(grid[0, 0])
         diversity = results.tables["local_sample_diversity_per_cell.tsv.gz"]
         render_ids = set(plot_obs.index.astype(str))
+        # Panel J boxplot is display-subset data; numeric medians immediately below use all cells.
         shown = diversity.loc[diversity["cell_id"].astype(str).isin(render_ids)]
         sns.boxplot(data=shown, x="provisional_state", y="local_effective_samples", color="#72b7b2", showfliers=False, ax=ax_j)
         ax_j.tick_params(axis="x", rotation=70)
@@ -296,7 +475,32 @@ class Step06ReportPlotter:
 
     @staticmethod
     def _categorical_scatter(ax, coordinates, labels, colors, title):
-        """Draw one rasterized categorical scatter with stable colors."""
+        """Draw one rasterized categorical scatter with stable colors.
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            Existing axes to mutate with a scatter plot.
+        coordinates : numpy.ndarray
+            Coordinates aligned row-for-row with labels; only columns 0 and 1 are drawn.
+        labels : pandas.Series
+            One categorical label per coordinate row.
+        colors : dict
+            Label-to-color mapping; unknown labels use gray.
+        title : str
+            Title displayed on the axes.
+
+        Returns
+        -------
+        None
+            Effects are described below.
+
+        Notes
+        -----
+        Draw coordinate columns 0/1 per label, with fixed size=0.7, alpha=0.45 and
+        rasterization. Missing color keys become gray; hide ticks and add legend. These are
+        presentation-only code literals.
+        """
 
         values = labels.astype(str).to_numpy()
         for value in sorted(np.unique(values)):
@@ -309,7 +513,33 @@ class Step06ReportPlotter:
 
     @staticmethod
     def _pca_scatter(ax, coordinates, labels, colors, title, variance_ratio):
-        """Draw one view of the exact shared unintegrated PCA coordinates."""
+        """Draw one view of the exact shared unintegrated PCA coordinates.
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            Existing axes to mutate with a scatter plot.
+        coordinates : numpy.ndarray
+            Coordinates aligned row-for-row with labels; only columns 0 and 1 are drawn.
+        labels : pandas.Series
+            One categorical label per coordinate row.
+        colors : dict
+            Label-to-color mapping; unknown labels use gray.
+        title : str
+            Title displayed on the axes.
+        variance_ratio : numpy.ndarray
+            PCA variance fractions; first two values appear as axis percentages.
+
+        Returns
+        -------
+        None
+            Effects are described below.
+
+        Notes
+        -----
+        Delegate categorical rendering and label axes with the first two variance percentages.
+        Reuses existing PCA; no fitting occurs.
+        """
 
         Step06ReportPlotter._categorical_scatter(ax, coordinates, labels, colors, title)
         ax.set_xticks([])
