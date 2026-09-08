@@ -6,8 +6,9 @@ also has a large-graph branch that **bypasses `iter_consensus_clust`**.
 
 Scope: **446,349 cells × 19,071 genes; 12 dissected E14.5 mouse MGE samples**,
 from approved Step 02. The pilot's 38/17 clusters do not determine the full-data
-hierarchy or K. This audit created documentation and pinned references;
-**no benchmark or new clustering has run**.
+hierarchy or K. This audit initially created documentation and pinned
+references only. See [the execution handoff](HICAT_VALIDATION_HANDOFF.md)
+for subsequent benchmark submission and current status.
 
 The trace below uses Allen R commit
 [`9af2f04`](https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/R/consensusCluster.R).

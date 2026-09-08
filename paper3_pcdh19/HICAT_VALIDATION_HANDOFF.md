@@ -1,4 +1,4 @@
-# Current checkpoint: Step 07 complete; full-data consensus source audit
+# Current checkpoint: Step 07 complete; full-data consensus benchmark running
 
 **Experiment:** dissected E14.5 mouse medial ganglionic eminence (MGE).
 
@@ -12,8 +12,20 @@ detailed PDF 76 pages.
 benchmark using the approved Step 02 population (446,349 cells × 19,071 genes),
 not the 12,000-cell pilot. First complete the
 [Allen consensus algorithm audit](HICAT_ALLEN_CONSENSUS_ALGORITHM_AUDIT.md).
-That source audit is now complete; the implementation still needs qualification
-before timing. **No benchmark or production consensus job has been launched.**
+That source audit is complete. Seven numerical qualification tests passed,
+including pinned-R comparisons, sparse/dense DE and fitting, and saved AnnData.
+**The real full-data benchmark is running; no production iterations are submitted.**
+Run `consensus_benchmark_20260908_235116` lives under
+`results/hicat/03_full_data_consensus_benchmark/`. Preparation is job **60609367**,
+the first 80% fit **60609369**, and full-data initialization **60609372**.
+The user subsequently requested restart-safe independent iterations and a test
+aggregator using 2–5 real completed iterations. The pending one-iteration
+consensus/report jobs **60609374 / 60609377** were cancelled to replace those
+stages with the expanded two-real-iteration validation. Completed/running
+preparation and fit outputs are preserved for reuse. See
+[the execution and asset contract](FULL_DATA_CONSENSUS_BENCHMARK.md).
+Actual states are in scheduler accounting and `progress/STAGE/` logs.
+The completed resource report must precede any approval for 100 production jobs.
 The audit preserves the requested Python fitting settings while identifying
 their differences from R. Held-out assignment supersedes the earlier
 conditional co-sampling denominator. The full-data hierarchy and K are learned;

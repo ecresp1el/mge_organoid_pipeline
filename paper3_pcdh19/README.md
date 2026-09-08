@@ -18,12 +18,16 @@ Step 07 is now computationally complete and IN_REVIEW. The requested
 concise decision table, exact contributions and merge-flow tree. No additional
 HiCAT fit was run; 17 remains an unresolved comparison, not a locked partition.
 
-**Current work: full-data Allen consensus method audit, before benchmarking.**
+**Current work: real full-data Allen consensus benchmark and restart validation.**
 The user authorized a benchmark on approved Step 02's **446,349 cells**, with
 q1=.4, qdiff=.7 and DE score150. The
 [source-function audit](HICAT_ALLEN_CONSENSUS_ALGORITHM_AUDIT.md) is complete;
-implementation qualification and benchmarking remain pending. No new clustering
-or consensus job has launched. The corrected method includes held-out assignment
+seven numerical qualification checks passed. The real benchmark is running:
+prepare **60609367**, first 80% fit **60609369**, full-data initialization
+**60609372**. The benchmark is being extended to two real iterations with
+independent resumable fitting/mapping and final aggregation checkpoints.
+See the [execution handoff](HICAT_VALIDATION_HANDOFF.md) for current job states.
+The corrected method includes held-out assignment
 before aggregation and preserves Allen's large-graph branch. The pilot hierarchy
 and K are not fixed. A 100-iteration production launch remains outside the
 benchmark authorization; the benchmark must end with a resource report for review.
