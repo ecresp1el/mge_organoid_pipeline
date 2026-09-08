@@ -4,14 +4,29 @@
 These samples are not organoids. Repository and environment names do not
 describe the tissue. See [experiment context](EXPERIMENT_CONTEXT.md).
 
-**Current primary-processing checkpoint: Step 07 — HiCAT hierarchy validation
-and parameter sensitivity.** The authorized analysis uses the existing
+**Completed primary-processing checkpoint: Step 07 — HiCAT hierarchy validation
+and parameter sensitivity (IN_REVIEW).** That analysis used the existing
 12,000-cell pilot, its two seed fits, and provisional biological hypotheses.
 Step 06 already supplies a joint, unintegrated UMAP for display. Full-data
-marker scores and overlays are allowed; full-data clustering is not.
+marker scores and overlays were included; full-data clustering was outside
+the scope of Step 07.
 See [Step 07 protocol and asset contract](HICAT_VALIDATION_PROTOCOL.md).
 The [current Step 07 run handoff](HICAT_VALIDATION_HANDOFF.md) identifies its
 versioned package, submitted job, progress logs, and review boundary.
+Step 07 is now computationally complete and IN_REVIEW. The requested
+[38→17 boundary decision review](HICAT_MERGE_COLLAPSE_REVIEW.md) provides the
+concise decision table, exact contributions and merge-flow tree. No additional
+HiCAT fit was run; 17 remains an unresolved comparison, not a locked partition.
+
+**Current work: full-data Allen consensus method audit, before benchmarking.**
+The user authorized a benchmark on approved Step 02's **446,349 cells**, with
+q1=.4, qdiff=.7 and DE score150. The
+[source-function audit](HICAT_ALLEN_CONSENSUS_ALGORITHM_AUDIT.md) is complete;
+implementation qualification and benchmarking remain pending. No new clustering
+or consensus job has launched. The corrected method includes held-out assignment
+before aggregation and preserves Allen's large-graph branch. The pilot hierarchy
+and K are not fixed. A 100-iteration production launch remains outside the
+benchmark authorization; the benchmark must end with a resource report for review.
 
 This workstream is reserved for the Ziobro PCDH19 MGE single-cell paper. It is
 separate from the Paper 2 cross-study atlas and uses the Ziobro Turbo

@@ -1,0 +1,17 @@
+{
+  "source_path": "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/primary_processing/02_qc_filtering/02_qc_filtering_20260830_124611_97e1bb5/objects/pcdh19_step02_qc_filtered.h5ad",
+  "expected_sha256_from_approved_config": "fadba4a25a7b6b7320219b21c189b6325687493519ba0fe1bd27efd79606b103",
+  "checksum_recomputed_during_this_metadata_only_audit": false,
+  "source_bytes": 6554152927,
+  "shape": [
+    446349,
+    19071
+  ],
+  "nnz": 1282946693,
+  "data_dtype": "int32",
+  "indices_dtype": "int32",
+  "indptr_dtype": "int32",
+  "layers": [],
+  "observed_sample_count": 12,
+  "observed_cells_from_sample_metadata": 446349
+}

@@ -1,0 +1,2 @@
+step	run_id	status	input_checkpoint	output_checkpoint	completed_utc	cells_before	cells_after	genes_before	genes_after	approval_decision	approved_run_id
+02_qc_filtering	02_qc_filtering_20260830_124611_97e1bb5	APPROVED	01_qc_metrics_20260830_115715_2b57907	objects/pcdh19_step02_qc_filtered.h5ad	2026-08-30T16:49:59.932287+00:00	450788	446349	19071	19071	YES at 2026-08-30T12:57:29-04:00	02_qc_filtering_20260830_124611_97e1bb5

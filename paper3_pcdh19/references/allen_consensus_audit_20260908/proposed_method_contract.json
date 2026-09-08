@@ -1,0 +1,53 @@
+{
+  "status": "PROPOSED_NOT_EXECUTABLE_NOT_BENCHMARKED",
+  "biological_context": "dissected E14.5 mouse MGE",
+  "expected_shape": [
+    446349,
+    19071
+  ],
+  "sample_count": 12,
+  "production_iterations": 100,
+  "benchmark_iterations": 1,
+  "sampling_fraction": 0.8,
+  "sampled_cells": 357079,
+  "heldout_cells": 89270,
+  "sampling_scheme": "uniform_without_replacement_global",
+  "heldout_assignment": "Pearson_maximum_to_iteration_marker_cluster_mean",
+  "consensus_denominator": "all_100_successful_iterations_after_heldout_assignment",
+  "legacy_conditional_denominator_superseded": true,
+  "consensus_factor_shape": "sum(iteration_K) x N",
+  "wrapper_large_branch_min_sum_squared_sizes": 1000000000,
+  "init_result": null,
+  "fixed_pilot_parents": false,
+  "target_K": null,
+  "requested_thresholds": {
+    "q1": 0.4,
+    "qdiff": 0.7,
+    "DEscore": 150
+  },
+  "expression_backend": "existing_validated_python_settings_with_disclosed_R_differences",
+  "consensus_backend": "proposed_Python_port_of_pinned_R_control_flow",
+  "batch_correction": false,
+  "integration": false,
+  "cell_cycle_regression": false,
+  "genotype_fitting": false,
+  "annotation_fitting": false,
+  "production_launch_authorized": false,
+  "benchmark_authorized_after_implementation_qualification": true,
+  "benchmark_launched": false,
+  "stop_after": "benchmark_resource_report_IN_REVIEW",
+  "current_assets": [
+    "source audit",
+    "pinned references and licenses",
+    "reference checksum manifest",
+    "read-only source metadata",
+    "proposed method contract"
+  ],
+  "not_created": [
+    "benchmark results",
+    "new clustering labels",
+    "consensus AnnData",
+    "scientific figures",
+    "production consensus"
+  ]
+}

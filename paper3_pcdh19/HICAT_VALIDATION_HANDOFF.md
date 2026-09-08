@@ -1,10 +1,34 @@
-# Current checkpoint: Step 07 hierarchy validation
+# Current checkpoint: Step 07 complete; full-data consensus source audit
 
 **Experiment:** dissected E14.5 mouse medial ganglionic eminence (MGE).
 
-The active run is `hicat_validation_20260908_221625_d5d06a5d`, submitted as
-Great Lakes job **60591567**. Computation and review are separate: successful
-outputs will be `IN_REVIEW`, not approved, and no full-data clustering starts.
+Run `hicat_validation_20260908_221625_d5d06a5d` **completed**, Great Lakes job
+**60591567**, elapsed 43:01. All **1,529 independent checks passed**, covering
+1,025 manifest files. Its outputs are **IN_REVIEW**, not approved. No full-data
+clustering was performed in Step 07. The main PDF has five pages and the
+detailed PDF 76 pages.
+
+**Latest authorized work:** prepare an Allen-faithful full-data consensus
+benchmark using the approved Step 02 population (446,349 cells × 19,071 genes),
+not the 12,000-cell pilot. First complete the
+[Allen consensus algorithm audit](HICAT_ALLEN_CONSENSUS_ALGORITHM_AUDIT.md).
+That source audit is now complete; the implementation still needs qualification
+before timing. **No benchmark or production consensus job has been launched.**
+The audit preserves the requested Python fitting settings while identifying
+their differences from R. Held-out assignment supersedes the earlier
+conditional co-sampling denominator. The full-data hierarchy and K are learned;
+the four pilot parents and K=38/17 are not fixed. Benchmarking is authorized;
+the definitive 100-fit production launch is not. Stop after a measured resource
+report with outputs IN_REVIEW. See the audit for exact proposed assets and
+what has not yet been saved.
+
+The requested focused **38→17 boundary review also completed**, without another
+HiCAT fit or parameter change. Start with
+[the focused review](HICAT_MERGE_COLLAPSE_REVIEW.md). Its final table contains
+84 substantially lost/eroded sibling pairs: five `keep distinction`, three
+`merge`, and 76 `unresolved`. The comparison has 76 nonzero flows and 19 original
+clusters split across destinations. These are pairwise review recommendations,
+not a new cluster count. Overall disposition: **STILL UNRESOLVED; do not lock 17**.
 
 Run directory:
 `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/hicat/02_hierarchy_validation/hicat_validation_20260908_221625_d5d06a5d/`

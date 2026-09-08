@@ -1,0 +1,19 @@
+{
+  "status": "CALCULATED_STORAGE_ONLY_NOT_MEASURED_PEAK_RAM_OR_RUNTIME",
+  "N": 446349,
+  "genes": 19071,
+  "iterations": 100,
+  "pairs": 199227429801,
+  "dense_float64_pair_bytes": 1593819438408,
+  "legacy_three_dense_pair_arrays_bytes": 4781458315224,
+  "all_cell_labels_int32_bytes": 178539600,
+  "packed_sampling_mask_bytes": 5579400,
+  "sparse_B_float64_int32_CSC_bytes": 537404200,
+  "cell_cluster_affinity_float64_bytes_per_K": 3570792,
+  "normalized_CSR_float64_int32_bytes": 15397145716,
+  "raw_CSR_int32_bytes": 10265358944,
+  "root80_PCA_3000genes_float64_bytes": 8569896000,
+  "runtime_per_iteration_seconds": null,
+  "measured_peak_RSS_bytes": null,
+  "measured_total_disk_bytes": null
+}

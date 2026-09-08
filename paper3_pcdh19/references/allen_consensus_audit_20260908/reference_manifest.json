@@ -1,0 +1,209 @@
+[
+  {
+    "local_path": "allen_r/R/consensusCluster.R",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "9af2f04cb837a7b53b005dee88a92eae337afead",
+    "source_path": "R/consensusCluster.R",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/R/consensusCluster.R",
+    "sha256": "e193ee535d465e81fa9534f612abd782aeff129191bd96024f0aca82b07f605a",
+    "bytes": 21355
+  },
+  {
+    "local_path": "allen_r/R/cluster.R",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "9af2f04cb837a7b53b005dee88a92eae337afead",
+    "source_path": "R/cluster.R",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/R/cluster.R",
+    "sha256": "90c391ca12e42432eae88ac1e28bf5be871712a51f4a89c7af01290fa9e21462",
+    "bytes": 17639
+  },
+  {
+    "local_path": "allen_r/R/annotate.R",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "9af2f04cb837a7b53b005dee88a92eae337afead",
+    "source_path": "R/annotate.R",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/R/annotate.R",
+    "sha256": "17596cab46a323efbe1ef243981a04f98607aca5e5bbbd0ce2c6883684b49f96",
+    "bytes": 20295
+  },
+  {
+    "local_path": "allen_r/R/util.R",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "9af2f04cb837a7b53b005dee88a92eae337afead",
+    "source_path": "R/util.R",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/R/util.R",
+    "sha256": "dae0353a845a6c7e37a3dcfcd00d3c696c7b21cadf111020532581490f0e1e04",
+    "bytes": 15148
+  },
+  {
+    "local_path": "allen_r/R/merge_cl.R",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "9af2f04cb837a7b53b005dee88a92eae337afead",
+    "source_path": "R/merge_cl.R",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/R/merge_cl.R",
+    "sha256": "78ae18800bc239cc832ee8679eeac9c5ca0951e84e4b064b84c2b66c8fdd3669",
+    "bytes": 9658
+  },
+  {
+    "local_path": "allen_r/R/de.genes.R",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "9af2f04cb837a7b53b005dee88a92eae337afead",
+    "source_path": "R/de.genes.R",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/R/de.genes.R",
+    "sha256": "05ae822ecab553f851509bac95cb1a598ee53d06dc4f1a495118f80866f08834",
+    "bytes": 40333
+  },
+  {
+    "local_path": "allen_r/R/markers.R",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "9af2f04cb837a7b53b005dee88a92eae337afead",
+    "source_path": "R/markers.R",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/R/markers.R",
+    "sha256": "062105ee4c3df5454846847d3f6f7a2910aaa46557a5fe971b4a7ef177891e55",
+    "bytes": 16341
+  },
+  {
+    "local_path": "allen_r/LICENSE",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "9af2f04cb837a7b53b005dee88a92eae337afead",
+    "source_path": "LICENSE",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/LICENSE",
+    "sha256": "7a4fead601f1c659e8327ed8de88ac537a995f772bf1a0ea14114a9267f1ef83",
+    "bytes": 1841
+  },
+  {
+    "local_path": "allen_r/DESCRIPTION",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "9af2f04cb837a7b53b005dee88a92eae337afead",
+    "source_path": "DESCRIPTION",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/DESCRIPTION",
+    "sha256": "caed276c86e0b5b28e2dc4ba879722c31532c2df2d5cc11e7dd67f468c17ee52",
+    "bytes": 1426
+  },
+  {
+    "local_path": "allen_r/vignettes/scrattch.hicat_release.Rmd",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "9af2f04cb837a7b53b005dee88a92eae337afead",
+    "source_path": "vignettes/scrattch.hicat_release.Rmd",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/vignettes/scrattch.hicat_release.Rmd",
+    "sha256": "ba32ee458f9a0be8868064535f548e39d8730ad619ada6377492dfb95644b6c3",
+    "bytes": 21625
+  },
+  {
+    "local_path": "allen_r_2018/R/consensusCluster.R",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "91d0934e7eec31794b5945a5570ad92d7a3a9521",
+    "source_path": "R/consensusCluster.R",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/91d0934e7eec31794b5945a5570ad92d7a3a9521/R/consensusCluster.R",
+    "sha256": "e6a8f9a758a888a8d18f531f00873bf93788151dcea9ba000f1539896f90a07b",
+    "bytes": 16058
+  },
+  {
+    "local_path": "allen_r_2018/R/annotate.R",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "91d0934e7eec31794b5945a5570ad92d7a3a9521",
+    "source_path": "R/annotate.R",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/91d0934e7eec31794b5945a5570ad92d7a3a9521/R/annotate.R",
+    "sha256": "beeb4b0c05a4c934d0216bbd416b62d7ff8b5101c7d155004d45de1c28c4950d",
+    "bytes": 6435
+  },
+  {
+    "local_path": "allen_r_2018/LICENSE",
+    "repository": "https://github.com/AllenInstitute/scrattch.hicat",
+    "commit": "91d0934e7eec31794b5945a5570ad92d7a3a9521",
+    "source_path": "LICENSE",
+    "source_url": "https://github.com/AllenInstitute/scrattch.hicat/blob/91d0934e7eec31794b5945a5570ad92d7a3a9521/LICENSE",
+    "sha256": "7a4fead601f1c659e8327ed8de88ac537a995f772bf1a0ea14114a9267f1ef83",
+    "bytes": 1841
+  },
+  {
+    "local_path": "allen_python/transcriptomic_clustering/iterative_clustering.py",
+    "repository": "https://github.com/AllenInstitute/transcriptomic_clustering",
+    "commit": "99154957c74023235763025fda9dc4eb3ca952c6",
+    "source_path": "transcriptomic_clustering/iterative_clustering.py",
+    "source_url": "https://github.com/AllenInstitute/transcriptomic_clustering/blob/99154957c74023235763025fda9dc4eb3ca952c6/transcriptomic_clustering/iterative_clustering.py",
+    "sha256": "c85fd2c06cf659861061461146da2a572eacb6436e9e04c1cdbc08caff03ada8",
+    "bytes": 10385
+  },
+  {
+    "local_path": "allen_python/transcriptomic_clustering/onestep_clustering.py",
+    "repository": "https://github.com/AllenInstitute/transcriptomic_clustering",
+    "commit": "99154957c74023235763025fda9dc4eb3ca952c6",
+    "source_path": "transcriptomic_clustering/onestep_clustering.py",
+    "source_url": "https://github.com/AllenInstitute/transcriptomic_clustering/blob/99154957c74023235763025fda9dc4eb3ca952c6/transcriptomic_clustering/onestep_clustering.py",
+    "sha256": "5fd98bdbd684da3e48874aca0064f9aab697d8abc63a5fd25d39bfe56404c896",
+    "bytes": 6627
+  },
+  {
+    "local_path": "allen_python/transcriptomic_clustering/merging.py",
+    "repository": "https://github.com/AllenInstitute/transcriptomic_clustering",
+    "commit": "99154957c74023235763025fda9dc4eb3ca952c6",
+    "source_path": "transcriptomic_clustering/merging.py",
+    "source_url": "https://github.com/AllenInstitute/transcriptomic_clustering/blob/99154957c74023235763025fda9dc4eb3ca952c6/transcriptomic_clustering/merging.py",
+    "sha256": "2a92687cff3e1db3d49521186f2769f8e6e842f9c63648e0267d18a7fc1387e7",
+    "bytes": 20633
+  },
+  {
+    "local_path": "allen_python/transcriptomic_clustering/final_merging.py",
+    "repository": "https://github.com/AllenInstitute/transcriptomic_clustering",
+    "commit": "99154957c74023235763025fda9dc4eb3ca952c6",
+    "source_path": "transcriptomic_clustering/final_merging.py",
+    "source_url": "https://github.com/AllenInstitute/transcriptomic_clustering/blob/99154957c74023235763025fda9dc4eb3ca952c6/transcriptomic_clustering/final_merging.py",
+    "sha256": "bc63483a12410631ee580a34288e11155303de4489ad011785544e0e5bd51493",
+    "bytes": 7391
+  },
+  {
+    "local_path": "allen_python/transcriptomic_clustering/markers.py",
+    "repository": "https://github.com/AllenInstitute/transcriptomic_clustering",
+    "commit": "99154957c74023235763025fda9dc4eb3ca952c6",
+    "source_path": "transcriptomic_clustering/markers.py",
+    "source_url": "https://github.com/AllenInstitute/transcriptomic_clustering/blob/99154957c74023235763025fda9dc4eb3ca952c6/transcriptomic_clustering/markers.py",
+    "sha256": "53ecc40dab2c3a10b220f2239b4fd1976194c3b2a6f53972cb095aeba8bbfff7",
+    "bytes": 2757
+  },
+  {
+    "local_path": "allen_python/transcriptomic_clustering/cluster_means.py",
+    "repository": "https://github.com/AllenInstitute/transcriptomic_clustering",
+    "commit": "99154957c74023235763025fda9dc4eb3ca952c6",
+    "source_path": "transcriptomic_clustering/cluster_means.py",
+    "source_url": "https://github.com/AllenInstitute/transcriptomic_clustering/blob/99154957c74023235763025fda9dc4eb3ca952c6/transcriptomic_clustering/cluster_means.py",
+    "sha256": "eca4b318ec6868dc44eeafe6922f3541131a4c039622b0881759f85c001a2076",
+    "bytes": 8204
+  },
+  {
+    "local_path": "allen_python/transcriptomic_clustering/means_vars_genes.py",
+    "repository": "https://github.com/AllenInstitute/transcriptomic_clustering",
+    "commit": "99154957c74023235763025fda9dc4eb3ca952c6",
+    "source_path": "transcriptomic_clustering/means_vars_genes.py",
+    "source_url": "https://github.com/AllenInstitute/transcriptomic_clustering/blob/99154957c74023235763025fda9dc4eb3ca952c6/transcriptomic_clustering/means_vars_genes.py",
+    "sha256": "ca61be7541d05f3bb3662bc06cf216fd731ffbe482f1c6eda1d85b4554142744",
+    "bytes": 3569
+  },
+  {
+    "local_path": "allen_python/transcriptomic_clustering/dimension_reduction.py",
+    "repository": "https://github.com/AllenInstitute/transcriptomic_clustering",
+    "commit": "99154957c74023235763025fda9dc4eb3ca952c6",
+    "source_path": "transcriptomic_clustering/dimension_reduction.py",
+    "source_url": "https://github.com/AllenInstitute/transcriptomic_clustering/blob/99154957c74023235763025fda9dc4eb3ca952c6/transcriptomic_clustering/dimension_reduction.py",
+    "sha256": "9a65783fb50488d6f7d7c4f38f704c799c64e59a451f0b7e096847256cfd3270",
+    "bytes": 13201
+  },
+  {
+    "local_path": "allen_python/transcriptomic_clustering/projection.py",
+    "repository": "https://github.com/AllenInstitute/transcriptomic_clustering",
+    "commit": "99154957c74023235763025fda9dc4eb3ca952c6",
+    "source_path": "transcriptomic_clustering/projection.py",
+    "source_url": "https://github.com/AllenInstitute/transcriptomic_clustering/blob/99154957c74023235763025fda9dc4eb3ca952c6/transcriptomic_clustering/projection.py",
+    "sha256": "a08282ef5a7a28393837db506e29ba1649b80f9f7cc66c08d87482ef0e637805",
+    "bytes": 3497
+  },
+  {
+    "local_path": "allen_python/LICENSE",
+    "repository": "https://github.com/AllenInstitute/transcriptomic_clustering",
+    "commit": "99154957c74023235763025fda9dc4eb3ca952c6",
+    "source_path": "LICENSE",
+    "source_url": "https://github.com/AllenInstitute/transcriptomic_clustering/blob/99154957c74023235763025fda9dc4eb3ca952c6/LICENSE",
+    "sha256": "4d4ba05e10230af3cb245aa2f10f7bb02d24be019190f69f130550208696e232",
+    "bytes": 1955
+  }
+]
