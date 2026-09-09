@@ -1,11 +1,11 @@
 # Independent HiCAT iteration and consensus restart contract
 
 **Current scope: production is explicitly authorized and array 60617037
-(`0-99%10`) is submitted.** At **2026-09-09 01:07 UTC**, iteration 0 has sealed
-fit/mapping outputs, nine iterations are running and 90 await execution/retry.
-The recovery array itself is pending; full-data initialization is running.
-The second benchmark iteration and remaining restart/aggregation tests are
-incomplete. See [current status and saved assets](HICAT_PRODUCTION_STATUS.md).
+(`0-99%10`) is submitted.** At **2026-09-09 14:24:32 UTC / 10:24:32 AM Detroit**,
+99 iterations have sealed fit/mapping outputs and iteration 99 is running.
+Full-data initialization, the second benchmark iteration and the real
+restart/aggregation/DE checks are complete. Production aggregation and DE are
+pending on dependencies. See [current status, timings and ETA](HICAT_PRODUCTION_STATUS.md).
 All 100 frozen seed/sample-ID sets are used unchanged; benchmark
 iterations 0/1 are reused by their corresponding array tasks. Each task requests
 8 CPUs, 150 GiB and 48 hours. See [the live handoff](HICAT_VALIDATION_HANDOFF.md)
@@ -23,6 +23,12 @@ E14.5 mouse MGE samples**. Each iteration uniformly samples **357,079 cells**
 without replacement and maps **89,270 held-out cells**. No pilot parents or K,
 biological annotations, sample/genotype, integration, batch correction or cycle
 regression enter fitting. Use q1=.4, qdiff=.7, DEscore150.
+
+The separately requested consensus of iterations 0–97 is complete. Its
+versioned review package remains within HiCAT stage 03; see the
+[review handoff](HICAT_CONSENSUS_REVIEW_HANDOFF.md) and
+[publication contract](HICAT_CONSENSUS_REVIEW_PROTOCOL.md).
+It neither changes these frozen checkpoints nor replaces the all-100 jobs.
 
 ## Numerical method
 
@@ -94,8 +100,9 @@ scientific contracts. BigCAT production remains unauthorized.
 
 ## Real restart and aggregation tests
 
-These real-data restart/aggregation tests have not yet run as of the status
-snapshot above. The second iteration's first mapping attempt is configured to deliberately raise an error
+These real-data restart/aggregation tests completed on September 8; the report
+finished at 10:46:54 PM Detroit. `report/RESTART_VALIDATION.json` records the
+checkpoint reuse evidence. The second iteration's first mapping attempt was configured to deliberately raise an error
 **after** writing the membership output and **before** publishing completion.
 A separately queued retry reads the successful fit and completes mapping.
 This validates recovery from actual full-data output, beyond small fixtures.
@@ -118,7 +125,7 @@ Use [the production status command](bin/consensus_production_status.py) to
 refresh scheduler counts and all 100 fit/mapping checkpoint states:
 
 ```bash
-python paper3_pcdh19/bin/consensus_production_status.py --run-dir RUN_DIRECTORY
+python3.11 paper3_pcdh19/bin/consensus_production_status.py --run-dir RUN_DIRECTORY
 ```
 
 For failed iterations, use the status JSON's

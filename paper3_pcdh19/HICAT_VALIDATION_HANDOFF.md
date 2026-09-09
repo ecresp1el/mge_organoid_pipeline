@@ -1,43 +1,26 @@
 # Current checkpoint: Step 07 complete; full-data HiCAT production submitted
 
-**Status at 2026-09-09 01:07 UTC / September 8, 9:07 PM Detroit: 1 iteration
-complete, 9 running, 90 awaiting execution/retry.** The separate all-cell
-consensus initializer is also running. Recovery array **60617037**, `0-99%10`,
-is submitted but **its 100 tasks are still pending on the existing writers**.
-See [the current status and completed assets](HICAT_PRODUCTION_STATUS.md).
-Each task requests **8 CPUs, 150 GiB and 48 hours**. All frozen scientific
-settings, seeds and sampled-cell lists remain unchanged.
+**Current review: the 98-iteration consensus is published IN_REVIEW within
+HiCAT stage 03.** It contains 34 clusters across all 446,349 cells; final DE
+leaves three unresolved pairs. Start with the
+[consensus review handoff](HICAT_CONSENSUS_REVIEW_HANDOFF.md) for the versioned
+Turbo package, numbered report and exact assignments. Publication job
+**60712671** validated and reused the saved result from job **60707938**;
+it did not rerun clustering or DE.
 
-The initial array **60614879** exposed an Annoy Python seed-conversion error in
-iterations **2, 3, 4, 5, 6, 8, 9** after PCA. These failed attempts are preserved.
-The qualified [exact-seed compatibility bridge](ANNOY_SEED_BINDING_RECOVERY.md)
-forwards the original positive seed to the same installed native Annoy engine.
-It changes neither seed values nor the scientific method or installed package.
-All 100 seed fixtures passed; safe-seed graphs/labels matched the old binding;
-checkpoint provenance and reuse passed.
+At **2026-09-09 14:24:32 UTC / 10:24:32 AM Detroit**, the separate production
+array **60617037** had **99 completed/sealed iterations and one running**.
+The full-data initializer and real two-iteration benchmark/restart checks
+are complete. Jobs **60617041** (production aggregation) and **60617044**
+(final DE) remained pending on dependencies. See the
+[current status and timing](HICAT_PRODUCTION_STATUS.md).
 
-Iteration 0 completed fit/held-out mapping in job **60609369** (01:03:22), then
-adoption **60612803** and membership publication **60612807** completed. Its
-fit and mapping stages are sealed and independently reusable. Iteration 1 and
-original-array iterations 7, 12, 13, 14, 15, 20, 26, 30 remain running. The replacement array
-waits for these writers and then verifies/reuses completed checkpoints. Only
-incomplete stages are computed. Pending superseded tasks were cancelled; no
-running fit was cancelled or resized. This is one 100-iteration ensemble.
-
-Exact production directory:
+Production source directory:
 `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/hicat/03_full_data_consensus_benchmark/consensus_restart_20260909_000256`.
-`PRODUCTION_SUBMISSION.json` records current and previous arrays;
-`production/STATUS.json` and `production/iteration_status.tsv` distinguish live
-scientific iterations from replacement tasks waiting to reuse them. Refresh with
-[the status command](bin/consensus_production_status.py).
-
-Separately rerunnable production aggregation is **60617041**, and final DE is
-**60617044**. Aggregation also waits for the real two-iteration benchmark/report
-and requires all 100 sealed membership outputs. First-iteration runtime and
-held-out mapping are now measured; the second iteration, real two-iteration
-aggregation test and final consensus remain incomplete. Full-data initializer
-**60609372** is running. The seed-fix retry has not started; iteration 0 completed
-through the original successful path.
+Resources remain 8 CPUs, 150 GiB and 48 hours per iteration, concurrency cap 10.
+All frozen scientific settings, seeds and sampled-cell lists remain unchanged.
+The seven initial Annoy seed failures have completed successfully in recovery;
+their historical failed attempts remain preserved.
 
 The [BigCAT compatibility audit](BIGCAT_COMPATIBILITY_AUDIT.md) is saved. No
 BigCAT package was installed and no BigCAT production jobs were submitted.
@@ -51,13 +34,15 @@ Run `hicat_validation_20260908_221625_d5d06a5d` **completed**, Great Lakes job
 clustering was performed in Step 07. The main PDF has five pages and the
 detailed PDF 76 pages.
 
+## Historical benchmark preparation and submission
+
 **Earlier benchmark preparation:** prepare an Allen-faithful full-data consensus
 benchmark using the approved Step 02 population (446,349 cells × 19,071 genes),
 not the 12,000-cell pilot. First complete the
 [Allen consensus algorithm audit](HICAT_ALLEN_CONSENSUS_ALGORITHM_AUDIT.md).
 That source audit is complete. Seven numerical qualification tests passed,
 including pinned-R comparisons, sparse/dense DE and fitting, and saved AnnData.
-**The real full-data benchmark continues alongside the production submission above.**
+**The following records the earlier benchmark submission; it has since completed.**
 Run `consensus_benchmark_20260908_235116` lives under
 `results/hicat/03_full_data_consensus_benchmark/`. Preparation is job **60609367**,
 the first 80% fit **60609369**, and full-data initialization **60609372**.

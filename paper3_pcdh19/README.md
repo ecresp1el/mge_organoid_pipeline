@@ -18,24 +18,23 @@ Step 07 is now computationally complete and IN_REVIEW. The requested
 concise decision table, exact contributions and merge-flow tree. No additional
 HiCAT fit was run; 17 remains an unresolved comparison, not a locked partition.
 
-**Current work: authorized full-data HiCAT production array 60617037 (`0-99%10`).**
-At **2026-09-09 01:07 UTC / September 8, 9:07 PM Detroit**, **1 iteration is
-complete, 9 are running, and 90 await execution/retry**. The separate full-data
-initializer is also running. The recovery array's 100 scheduler tasks remain
-pending; they will reuse the existing completed stages. Start with
-[the current status and saved assets](HICAT_PRODUCTION_STATUS.md).
-The user authorized **100 independent 80% iterations** on approved Step 02's
-446,349 cells, retaining q1=.4, qdiff=.7, DEscore150, all frozen seeds/sample IDs,
-and 8 CPUs/150 GiB/48 hours per task. An [exact-seed binding recovery](ANNOY_SEED_BINDING_RECOVERY.md)
-preserves seven failed attempts and all active fits. Benchmark iteration 0 now
-has sealed fit and all-cell membership outputs; iteration 1 continues. These
-outputs will be reused by their corresponding array tasks. Final production aggregation
-and DE are separately rerunnable jobs; they consume saved iteration checkpoints.
-See the [execution handoff](HICAT_VALIDATION_HANDOFF.md) and
-[restart protocol](HICAT_CONSENSUS_RESTART_PROTOCOL.md) for status and recovery.
-Held-out assignments contribute to the consensus denominator; pilot parents and
-K are not fixed. The [BigCAT compatibility audit](BIGCAT_COMPATIBILITY_AUDIT.md)
-documents a contingency path only; no BigCAT production work was submitted.
+**Current requested deliverable: the 98-iteration HiCAT consensus, IN_REVIEW.**
+The saved consensus contains **34 clusters across all 446,349 cells**. Its
+validated, numbered review package is published within HiCAT asset stage
+**`03_full_data_consensus_benchmark`** as
+`hicat_consensus_review_20260909_142348_efd9e13d`, job **60712671**.
+Start with [the current consensus review handoff](HICAT_CONSENSUS_REVIEW_HANDOFF.md)
+for the Turbo report, numbered figures, assignments and validation.
+The [review protocol](HICAT_CONSENSUS_REVIEW_PROTOCOL.md) records the existing
+stage numbering, object-oriented code, frozen submission and atomic publication.
+
+The separately authorized 100-iteration array **60617037** continues. At
+**September 9, 10:24:32 AM Detroit**, **99 iterations were sealed complete and
+one was running**; production aggregation and DE remained pending. See
+[the timestamped production status](HICAT_PRODUCTION_STATUS.md). That ensemble
+is separate from the user's requested R=98 deliverable; no final-two-iteration
+wait or new biological annotation is required to review the 98-run result.
+All scientific settings and per-iteration checkpoints remain preserved.
 
 This workstream is reserved for the Ziobro PCDH19 MGE single-cell paper. It is
 separate from the Paper 2 cross-study atlas and uses the Ziobro Turbo

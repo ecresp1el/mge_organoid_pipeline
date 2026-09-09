@@ -1,0 +1,16 @@
+{
+  "stage": "03_full_data_consensus_benchmark",
+  "scope": "review_saved_98_iteration_consensus",
+  "source_run": "/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/hicat/03_full_data_consensus_benchmark/consensus_restart_20260909_000256",
+  "source_consensus": "final/consensus_98_20260909",
+  "iterations": 98,
+  "cells": 446349,
+  "genes": 19071,
+  "samples": 12,
+  "dpi": 160,
+  "status": "IN_REVIEW",
+  "refit": false,
+  "lock_annotations": false,
+  "biological_context": "dissected E14.5 mouse MGE",
+  "marker_panel": ["Sox2", "Hes1", "Vim", "Mki67", "Top2a", "Ascl1", "Dlx1", "Dlx2", "Gad1", "Gad2", "Lhx6", "Nkx2-1", "Sst", "Pvalb", "Lhx8", "Isl1", "Chat", "Slc17a6", "Slc17a7", "Aldh1l1", "Olig2", "Pdgfra", "Aif1", "Pecam1", "Pcdh19"]
+}

@@ -86,7 +86,13 @@ def snapshot(root):
     preexisting_live={}
     for key in ['preexisting_iteration_jobs','preexisting_membership_jobs']:
         for index,job in submission.get(key,{}).items():
-            value=subprocess.check_output(['squeue','-h','-j',job,'-o','%T'],text=True).strip()
+            query=subprocess.run(['squeue','-h','-j',job,'-o','%T'],
+                                 text=True,capture_output=True)
+            # Finished jobs eventually leave squeue; sacct retains accounting.
+            # Do not suppress unrelated scheduler/connection errors.
+            if query.returncode and 'Invalid job id specified' not in query.stderr:
+                query.check_returncode()
+            value=query.stdout.strip() if query.returncode==0 else ''
             if value in ['RUNNING','COMPLETING']:preexisting_live[int(index)]=job
     rows=[]
     for index in range(100):

@@ -1,11 +1,12 @@
 # Full-data consensus benchmark — execution and saved assets
 
-**Execution update, 2026-09-09 01:07 UTC:** the first full-data 80% fit and
-held-out assignment completed in **01:03:22**. Its fit was adopted and its
-all-cell membership was independently published/validated. One of 100
-iterations is complete, nine are running, and the separate full-data consensus
-initializer is running. The recovery array and two-real-iteration aggregation
-test remain pending. See [current status, measurements and saved assets](HICAT_PRODUCTION_STATUS.md).
+**Execution update, September 9, 2026:** the real two-iteration benchmark
+and restart checks are complete. The separately requested 98-iteration
+consensus and its numbered stage-03 review package are also complete,
+**IN_REVIEW**: see [the review handoff](HICAT_CONSENSUS_REVIEW_HANDOFF.md).
+At 10:24:32 AM Detroit the full production array had 99 sealed iterations and
+one running, with production aggregation/DE still pending. See
+[current status and measured timings](HICAT_PRODUCTION_STATUS.md).
 
 **Extension requested after submission:** the benchmark now requires two real
 independent iterations and explicit restart/reuse validation. See the
