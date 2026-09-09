@@ -1,7 +1,7 @@
 # HiCAT 03: current 98-iteration consensus review
 
-For the **exact executed scRNA-seq parameters and how consensus is formed**,
-read [the parameter and consensus guide](HICAT_PARAMETERS_AND_CONSENSUS.md).
+For orientation, start with [the workflow overview](README.md#hicat-start-here).
+Use [the methods reference](HICAT_PARAMETERS_AND_CONSENSUS.md) for exact parameters.
 
 **IN_REVIEW.** Job **60712671** published the corrected review package on
 September 9, 2026 at approximately **10:24:31 AM Detroit**. All **35

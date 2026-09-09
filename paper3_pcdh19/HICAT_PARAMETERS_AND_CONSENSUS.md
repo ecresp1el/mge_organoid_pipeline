@@ -1,5 +1,11 @@
 # PCDH19 HiCAT: exact parameters and how consensus is constructed
 
+**Start with [the one-page workflow overview](README.md#hicat-start-here).**
+This page is the detailed reference: [single-fit parameters](#3-what-each-of-the-100-iterations-does),
+[gene-separation tests](#4-exact-de-separation-thresholds-q1-qdiff-and-score150),
+[consensus construction](#5-how-the-partitions-become-a-consensus), and
+[what done means](#6-what-done-means-and-where-to-inspect-evidence).
+
 This is the methods guide for the **executed full-data run**, within HiCAT
 stage **03 — `03_full_data_consensus_benchmark`**. Read it before interpreting
 cluster counts or changing a parameter. The earlier pilot protocols document

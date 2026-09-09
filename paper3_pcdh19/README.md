@@ -1,47 +1,90 @@
 # Paper 3: Ziobro PCDH19 MGE single-cell RNA-seq
 
-For the **exact executed scRNA-seq parameters and how consensus is formed**,
-read [the parameter and consensus guide](HICAT_PARAMETERS_AND_CONSENSUS.md).
+## HiCAT: start here
 
-**Biological context: dissected mouse medial ganglionic eminence (MGE), E14.5.**
-These samples are not organoids. Repository and environment names do not
-describe the tissue. See [experiment context](EXPERIMENT_CONTEXT.md).
+**Goal: find groups of cells that differ in expression and remain reproducible
+when we repeat clustering on different subsets of the data.**
 
-**Completed primary-processing checkpoint: Step 07 — HiCAT hierarchy validation
-and parameter sensitivity (IN_REVIEW).** That analysis used the existing
-12,000-cell pilot, its two seed fits, and provisional biological hypotheses.
-Step 06 already supplies a joint, unintegrated UMAP for display. Full-data
-marker scores and overlays were included; full-data clustering was outside
-the scope of Step 07.
-See [Step 07 protocol and asset contract](HICAT_VALIDATION_PROTOCOL.md).
-The [current Step 07 run handoff](HICAT_VALIDATION_HANDOFF.md) identifies its
-versioned package, submitted job, progress logs, and review boundary.
-Step 07 is now computationally complete and IN_REVIEW. The requested
-[38→17 boundary decision review](HICAT_MERGE_COLLAPSE_REVIEW.md) provides the
-concise decision table, exact contributions and merge-flow tree. No additional
-HiCAT fit was run; 17 remains an unresolved comparison, not a locked partition.
+We start with **446,349 QC-filtered cells from 12 dissected E14.5 mouse MGE
+samples**. This work is HiCAT stage **03**, following the method pilot (00),
+expanded pilot (01), and hierarchy validation (02). These are the HiCAT
+subworkflow numbers; the separate primary-processing numbers are unchanged.
 
-**Current requested deliverable: the 98-iteration HiCAT consensus, IN_REVIEW.**
-The saved consensus contains **34 clusters across all 446,349 cells**. Its
-validated, numbered review package is published within HiCAT asset stage
-**`03_full_data_consensus_benchmark`** as
-`hicat_consensus_review_20260909_142348_efd9e13d`, job **60712671**.
-Start with [the current consensus review handoff](HICAT_CONSENSUS_REVIEW_HANDOFF.md)
-for the Turbo report, numbered figures, assignments and validation.
-The [review protocol](HICAT_CONSENSUS_REVIEW_PROTOCOL.md) records the existing
-stage numbering, object-oriented code, frozen submission and atomic publication.
+### The analysis in one picture
 
-The separately authorized 100-iteration array **60617037** continues. At
-**September 9, 10:24:32 AM Detroit**, **99 iterations were sealed complete and
-one was running**; production aggregation and DE remained pending. See
-[the timestamped production status](HICAT_PRODUCTION_STATUS.md). That ensemble
-is separate from the user's requested R=98 deliverable; no final-two-iteration
-wait or new biological annotation is required to review the 98-run result.
-All scientific settings and per-iteration checkpoints remain preserved.
+```mermaid
+flowchart TD
+    A[Approved Step 02 cells] --> B[Fit clusters on an 80% subset]
+    B --> C[Assign the held-out 20% to those clusters]
+    C --> D[Repeat with different subsets: 100 complete partitions]
+    A --> E[Fit all cells once to get starting groups]
+    D --> F[Measure how often each pair of cells stays together]
+    E --> G[Merge and refine groups using that agreement]
+    F --> G
+    G --> H[Final expression-based merge and separation audit]
+    H --> I[Review clusters and their gene evidence]
+```
 
-This workstream is reserved for the Ziobro PCDH19 MGE single-cell paper. It is
-separate from the Paper 2 cross-study atlas and uses the Ziobro Turbo
-allocation, independent step numbering, and independent outputs.
+### Three questions, three different kinds of evidence
+
+| Question | What the analysis uses | Parameters you will see |
+| --- | --- | --- |
+| **Which cells look similar?** | Variable genes → PCA → neighbor graph → candidate clusters; repeated within branches | Up to **3,000 HVGs**, **50 fitted / at most 20 retained PCs**, requested **15 neighbors**, Louvain resolution **1**. Actual dimensions/neighbors can be smaller. |
+| **Do two clusters differ enough in expression?** | Qualifying differential-expression genes and their combined statistical evidence | **q1=.4, qdiff=.7, score150, minimum 5 genes**. Explained below. |
+| **Do the same cells keep grouping together?** | Repeat the fit, then merge/refine using how often pairs of cells share a cluster | **100 iterations**, **80% fitted / 20% assigned** each time. Every cell gets one label per iteration. |
+
+**The five genes belong to the second question.** They are five genes providing
+evidence for a difference between a particular pair of clusters—not the total
+number of genes used to cluster the cells.
+
+### Reading the expression-separation rule
+
+| Term | Plain-language meaning |
+| --- | --- |
+| **q1=.4** | A qualifying gene must be detected above the expression threshold in **more than 40%** of the higher-expression cluster. |
+| **qdiff=.7** | Its detection fractions must differ strongly: the difference divided by the larger fraction must exceed **70%**. |
+| **Minimum 5 genes** | At least **five genes** must pass all the gene-level tests; genes higher in either cluster count. |
+| **score150** | The qualifying genes must together provide enough statistical evidence: a combined DE score of **at least 150**. |
+
+A gene must also pass the expression-difference, adjusted-p-value and
+minimum-detected-cell tests. The **final audit** requires both five qualifying
+genes **and** score150. The pinned merging algorithm can leave pairs that fail
+this audit; those pairs are flagged for review. The
+[exact rules and implementation caveat](HICAT_PARAMETERS_AND_CONSENSUS.md#4-exact-de-separation-thresholds-q1-qdiff-and-score150)
+are available when you need the details.
+
+### What consensus and “done” mean
+
+If two cells share a cluster in **90 of 100 iterations**, their pairwise
+agreement is **90%**. Consensus combines these agreements across cells to
+merge/refine the starting groups. It does not vote on cluster names or pick
+the most common cluster count.
+
+**Iterations finished → consensus finished → report validated → biological
+review** are separate milestones. A computed result remains **IN_REVIEW**.
+The completed **98-iteration result has 34 clusters**, with three cluster pairs
+flagged by the separation audit. That is a result from 98 selected partitions;
+it is not a statement about the 100-iteration endpoint.
+
+### Sample identity
+
+[The registered sample key](config/sample_key.csv) defines **JZ-1–3: WT male;
+JZ-4–6: WT female; JZ-7–9: HET female; JZ-10–12: KO male**. Join on
+`technical_sample_id`. These identities explain sample-composition plots and
+later comparisons; they do not define the HiCAT clusters. Submitted names do
+not establish litter, donor or batch structure.
+
+### Where to go next
+
+| You want to know… | Read this |
+| --- | --- |
+| **What has finished right now?** | [Timestamped execution status](HICAT_PRODUCTION_STATUS.md) |
+| **Where are the results and figures?** | [98-iteration result handoff](HICAT_CONSENSUS_REVIEW_HANDOFF.md) |
+| **Exactly which parameters and calculations were used?** | [Detailed methods guide](HICAT_PARAMETERS_AND_CONSENSUS.md) |
+| **How are outputs numbered, saved and validated?** | [Workflow and publication contract](HICAT_CONSENSUS_REVIEW_PROTOCOL.md) |
+
+The sections below preserve earlier workstream history. For the current HiCAT
+analysis, start with the overview and four links above.
 
 ## Historical mapping-workstream state before primary-processing Step 06
 
