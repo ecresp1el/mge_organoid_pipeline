@@ -1,5 +1,9 @@
 # Allen consensus algorithm audit
 
+**Historical source audit:** its original execution/authorization statements
+record the audit date. For the executed production parameters and operational
+meaning, use [the current methods guide](HICAT_PARAMETERS_AND_CONSENSUS.md).
+
 **The scalable Allen collector classifies held-out cells before consensus.**
 The earlier conditional co-sampling denominator is superseded. The source
 also has a large-graph branch that **bypasses `iter_consensus_clust`**.

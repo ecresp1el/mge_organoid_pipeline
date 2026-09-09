@@ -1,5 +1,8 @@
 # Independent HiCAT iteration and consensus restart contract
 
+For the **exact executed scRNA-seq parameters and how consensus is formed**,
+read [the parameter and consensus guide](HICAT_PARAMETERS_AND_CONSENSUS.md).
+
 **Current scope: production is explicitly authorized and array 60617037
 (`0-99%10`) is submitted.** At **2026-09-09 14:24:32 UTC / 10:24:32 AM Detroit**,
 99 iterations have sealed fit/mapping outputs and iteration 99 is running.

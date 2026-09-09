@@ -1,5 +1,8 @@
 # Full-data HiCAT consensus: current execution status
 
+For the **exact executed scRNA-seq parameters and how consensus is formed**,
+read [the parameter and consensus guide](HICAT_PARAMETERS_AND_CONSENSUS.md).
+
 **Latest snapshot: 2026-09-09 14:24:32 UTC / September 9, 10:24:32 AM Detroit (EDT).**
 **99 of 100 production iterations are complete and sealed; iteration 99 is running.**
 There are no pending iteration tasks or current failed tasks. Production

@@ -1,5 +1,8 @@
 # Full-data consensus benchmark — execution and saved assets
 
+For the **exact executed scRNA-seq parameters and how consensus is formed**,
+read [the parameter and consensus guide](HICAT_PARAMETERS_AND_CONSENSUS.md).
+
 **Execution update, September 9, 2026:** the real two-iteration benchmark
 and restart checks are complete. The separately requested 98-iteration
 consensus and its numbered stage-03 review package are also complete,

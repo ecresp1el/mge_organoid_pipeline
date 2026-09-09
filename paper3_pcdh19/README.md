@@ -1,5 +1,8 @@
 # Paper 3: Ziobro PCDH19 MGE single-cell RNA-seq
 
+For the **exact executed scRNA-seq parameters and how consensus is formed**,
+read [the parameter and consensus guide](HICAT_PARAMETERS_AND_CONSENSUS.md).
+
 **Biological context: dissected mouse medial ganglionic eminence (MGE), E14.5.**
 These samples are not organoids. Repository and environment names do not
 describe the tissue. See [experiment context](EXPERIMENT_CONTEXT.md).

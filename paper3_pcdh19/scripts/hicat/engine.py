@@ -1,5 +1,9 @@
 """Instrument Allen Python HiCAT primitives for a bounded technical pilot.
 
+Executed full-data parameters, definitions and interpretation:
+``paper3_pcdh19/HICAT_PARAMETERS_AND_CONSENSUS.md``. Frozen run copies
+remain authoritative; documentation edits here do not change those copies.
+
 This is an explicit orchestration adapter, not a reimplementation of DE/HVG/
 graph algorithms. It records every recursive node, uses only expression for
 fitting, handles a single community before the upstream return-type defect,
@@ -127,6 +131,12 @@ class PilotEngine:
 
     def _merge(self,obj,projected,groups,labels,node):
         """Merge using unchanged Allen criteria, handling its single-group API bug.
+
+        q1 and qdiff are gene-detection filters, not cell-confidence cutoffs.
+        The pinned merge loop has a score-only early exit and an inner num>5
+        comparison; the final independent audit uses num>=5. Do not describe
+        this routine as guaranteeing that every surviving pair passes both
+        declared criteria. See the methods guide's exact DE control flow.
 
         Returns
         -------

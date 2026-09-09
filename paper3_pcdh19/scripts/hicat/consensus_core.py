@@ -1,5 +1,9 @@
 """Allen consensus membership operations without a full cell-by-cell matrix.
 
+Executed full-data parameters, definitions and interpretation:
+``paper3_pcdh19/HICAT_PARAMETERS_AND_CONSENSUS.md``. Frozen run copies
+remain authoritative; documentation edits here do not change those copies.
+
 Reference: scrattch.hicat 9af2f04, R/consensusCluster.R and R/annotate.R.
 Rows always follow an explicit input-cell index. Every successful iteration
 labels every cell, including held-out cells classified on fit-derived markers.
@@ -154,6 +158,13 @@ class Membership:
 
     def refine(self, labels, confusion_th=.6, min_cells=20, niter=50, tol_th=.01):
         """Port refine_cl's update and stopping order, preserving every cell.
+
+        A cell chooses the group with maximum mean pairwise co-clustering.
+        Confusion is strongest-other affinity divided by own-group affinity.
+        Remove groups with median confusion > confusion_th or size < min_cells,
+        then redistribute their cells; no cells are excluded. tol_th=.01 means
+        fewer than 1% of assignments would change, checked before the update.
+        These defaults are actual controls, not runtime-config JSON fields.
 
         Tolerance is tested BEFORE accepting proposed changes, as in R.
         Confused/small groups are removed as groups and their cells reassigned.

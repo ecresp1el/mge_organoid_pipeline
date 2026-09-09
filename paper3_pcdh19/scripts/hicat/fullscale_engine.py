@@ -1,5 +1,9 @@
 """Memory-bounded adapter for the already validated Allen Python fitter.
 
+Executed full-data parameters, definitions and interpretation:
+``paper3_pcdh19/HICAT_PARAMETERS_AND_CONSENSUS.md``. Frozen run copies
+remain authoritative; documentation edits here do not change those copies.
+
 Scientific settings and Allen's HVG/graph/eBayes implementations are preserved.
 Changes are allocation-only: sparse sample statistics, forced all-node-cell
 randomized PCA, blocked projection, and release of parent expression before

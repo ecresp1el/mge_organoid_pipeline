@@ -1,5 +1,8 @@
 # HiCAT 03: current 98-iteration consensus review
 
+For the **exact executed scRNA-seq parameters and how consensus is formed**,
+read [the parameter and consensus guide](HICAT_PARAMETERS_AND_CONSENSUS.md).
+
 **IN_REVIEW.** Job **60712671** published the corrected review package on
 September 9, 2026 at approximately **10:24:31 AM Detroit**. All **35
 checks passed**. It reuses the completed R=98 consensus from job **60707938**,

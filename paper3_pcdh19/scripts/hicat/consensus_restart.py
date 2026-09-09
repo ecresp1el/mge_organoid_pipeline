@@ -1,5 +1,9 @@
 """Restart-safe independent HiCAT iterations and real-output aggregation test.
 
+Executed full-data parameters, definitions and interpretation:
+``paper3_pcdh19/HICAT_PARAMETERS_AND_CONSENSUS.md``. Frozen run copies
+remain authoritative; documentation edits here do not change those copies.
+
 The benchmark permits iteration IDs 0 and 1 only. Each fit and mapping has an
 independent immutable checkpoint; final aggregation and final DE have their
 own checkpoints. A completion seal is written only after reopening/hash checks.
@@ -217,7 +221,15 @@ class RestartRun:
         return checkpoint(self.directory(index,'mapping'),contract,compute,validate)
 
     def aggregate(self):
-        """Consume two REAL completed blocks, without forming a full pair matrix."""
+        """Combine the selected complete partitions using mean co-clustering affinity.
+
+        Benchmark selects iterations 0/1; production requires all 100. Each
+        input includes fitted AND held-out labels, so the denominator is the
+        number of input partitions, not pair-specific co-sampling counts.
+        A separate full-expression fit initializes the large-graph branch.
+        Co-merging and refinement precede the separately restartable DE stage.
+        See the methods guide, sections 5.1–5.6, for exact equations/defaults.
+        """
         inputs=[];parents={}
         for index in self.iteration_ids:
             _,fit_seal=complete_attempt(self.directory(index,'fit'),self.contract('fit',index))

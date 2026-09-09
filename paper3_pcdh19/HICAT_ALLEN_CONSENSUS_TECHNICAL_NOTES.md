@@ -1,5 +1,9 @@
 # Allen consensus technical notes — before benchmarking
 
+**Historical source audit:** its original execution/authorization statements
+record the audit date. For the executed production parameters and operational
+meaning, use [the current methods guide](HICAT_PARAMETERS_AND_CONSENSUS.md).
+
 Start with the [short algorithm audit](HICAT_ALLEN_CONSENSUS_ALGORITHM_AUDIT.md).
 This companion records the detailed trace, fidelity limits and asset contract.
 
