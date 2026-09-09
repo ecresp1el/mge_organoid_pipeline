@@ -1,5 +1,12 @@
 # Full-data consensus benchmark — execution and saved assets
 
+**Extension requested after submission:** the benchmark now requires two real
+independent iterations and explicit restart/reuse validation. See the
+[restart protocol](HICAT_CONSENSUS_RESTART_PROTOCOL.md). The original preparation,
+first fit and full-data initialization are preserved; pending single-iteration
+consensus/report jobs were cancelled. The original one-iteration plan below
+records that initial submission, not the final report's expanded scope.
+
 **Current authorization: execute the real benchmark, report measured resources,
 then stop for the user's approval. Do not submit 100 production iterations.**
 The eventual target remains 100 independent 80% fits of approved Step02's

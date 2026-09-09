@@ -62,6 +62,29 @@ class Membership:
                                     np.arange(self.n+1, dtype=np.int64)*self.r),
                                    shape=(offset, self.n))
 
+    @classmethod
+    def from_blocks(cls, blocks, block_cells=4096):
+        """Consume independently saved iteration B matrices without recomputing fits.
+
+        Cell-universe hashes and ID order are verified by the caller's sealed
+        checkpoint contract. This method verifies the sparse numerical contract:
+        every block has exactly one nonzero, equal to one, per population cell.
+        """
+        if not blocks:raise ValueError('No completed membership blocks')
+        n=blocks[0].shape[1]
+        for block in blocks:
+            if block.shape[1]!=n:raise ValueError('Membership populations differ')
+            block=sparse.csc_matrix(block);block.check_format(full_check=True)
+            if not np.array_equal(np.diff(block.indptr),np.ones(n,dtype=int)) or not np.all(block.data==1):
+                raise ValueError('Each iteration must assign every cell exactly once')
+        obj=cls.__new__(cls);obj.n=n;obj.r=len(blocks);obj.block_cells=int(block_cells)
+        obj.b=sparse.vstack(blocks,format='csc',dtype=np.float64)
+        obj.block_index=[];start=0
+        for i,block in enumerate(blocks):
+            obj.block_index.append(dict(iteration=i,row_start=start,row_stop=start+block.shape[0]))
+            start+=block.shape[0]
+        return obj
+
     def affinity(self, labels, target_rows=None, query_rows=None):
         """Return mean consensus to each target cluster, and sorted cluster IDs.
 

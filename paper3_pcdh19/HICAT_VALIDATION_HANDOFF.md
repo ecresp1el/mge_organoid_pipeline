@@ -24,6 +24,8 @@ consensus/report jobs **60609374 / 60609377** were cancelled to replace those
 stages with the expanded two-real-iteration validation. Completed/running
 preparation and fit outputs are preserved for reuse. See
 [the execution and asset contract](FULL_DATA_CONSENSUS_BENCHMARK.md).
+The detailed independent-checkpoint design and real failure/retry test are in
+[the restart protocol](HICAT_CONSENSUS_RESTART_PROTOCOL.md).
 Actual states are in scheduler accounting and `progress/STAGE/` logs.
 The completed resource report must precede any approval for 100 production jobs.
 The audit preserves the requested Python fitting settings while identifying
