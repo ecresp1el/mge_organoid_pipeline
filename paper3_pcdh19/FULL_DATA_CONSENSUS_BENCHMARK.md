@@ -1,5 +1,12 @@
 # Full-data consensus benchmark — execution and saved assets
 
+**Execution update, 2026-09-09 01:07 UTC:** the first full-data 80% fit and
+held-out assignment completed in **01:03:22**. Its fit was adopted and its
+all-cell membership was independently published/validated. One of 100
+iterations is complete, nine are running, and the separate full-data consensus
+initializer is running. The recovery array and two-real-iteration aggregation
+test remain pending. See [current status, measurements and saved assets](HICAT_PRODUCTION_STATUS.md).
+
 **Extension requested after submission:** the benchmark now requires two real
 independent iterations and explicit restart/reuse validation. See the
 [restart protocol](HICAT_CONSENSUS_RESTART_PROTOCOL.md). The original preparation,
@@ -16,10 +23,12 @@ The production target is 100 independent 80% fits of approved Step02's
 446,349 dissected E14.5 mouse MGE cells, with q1=.4, qdiff=.7, DE score150.
 The source audit and historical reference files remain preserved.
 
-## What runs
+## Historical initial benchmark plan
 
-The [launcher](bin/submit_consensus_benchmark.py) submits a sequential SLURM
-dependency chain, without a job array:
+The original [launcher](bin/submit_consensus_benchmark.py) submitted a sequential
+benchmark dependency chain. The table preserves that original R=1 plan; the
+active benchmark now tests two real iterations, and production uses the
+separate restartable 100-task array described above.
 
 | Stage | Actual input and operation | Primary saved outputs |
 | --- | --- | --- |
@@ -99,7 +108,15 @@ Scheduler stdout/stderr are `logs/STAGE.out` and `.err`; stderr includes
 `/usr/bin/time -v`. `job_ids.json` records actual IDs. Code/config/references
 are copied before submission and checksum-verified by every stage.
 
-## Resource request and review boundary
+## Historical resource plan and current measurements
+
+The first fit/mapping job measured **01:03:22**, process peak **54.71 GiB**,
+SLURM batch peak **61.24 GiB**. Subsequent adoption and membership publication
+jobs took **01:05** and **00:49**. They reused the completed fit; their small
+resource records must not be interpreted as fitting costs. Total ensemble and
+final consensus costs remain provisional. The later user authorization fixes
+production at **8 CPUs / 150 GiB / 48 hours / concurrency 10**; the older
+resource recommendation below does not change that authorization.
 
 The initial benchmark allocation is **8 CPUs, 150 GiB, 48-hour time limit**
 for each expression-fit stage; these are limits, not measured consumption or

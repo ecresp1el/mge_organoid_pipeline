@@ -1,16 +1,25 @@
 # Paper 3 Ziobro PCDH19 MGE single-cell RNA-seq: operational handoff
 
-Last updated: 2026-09-03
+Execution status updated: 2026-09-09 01:07 UTC (September 8, 9:07 PM Detroit).
+
+**Current HiCAT work:** 1/100 full-data subsample iterations has completed,
+9 are running and 90 await execution/retry. The separate full-data consensus
+initializer is running. Recovery array **60617037** is pending on existing
+writers and will reuse sealed outputs. Start with
+[current status and saved assets](HICAT_PRODUCTION_STATUS.md) and
+[the detailed execution handoff](HICAT_VALIDATION_HANDOFF.md). Step 07 pilot
+validation is complete and IN_REVIEW; full-data consensus is separately
+authorized. These are **12 dissected E14.5 mouse MGE samples**.
 
 > **Classification freeze:** the separate classification workflow is complete
-> and immutable. Primary processing is currently authorized through Step 06.
+> and immutable. Later primary-processing/HiCAT status is recorded above.
 > The
 > authoritative resume document is
 > [`PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md`](PCDH19_GENOTYPE_CLASSIFICATION_HANDOFF.md).
 > Do not change any existing model, threshold, classification, or result
 > package. Post-freeze analyses must remain separate and downstream.
 
-> **Critical query-data state:** There is no joint or integrated Scanpy/Seurat
+> **Historical mapping-workstream state before Step 06:** There was no joint or integrated Scanpy/Seurat
 > UMAP for the 12 Paper 3 samples yet. The available clusters and UMAPs are
 > per-sample Cell Ranger outputs and are not mutually comparable. The Step 01
 > combined Seurat RDS is a mapping/annotation container—original counts,

@@ -19,11 +19,17 @@ concise decision table, exact contributions and merge-flow tree. No additional
 HiCAT fit was run; 17 remains an unresolved comparison, not a locked partition.
 
 **Current work: authorized full-data HiCAT production array 60617037 (`0-99%10`).**
+At **2026-09-09 01:07 UTC / September 8, 9:07 PM Detroit**, **1 iteration is
+complete, 9 are running, and 90 await execution/retry**. The separate full-data
+initializer is also running. The recovery array's 100 scheduler tasks remain
+pending; they will reuse the existing completed stages. Start with
+[the current status and saved assets](HICAT_PRODUCTION_STATUS.md).
 The user authorized **100 independent 80% iterations** on approved Step 02's
 446,349 cells, retaining q1=.4, qdiff=.7, DEscore150, all frozen seeds/sample IDs,
 and 8 CPUs/150 GiB/48 hours per task. An [exact-seed binding recovery](ANNOY_SEED_BINDING_RECOVERY.md)
-preserves seven failed attempts and all active fits. The two benchmark iterations continue and
-will be reused by their corresponding array tasks. Final production aggregation
+preserves seven failed attempts and all active fits. Benchmark iteration 0 now
+has sealed fit and all-cell membership outputs; iteration 1 continues. These
+outputs will be reused by their corresponding array tasks. Final production aggregation
 and DE are separately rerunnable jobs; they consume saved iteration checkpoints.
 See the [execution handoff](HICAT_VALIDATION_HANDOFF.md) and
 [restart protocol](HICAT_CONSENSUS_RESTART_PROTOCOL.md) for status and recovery.

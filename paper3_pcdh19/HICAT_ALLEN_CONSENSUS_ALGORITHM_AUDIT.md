@@ -10,6 +10,14 @@ hierarchy or K. This audit initially created documentation and pinned
 references only. See [the execution handoff](HICAT_VALIDATION_HANDOFF.md)
 for subsequent benchmark submission and current status.
 
+**Execution update, 2026-09-09 01:07 UTC:** one real iteration and held-out
+assignment have completed; its validated sparse membership is saved. The
+full-data initializer is running, and the two-iteration consensus test remains
+pending. See [current measurements and assets](HICAT_PRODUCTION_STATUS.md).
+The pre-benchmark measurement/approval condition below is historical: the user
+subsequently authorized production while the benchmark continued. Source logic
+and frozen scientific settings are unchanged.
+
 The trace below uses Allen R commit
 [`9af2f04`](https://github.com/AllenInstitute/scrattch.hicat/blob/9af2f04cb837a7b53b005dee88a92eae337afead/R/consensusCluster.R).
 “Unchanged” means algorithmically usable at this scale; R functions still need
@@ -63,7 +71,7 @@ fixtures and qualify sparse statistics against the existing Python backend.
 Then benchmark one complete real 80% iteration, held-out mapping and the
 measured full-population branch. B for 100 iterations needs approximately
 **537 MB** as float64/int32 CSC, excluding labels and working arrays;
-**runtime, peak RAM and total disk remain unmeasured**. Report these before
+**runtime, peak RAM and total disk were unmeasured at this audit's creation**. The original plan was to report these before
 launching the 100-fit production analysis. Benchmark outputs stay IN_REVIEW;
 neither annotations nor final K are locked.
 

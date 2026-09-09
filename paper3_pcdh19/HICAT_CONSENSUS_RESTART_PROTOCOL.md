@@ -1,8 +1,12 @@
 # Independent HiCAT iteration and consensus restart contract
 
 **Current scope: production is explicitly authorized and array 60617037
-(`0-99%10`) is submitted.** The two real benchmark iterations and their restart
-test continue. All 100 frozen seed/sample-ID sets are used unchanged; benchmark
+(`0-99%10`) is submitted.** At **2026-09-09 01:07 UTC**, iteration 0 has sealed
+fit/mapping outputs, nine iterations are running and 90 await execution/retry.
+The recovery array itself is pending; full-data initialization is running.
+The second benchmark iteration and remaining restart/aggregation tests are
+incomplete. See [current status and saved assets](HICAT_PRODUCTION_STATUS.md).
+All 100 frozen seed/sample-ID sets are used unchanged; benchmark
 iterations 0/1 are reused by their corresponding array tasks. Each task requests
 8 CPUs, 150 GiB and 48 hours. See [the live handoff](HICAT_VALIDATION_HANDOFF.md)
 and `PRODUCTION_SUBMISSION.json` for the exact run and separately queued final
@@ -44,6 +48,8 @@ for every cell. The denominator counts complete iterations after mapping.
 | `iterations/NNN/mapping` | That iteration's sealed fit and shared normalized expression | Held-out scores/prototypes; all-cell labels and fitted/inferred flags; exact CSC `membership_B.npz`; cell-universe/index contract; resources and manifest | Reuse the completed fit. A mapping failure never requires refitting that iteration. |
 | `final/benchmark/aggregation` | Two **real completed** membership blocks plus the full-data initializer | Combined sparse B, co-merge/refinement traces, all-cell diagnostic partition and numerical validation | Rerun aggregation from saved blocks; no iteration recomputation. |
 | `final/benchmark/DE` | Sealed aggregation, initializer marker IDs and shared expression | Final DE merge/audit, cluster means/detection and all-cell diagnostic assignments | Rerun DE only. Iterations and successful aggregation remain reusable. |
+| `final/production/aggregation` | All 100 sealed real membership blocks and the full-data initializer | Combined sparse B, co-merge/refinement traces and candidate consensus assignments | Rerun this stage from saved iteration outputs; no iteration recomputation. |
+| `final/production/DE` | Sealed production aggregation and shared marker expression | Final DE merge/audit and candidate all-cell assignments | Rerun DE only; accepted K still requires review. |
 
 Each stage has append-only `attempts/TIMESTAMP_ID/` directories. A successful
 attempt contains `VALIDATION.json`, `resources.json`, `ARTIFACTS.json` and
@@ -73,7 +79,7 @@ silently enter the aggregate. No successful output directory is overwritten.
 - Each `iterations/NNN/config.json` stores its seed/config/input hashes.
   `sampled_source_rows.npy` and `sampled_cell_ids.tsv.gz` freeze its exact draw.
 
-Iteration 0 preserves the first already-running benchmark seed and outputs.
+Iteration 0 preserves the first completed benchmark seed and outputs.
 Iterations 1–99 use separate NumPy SeedSequence children with distinct
 sampling/fitting seeds. Seed derivation is frozen by the saved schedule; retries
 read that schedule rather than generating a new seed. Adoption of the completed
@@ -88,7 +94,8 @@ scientific contracts. BigCAT production remains unauthorized.
 
 ## Real restart and aggregation tests
 
-The second iteration's first mapping attempt deliberately raises an error
+These real-data restart/aggregation tests have not yet run as of the status
+snapshot above. The second iteration's first mapping attempt is configured to deliberately raise an error
 **after** writing the membership output and **before** publishing completion.
 A separately queued retry reads the successful fit and completes mapping.
 This validates recovery from actual full-data output, beyond small fixtures.
@@ -112,9 +119,16 @@ refresh scheduler counts and all 100 fit/mapping checkpoint states:
 
 ```bash
 python paper3_pcdh19/bin/consensus_production_status.py --run-dir RUN_DIRECTORY
-# Example only: requeue failed elements after diagnosing their failure.
-scontrol requeue 60617037_17,60617037_43,60617037_88
 ```
+
+For failed iterations, use the status JSON's
+`recommended_single_retry_array_command`: it supplies a fresh `sbatch` array
+containing only failed indices, with cap 10 and the current script/resources.
+For example, failures 17, 43 and 88 use `--array=17,43,88%10` in that full
+command. It waits for the current array to terminate. **Do not use same-job-ID
+`scontrol requeue` after a killed stage:** a surviving execution lock would
+appear owned by that active job ID. Fresh job IDs let the worker recognize and
+archive stale locks while preserving previous attempts.
 
 The array runs one `iteration` job for each ID 0–99. `iteration` executes fit then
 mapping, with separate completion

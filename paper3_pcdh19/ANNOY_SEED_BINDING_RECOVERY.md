@@ -60,7 +60,12 @@ Saved evidence: `production/annoy_seed64_qualification.json`,
 operations directory. The bridge has not yet completed a full-data iteration.
 
 Replacement array **60617037**, `0-99%10`, keeps **8 CPUs / 150 GiB / 48 hours**.
-The eight running original-array fits and two benchmark fits continue unchanged.
+At **2026-09-09 01:07 UTC**, benchmark iteration 0 has completed with sealed
+fit/mapping outputs; the other nine iterations remain running. The separate
+full-data initializer is running and recovery-array tasks remain pending.
+See [the execution status](HICAT_PRODUCTION_STATUS.md). The completed iteration
+used the original successful seed path; it does not establish full-data
+execution of the compatibility bridge. The first seed-fix retry has not started.
 Only pending superseded tasks and final-stage wrappers were cancelled. The
 replacement waits for the original writers, then checks all 100 iterations and
 reuses every valid completed stage; this does not create a second ensemble.

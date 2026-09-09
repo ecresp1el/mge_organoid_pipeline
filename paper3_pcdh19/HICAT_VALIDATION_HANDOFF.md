@@ -1,7 +1,10 @@
 # Current checkpoint: Step 07 complete; full-data HiCAT production submitted
 
-**Production is authorized and running. Current restartable array: 60617037,
-`0-99%10`, submitted 2026-09-09 00:43:55 UTC (September 8, 8:43 PM Detroit).**
+**Status at 2026-09-09 01:07 UTC / September 8, 9:07 PM Detroit: 1 iteration
+complete, 9 running, 90 awaiting execution/retry.** The separate all-cell
+consensus initializer is also running. Recovery array **60617037**, `0-99%10`,
+is submitted but **its 100 tasks are still pending on the existing writers**.
+See [the current status and completed assets](HICAT_PRODUCTION_STATUS.md).
 Each task requests **8 CPUs, 150 GiB and 48 hours**. All frozen scientific
 settings, seeds and sampled-cell lists remain unchanged.
 
@@ -13,8 +16,10 @@ It changes neither seed values nor the scientific method or installed package.
 All 100 seed fixtures passed; safe-seed graphs/labels matched the old binding;
 checkpoint provenance and reuse passed.
 
-The ten already-active iterations continue unchanged: benchmark iterations 0/1
-and original-array iterations 7, 12, 13, 14, 15, 20, 26, 30. The replacement array
+Iteration 0 completed fit/held-out mapping in job **60609369** (01:03:22), then
+adoption **60612803** and membership publication **60612807** completed. Its
+fit and mapping stages are sealed and independently reusable. Iteration 1 and
+original-array iterations 7, 12, 13, 14, 15, 20, 26, 30 remain running. The replacement array
 waits for these writers and then verifies/reuses completed checkpoints. Only
 incomplete stages are computed. Pending superseded tasks were cancelled; no
 running fit was cancelled or resized. This is one 100-iteration ensemble.
@@ -28,8 +33,11 @@ scientific iterations from replacement tasks waiting to reuse them. Refresh with
 
 Separately rerunnable production aggregation is **60617041**, and final DE is
 **60617044**. Aggregation also waits for the real two-iteration benchmark/report
-and requires all 100 sealed membership outputs. The benchmark is still running;
-complete-iteration runtime, held-out mapping and real aggregation remain unmeasured.
+and requires all 100 sealed membership outputs. First-iteration runtime and
+held-out mapping are now measured; the second iteration, real two-iteration
+aggregation test and final consensus remain incomplete. Full-data initializer
+**60609372** is running. The seed-fix retry has not started; iteration 0 completed
+through the original successful path.
 
 The [BigCAT compatibility audit](BIGCAT_COMPATIBILITY_AUDIT.md) is saved. No
 BigCAT package was installed and no BigCAT production jobs were submitted.
