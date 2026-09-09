@@ -18,19 +18,18 @@ Step 07 is now computationally complete and IN_REVIEW. The requested
 concise decision table, exact contributions and merge-flow tree. No additional
 HiCAT fit was run; 17 remains an unresolved comparison, not a locked partition.
 
-**Current work: real full-data Allen consensus benchmark and restart validation.**
-The user authorized a benchmark on approved Step 02's **446,349 cells**, with
-q1=.4, qdiff=.7 and DE score150. The
-[source-function audit](HICAT_ALLEN_CONSENSUS_ALGORITHM_AUDIT.md) is complete;
-seven numerical qualification checks passed. The real benchmark is running:
-prepare **60609367**, first 80% fit **60609369**, full-data initialization
-**60609372**. The benchmark is being extended to two real iterations with
-independent resumable fitting/mapping and final aggregation checkpoints.
-See the [execution handoff](HICAT_VALIDATION_HANDOFF.md) for current job states.
-The corrected method includes held-out assignment
-before aggregation and preserves Allen's large-graph branch. The pilot hierarchy
-and K are not fixed. A 100-iteration production launch remains outside the
-benchmark authorization; the benchmark must end with a resource report for review.
+**Current work: authorized full-data HiCAT production array 60617037 (`0-99%10`).**
+The user authorized **100 independent 80% iterations** on approved Step 02's
+446,349 cells, retaining q1=.4, qdiff=.7, DEscore150, all frozen seeds/sample IDs,
+and 8 CPUs/150 GiB/48 hours per task. An [exact-seed binding recovery](ANNOY_SEED_BINDING_RECOVERY.md)
+preserves seven failed attempts and all active fits. The two benchmark iterations continue and
+will be reused by their corresponding array tasks. Final production aggregation
+and DE are separately rerunnable jobs; they consume saved iteration checkpoints.
+See the [execution handoff](HICAT_VALIDATION_HANDOFF.md) and
+[restart protocol](HICAT_CONSENSUS_RESTART_PROTOCOL.md) for status and recovery.
+Held-out assignments contribute to the consensus denominator; pilot parents and
+K are not fixed. The [BigCAT compatibility audit](BIGCAT_COMPATIBILITY_AUDIT.md)
+documents a contingency path only; no BigCAT production work was submitted.
 
 This workstream is reserved for the Ziobro PCDH19 MGE single-cell paper. It is
 separate from the Paper 2 cross-study atlas and uses the Ziobro Turbo

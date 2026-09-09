@@ -7,9 +7,12 @@ first fit and full-data initialization are preserved; pending single-iteration
 consensus/report jobs were cancelled. The original one-iteration plan below
 records that initial submission, not the final report's expanded scope.
 
-**Current authorization: execute the real benchmark, report measured resources,
-then stop for the user's approval. Do not submit 100 production iterations.**
-The eventual target remains 100 independent 80% fits of approved Step02's
+**Authorization update:** the user subsequently authorized production before
+benchmark completion. Array **60617037**, `0-99%10`, is submitted with unchanged
+settings and independently reusable checkpoints. See the
+[current handoff](HICAT_VALIDATION_HANDOFF.md). The original benchmark plan below
+is historical; its earlier stop-for-approval condition is superseded.
+The production target is 100 independent 80% fits of approved Step02's
 446,349 dissected E14.5 mouse MGE cells, with q1=.4, qdiff=.7, DE score150.
 The source audit and historical reference files remain preserved.
 
@@ -114,5 +117,6 @@ for an analysis that has not run. Failed stages retain their artifacts and
 prevent downstream success. Surviving weak DE pairs are reported, never turned
 into an accepted final K.
 
-**After the completed resource report, stop for user approval.** The benchmark
-launcher has no production or 100-job-array interface.
+The original benchmark launcher has no production-array interface. The separately
+authorized [production launcher](bin/submit_consensus_production.py) submits the
+array using unchanged frozen scientific code; it does not rerun completed fits.

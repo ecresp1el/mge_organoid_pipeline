@@ -1,4 +1,39 @@
-# Current checkpoint: Step 07 complete; full-data consensus benchmark running
+# Current checkpoint: Step 07 complete; full-data HiCAT production submitted
+
+**Production is authorized and running. Current restartable array: 60617037,
+`0-99%10`, submitted 2026-09-09 00:43:55 UTC (September 8, 8:43 PM Detroit).**
+Each task requests **8 CPUs, 150 GiB and 48 hours**. All frozen scientific
+settings, seeds and sampled-cell lists remain unchanged.
+
+The initial array **60614879** exposed an Annoy Python seed-conversion error in
+iterations **2, 3, 4, 5, 6, 8, 9** after PCA. These failed attempts are preserved.
+The qualified [exact-seed compatibility bridge](ANNOY_SEED_BINDING_RECOVERY.md)
+forwards the original positive seed to the same installed native Annoy engine.
+It changes neither seed values nor the scientific method or installed package.
+All 100 seed fixtures passed; safe-seed graphs/labels matched the old binding;
+checkpoint provenance and reuse passed.
+
+The ten already-active iterations continue unchanged: benchmark iterations 0/1
+and original-array iterations 7, 12, 13, 14, 15, 20, 26, 30. The replacement array
+waits for these writers and then verifies/reuses completed checkpoints. Only
+incomplete stages are computed. Pending superseded tasks were cancelled; no
+running fit was cancelled or resized. This is one 100-iteration ensemble.
+
+Exact production directory:
+`/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/paper3_pcdh19/results/hicat/03_full_data_consensus_benchmark/consensus_restart_20260909_000256`.
+`PRODUCTION_SUBMISSION.json` records current and previous arrays;
+`production/STATUS.json` and `production/iteration_status.tsv` distinguish live
+scientific iterations from replacement tasks waiting to reuse them. Refresh with
+[the status command](bin/consensus_production_status.py).
+
+Separately rerunnable production aggregation is **60617041**, and final DE is
+**60617044**. Aggregation also waits for the real two-iteration benchmark/report
+and requires all 100 sealed membership outputs. The benchmark is still running;
+complete-iteration runtime, held-out mapping and real aggregation remain unmeasured.
+
+The [BigCAT compatibility audit](BIGCAT_COMPATIBILITY_AUDIT.md) is saved. No
+BigCAT package was installed and no BigCAT production jobs were submitted.
+The user's later authorization supersedes the earlier benchmark approval gate.
 
 **Experiment:** dissected E14.5 mouse medial ganglionic eminence (MGE).
 
@@ -8,13 +43,13 @@ Run `hicat_validation_20260908_221625_d5d06a5d` **completed**, Great Lakes job
 clustering was performed in Step 07. The main PDF has five pages and the
 detailed PDF 76 pages.
 
-**Latest authorized work:** prepare an Allen-faithful full-data consensus
+**Earlier benchmark preparation:** prepare an Allen-faithful full-data consensus
 benchmark using the approved Step 02 population (446,349 cells × 19,071 genes),
 not the 12,000-cell pilot. First complete the
 [Allen consensus algorithm audit](HICAT_ALLEN_CONSENSUS_ALGORITHM_AUDIT.md).
 That source audit is complete. Seven numerical qualification tests passed,
 including pinned-R comparisons, sparse/dense DE and fitting, and saved AnnData.
-**The real full-data benchmark is running; no production iterations are submitted.**
+**The real full-data benchmark continues alongside the production submission above.**
 Run `consensus_benchmark_20260908_235116` lives under
 `results/hicat/03_full_data_consensus_benchmark/`. Preparation is job **60609367**,
 the first 80% fit **60609369**, and full-data initialization **60609372**.
@@ -26,14 +61,26 @@ preparation and fit outputs are preserved for reuse. See
 [the execution and asset contract](FULL_DATA_CONSENSUS_BENCHMARK.md).
 The detailed independent-checkpoint design and real failure/retry test are in
 [the restart protocol](HICAT_CONSENSUS_RESTART_PROTOCOL.md).
+The restart package `consensus_restart_20260909_000256` has now frozen all
+100 seed/sample-ID sets and adapter commit
+`305ce00711da7829c168ca7d53c669d0220f9587`. The initial two-real-iteration benchmark
+chain was submitted: adopt first fit **60612803**, second real fit **60612805**,
+first mapping **60612807**, intentional second-mapping failure **60612809**,
+mapping-only retry **60612811**, aggregation **60612813**, final DE **60612815**,
+and validation/report **60612817**. The all-cell initializer remains **60609372**.
+These job IDs establish submission, not completion; inspect scheduler state
+and sealed checkpoints for actual progress. `AUTHORIZATION.json` now sets `production_allowed=true` under the later user
+authorization. The frozen scientific config retains historical approval metadata;
+the separate authorization record controls execution.
 Actual states are in scheduler accounting and `progress/STAGE/` logs.
-The completed resource report must precede any approval for 100 production jobs.
+The user subsequently authorized production before the completed resource report;
+the benchmark still continues to provide measured resource and restart evidence.
 The audit preserves the requested Python fitting settings while identifying
 their differences from R. Held-out assignment supersedes the earlier
 conditional co-sampling denominator. The full-data hierarchy and K are learned;
 the four pilot parents and K=38/17 are not fixed. Benchmarking is authorized;
-the definitive 100-fit production launch is not. Stop after a measured resource
-report with outputs IN_REVIEW. See the audit for exact proposed assets and
+the definitive 100-fit production launch is now explicitly authorized. Scientific
+outputs remain IN_REVIEW. See the audit for exact proposed assets and
 what has not yet been saved.
 
 The requested focused **38→17 boundary review also completed**, without another

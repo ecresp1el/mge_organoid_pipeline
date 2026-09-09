@@ -1,0 +1,49 @@
+{
+  "pybigcat": {
+    "repository": "https://github.com/AllenInstitute/pybigcat",
+    "commit": "d9e2a946e08a6c4b75991af9e2fd87d2d426fd78",
+    "files": {
+      "README.md": "12365c5aa90fe5a028bebc90dacd013280f6f1d4286619932d4f553021e31c45",
+      "LICENSE": "4d4ba05e10230af3cb245aa2f10f7bb02d24be019190f69f130550208696e232",
+      "requirements.txt": "ddb13259a411d895084c343ef0c5a760d92ca3a20c1e85b87e31ac9d6505a31b",
+      "setup.py": "c35ebb960ac2cc4b187ad65e9f8e234a1a1d003ecaad9f5bbe024cee8466c6e8",
+      "pybigcat/VERSION.txt": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
+      "pybigcat/cluster_means.py": "01a389fa73f840eb0d3bbcaff0bf46d7635b0cbacf1ee61e9fe83d01c6ef8159",
+      "pybigcat/projection.py": "9b31845222de6c3837dc8aa9b8bb206113b8320cc49659a8de90e27db239daf0",
+      "pybigcat/logging_config.ini": "2c42ee1c15a916d8fd8c85f1190f33495b15e047b49948b51034c715ddc16a1d",
+      "pybigcat/highly_variable_genes.py": "17577185e6f37de3435a53b773824d49d37a7d4cce48dbb5237558b2272733ed",
+      "pybigcat/iterative_clustering.py": "86c5c4952978e924013b286176236bf84f94a51eed50efad72e8770b74e62272",
+      "pybigcat/means_vars_genes.py": "ce9023132c07439c6ed9dcb5a690fb5d8d62f25820fe00457a8929761aa20bd0",
+      "pybigcat/de_ebayes.py": "4e007140f31111ec574d30e6877ab97817a25a1d9255db69f69d2a81d41d605a",
+      "pybigcat/final_merging.py": "36f27d2952deaa3c874c4f6bfb1fe21d613b2af9a71ab7a1cd61c76fb98d7959",
+      "pybigcat/merging.py": "fcffe3fe758e5660bb9485035d22dd34592f7bb7a51d01c056121ca2514b1300",
+      "pybigcat/markers.py": "b6b3225cf9b05365c945570e25ee9e2d8dc3ce22442ba09601442094dd62b82c",
+      "pybigcat/filter_known_modes.py": "98bbd6c510348fab088a1d0b827bb8e197f29b3fa00640616acc33441bf568ea",
+      "pybigcat/__init__.py": "7a903ec719ea71f5e844f056878f90856bee2a04407560b4c0becf26d0792143",
+      "pybigcat/clustering.py": "181cf9b32754fb41161e024f5f1badec303ddc14b1339d2433ed99664aadebef",
+      "pybigcat/onestep_clustering.py": "e737d9c073243ba49b72f73d97717e78142aa37dc4fac43b74170c96866038a7",
+      "pybigcat/dimension_reduction.py": "04a01c7d90503cbd5be8a7294e6c944b06318b312321eb009d0d464a9c1c5a57",
+      "pybigcat/diff_expression.py": "ef4d1320c25805f2a70940aeb6fcee7a73972772dd1c539de0a0d4f307edd45d",
+      "pybigcat/iter_writer.py": "f4634fdb8b4f40d948adb0819e019edb1de5cdcc998ff04e7cc6c8eea4351f11",
+      "pybigcat/hierarchical_sorting.py": "17ce7fb51be7dcd060df7b33d260ea581e099ba24303b6f7cdad38b1249c455e",
+      "pybigcat/utils/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "pybigcat/utils/memory.py": "97a904fbf54a00fa6b8dd86f506a5e28d64ea85d9bf0a96ca98d4a9bb0e89cb1"
+    }
+  },
+  "scrattch.bigcat": {
+    "repository": "https://github.com/AllenInstitute/scrattch.bigcat",
+    "commit": "4f2818a88fdc232099d031a54bc9fb6f95951f83",
+    "files": {
+      "DESCRIPTION": "828c20dfcf7b9624bddc2faff9f594015a5a6a09285144d3299871570d80a3aa",
+      "NAMESPACE": "6bce784962381b49f1c5dd32370ed704d4728beb36493476e548e2adde85f330",
+      "R/de.genes.R": "1083d769d3148517b70485560e68c495a2292970063cb79e19297423522eb4d2",
+      "R/consensusCluster.R": "faecff7bcbbf2cf5809ca7c5bd914829f71d3fac3ced7b74929171d5d6fc49a2",
+      "R/harmonize.R": "82acefcd0a5fe8663375f59935b9612a532b3e5fa7c2f5ca65931f5b210e338c",
+      "R/annotate.R": "10661690259940fe06225b43ade15443e5125b8d6c4ca9cf2087d6222b8ee70f",
+      "R/cluster.R": "5fec028ef59f54b04d654165108c3137d5da586d38c356d3821a61aa69c6c2a3",
+      "R/big_util.R": "c535ffce000a8e88470c7fdac641f6748a53ff1ad634c78bda05a15e814d5444",
+      "R/merge_cl.R": "e4045a4b8889cd3ea2e922466df98fa4fee1e5f4c7279d53b4328bd9224bfe11",
+      "R/cluster_big.R": "fee2f9e6b500e8d74b27aea453df0fa29c7a5d963cbb653a92e7a0fee1a7c55f"
+    }
+  }
+}

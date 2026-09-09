@@ -1,9 +1,18 @@
 # Independent HiCAT iteration and consensus restart contract
 
-**Current scope: two real full-data benchmark iterations, then a resource and
-restart report for user approval. The 100 production iterations are not
-authorized yet.** All 100 seed/sample-ID sets are prepared so completed
-benchmark iterations can be reused after approval without changing the science.
+**Current scope: production is explicitly authorized and array 60617037
+(`0-99%10`) is submitted.** The two real benchmark iterations and their restart
+test continue. All 100 frozen seed/sample-ID sets are used unchanged; benchmark
+iterations 0/1 are reused by their corresponding array tasks. Each task requests
+8 CPUs, 150 GiB and 48 hours. See [the live handoff](HICAT_VALIDATION_HANDOFF.md)
+and `PRODUCTION_SUBMISSION.json` for the exact run and separately queued final
+stages. The user superseded the earlier wait-for-benchmark approval condition.
+
+The first array's seven Annoy signed-integer seed failures are preserved. The
+replacement uses a separately hashed, qualified native seed bridge; all 100
+original positive seeds, sample lists and scientific settings are unchanged.
+See [the binding recovery](ANNOY_SEED_BINDING_RECOVERY.md). Existing active
+iterations finish before the replacement verifies/reuses their checkpoints.
 
 Population: approved Step02, **446,349 cells × 19,071 genes from 12 dissected
 E14.5 mouse MGE samples**. Each iteration uniformly samples **357,079 cells**
@@ -71,10 +80,11 @@ read that schedule rather than generating a new seed. Adoption of the completed
 first fit records the original code/config hashes and validates every copied
 artifact. The second iteration runs the new production-like worker end to end.
 
-`AUTHORIZATION.json` is separate from frozen scientific inputs. It currently
-allows only benchmark iterations 0 and 1. An eventual approval does not change
-the seeds or invalidate completed science. Worker and submitter both reject
-additional iteration IDs while production permission is false.
+`AUTHORIZATION.json` is separate from frozen scientific inputs. It now permits
+all 100 iterations under the user's explicit production authorization, with a
+maximum concurrency of ten. The prior authorization record is archived in the
+production submission directory. Approval changes neither seeds nor completed
+scientific contracts. BigCAT production remains unauthorized.
 
 ## Real restart and aggregation tests
 
@@ -97,21 +107,34 @@ test an injected failure, corruption detection and combination of saved B files.
 
 ## How to inspect or resubmit
 
-Use [the management script](bin/manage_consensus_iterations.py):
+Use [the production status command](bin/consensus_production_status.py) to
+refresh scheduler counts and all 100 fit/mapping checkpoint states:
 
 ```bash
-python paper3_pcdh19/bin/manage_consensus_iterations.py status --run-dir RUN_DIRECTORY
-python paper3_pcdh19/bin/manage_consensus_iterations.py submit-one \
-  --run-dir RUN_DIRECTORY --stage mapping --iteration 1
+python paper3_pcdh19/bin/consensus_production_status.py --run-dir RUN_DIRECTORY
+# Example only: requeue failed elements after diagnosing their failure.
+scontrol requeue 60617037_17,60617037_43,60617037_88
 ```
 
-After production approval, the same interface can submit one `iteration` job
-for each ID 0–99. `iteration` executes fit then mapping, with separate completion
+The array runs one `iteration` job for each ID 0–99. `iteration` executes fit then
+mapping, with separate completion
 checkpoints. Resubmitting jobs 17, 43 and 88 would inspect/reuse their successful
 stages and recompute only missing/failed stages in those three iterations.
 It would not launch or recompute the other 97 iterations. No monolithic
-100-iteration fitting job exists. Benchmark and eventual production aggregation
-use separate output directories.
+100-iteration fitting job exists. Benchmark and production aggregation use
+`final/benchmark/` and `final/production/` respectively. Do not use the older
+benchmark submitter's aggregate command for production: it omits `--production`.
+
+Production `aggregate.sbatch` and `merge.sbatch` are saved in the operations
+directory recorded in `PRODUCTION_SUBMISSION.json`. They explicitly select
+`--production`, consume all 100 saved memberships, and can be submitted separately
+again with `sbatch --account=parent0 --partition=standard --cpus-per-task=8
+--mem=150G --time=2-00:00:00 SCRIPT_PATH`. Run merge after aggregation completes;
+if only final DE fails, rerun only merge. If an array element fails, the queued
+aggregation detects its missing checkpoint rather than averaging fewer iterations.
+After repairing that element, resubmit any failed/invalid-dependent final jobs;
+successful iterations remain untouched. Completed task replays only verify/reuse
+their sealed fit and mapping stages.
 
 ## Assets, plots and resource report
 
@@ -134,4 +157,7 @@ endpoint. It is explicitly not a final taxonomy or proof of stability. Resource
 projections must distinguish measured two-iteration operations from unknown
 100-iteration consensus convergence, queue time and filesystem contention.
 
-**Stop after the completed report. Production requires the user's approval.**
+**Production is already explicitly authorized.** The benchmark report continues
+to supply measurements; its original approval wording is reconciled by the
+separate operational report-status job, without modifying scientific checkpoints.
+No running job is resized in response to later resource recommendations.

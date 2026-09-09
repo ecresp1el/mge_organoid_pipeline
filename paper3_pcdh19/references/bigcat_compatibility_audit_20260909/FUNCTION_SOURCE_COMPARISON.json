@@ -1,0 +1,49 @@
+[
+  {
+    "file": "highly_variable_genes.py",
+    "identical_functions": [
+      "compute_z_scores",
+      "highly_variable_genes"
+    ],
+    "changed_functions": []
+  },
+  {
+    "file": "dimension_reduction.py",
+    "identical_functions": [
+      "filter_components",
+      "filter_ev_ratios_zscore",
+      "filter_explained_variances_elbow",
+      "filter_known_components"
+    ],
+    "changed_functions": [
+      "pca"
+    ]
+  },
+  {
+    "file": "projection.py",
+    "identical_functions": [
+      "latent_project",
+      "project"
+    ],
+    "changed_functions": []
+  },
+  {
+    "file": "cluster_means.py",
+    "identical_functions": [
+      "get_cluster_means",
+      "get_cluster_means_backed",
+      "get_cluster_means_inmemory",
+      "get_one_hot_cluster_array"
+    ],
+    "changed_functions": []
+  },
+  {
+    "file": "means_vars_genes.py",
+    "identical_functions": [
+      "get_means_vars_genes",
+      "get_means_vars_genes_backed",
+      "get_means_vars_genes_inmemory"
+    ],
+    "changed_functions": []
+  }
+]
