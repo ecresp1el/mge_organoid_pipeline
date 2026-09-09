@@ -67,6 +67,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--membership", type=Path, default=None)
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--dpi", type=int, default=400)
+    parser.add_argument("--violin-ymax", type=float, default=4.0)
     return parser.parse_args()
 
 
@@ -341,10 +342,10 @@ def main() -> None:
         for x, gene in enumerate(GENES):
             draw_violin(ax, frame[gene], x, color)
         ax.set_xlim(-0.58, len(GENES) - 0.42)
-        ax.set_ylim(-0.08, 4.12)
+        ax.set_ylim(-0.08, args.violin_ymax + 0.12)
         gene_labels = [rf"$\mathit{{{gene}}}$" for gene in GENES]
-        ax.set_xticks(range(len(GENES)), gene_labels, fontsize=13.2)
-        ax.set_yticks([0, 1, 2, 3, 4])
+        ax.set_xticks(range(len(GENES)), gene_labels, fontsize=13.2 if len(GENES) <= 6 else 11.5)
+        ax.set_yticks(np.arange(0, args.violin_ymax + 0.1, 1))
         ax.tick_params(axis="x", length=0)
         ax.tick_params(axis="y", labelsize=9.5, length=3.4, width=0.8, direction="out")
         ax.spines["top"].set_visible(False)

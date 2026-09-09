@@ -4,6 +4,15 @@
 - Repo (code/config only): `/home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline`
 - Runtime workspace (data/jobs/results): `/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder` (PROJECT_ROOT)
 
+## DIV90 cortical Hypergate continuation (2026-09-09)
+
+- Current handoff: [completed SST/non-SST and module-label Hypergate analyses; next-chat preparation](python_notebooks/HANDOFF_div90_hypergate_sst_pv.md).
+- Both target-definition passes are complete; further phase-two analysis has not started.
+- Results live under `PROJECT_ROOT/results/div90_hypergate_sst_pv/`; summary: [REPORT.md](/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_hypergate_sst_pv/REPORT.md). Runtime artifacts were moved out of the checkout with SHA256 verification.
+- Phase-two trigger: **Resume DIV90 Hypergate phase 2 — Turbo runtime only.** New runtime outputs belong under `PROJECT_ROOT/results/div90_hypergate_sst_pv_phase2/`.
+- `div90_hypergate_paths.py` enforces the external runtime root; code, configuration and documentation stay in this repository.
+- Preserve recovered Loupe identities, existing recluster UMAP coordinates, and the completed fit checkpoints. Resume from the handoff rather than rerunning phase one.
+
 ## Non-scRNA Imaging Branch
 - Imaris `.ims` CAREamics denoising lives under `imaging/imaris_careamics/`.
 - It is intentionally separate from the scRNA-seq notebook/script tree.

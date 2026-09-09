@@ -13,3 +13,10 @@ __pycache__/
 .ipynb_checkpoints/
 python_notebooks/**/*.h5ad
 python_notebooks/outputs/
+
+# DIV90 runtime artifacts belong under external PROJECT_ROOT, never this checkout.
+/results/div90_hypergate_sst_pv*/
+/results/div90_hypergate_sst_pv*.zip
+/results/sst_pv_cortical_feasibility/
+/results/div90_cortical_subpallial_figures*.zip
+/final_figures/div90_guidance_with_sst/
