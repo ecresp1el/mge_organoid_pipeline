@@ -1,0 +1,16 @@
+DIV	run_sample_id	culture_operator	relative_glucose	condition	provenance
+DIV30	9853-MW-1	CV	2	CV / higher glucose (~2x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV30	9853-MW-2	MW	1	MW / lower glucose (~1x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV30	9853-MW-3	CV	2	CV / higher glucose (~2x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV30	9853-MW-4	MW	1	MW / lower glucose (~1x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV30	9853-MW-5	CV	2	CV / higher glucose (~2x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV30	9853-MW-6	MW	1	MW / lower glucose (~1x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV30	9853-MW-7	CV	2	CV / higher glucose (~2x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV30	9853-MW-8	CV	2	CV / higher glucose (~2x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV30	9853-MW-9	MW	1	MW / lower glucose (~1x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV90	10496-MW-1	CV	2	CV / higher glucose (~2x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV90	10496-MW-2	MW	1	MW / lower glucose (~1x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV90	10496-MW-3	CV	2	CV / higher glucose (~2x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV90	10496-MW-4	MW	1	MW / lower glucose (~1x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV90	10496-MW-5	CV	2	CV / higher glucose (~2x)	User experimental metadata 2026-09-09; approximate relative glucose
+DIV90	10496-MW-6	MW	1	MW / lower glucose (~1x)	User experimental metadata 2026-09-09; approximate relative glucose

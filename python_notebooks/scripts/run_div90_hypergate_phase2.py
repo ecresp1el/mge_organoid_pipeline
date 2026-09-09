@@ -14,6 +14,12 @@ from pathlib import Path
 import shutil
 import sys
 
+# Keep implicit library caches and Python imports in the authorized runtime too.
+_runtime=Path('/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_hypergate_sst_pv_phase2')
+sys.dont_write_bytecode=True
+os.environ['MPLCONFIGDIR']=str(_runtime/'cache/matplotlib')
+os.environ['NUMBA_CACHE_DIR']=str(_runtime/'cache/numba')
+
 import anndata as ad
 import numpy as np
 import pandas as pd
@@ -83,11 +89,19 @@ def initialize():
     manifest = OUT/'provenance/phase1_sha256_before.json'
     if not manifest.exists():
         write_json(manifest, {str(p.relative_to(OLD)):sha(p) for p in OLD.rglob('*') if p.is_file()})
-    for name in ['run_div90_hypergate_phase2.py','div90_hypergate_phase2_gates.py','div90_hypergate_phase2_visuals.py']:
-        src = REPO_ROOT/'python_notebooks/scripts'/name
-        if src.exists(): shutil.copy2(src, OUT/'provenance'/name)
+    scripts=REPO_ROOT/'python_notebooks/scripts'
+    for src in [scripts/'run_div90_hypergate_phase2.py',scripts/'run_div90_hypergate.R',*scripts.glob('div90_hypergate_phase2_*.py')]:
+        if src.exists(): shutil.copy2(src, OUT/'provenance'/src.name)
     src = REPO_ROOT/'python_notebooks/DIV90_HYPERGATE_PHASE2_EVIDENCE.md'
     if src.exists(): shutil.copy2(src, OUT/'provenance'/src.name)
+    for name in ['culture_condition_user_20260909.tsv','div30_div90_sample_id_to_biolabel_map.tsv']:
+        shutil.copy2(REPO_ROOT/'metadata'/name,OUT/'provenance'/name)
+
+
+def save_cells(cells):
+    pending=OUT/'.cells.pending.tsv.gz'
+    cells.to_csv(pending,sep='\t',index=False)
+    pending.replace(OUT/'cells.tsv.gz')
 
 
 def state_labels(pv, sst, pcut, scut):
@@ -154,10 +168,12 @@ def prepare():
     # The MW substring in every technical run ID is not the culture operator.
     expected={f'10496-MW-{i}' for i in range(1,7)}
     assert set(cells['sample'])==expected and set(mapping.index)==expected
-    sample_number=cells['sample'].str.extract(r'-(\d+)$')[0].astype(int)
-    cells['culture_operator']=np.where(sample_number%2==1,'CV','MW')
-    cells['relative_glucose']=np.where(sample_number%2==1,2.,1.)
-    cells['condition']=np.where(sample_number%2==1,'CV / higher glucose (~2x)','MW / lower glucose (~1x)')
+    culture=pd.read_csv(REPO_ROOT/'metadata/culture_condition_user_20260909.tsv',sep='\t')
+    recorded=pd.read_csv(REPO_ROOT/'metadata/div30_div90_sample_id_to_biolabel_map.tsv',sep='\t')
+    assert set(zip(culture.DIV,culture.run_sample_id))==set(zip(recorded.DIV,recorded.run_sample_id))
+    culture=culture.query("DIV == 'DIV90'").set_index('run_sample_id')
+    assert set(culture.index)==expected
+    for col in ['culture_operator','relative_glucose','condition']:cells[col]=cells['sample'].map(culture[col])
     cells['annotation']=cells.loupe_label
     mapfile=OUT/'sample_conditions.tsv'
     if mapfile.exists():
@@ -192,8 +208,8 @@ def prepare():
     pd.DataFrame(rows).to_csv(OUT/'module_genes.tsv',sep='\t',index=False)
     fits,modes=examine_density(cells)
     write_json(OUT/'state_parameters.json',dict(pv_threshold=pcut,sst_threshold=scut,thresholds={'pv':pcut,'sst':scut},modules=modulepars,scoring='Equal-weight mean of gene-wise population z-scores of existing log1p(CP10K), bounded at [-3,3] per gene.',state_rule='Independent pooled median thresholds; high >= median. Every cell assigned. Operational partitions, not natural clusters or fates.',threshold_rationale='Mixture fits and KDE diagnostics are saved. Non-Gaussian sparse-expression mixtures do not establish biological natural breaks. Transparent median partitions are primary; 35/50/65% full-grid sensitivity retains every cell.',fate_inference=False,stress_genes=stressgenes,seed=90))
-    cells.to_csv(OUT/'cells.tsv.gz',sep='\t',index=False)
-    write_json(OUT/'provenance/input_validation.json',dict(n_cells=len(cells),n_sst_detected=int((cells.SST>0).sum()),n_pvalb_detected=int((cells.PVALB>0).sum()),phase1_gate_capture=int(cap.sum()),cell_ids_order_preserved=True,loupe_coordinates_unchanged=True,source_h5ad=str(hpath),source_h5ad_size=hpath.stat().st_size,source_h5ad_mtime_ns=hpath.stat().st_mtime_ns,condition_source='sample_conditions.tsv when supplied; otherwise unknown',doublet_original_available=False))
+    save_cells(cells)
+    write_json(OUT/'provenance/input_validation.json',dict(n_cells=len(cells),n_sst_detected=int((cells.SST>0).sum()),n_pvalb_detected=int((cells.PVALB>0).sum()),phase1_gate_capture=int(cap.sum()),cell_ids_order_preserved=True,loupe_coordinates_unchanged=True,source_h5ad=str(hpath),source_h5ad_size=hpath.stat().st_size,source_h5ad_mtime_ns=hpath.stat().st_mtime_ns,condition_source='User experimental update, versioned in metadata/culture_condition_user_20260909.tsv; six sample IDs and lines verified against original records.',doublet_original_available=False))
     a.file.close()
     print(cells.state.value_counts().to_string(),flush=True)
     return cells
@@ -308,7 +324,7 @@ def sensitivity_and_qc(cells):
         for s in STATES:r[s+'_n']=int(d.state.eq(s).sum());r[s+'_fraction']=float(d.state.eq(s).mean())
         qrows.append(r)
     pd.DataFrame(qrows).to_csv(OUT/'tables/qc_exclusion_sensitivity.tsv',sep='\t',index=False)
-    cells.to_csv(OUT/'cells.tsv.gz',sep='\t',index=False)
+    save_cells(cells)
     print(json.dumps(clean_json(validation),indent=2),flush=True)
     return cells
 
@@ -321,16 +337,31 @@ def verify_phase1():
 
 
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument('--stage',choices=['prepare','qc','gates','figures','verify','all'],default='all');args=ap.parse_args()
+    ap=argparse.ArgumentParser();ap.add_argument('--stage',choices=['prepare','doublets','qc','gates','conditions','figures','validate','report','verify','all'],default='all');args=ap.parse_args()
     initialize()
     if args.stage=='verify':verify_phase1();return
     cells=prepare()
+    if args.stage in ['doublets','all']:
+        from div90_hypergate_phase2_doublets import run
+        run()
     if args.stage in ['qc','all']:cells=sensitivity_and_qc(cells)
     if args.stage in ['gates','all']:
-        from div90_hypergate_phase2_gates import run
-        run(cells,OUT)
+        from div90_hypergate_phase2_gates import run, resume_from_complete_metrics, supplement_constrained_refinement
+        if not (OUT/'gate_summary.json').exists():
+            if (OUT/'tables/depletion_all_candidate_metrics.h5').exists():resume_from_complete_metrics(cells,OUT)
+            else:run(cells,OUT)
+        if not (OUT/'tables/depletion_supplemental_candidate_metrics.h5').exists():supplement_constrained_refinement(cells,OUT)
+    if args.stage in ['conditions','all']:
+        from div90_hypergate_phase2_conditions import run
+        run(cells,OUT,json.loads((OUT/'gate_summary.json').read_text()))
     if args.stage in ['figures','all']:
         from div90_hypergate_phase2_visuals import run
+        run(cells,OUT,json.loads((OUT/'gate_summary.json').read_text()))
+    if args.stage in ['validate','all']:
+        from div90_hypergate_phase2_validate import run
+        run()
+    if args.stage in ['report','all']:
+        from div90_hypergate_phase2_report import run
         run(cells,OUT,json.loads((OUT/'gate_summary.json').read_text()))
     verify_phase1()
 

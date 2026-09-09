@@ -288,14 +288,20 @@ def broad_pair_screen(cells, genes, totals, state_index, h5, out):
 def refine_pairs(cells, candidates, registry, totals, state_index, h5):
     selected = []
     seen = set()
-    for row in sorted(candidates, key=lambda x:x["practical_score"], reverse=True):
-        rule = registry[row["gate_id"]]
-        key = tuple(sorted(x["gene"] for x in rule["rules"]))
-        if len(key)==2 and key not in seen:
-            seen.add(key)
-            selected.append(key)
-        if len(selected)>=12:
-            break
+    ranked = sorted(candidates, key=lambda x:x["practical_score"], reverse=True)
+    for minimum, limit in [(0.,12),(.1,6),(.2,6),(.3,6),(.5,6)]:
+        added = 0
+        for row in ranked:
+            if row["sst_removal_recovery"]<minimum:
+                continue
+            rule = registry[row["gate_id"]]
+            key = tuple(sorted(x["gene"] for x in rule["rules"]))
+            if len(key)==2 and key not in seen:
+                seen.add(key)
+                selected.append(key)
+                added += 1
+            if added>=limit:
+                break
     # ERBB4/CXCR4 is always a benchmark, independent of discovery rankings.
     if ("CXCR4", "ERBB4") not in selected:
         selected.append(("CXCR4", "ERBB4"))
@@ -330,14 +336,19 @@ def probe_third_marker(cells, candidates, registry, totals, state_index, h5, out
     masks = np.asarray([cells[d["gene"]].to_numpy(float)>d["threshold"] for d in definitions])
     ranked = sorted(candidates,key=lambda x:x["practical_score"],reverse=True)
     parents, seen = [], set()
-    for row in ranked:
-        rule = registry[row["gate_id"]]
-        signature = (tuple(sorted(x["gene"] for x in rule["rules"])),rule["logic"])
-        if len(signature[0])==2 and signature not in seen:
-            seen.add(signature)
-            parents.append(rule)
-        if len(parents)>=8:
-            break
+    for minimum,limit in [(0.,8),(.1,4),(.2,4),(.3,4),(.5,4)]:
+        added = 0
+        for row in ranked:
+            if row["sst_removal_recovery"]<minimum:
+                continue
+            rule = registry[row["gate_id"]]
+            signature = (tuple(sorted(x["gene"] for x in rule["rules"])),rule["logic"])
+            if len(signature[0])==2 and signature not in seen:
+                seen.add(signature)
+                parents.append(rule)
+                added += 1
+            if added>=limit:
+                break
     allcounts, allrules = [], []
     for parent in parents:
         pairmask = apply_rule(cells,parent)
@@ -392,7 +403,7 @@ def run_r_hypergate(cells, genes, screen, totals, state_index, out):
     fitpath = out / "hypergate_r_fits.tsv"
     # Checkpoints are reusable only if every exact requested job is present.
     if fitpath.exists():
-        existing = pd.read_csv(fitpath, sep="\t")
+        existing = pd.read_csv(fitpath, sep="\t",escapechar="\\")
         if existing.job_id.tolist() != job_table.job_id.tolist():
             raise RuntimeError("Incomplete or incompatible phase-two R checkpoint; preserve it and inspect before resuming.")
     else:
@@ -401,7 +412,7 @@ def run_r_hypergate(cells, genes, screen, totals, state_index, out):
             subprocess.run([R_BIN, str(REPO_ROOT / "python_notebooks/scripts/run_div90_hypergate.R"),
                             str(out / "hypergate_r_input.tsv.gz"), str(out / "hypergate_r_jobs.tsv"),str(fitpath)],
                            stdout=log,stderr=subprocess.STDOUT,check=True,env=env)
-    fits = pd.read_csv(fitpath, sep="\t")
+    fits = pd.read_csv(fitpath, sep="\t",escapechar="\\")
     if len(fits)!=len(jobs):
         raise AssertionError("R checkpoint job count mismatch")
     fitted, registry, validated = [], {}, 0
@@ -426,16 +437,34 @@ def run_r_hypergate(cells, genes, screen, totals, state_index, out):
             raise AssertionError(f"Exact Python/R confusion mismatch {fit.job_id}: {observed} != {expected}")
         validated += 1
         row = metric_row(rule, np.bincount(state_index[removed],minlength=4),totals,"actual_R_hypergate")
-        row.update(job_id=fit.job_id,hypergate_definition=fit.definition,hypergate_target=fit.target,beta=fit.beta)
+        row.update(job_id=fit.job_id,hypergate_definition=fit.definition,hypergate_target=fit.target,beta=fit.beta,
+                   hypergate_tp=fit.tp,hypergate_fp=fit.fp,hypergate_fn=fit.fn,hypergate_tn=fit.tn,
+                   hypergate_target_purity=safe_div(fit.tp,fit.tp+fit.fp).item(),
+                   hypergate_target_recovery=safe_div(fit.tp,fit.tp+fit.fn).item(),
+                   hypergate_target_F1=safe_div(2*fit.tp,2*fit.tp+fit.fp+fit.fn).item())
         fitted.append(row)
         registry[row["gate_id"]] = rule
     pd.DataFrame(fitted).to_csv(out / "tables/hypergate_four_state_evaluations.tsv",sep="\t",index=False)
-    dump_json(out / "hypergate_r_audit.json",dict(package="hypergate",panels=panels,requested_fits=len(jobs),successful_fits=validated,
+    package_version = subprocess.check_output([R_BIN,"-e",'cat(as.character(packageVersion("hypergate")))'],text=True).strip()
+    dump_json(out / "hypergate_r_audit.json",dict(package="hypergate",package_version=package_version,panels=panels,requested_fits=len(jobs),successful_fits=validated,
                failed_fits=int(len(jobs)-validated),independently_validated_confusion_counts=validated,
                search_scope="All singles/pairs within target-specific 6-to-8-marker panels selected from the full signed univariate surface screen; beta 0.5, 1, 2. Not exhaustive all-surfaceome Hypergate pairs.",
                Q4="Only PV-biased versus SST-biased cells enter fitting. Hybrid and unresolved are excluded from fitting, retained for four-state gate evaluation.",
                Q5="PV-biased plus hybrid versus SST-biased; unresolved excluded from fitting, retained for four-state evaluation."))
+    write_r_target_rankings(out)
     return fitted, registry, validated
+
+
+def write_r_target_rankings(out):
+    raw = pd.read_csv(out / "hypergate_r_fits.tsv",sep="\t",escapechar="\\")
+    raw = raw[raw.error.isna() | raw.error.eq("")].copy()
+    raw["target_purity"] = safe_div(raw.tp,raw.tp+raw.fp)
+    raw["target_recovery"] = safe_div(raw.tp,raw.tp+raw.fn)
+    raw["target_F1"] = safe_div(2*raw.tp,2*raw.tp+raw.fp+raw.fn)
+    raw["baseline_target_fraction"] = safe_div(raw.tp+raw.fn,raw.tp+raw.fp+raw.fn+raw.tn)
+    raw["fold_enrichment"] = safe_div(raw.target_purity,raw.baseline_target_fraction)
+    raw.sort_values("target_F1",ascending=False).drop_duplicates(["definition","rules"]).groupby("definition",sort=False).head(10).to_csv(
+        out / "tables/hypergate_best_by_question.tsv",sep="\t",index=False)
 
 
 def benchmark_rules(cells, totals, state_index):
@@ -555,6 +584,11 @@ def run(cells: pd.DataFrame, out: Path | str):
     fitted, rr, n_r = run_r_hypergate(cells,genes,screen,totals,state_index,out)
     rows.extend(fitted); registry.update(rr)
     print(f"Actual R Hypergate complete: {n_r} fits validated",flush=True)
+    return finalize_search(cells,out,rows,registry,genes,excluded,totals,state_index,nsingle,npair,nrefined,ntriples,n_r,start)
+
+
+def finalize_search(cells,out,rows,registry,genes,excluded,totals,state_index,nsingle,npair,nrefined,ntriples,n_r,start):
+    h5path = out / "tables/depletion_all_candidate_metrics.h5"
     allrows = pd.DataFrame(rows).drop_duplicates("gate_id").sort_values("practical_score",ascending=False)
     # Discovery priority requires a positive SST-removal rule; arbitrary R
     # enrichment rectangles remain separately available for Questions 1-5.
@@ -600,7 +634,7 @@ def run(cells: pd.DataFrame, out: Path | str):
     pd.DataFrame(tradeoffs).to_csv(out / "tables/depletion_minimum_removal_sensitivity.tsv",sep="\t",index=False)
     three_marker = dict(run=True,candidates=ntriples,meaningful_improvement=bool(meaningful_three),
                         score_gain_over_pair=best_three["practical_score"]-best_pair["practical_score"],
-                        scope="Bounded improvement probe: eight best distinct gene-pair/logic combinations, plus every remaining surface gene on the original positive-threshold grid. Homogeneous AND or OR only. Not exhaustive triplets.",
+                        scope="Bounded improvement probe: eight best unconstrained pair/logic combinations plus four additional pair/logic combinations each meeting minimum10/20/30/50% SST removal, crossed with every remaining surface gene on the original positive-threshold grid. Homogeneous AND or OR only. Not exhaustive triplets.",
                         selection_criterion="At least 0.03 absolute primary-score gain over best pair, with neither PV nor hybrid recovery dropping more than 0.03 absolute.")
     global_d = {k:allrows[k].to_numpy() for k in ["target_recovery","sst_contamination"]}
     frontier = allrows.iloc[pareto_positions(global_d)].copy()
@@ -641,7 +675,7 @@ def run(cells: pd.DataFrame, out: Path | str):
                    three_marker=three_marker,
                    practical_depletion_constraint="For an informative prospective depletion comparison, an analyst-chosen minimum of 20% SST-biased removal is evaluated separately from the unconstrained score optimum. Sensitivity at 10%, 20%, 30%, and 50% removal is reported. This is a decision constraint, not a fitted biological boundary or a requirement supplied by the user.",
                    practical_pair_is_meaningful=bool(practical_pair_meaningful),
-                   threshold_search="Python exact observed-value upper-threshold sweep for every one marker. Every pair of allowed genes with AND and OR of positive thresholds: 0 and 25th/50th/75th/90th percentiles of positive expression. Top 12 distinct pairs and ERBB4/CXCR4 then refined on a 27-point threshold grid. Actual R Hypergate results are separate.",
+                   threshold_search="Python exact observed-value upper-threshold sweep for every one marker. Every pair of allowed genes with AND and OR of positive thresholds: 0 and 25th/50th/75th/90th percentiles of positive expression. Top12 unconstrained distinct pairs, plus six additional pairs each meeting minimum10/20/30/50% SST removal, and ERBB4/CXCR4 are refined on a27-point threshold grid. Actual R Hypergate results are separate. Pair optima refer to these grids, not exhaustive continuous-threshold optimization.",
                    complete_metrics_file=str(h5path),
                    limitations=["All results are in-sample descriptive discovery, not held-out validation.","Per-sample fixed global gate results describe biological/sample composition and are not cross-validation.","RNA thresholds do not establish extracellular protein expression or fluorescence thresholds.","Unresolved exclusion is a labeling sensitivity, not an additional demonstrated surface sorting gate.","The four labels are operational developmental states, not established fates."],
                    elapsed_seconds=time.time()-start)
@@ -656,6 +690,92 @@ def run(cells: pd.DataFrame, out: Path | str):
         "Gate rules in `gate_summary.json` state whether the captured region is removed or retained. All RNA thresholds use the frozen log1p(CP10K) matrix.\n\n"
         +summary["score_definition"]+"\n\n"+summary["threshold_search"]+"\n")
     return clean_json(summary)
+
+
+def supplement_constrained_refinement(cells,out):
+    """Resume a completed broad search without repeating broad or R fits."""
+    out = Path(out).resolve()
+    if out!=EXPECTED_OUT.resolve():
+        raise ValueError("Turbo phase-two runtime required")
+    prior = json.loads((out / "gate_summary.json").read_text())
+    rows = pd.read_csv(out / "tables/gate_ranked_candidates.tsv.gz",sep="\t").to_dict("records")
+    registry = prior["rules"]
+    pair = [r for r in rows if r["n_markers"]==2 and r["action"]=="remove" and r["source"].startswith("python")]
+    totals = np.asarray([prior["baseline_state_counts"][s] for s in STATES])
+    state_index = pd.Categorical(cells.state,categories=STATES).codes
+    path = out / "tables/depletion_supplemental_candidate_metrics.h5"
+    if path.exists():
+        raise FileExistsError(path)
+    started = time.time()
+    with h5py.File("phase2_supplement_in_memory","w",driver="core",backing_store=False) as h5:
+        refined,rr,nrefined = refine_pairs(cells,pair,registry,totals,state_index,h5)
+        rows.extend(refined);registry.update(rr)
+        print(f"Constraint-aware dense refinement: {nrefined} candidates",flush=True)
+        triples,rr,ntriples = probe_third_marker(cells,pair+refined,registry,totals,state_index,h5,out)
+        rows.extend(triples);registry.update(rr)
+        print(f"Constraint-aware bounded third-marker probe: {ntriples} candidates",flush=True)
+        h5.attrs["description"] = "Supplemental constrained-depletion pair refinements and bounded third-marker probes. Each group has aligned rules_json and metrics with metric_columns attribute. Original complete broad search remains in depletion_all_candidate_metrics.h5."
+        h5.flush()
+        path.write_bytes(h5.id.get_file_image())
+    dump_json(out / "provenance/gate_summary_before_constrained_refinement.json",prior)
+    ann = pd.read_csv(PHASE1 / "allowed_surface_markers.tsv",sep="\t")
+    genes = [g for g in ann.gene if g in cells and g not in prior["excluded_module_features"]]
+    summary = finalize_search(cells,out,rows,registry,genes,prior["excluded_module_features"],totals,state_index,
+                prior["exact_single_candidates"],prior["broad_pair_candidates"],prior["refined_pair_candidates"]+nrefined,
+                prior["bounded_three_marker_candidates"]+ntriples,prior["actual_R_hypergate_fits"],started-prior["elapsed_seconds"])
+    summary["supplemental_metrics_file"] = str(path)
+    summary["supplemental_pair_evaluations"] = nrefined
+    summary["supplemental_three_marker_evaluations"] = ntriples
+    dump_json(out / "gate_summary.json",summary)
+    with (out / "tables/README_gate_metrics.md").open("a") as f:
+        f.write("\nConstraint-aware supplemental pair/third-marker evaluations are preserved separately in `depletion_supplemental_candidate_metrics.h5`; original broad results were reused, not repeated. Evaluation counts include any repeated rule boundaries in supplemental grids.\n")
+    return summary
+
+
+def resume_from_complete_metrics(cells,out):
+    """Recover candidate summaries from a completed HDF5 and completed R fits."""
+    out = Path(out).resolve()
+    if out!=EXPECTED_OUT.resolve():
+        raise ValueError("Turbo phase-two runtime required")
+    start = time.time()
+    state_index = pd.Categorical(cells.state,categories=STATES).codes
+    totals = np.bincount(state_index,minlength=4)
+    rows,registry = benchmark_rules(cells,totals,state_index)
+    counts = {}
+    with h5py.File(out / "tables/depletion_all_candidate_metrics.h5","r") as h5:
+        genes = json.loads(h5.attrs["genes"])
+        definitions = json.loads(h5.attrs["pair_threshold_definitions"])
+        for name,g in h5.items():
+            keys = json.loads(g.attrs["metric_columns"])
+            values = g["metrics"][:]
+            d = {key:values[:,j] for j,key in enumerate(keys)}
+            counts[name] = len(values)
+            if name=="refined_pairs":
+                keep = np.arange(len(values))
+            else:
+                keep = positions_to_keep(d,top=3000 if name.startswith("all_pairs") else 1500)
+            for i in keep:
+                if name=="exact_single":
+                    rule = dict(action="remove",logic="AND",rules=[dict(gene=genes[int(g["gene_index"][i])],op=">",threshold=float(g["threshold"][i]))])
+                    source = "python_exact_single"
+                elif name.startswith("all_pairs"):
+                    rule = dict(action="remove",logic="AND" if name.endswith("and") else "OR",rules=[definitions[int(g["threshold_a_index"][i])],definitions[int(g["threshold_b_index"][i])]])
+                    source = "python_full_surfaceome_pair_grid"
+                else:
+                    rule = json.loads(g["rules_json"][i])
+                    source = "python_refined_pair_grid" if name=="refined_pairs" else "python_bounded_third_marker_probe"
+                row = metric_row(rule,[d[f"removed_{s}_n"][i] for s in SHORT],totals,source)
+                rows.append(row);registry[row["gate_id"]]=rule
+            print(f"Recovered {len(keep)} candidate rows from {name}",flush=True)
+    modules = pd.read_csv(out / "module_genes.tsv",sep="\t")
+    excluded = modules.loc[modules.included.astype(str).str.lower().isin(["true","1"]),"gene"].tolist()
+    screen = pd.read_csv(out / "tables/surface_univariate_state_screen.tsv",sep="\t")
+    fitted,rr,n_r = run_r_hypergate(cells,genes,screen,totals,state_index,out)
+    rows.extend(fitted);registry.update(rr)
+    print(f"Reused and independently validated {n_r} completed R fits",flush=True)
+    return finalize_search(cells,out,rows,registry,genes,excluded,totals,state_index,counts["exact_single"],
+                counts["all_pairs_and"]+counts["all_pairs_or"],counts["refined_pairs"],
+                counts["bounded_third_marker_probe"],n_r,start)
 
 
 if __name__ == "__main__":

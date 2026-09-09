@@ -6,7 +6,12 @@ is already filtered, and the actual expected doublet rate is not documented.
 """
 from pathlib import Path
 import sys
+import os
 import json
+_runtime=Path('/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_hypergate_sst_pv_phase2')
+sys.dont_write_bytecode=True
+os.environ['MPLCONFIGDIR']=str(_runtime/'cache/matplotlib')
+os.environ['NUMBA_CACHE_DIR']=str(_runtime/'cache/numba')
 import numpy as np
 import pandas as pd
 import anndata as ad

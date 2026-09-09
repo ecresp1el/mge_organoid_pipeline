@@ -11,6 +11,7 @@ import html
 import json
 import math
 import os
+import sys
 from pathlib import Path
 
 OUT = Path("/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_hypergate_sst_pv_phase2")
@@ -43,6 +44,10 @@ def configure():
 def save(fig, out, stem, caption):
     directory = out / "figures"
     directory.mkdir(parents=True, exist_ok=True)
+    # Matplotlib rasterizes dense colorbar meshes by default; retain true vector gradients.
+    for artist in fig.findobj():
+        if hasattr(artist, "get_rasterized") and artist.get_rasterized():
+            artist.set_rasterized(False)
     for extension in ("pdf", "svg", "png"):
         fig.savefig(directory / f"{stem}.{extension}", dpi=600 if extension == "png" else None,
                     bbox_inches="tight", pad_inches=.12)
@@ -70,6 +75,11 @@ def limits(df):
 
 
 def thresholds(df):
+    parameter_path = OUT / "state_parameters.json"
+    if parameter_path.exists():
+        parameters = json.loads(parameter_path.read_text())
+        if "sst_threshold" in parameters and "pv_threshold" in parameters:
+            return [float(parameters["sst_threshold"]), float(parameters["pv_threshold"])]
     # Bounds between operational low/high groups preserve the actual assignments.
     cuts = []
     for score, high_states in [("sst_score", [STATES[1], STATES[2]]),
@@ -242,7 +252,7 @@ def figure3(df, out):
     ax.legend(size_handles, ["10%", "50%", "100%"], title="Detected", frameon=False, loc="upper left", bbox_to_anchor=(1.11, 1), fontsize=8)
     label(ax, "A", "Every module component: mean expression and fraction detected")
     metrics = [("n_genes", "Detected genes"), ("total_counts", "Total RNA counts"),
-               ("mito_fraction", "Mitochondrial fraction"), ("doublet_score", "Doublet score"),
+               ("mito_fraction", "Mitochondrial fraction"), ("doublet_score", "Scrublet doublet score"),
                ("stress_score", "Stress program"), ("cell_cycle_score", "Cell-cycle program")]
     for i, (metric, title) in enumerate(metrics):
         ax = fig.add_subplot(gs[1 + i // 3, i % 3])
@@ -271,7 +281,7 @@ def figure3(df, out):
              "Dual-high score assignment alone does not establish coordinated co-expression or validate a biological hybrid identity.",
              fontsize=8, color="#52606B")
     fig.subplots_adjust(left=.085, right=.84, top=.93, bottom=.10)
-    return save(fig, out, "figure_03_hybrid_validation", "Gene-level module dot plot across all four operational states; point size is detection fraction and color is gene-wise standardized state mean. QC distributions are descriptive; absent doublet scores are explicitly marked. These checks do not establish developmental fate.")
+    return save(fig, out, "figure_03_hybrid_validation", "Gene-level module dot plot across all four operational states; point size is detection fraction and color is gene-wise standardized state mean. QC distributions are descriptive. Available Scrublet doublet scores are computational estimates fitted by sample with an assumed 5% expected doublet rate, not direct doublet measurements. These checks do not establish developmental fate.")
 
 
 def figure4(df, out):
@@ -399,32 +409,33 @@ def figure9(df, out, summary):
     fig, ax = plt.subplots(figsize=(9, 6.8))
     size = 8 + 60 * candidates.retained_n / len(df)
     ax.scatter(candidates.target_recovery * 100, candidates.sst_contamination * 100,
-               s=size, c="#C7CDD4", alpha=.45, linewidths=0, label="Candidate gates")
+               s=size, c="#C7CDD4", alpha=.45, linewidths=0, label="Shortlisted candidate gates")
     frontier = pareto.sort_values("target_recovery")
     ax.plot(frontier.target_recovery * 100, frontier.sst_contamination * 100,
             color="#243E53", lw=1.3, marker="o", markersize=3, label="Pareto frontier")
-    styles = [("best_single", "Practical one-marker", "#39876F", "o"),
-              ("best_pair", "Practical two-marker", "#326DAB", "D"),
-              ("phase1_reference", "FAT3/PTPRM reference", "#9D658C", "s"),
-              ("erbb4_cxcr4", "ERBB4/CXCR4 benchmark", "#CB733F", "^"),
-              ("unconstrained_selected", "Unconstrained score optimum", "#545A64", "P")]
-    offsets = [(-8, 16), (-8, -36), (-10, 30), (-15, -45), (-15, 35)]
-    for (key, name, color, marker), offset in zip(styles, offsets):
+    styles = [("best_single", "Practical one-marker REMOVE", "#39876F", "o"),
+              ("best_pair", "Practical two-marker REMOVE", "#326DAB", "D"),
+              ("phase1_reference", "FAT3/PTPRM RETAIN reference", "#9D658C", "s"),
+              ("erbb4_cxcr4", "New ERBB4/CXCR4 REMOVE", "#CB733F", "^"),
+              ("unconstrained_selected", "Unconstrained REMOVE optimum", "#545A64", "P"),
+              ("phase1_erbb4_cxcr4_retention", "Inherited ERBB4/CXCR4 RETAIN", "#91622E", "v")]
+    positions = [(48, 24.5), (47, 17.8), (35, 22), (69, 13.5), (66, 27), (5, 25.5)]
+    for (key, name, color, marker), position in zip(styles, positions):
         row = summary.get(key)
         if not row: continue
         x, y = 100 * row["target_recovery"], 100 * row["sst_contamination"]
         ax.scatter(x, y, s=110, color=color, marker=marker, edgecolor="white", linewidth=.8, zorder=5, label=name)
-        ax.annotate(f"{name}\n{row['gate_label']}", (x, y), xytext=offset, textcoords="offset points", fontsize=7.5,
-                    color=color, ha="left" if offset[0] > 0 else "right", arrowprops=dict(arrowstyle="-", color=color, lw=.7),
+        ax.annotate(f"{name}\n{row['gate_label']}", (x, y), xytext=position, textcoords="data", fontsize=7.5,
+                    color=color, ha="left", arrowprops=dict(arrowstyle="-", color=color, lw=.7),
                     bbox=dict(facecolor="white", edgecolor="none", alpha=.8, pad=1))
-    ax.set(xlabel="PV-biased + hybrid recovery (%)", ylabel="SST-biased contamination among retained cells (%)", xlim=(-2, 104))
+    ax.set(xlabel="PV-biased + hybrid recovery (%)", ylabel="SST-biased contamination among retained cells (%)", xlim=(-2, 106), ylim=(-1, 29))
     ax.set_title("Experimental tradeoffs: preserve both PV-associated score regions", loc="left", pad=14, fontsize=13)
     ax.grid(color="#ECEEF1", lw=.6, zorder=0)
-    ax.legend(frameon=False, loc="upper left", fontsize=8)
+    ax.legend(frameon=False, loc="lower right", fontsize=8)
     fig.text(.13, .015, "Lower contamination and higher target recovery are preferred. Point area scales with retained cell count.\n"
              "All gates are evaluated on the observed dataset; these are exploratory tradeoffs, not held-out predictions.", fontsize=9, color="#52606B")
     fig.tight_layout(rect=(0, .085, 1, 1))
-    return save(fig, out, "figure_09_pareto_frontier", "Recovery/contamination tradeoff with point size proportional to total retained cells. The frontier uses the evaluated candidate universe; saved phase-one FAT3/PTPRM and ERBB4/CXCR4 are highlighted alongside practical one- and two-marker candidates.")
+    return save(fig, out, "figure_09_pareto_frontier", "Recovery/contamination tradeoff with point size proportional to total retained cells. Gray points display the shortlist; the frontier uses the evaluated candidate universe. Practical highlighted gates enforce the analyst-selected minimum 20% SST-biased removal constraint. The saved phase-one FAT3/PTPRM and positive ERBB4/CXCR4 RETAIN rules are explicitly distinguished from new REMOVE rules and the unconstrained preservation optimum.")
 
 
 def tree_box(ax, xy, text, color="#F1F4F7", width=.27, height=.10, fontsize=10, edge="#C6CED7"):
@@ -455,14 +466,15 @@ def figure10(df, out, summary, retained):
         tree_box(a, (x, .41), f"{short}\n{n:,} cells", color=COLORS[state] + "26", width=.28, height=.11, fontsize=9)
         arrow(a, (.5, .535), (x, .48))
     tree_box(a, (.5, .21), f"Unresolved / immature\n{int((df.state == STATES[3]).sum()):,} cells · low on both axes", width=.7, height=.1, color="#E9ECEF")
-    arrow(a, (.07, .59), (.15, .22))
+    a.plot([.083, .005, .005], [.59, .59, .21], color="#52606B", lw=1)
+    a.add_patch(FancyArrowPatch((.005, .21), (.137, .21), arrowstyle="-|>", mutation_scale=11, lw=1, color="#52606B"))
     a.text(.5, .07, "INFERRED: operational program bias\nHybrid means concurrent program scores, not lineage direction.\nOperator and glucose are coupled; causality is unresolved.",
            ha="center", va="center", fontsize=9, color="#52606B")
     b.text(.02, .99, "B   Experimental sorting hypothesis", fontsize=13, weight="bold", va="top")
     tree_box(b, (.5, .87), "Viable DIV90 → ERBB4+\nMGE cortical interneuron preparation", width=.76, height=.1)
     selected = summary["selected"]
     rule_label = selected["gate_label"].replace(" AND ", "\nAND ").replace(" OR ", "\nOR ")
-    tree_box(b, (.5, .65), f"HYPOTHESIS TO TEST\n{rule_label}", width=.92, height=.16, fontsize=9)
+    tree_box(b, (.5, .65), f"HYPOTHESIS TO TEST\nRNA · log1p(CP10K)\n{rule_label}", width=.92, height=.16, fontsize=9)
     arrow(b, (.5, .81), (.5, .74))
     fractions_remove, _ = composition(df, ~retained)
     fractions_keep, _ = composition(df, retained)
@@ -492,7 +504,7 @@ def supplementary_overlays(df, out, lim, cuts):
 HTML_TEMPLATE = r'''<!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>__TITLE__</title><style>
-*{box-sizing:border-box}body{margin:0;background:#f5f7fa;font:14px system-ui,sans-serif;color:#203142}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:#f5f7fa;font:14px system-ui,sans-serif;color:#203142}
 header{padding:22px 30px;background:white;border-bottom:1px solid #dbe1e7}h1{font-size:23px;margin:0 0 6px;font-weight:650}p{margin:5px 0;line-height:1.45}.muted{color:#657380}
 main{max-width:1500px;margin:18px auto;padding:0 22px}.controls{display:flex;flex-wrap:wrap;gap:12px;background:white;padding:16px;border:1px solid #dbe1e7;border-radius:9px;margin-bottom:14px}
 label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600}select,input,button{font:14px system-ui;padding:7px;border:1px solid #c5d0da;border-radius:5px;background:white;max-width:235px}
@@ -515,7 +527,7 @@ const canvas=document.getElementById('plot'),ctx=canvas.getContext('2d'),control
 const el=(tag,props={})=>Object.assign(document.createElement(tag),props);
 const escapeHtml=v=>String(v??'Unavailable').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const value=(i,key)=>key==='explored_gate'?(hits[i]?'Removed':'Retained'):rows[i][idx[key]];
-function selector(parent,name,options,selected,onchange){const l=el('label',{textContent:name}),s=el('select');for(const option of options)s.append(el('option',{value:option,textContent:option}));s.value=selected;s.addEventListener('change',()=>onchange(s.value));l.append(s);parent.append(l);return s;}
+function selector(parent,name,options,selected,onchange){const l=el('label',{textContent:name}),s=el('select');s.setAttribute('aria-label',name);for(const option of options)s.append(el('option',{value:option,textContent:option}));s.value=selected;s.addEventListener('change',()=>onchange(s.value));l.append(s);parent.append(l);return s;}
 const available=P.colors.filter(k=>idx[k]!==undefined);if(P.mode==='gate')available.unshift('explored_gate');
 selector(controls,'Color by',available,color,v=>{color=v;draw()});
 const filters={};for(const field of ['cell_line','condition','sample']){const vals=[...new Set(rows.map(r=>String(r[idx[field]])))].sort();filters[field]=selector(controls,field.replace('_',' '),['All',...vals],'All',filter);}
@@ -524,7 +536,7 @@ controls.append(el('button',{textContent:'Download plotted cells',onclick:downlo
 function filter(){shown=rows.map((_,i)=>i).filter(i=>Object.entries(filters).every(([k,s])=>s.value==='All'||String(value(i,k))===s.value));draw();}
 let gene1,gene2,op1,op2,t1,t2,logic,candidate,axisMode='Developmental landscape';
 function ruleHit(v,op,t){return op==='>'?v>t:op==='>='?v>=t:op==='<'?v<t:v<=t;}
-function thresholdControl(name,gene){const l=el('label',{textContent:name}),wrap=el('div'),r=el('input',{type:'range',step:'any'}),n=el('input',{type:'number',step:'any'});r.style.width='160px';n.style.width='90px';function sync(src,dst){dst.value=src.value;recompute();}r.oninput=()=>sync(r,n);n.oninput=()=>sync(n,r);wrap.append(r,n);l.append(wrap);gatecontrols.append(l);return {range:r,number:n,set(g,t){const a=rows.map(row=>Number(row[idx[g]])).filter(Number.isFinite),max=Math.max(...a);r.min=Math.min(0,...a);r.max=max;r.value=t;n.min=r.min;n.max=max;n.value=t;},get(){return Number(n.value)}};}
+function thresholdControl(name,gene){const l=el('label',{textContent:name}),wrap=el('div'),r=el('input',{type:'range',step:'any'}),n=el('input',{type:'number',step:'any'});r.style.width='160px';n.style.width='90px';function sync(src,dst){dst.value=src.value;candidate.value='Custom';recompute();}r.oninput=()=>sync(r,n);n.oninput=()=>sync(n,r);wrap.append(r,n);l.append(wrap);gatecontrols.append(l);return {range:r,number:n,set(g,t){const a=rows.map(row=>Number(row[idx[g]])).filter(Number.isFinite),max=Math.max(...a);r.min=Math.min(0,...a);r.max=max;r.value=t;n.min=r.min;n.max=max;n.value=t;},get(){return Number(n.value)}};}
 function recompute(){if(P.mode!=='gate')return;if(axisMode==='Surface-marker pair'){xfield=gene1.value;yfield=gene2.value==='None'?'ERBB4':gene2.value;bounds=null;}hits=rows.map((r,i)=>{const a=ruleHit(Number(value(i,gene1.value)),op1.value,t1.get());if(gene2.value==='None')return a;const b=ruleHit(Number(value(i,gene2.value)),op2.value,t2.get());return logic.value==='AND'?a&&b:a||b;});draw();}
 if(P.mode==='gate'){
  gatecontrols.hidden=false;
@@ -576,7 +588,9 @@ def interactive(df, out, summary, capture, cuts):
     candidates = []
     for key, display in [("selected", "Selected practical gate"), ("best_single", "Best one-marker"),
                          ("best_pair", "Best two-marker"), ("phase1_reference", "Phase-one FAT3/PTPRM complement"),
-                         ("erbb4_cxcr4", "ERBB4/CXCR4 complement"), ("unconstrained_selected", "Unconstrained preservation optimum")]:
+                         ("erbb4_cxcr4", "New ERBB4/CXCR4 REMOVE"),
+                         ("phase1_erbb4_cxcr4_retention", "Inherited ERBB4/CXCR4 RETAIN (complement shown)"),
+                         ("unconstrained_selected", "Unconstrained preservation optimum")]:
         if not summary.get(key): continue
         rule = json.loads(json.dumps(summary["rules"][str(summary[key]["gate_id"])]))
         if rule.get("action") == "retain":
@@ -595,9 +609,9 @@ def interactive(df, out, summary, capture, cuts):
               "pv_score", "sst_score", "state", "gate_assignment", "phase1_gate_assignment"] + SURFACE_COLORS + gate_genes
     fields = list(dict.fromkeys(f for f in fields if f in cells))
     small = cells[fields].copy()
-    for key in small.select_dtypes(include="number"): small[key] = small[key].round(7)
-    # DataFrame JSON conversion emits null for unavailable values, avoiding invalid NaN JSON.
-    data = json.loads(small.to_json(orient="split"))
+    # Preserve full float precision: rounding would change cells on gate boundaries.
+    # Object conversion permits JSON null for unavailable values rather than NaN.
+    data = small.astype(object).where(pd.notna(small), None).to_dict(orient="split")
     common = {"columns": data["columns"], "rows": data["data"], "cuts": cuts,
               "colors": ["state", "pv_score", "sst_score"] + SURFACE_COLORS +
                         ["sample", "cell_line", "condition", "loupe_label", "gate_assignment", "phase1_gate_assignment"],
@@ -607,6 +621,9 @@ def interactive(df, out, summary, capture, cuts):
               ("interactive_gate_explorer.html", "gate", "Interactive SST-depletion gate explorer", "Move transcript thresholds and see the biological cost in PV-biased and hybrid cells immediately."),
               ("interactive_sample_landscape.html", "sample", "Cell-line and culture-condition landscapes", "Select individual cell lines, culture conditions and samples while retaining the shared developmental axes.")]
     for filename, mode, title, description in assets:
+        description += f" Displayed experimental gate: {summary['selected']['gate_label']}."
+        if summary.get("visual_depletion_constraint"):
+            description += " This practical comparison requires at least 20% SST-biased removal, an analyst-selected constraint."
         payload = json.dumps({**common, "mode": mode}, separators=(",", ":"), allow_nan=False).replace("</", "<\\/")
         content = HTML_TEMPLATE.replace("__TITLE__", html.escape(title)).replace("__DESCRIPTION__", html.escape(description)).replace("__PAYLOAD__", payload)
         (out / filename).write_text(content)
@@ -660,12 +677,99 @@ def visual_summary(summary):
         summary["best_single"] = summary["practical_single"]
         summary["best_pair"] = summary["practical_pair"]
         summary["visual_depletion_constraint"] = summary.get("practical_depletion_constraint", "At least 20% SST-biased removal, an analyst-selected threshold")
+    inherited = summary.get("phase1_erbb4_cxcr4_benchmarks", [])
+    if inherited:
+        summary["phase1_erbb4_cxcr4_retention"] = next((row for row in inherited if "module" in row.get("source", "")), inherited[0])
     return summary
+
+
+def verify_html_assets(out=OUT):
+    """Exercise offline rendering, filtering, hover and exact live gate counts."""
+    out = Path(out).resolve()
+    if out != OUT.resolve():
+        raise ValueError("Interactive QA artifacts must remain in the authorized Turbo directory")
+    sys.path.insert(0, str(out / "runtime_deps"))
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(out / "cache/playwright")
+    (out / "cache/browser_tmp").mkdir(parents=True, exist_ok=True)
+    os.environ["TMPDIR"] = str(out / "cache/browser_tmp")
+    import tempfile
+    tempfile.tempdir = os.environ["TMPDIR"]
+    shim = out / "provenance/playwright_autofs_shim.cjs"
+    if shim.exists():
+        os.environ["NODE_OPTIONS"] = f"--require={shim}"
+    from playwright.sync_api import sync_playwright
+    df = pd.read_csv(out / "cells.tsv.gz", sep="\t")
+    summary = visual_summary(json.loads((out / "gate_summary.json").read_text()))
+    selected_retained = apply_rule(df, summary["rules"][str(summary["selected"]["gate_id"])])
+    report = {"offline": True, "assets": []}
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
+        context = browser.new_context(offline=True, viewport={"width": 1440, "height": 1100})
+        for filename in ["interactive_pv_sst_landscape.html", "interactive_umap.html",
+                         "interactive_gate_explorer.html", "interactive_sample_landscape.html"]:
+            page = context.new_page(); errors = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto((out / filename).as_uri(), wait_until="load")
+            page.wait_for_function("typeof shown !== 'undefined' && shown.length === 4768")
+            assert not errors, errors
+            assert page.evaluate("screen.length") > 0, filename
+            page.get_by_label("Color by", exact=True).select_option("SST")
+            assert "SST" in page.locator("#legend").inner_text()
+            point = page.evaluate("screen[0]")
+            page.locator("#plot").scroll_into_view_if_needed()
+            box = page.locator("#plot").bounding_box()
+            page.mouse.move(box["x"] + point[0], box["y"] + point[1])
+            assert "cell_id:" in page.locator("#hover").inner_text(), filename
+            condition = df.condition.iloc[0]
+            page.get_by_label("condition", exact=True).select_option(condition)
+            expected_n = int((df.condition == condition).sum())
+            assert page.evaluate("shown.length") == expected_n
+            page.get_by_label("condition", exact=True).select_option("All")
+            checks = {"filename": filename, "n_cells": 4768, "coloring": True,
+                      "hover": True, "condition_filter_n": expected_n, "errors": errors}
+            if "gate_explorer" in filename:
+                assert page.evaluate("hits.filter(x => !x).length") == int(selected_retained.sum())
+                inherited = summary.get("phase1_erbb4_cxcr4_retention")
+                if inherited:
+                    page.get_by_label("Saved candidate", exact=True).select_option("Inherited ERBB4/CXCR4 RETAIN (complement shown)")
+                    expected_inherited = int(apply_rule(df, summary["rules"][str(inherited["gate_id"])]).sum())
+                    assert page.evaluate("hits.filter(x => !x).length") == expected_inherited
+                    checks["inherited_erbb4_cxcr4_retained_n"] = expected_inherited
+                    page.get_by_label("Saved candidate", exact=True).select_option("Selected practical gate")
+                changes = page.evaluate("""(() => {
+                    const marker=gene1.value, cutoff=Number(t1.range.max)*0.4;
+                    gene2.value='None';op1.value='>';t1.number.value=cutoff;t1.range.value=cutoff;recompute();
+                    return {marker,cutoff,retained:hits.filter(x=>!x).length};
+                })()""")
+                assert changes["retained"] == int((df[changes["marker"]] <= changes["cutoff"]).sum())
+                page.get_by_label("condition", exact=True).select_option(condition)
+                actual_retained = page.evaluate("shown.filter(i=>!hits[i]).length")
+                assert actual_retained == int(((df.condition == condition) & (df[changes["marker"]] <= changes["cutoff"])).sum())
+                page.get_by_label("condition", exact=True).select_option("All")
+                page.get_by_label("Saved candidate", exact=True).select_option("Selected practical gate")
+                page.get_by_label("Color by", exact=True).select_option("explored_gate")
+                page.get_by_label("Plot axes", exact=True).select_option("Surface-marker pair")
+                assert page.evaluate("xfield") == page.evaluate("gene1.value")
+                page.get_by_label("Plot axes", exact=True).select_option("Developmental landscape")
+                checks.update({"exact_selected_retained_n": int(selected_retained.sum()),
+                               "live_threshold_counts": True, "condition_gate_counts": True,
+                               "surface_axes": True, "comparison_rows": page.locator("#comparison tr").count() - 1})
+                page.screenshot(path=str(out / "provenance/interactive_gate_explorer_preview.png"), full_page=True)
+            assert not errors, errors
+            report["assets"].append(checks)
+            page.close()
+        browser.close()
+    (out / "provenance/interactive_validation.json").write_text(json.dumps(report, indent=2) + "\n")
+    return report
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cells", type=Path)
     parser.add_argument("--out", type=Path, default=OUT)
+    parser.add_argument("--verify-html", action="store_true")
     args = parser.parse_args()
-    run(args.cells, args.out)
+    if args.verify_html:
+        print(json.dumps(verify_html_assets(args.out), indent=2))
+    else:
+        run(args.cells, args.out)
