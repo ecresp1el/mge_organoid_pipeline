@@ -1,0 +1,59 @@
+URD storage and provenance audit — 2026-10-21
+
+Scope: current repository; mounted project results and final_figures; historical repository handoffs; Desktop/new_figures filenames. Read-only analysis; no analysis data deleted or moved. This is not a search of every filesystem, backup, or remote cluster.
+
+FINAL FIGURE AND REQUIRED ASSETS
+The latest explicitly packaged refined grant figure found is local v6, dated August 6. The NFS package also contains a v8_guidance12 variant and older numbered versions: these are different figure designs, not evidence of a later URD inference run. Actual submitted document was not inspected.
+Package: /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/final_figures/context_marker_composite_v6_forgrantsubmission_refined_20260806
+Preview: /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/final_figures/context_marker_composite_v6_forgrantsubmission_refined_20260806/plots/div90_urd_context_marker_composite.png
+Renderer: /home/elcrespo/Desktop/githubprojects/mge_organoid_pipeline/final_figures/context_marker_composite_v6_forgrantsubmission_refined_20260806/code/39_div90_urd_context_marker_composite.R
+Exact invocation: final_render_command.txt
+Essential saved tree: /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1/lineage_tree_jia_endpoint_tips_v1/div30_urd_lineage_tree_object.rds
+The renderer reads this RDS directly. Its counts, metadata, UMAP, pseudotime, and tree coordinates support plot-only reproduction. Keep the full v6 package: PNG/PDF/SVG, frozen code, tables, render status, invariance checks, command and SHA256 manifest. Keep the canonical run inputs, parameters, tree tables, final objects, and logs for analysis provenance.
+The div30_* RDS and input basenames inside DIV90 runs are compatibility naming, not DIV30 data.
+
+WHAT WAS USED
+DIV90: 20,049 retained cells; 36 roots from the top 10% Jia RootScore within cluster 12; 3,000 variable genes; kNN 100; local sigma; 20 floods. Seven tips yield 11 segments. Five neuronal tips plus astrocytes and OPC. Marker panels hide published clusters 8 and 10 while context panels retain the full tree. Fifteen markers use log1p(CP10K).
+The final figure uses existing pseudotime div90_jia_rootscore_root; formatting did not rerun lineage inference.
+
+CURRENT RUNS (allocated GiB; totals are estimates, not guaranteed quota recovery)
+div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1: 2.489 GiB; 141 files; 7 tips; 11 segments; finite pseudotime 20049/20049; KEEP: final figure source
+div90_urd_jia_lineage_allcells_root10_backfillmax_20260614_v1: 1.038 GiB; 131 files; 5 tips; 7 segments; finite pseudotime 20049/20049; REVIEW: superseded successful output; not empty
+div90_urd_jia_lineage_allcells_root10_neuron_s9_7tips_v1: 1.049 GiB; 135 files; 7 tips; 11 segments; finite pseudotime 20049/20049; REVIEW: superseded successful output; not empty
+div90_urd_jia_lineage_full_v4_glia_tips_root10_v1: 1.038 GiB; 131 files; 5 tips; 7 segments; finite pseudotime 20049/20049; REVIEW: superseded successful output; not empty
+
+CLEANUP REVIEW
+All four surviving runs have real outputs; none is an empty or wholly unproductive run. The three superseded folders are review candidates, not automatically disposable: their historical trees differ and other analyses may cite them.
+1.038 GiB — /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_allcells_root10_backfillmax_20260614_v1 — Superseded output with successful tree; not consumed by v6 render. Check other figure dependencies before removal.
+1.049 GiB — /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_allcells_root10_neuron_s9_7tips_v1 — Superseded output with successful tree; not consumed by v6 render. Check other figure dependencies before removal.
+1.038 GiB — /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_urd_jia_lineage_full_v4_glia_tips_root10_v1 — Superseded output with successful tree; not consumed by v6 render. Check other figure dependencies before removal.
+1.441 GiB — /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1/checkpoints — Intermediate resume states; final renderer uses saved lineage tree only. Removal loses early-stage resume capability.
+The above groups do not overlap. Combined estimated allocated size: 4.565 GiB.
+Exact duplicate RDS content is recorded in rds_checksums.tsv. The final first-pass object is byte-identical to the earlier seven-tip first-pass object and to urd_after_flood_pseudotime.rds. Random-walk RDS files also duplicate across corresponding reruns. Do not infer identical lineage-tree RDS files from matching tip counts.
+Two zero-byte NFS v5 exports exist: its SVG and render-status TSV. These recover essentially no space. Local v5 is complete; do not mistake the incomplete NFS export for failed URD inference.
+The NFS final-figure collection is about 353 MiB total: mostly alternative plot layouts and earlier marker panels, not costly inference objects. Retain v8_guidance12 until its relationship to intended final panels is reviewed.
+
+HISTORICAL FAILURES AND ABSENT RUNS
+Handoff_overnight_urd_run_check_2026_06_12.md records initial full v4 DIV90 job 51691452 with 0/20049 finite pseudotime; not usable for tree building. Its recorded output folder is absent now.
+Job 51699300 failed after 43 seconds with unexpected end of input; resubmission reused the root10_v1 directory. That directory now contains successful outputs, so the early job failure does not justify deleting it as empty.
+DIV30 job 51810088 failed after 1 day 14:48:32; dependent reflood 51810089 was cancelled before running. DIV90 production job 51810090 completed in 04:04:44, according to the handoff.
+No results/div30_first_urd directory is currently present at its recorded NFS path. Historical 5k, 30k, reflood, branchpoint, and all-cell attempts are indexed in historical_run_locations.tsv with source line references. Missing means unavailable at the recorded location; it does not establish deletion or global absence.
+
+CODE MAP
+Inference: scripts/14_urd_first_pass_pseudotime.R; tree construction: scripts/16_div30_urd_build_lineage_tree.R.
+Production orchestration: slurm_templates/34_div90_jia_lineage_urd_smoke.sbatch.template (despite smoke in filename, current defaults target canonical production run).
+Input preparation: export_div90_jia_lineage_urd_inputs.py and div90_assign_neuron_s9_7tip_groups.py; seven-tip plan metadata/div90_jia_lineage_urd_plan_neuron_s9_7tips.tsv.
+Reports: scripts/15 and 17; marker validation: 25; candidate markers: 27; composite renderer: 39.
+Earlier DIV30 explorations: scripts/18 (Jia root), 20 (reflood), 21 (program trends), 22–24 (branchpoint decisions and figures). These are separate earlier analyses, not dependencies of the v6 renderer.
+The full list of code/workflow files mentioning URD is code_and_workflow_files.txt. Keep code: removing it saves little and loses reproducibility.
+For upstream rebuilding, preserve source count/metadata/UMAP files and Jia marker source listed in upstream_input_manifest.tsv; input assignment generation may have additional dependencies.
+
+AUDIT ARTIFACTS
+files.tsv: 886 files, byte sizes, allocated sizes, modification dates and zero-byte flags.
+directories.tsv: component sizes; parent/child rows overlap and must not be summed blindly.
+runs.tsv: run-level sizes, topology counts and independently counted finite pseudotime.
+historical_run_locations.tsv: recorded run paths and whether currently present.
+rds_checksums.tsv: SHA256 hashes of saved RDS files, computed without loading objects.
+cleanup_candidates.tsv: concrete review scope; contains no deletion commands.
+
+Limitations: no R inference rerun or RDS deserialization; topology checked from saved status tables, provenance checked from renderer and recorded invocation. No verification of actual submitted grant/manuscript. No global dependency proof for deletion candidates.

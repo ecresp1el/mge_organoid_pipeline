@@ -2,7 +2,7 @@
 
 Date: 2026-06-11
 
-Status: DIV90 v4 glia-tip smoke completed. This is the final inclusion-logic swing before scaling: stressed cells remain excluded, clusters `3`/`11` remain retained non-tip candidates, astrocytes are combined as one terminal tip, and OPCs are their own terminal tip.
+Current status (2026-10-21): the canonical seven-tip DIV90 production tree is saved. The downstream branchpoint-gene analysis proposed at the end of this handoff is awaiting implementation review; it has not been executed. Earlier smoke/planning sections below are historical, not the current run definition.
 
 This handoff records the DIV90 URD plan after the DIV90 UMAP/metadata audit. It is intentionally aligned with the DIV30 URD workflow, but the DIV90 biological question is different because the DIV90 object has real terminal cluster labels.
 
@@ -1245,3 +1245,326 @@ Resubmitting the same run label with `URD_RESUME=true` will continue from the
 latest checkpoint and then regenerate the same downstream decision reports,
 lineage-tree reports, Jia Fig. S11 marker validation, candidate marker
 projection, and output manifests.
+
+## Proposed downstream step: genes associated with each DIV90 divergence (2026-10-21)
+
+### Scope and review boundary
+
+Analyze every divergence in the saved final seven-tip tree, including neuronal
+and glial branches. Preserve topology, named pseudotime, terminal identities,
+cell assignments, UMAP coordinates, existing results, and final figure packages.
+Identify expression associated with divergence and candidate transcriptional
+regulators; expression differences do not establish causal fate determinants.
+An inferred URD split is not necessarily the biological time of commitment.
+
+This section is a proposed implementation specification. No DE tests, cascade
+fits, figures, job submissions, new scripts, or runtime output directories were
+created for this step. Read-only RDS inspection and inspection of the installed
+URD functions were performed to inform the proposal. Review the implementation
+before executing analysis. Approval of this plan is not approval to submit jobs.
+
+### Storage and job conventions
+
+Follow `WORKFLOW.md`: the checkout contains code/configuration/documentation;
+runtime data, generated figures, tables, caches, job files, and logs live on Turbo.
+Only this existing handoff is edited at the planning stage.
+
+Protected input (read-only):
+
+```text
+PROJECT_ROOT=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder
+SOURCE_RUN=${PROJECT_ROOT}/results/div90_jia_lineage_urd/div90_allcells_jia_root10_neuron_s9_7tips_urd_resumable_v1
+TREE_RDS=${SOURCE_RUN}/lineage_tree_jia_endpoint_tips_v1/div30_urd_lineage_tree_object.rds
+```
+
+Proposed independent runtime destination, outside the protected source run:
+
+```text
+${PROJECT_ROOT}/results/div90_urd_branchpoint_genes/div90_final_7tips_branchpoint_genes_v1/
+  tables/
+  plots/
+  provenance/
+  checkpoints/   # small per-comparison results only, not copies of the URD object
+```
+
+Proposed implementation files (not yet created):
+
+- `scripts/40_div90_urd_branchpoint_genes.R`
+- `config/div90_urd_branchpoint_genes.tsv`
+- `slurm_templates/64_div90_urd_branchpoint_genes.sbatch.template`
+
+After implementation review and explicit execution approval, copy/render the
+template to `${PROJECT_ROOT}/jobs/64_div90_urd_branchpoint_genes_v1.sbatch`
+and submit that NFS job file with `sbatch`. Use absolute Slurm log paths under
+`${PROJECT_ROOT}/logs/64_div90_urd_branchpoint_genes_%j.log`; Slurm does not
+expand shell variables in `#SBATCH` paths. Use the established `standard`
+partition, `parent0` account, and module-managed R/4.4.3 with the existing URD
+library. No package installations in jobs. Proposed initial resources are one
+node, 4 CPUs, 64G, 12 hours; these are planning estimates to review after the
+implementation's memory strategy is known. Keep sparse matrices sparse and
+process genes/comparisons in blocks. Do not call the original full-pipeline or
+posthoc-refresh templates: they regenerate source outputs and have historical
+defaults. No commands in this section have been submitted.
+
+### Read-only inspection findings
+
+The saved RDS was loaded using R/4.4.3 and installed URD 1.1.1. It is an `URD`
+object with named `count.data` and `logupx.data` sparse matrices, each
+15,239 genes by 20,049 cells; `meta` has 20,049 rows and 55 columns. Named
+pseudotime `div90_jia_rootscore_root` is present, alongside seven tip-walk
+columns. Tree segment membership, joins, pseudotime limits, segment layout,
+and cell coordinates are present. No dimname reconstruction is needed for
+these two expression matrices. Runtime implementation must still validate
+cell/gene identity and order before testing.
+
+The actual joins identify four branchpoints, not six assumed binary splits:
+
+| Proposed branchpoint ID | Parent segment | Split pseudotime | Immediate daughters | Descendant terminal identities |
+| --- | --- | --- | --- | --- |
+| BP13 | 13 | 0 | 6 versus 12 | Astrocytes versus the subtree containing tips 1–5 and OPC |
+| BP12 | 12 | 0.173664130168718 | 7 versus 11 | OPC versus neuronal tips 1–5 |
+| BP11 | 11 | 0.235455231461149 | 5, 9, 3 | NR2F1/NR2F2; subtree containing tips 1, 2, 4; CRABP1/ANGPT2 precursor |
+| BP9 | 9 | 0.272363130443725 | 1, 2, 4 | LHX8/ISL1 state 1; LHX8/ISL1 state 2; LHX6/NFIA/EPHA5/MEF2C cortical |
+
+These are native run identities, not revised biological annotations. Preserve
+them even where final-figure display labels differ. Reconstruct descendants
+from the object rather than hard-code this table into the analysis.
+
+Native segment membership counts are 1:1002, 2:1027, 3:2048, 4:343, 5:463,
+6:1727, 7:985, 9:310, 11:301, 12:165, 13:0. Do not assume all 20,049 cells
+are assigned to the plotted tree. Enumerate unique membership, duplicates,
+unassigned cells, finite pseudotime, and sample representation in the preflight.
+Segment 13 has zero width and no cells: an upstream expression baseline at
+BP13 cannot be estimated. Do not invent one or shift the split to obtain it.
+
+Direct inspection found 8,371 unique segment-assigned cells and 11,678 cells
+without segment membership. The named and tree pseudotimes agree exactly
+(maximum absolute difference zero), both ranging from 0 to approximately
+0.5531137. All six `orig.ident` labels (`10496-MW-1` through `10496-MW-6`)
+occur in every nonempty segment, but counts are markedly unequal; a sample
+label's presence does not establish independent biological replication.
+
+### Native URD methods and their roles
+
+The installed URD 1.1.1 signatures and marker-function bodies were inspected.
+Use installed behavior as authoritative and record package/session versions.
+
+- `segChildren()` and `segChildrenAll()` identify daughters and descendants;
+  verify these against `tree$segment.joins` and terminal mapping.
+- `markersAUCPR(cells.1=..., cells.2=..., genes.use=...)` is the native
+  marker-specificity comparison for explicitly selected cells. Call both
+  directions. Report AUCPR, its random-classifier baseline/ratio, native
+  expression fold change, and detection fractions. AUCPR is not a p-value.
+- `markersBinom()` supplies native detection-frequency tests and p-values/FDR
+  for the same cell sets. Its `log.effect` is the natural log of the ratio of
+  detection fractions, not mean-expression log2 fold change. Label both
+  quantities separately. This does not test mean expression among positive
+  cells; mark mean-only candidates without detection support accordingly.
+- `deTTest()` was inspected as a possible complementary native mean-expression
+  test. It calls Welch's `t.test()` but has no built-in FDR correction, uses a
+  ratio of input means for its effect field, and can fail on constant data.
+  It is not selected as the primary significance method in this proposal.
+  Adding a guarded mean-expression test with a complete p-value family is a
+  specific implementation-review decision; detection significance must not be
+  relabeled as significance of mean-expression change.
+- `aucprTestAlongTree(..., report.debug=TRUE)` can provide a supplementary
+  whole-lineage comparison and raw `marker.chain` entries. It traverses
+  segment-defined ranges; it is not the primary engine for arbitrary nested
+  windows around a split. `binomTestAlongTree()` also summarizes along paths
+  rather than exposing the desired window-specific comparisons. Do not
+  substitute their pooled summaries for branchpoint tables.
+- `pseudotimeMovingWindow()` supports descriptive trajectories;
+  `geneCascadeProcess()` and `geneCascadeHeatmap()` are optional native
+  fitting/visualization tools for selected genes. Cascade onset is expression
+  onset within a lineage, not the onset of a between-lineage difference.
+  Failed/poor fits must not replace the observed binned data.
+
+Native helper edge cases must be addressed in the implementation review:
+empty or single-gene results, absent positive cells, nonfinite fold changes,
+and `markersBinom()` output naming with explicit cell lists. Provide stable
+population labels (or an in-memory grouping) and map output columns by
+validated semantics. Never patch or overwrite the installed URD package.
+
+Primary source references:
+[URD differential-expression implementation](https://github.com/farrellja/URD/blob/master/R/diff-exp.R)
+and [URD gene-cascade implementation](https://github.com/farrellja/URD/blob/master/R/gene-cascade.R).
+
+### Define comparisons from actual daughters
+
+At each parent, compare every unordered pair of its immediate daughters and
+retain native AUCPR results in both directions. This produces eight unordered
+pairwise contrasts across the four branchpoints (1 + 1 + 3 + 3), before window
+variants. At a three-way split, a daughter-specific gene must beat both sibling
+branches to receive an "all-siblings" label; genes beating only one sibling
+remain explicitly labeled pair-specific. Do not impose an artificial binary
+ordering on either three-way split.
+
+For local tests, start with exclusive immediate-daughter segment cells. Audit
+and exclude overlapping memberships between contrasted groups. Shared parent
+cells provide upstream context only; never assign those cells a future fate
+from a terminal label. For downstream trajectories, include descendants but
+separate the paths when a daughter branches again. Never average later
+descendants into one curve and interpret a changing mixture as specification.
+Preserve unassigned cells as unassigned; do not recruit them using expression
+of candidate genes. All cell selections must be exported with their rationale.
+
+### Multiple windows and pseudotime support
+
+Use the fixed named pseudotime on the source object's original scale. First
+check that tree join/segment times and the named pseudotime are on the same
+scale; disagreement is a blocking preflight issue, not permission to reflood.
+Let `R` be the finite named-pseudotime maximum minus minimum across the source
+object. Proposed nested half-widths are `0.02*R`, `0.05*R`, and `0.10*R`.
+These are prespecified sensitivity settings, not estimates of split confidence.
+For the inspected range these widths are approximately 0.01106, 0.02766, and
+0.05531 pseudotime units; the implementation must calculate from the input
+instead of hard-coding rounded values.
+
+For a split at `b` and each candidate half-width `w`:
+
+1. Show upstream context `[b-w,b)` from the native parent segment, clipped to
+   its available interval. Show daughter expression in `[b,b+w]`.
+2. Restrict a local pairwise test to the shared supported downstream interval
+   of both daughters, before either daughter's next split or terminal end.
+   Use identical time limits for both groups. Save requested versus realized
+   limits, clipping reasons, counts, occupied bins, and pseudotime quantiles.
+3. Bin this common interval into five equal-width pseudotime bins. Proposed
+   minimum support: 30 cells per daughter overall, at least three jointly
+   occupied bins, and at least five cells per daughter in each retained bin.
+   Test on cells from jointly supported bins; expose the native-all-cells
+   result and a deterministic seed-7, equal-count-per-bin sensitivity result.
+   Report sample composition before and after balancing. If support fails,
+   mark the comparison/window insufficient; do not silently widen or move it.
+4. If clipping makes requested windows identical, test once and record that
+   identity. They are not independent confirmations. Keep all four branchpoints
+   in the report even if a particular contrast has no supported local window.
+
+Also examine split-location sensitivity at `b-0.02*R`, `b`, and `b+0.02*R`
+using original memberships and the same clipping/support rules. These are
+alternative anchors for expression summaries, not modified tree branchpoints
+or a biological confidence interval. Upstream cells cannot acquire a known
+daughter identity merely because an anchor moves earlier. Never extrapolate
+past available support. BP13 has no upstream parent data and must be flagged.
+
+Use disjoint downstream bins after the widest supported local window for the
+later-expression analysis. Extend along each actual daughter-to-tip path,
+retain original pseudotime and later branchpoint markers, and stop pairwise
+interpretation where common pseudotime support ends. If no later matched
+interval exists, classify timing as unresolved. Quantile-based moving bins
+may be a separately labeled descriptive sensitivity view, never a substitute
+for the matched original-pseudotime comparisons.
+
+### Gene universe, significance, and ranking
+
+Test expressed genes from the full saved expression matrix, not just the
+3,000 variable genes or the markers used to name tips. Proposed expression
+filter: detection in at least 10% of one daughter for a contrast/window;
+record the entire tested universe before outcome-based fold-change filtering.
+Retain complete gene-level results, not only the plotted top genes.
+
+Proposed display/candidate thresholds for review: absolute mean-expression
+log2 fold change at least 0.25, detection-fraction difference at least 0.10,
+AUCPR ratio at least 1.2 in the enriched direction, and detection-test FDR
+at most 0.05. An AUCPR filter must never be described as significance.
+Call native binomial tests with permissive return filters, retain raw p-values
+for all eligible genes/directions, and recompute BH over the full intended
+gene family before applying candidate thresholds. Explicitly distinguish
+native within-comparison FDR from a study-wide BH family spanning all tested
+branchpoint/pair/window/anchor/direction hypotheses. Do not report a gene as
+globally significant merely because one of many windows passed local FDR.
+Any native helper that prevents complete p-value recovery requires an explicit
+reviewed adjustment; do not silently correct only an AUCPR-selected subset.
+
+All native p-values are exploratory cell-level detection tests on the same
+data that produced the tree. They are not donor-level validation and do not
+account for tree-selection uncertainty. Inspect `orig.ident` representation;
+show per-sample effects and support where possible. A replicate-level count
+model would be an additional, separately reviewed method if independent
+biological replication is adequate. No confirmatory claims from cell counts.
+
+Classify genes by observed support:
+
+- **Early-associated:** consistent direction/effect in at least two distinct
+  supported local widths, including the smallest supported width, with
+  candidate thresholds and significance flags reported independently.
+- **Early and sustained:** early-associated plus consistent effects in at
+  least two supported later bins.
+- **Late-emerging:** supported effects in at least two later bins with no
+  threshold-size early effect; report early estimates/uncertainty. Failure of
+  an early significance test alone is not evidence of absence.
+- **Transient, window-sensitive, or unresolved:** inconsistent direction,
+  limited support, anchor sensitivity, or inability to separate timings.
+
+Report first supported between-daughter difference as a bounded pseudotime
+interval, not a precise commitment time. Rank each enriched daughter using
+distinct-window robustness first, then AUCPR ratio and mean-expression effect;
+display detection differences, FDR, sample consistency, and timing class.
+Preserve a separate late list so local prioritization does not hide maturation.
+
+### Candidate transcription factors
+
+Annotate the tested gene universe with a versioned human DNA-binding TF list
+from the [Lambert et al. author resource](https://humantfs.ccbr.utoronto.ca/download.php).
+Record release/download URL, retrieval date, checksum, species, TF-inclusion
+field, symbol/Ensembl mappings, and unmapped/ambiguous identifiers. Do not infer
+TF status from gene-name prefixes. No suitable local TF list was identified
+in the targeted metadata/configuration search; reference acquisition is a
+pending implementation dependency, not a download performed in this step.
+
+The reference data and mapping outputs belong under Turbo `reference/` and
+the new run's `provenance/`, respectively; only paths/settings belong in repo
+configuration. Subset the same DE results for separate TF rankings and TF
+heatmaps, keeping the original all-gene FDR family. Do not retest TFs with a
+smaller correction family to improve significance. Summarize the favored
+daughter, specificity versus all siblings, timing, window stability, and
+supporting expression. TF expression alone does not establish TF activity,
+binding, target genes, or causality. Non-TF regulators may remain annotated
+in the all-gene results but must not be mislabeled DNA-binding TFs.
+
+### Planned outputs and plotting conventions
+
+All generated files go to the independent NFS runtime destination above:
+
+- `tables/branchpoints.tsv`: parent/daughter IDs, descendant tip labels,
+  inferred split times, and root-boundary flags.
+- `tables/window_support.tsv` and `tables/comparison_cells.tsv.gz`: requested
+  and realized windows, matched bins, sample composition, exclusions, and
+  exact cell IDs; include insufficient comparisons.
+- `tables/branchpoint_gene_statistics.tsv.gz`: every tested gene with
+  branchpoint/pair/direction/window/anchor, cell counts, expression means,
+  mean-expression log2FC, detection fractions/difference, AUCPR/baseline/ratio,
+  binomial p-values, native/local/global FDR, and diagnostic flags.
+- `tables/ranked_divergence_genes.tsv`, `tables/ranked_late_genes.tsv`,
+  `tables/ranked_candidate_tfs.tsv`, and `tables/timing_window_stability.tsv`.
+- `tables/expression_trajectories.tsv.gz`: observed binned expression,
+  detection, pseudotime bounds, counts and per-sample summaries; optional fit
+  diagnostics and bootstrap intervals labeled by their sampling unit.
+- `plots/urd_tree_branchpoints.{png,pdf,svg}`: unchanged native layout,
+  explicit BP13/BP12/BP11/BP9 labels and daughter-to-terminal key.
+- `plots/<branchpoint>/`: top-gene and TF trajectories, matched-pseudotime
+  heatmaps, and window-sensitivity panels; all four branchpoints represented.
+- `provenance/`: source hash, configuration, exact command, session/package
+  versions, reference manifest, stage status/timing, and output manifest.
+  `analysis_summary.txt` describes supported candidate programs and limitations.
+
+Render PNG/PDF/SVG using existing R/ggplot conventions. Use 300 dpi PNGs for
+the URD panels, Cairo PDF and `svglite` SVG with editable text, consistent
+daughter colors across tree/curves/heatmaps, gene labels, cell counts, and
+explicit pseudotime axes. Reuse final Figure 4 display mappings only as visual
+annotations; native tip labels remain in tables. Heatmaps use a gene-wise scale
+shared across compared daughters (never independently scaled per daughter),
+with the transformation and clipping documented. Show unsmoothed binned data
+with fitted curves; share the upstream trunk without implying daughter-specific
+fates before the split. Plot failures must not trigger any URD recomputation.
+
+### Implementation review checklist before any execution
+
+Review the new script, configuration, and standalone template together, with
+exact line references for topology extraction, membership selection, window
+clipping/matching, native tests, p-value families, TF annotation, timing rules,
+and plotting. Verify helper edge cases with small synthetic inputs rather than
+running DE on this biological object. Confirm source and output paths cannot
+overlap and that existing output files will not be silently overwritten.
+Record the source RDS hash and compare after the eventual run. The existing
+tree, topology, pseudotime, identities, source checkpoints, and figure packages
+must remain unchanged. User review of implementation precedes any job submission.
