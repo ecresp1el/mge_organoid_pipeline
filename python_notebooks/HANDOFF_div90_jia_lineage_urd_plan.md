@@ -2039,3 +2039,103 @@ div90_neuronal_function_20261021_163824_EDT_5baa285.sbatch`. Log:
 Frozen files/hashes and byte-identical submitted job verified before sbatch.
 The frozen handoff records pre-submission state; this live entry records
 actual submission, not completion. See run-local submission/start/exit records.
+
+### Expanded individual-gene activity programs — 2026-10-21 EDT
+
+User authorized the proposed expansion ("yes do this now") with a quick status
+request. New script 42 and template 66 run independently with NFS carbon copies,
+16G/one CPU/standard/parent0 and the existing R/URD environment. Existing source
+trees and analyses are read-only and hashed. Frozen GO/SynGO references are
+reused rather than downloaded. GO calcium/calmodulin/calcineurin, CREB/cAMP,
+and functional-maturation annotations supplement the existing functional sets.
+Additional signaling/TF landmarks are explicitly targeted hypotheses, not
+validated activation signatures. Individual-gene averages, detection, sample
+trends and consistency are primary; IEG coexpression is not an activity rule.
+
+FOS in branches 3/4 receives common-bin pseudotime/sample summaries, individual
+cell/library-count exports, and stratification by existing metadata state labels
+(no reclustering). All neuronal segments receive expanded per-gene/per-sample
+whole-segment and pseudotime-bin profiles, >=5 cells/bin. Figures show individual
+sample trajectories with native branch identities and BP11/BP9 locations.
+
+Bounded later testing was preflighted using the saved native memberships and
+pseudotime, with the exact original support selector: adjacent interval
+[split+0.05R,split+0.10R], five bins, >=5 cells/side/bin, >=3 joint bins, >=30
+cells/side. BP11 interval [0.263111,0.290767]: 5/3 supported (254/131);
+5/9 and 9/3 unsupported. BP9 interval [0.300019,0.327675]: 1/2 supported
+(176/160); 1/4 and 2/4 unsupported. These support findings were communicated
+before submission. Only the TWO supported later contrasts are tested; all six
+branches receive descriptive profiles. No arbitrary pooling of descendants.
+
+Later tests reuse the frozen native URD binomial helper, genome-wide 10%
+expression eligibility and directional correction; one BH family across all
+eligible genes in the two supported later comparisons. Fold change >=0.25 and
+FDR<=0.05; no detection-difference/AUCPR gate. Original near-split FDR values
+remain unchanged. Separate timing table labels early/later significance and
+untested/unsupported comparisons; late-only detection does not prove onset or
+constitute a branch-by-pseudotime interaction test. Acquisition of machinery,
+activity-associated transcription and lineage specification remain distinct
+interpretations. Source hashes and run-local start/exit records govern success.
+
+Expanded program job submitted: **64508616**, run
+`div90_activity_programs_20261021_175052_EDT_f026950`, under
+`PROJECT_ROOT/results/div90_urd_neuronal_function/`. Log:
+`PROJECT_ROOT/logs/66_div90_activity_programs_64508616.log`.
+Submission manifest provides precise local/UTC timing and frozen file hashes.
+This entry records submission; completion must be checked from job-local records.
+
+Expanded job **64508616 completed successfully**: start
+`2026-10-21T17:51:15-04:00`, exit `2026-10-21T17:54:50-04:00`, code 0,
+elapsed **3 minutes 35 seconds**. Source hashes passed after execution.
+GO program preparation occupied 17:51:25–17:53:33 (~128 seconds);
+expression profiles occupied 17:53:43–17:54:26 (~43 seconds);
+the two native later comparisons ran 17:54:26–17:54:27; plotting/export
+finished by 17:54:49. Thus reference processing, not DE, dominated runtime.
+Actual outputs: 2,971 profiled functional genes, 1,087,386 gene/bin/sample
+trajectory rows, and 17,496 eligible gene tests ACROSS TWO later comparisons
+(not 17,496 branch comparisons). Existing near-split statistics were reused.
+
+Implementation map for reproducibility:
+- `scripts/42_div90_activity_programs.R`: GO program patterns/annotation
+  expansion; original sparse expression and pseudotime; per-gene/sample
+  expression and trajectories; FOS state/sample/bin localization; support
+  selection and native later tests; early-versus-later evidence; figures.
+- `scripts/42_submit_div90_activity_programs.py`: input/reference paths,
+  resolved settings, protected source hashes, frozen code/helper/handoff/job,
+  Git state/diff, timestamp/run ID, sbatch and submission record.
+- `slurm_templates/66_div90_activity_programs.sbatch.template`: resources,
+  environment, before/after hash checks, frozen-code execution, logs and exit
+  records. The immutable submitted copies are in the NFS run package.
+
+Output guide (all under this run's `tables/`):
+- `expanded_gene_program_annotations.csv`, `gene_coverage.csv`: exact gene
+  membership, GO terms, source/evidence and object coverage. Targeted signaling
+  landmarks remain explicitly labelled hypotheses.
+- `individual_gene_branch_sample_expression.csv`: expressing-cell counts,
+  percentages, linear and log means INCLUDING zeros by branch/sample.
+- `individual_gene_pseudotime_profiles.tsv.gz`: the same per-bin metrics.
+- `individual_gene_sample_trends.csv`,
+  `individual_gene_sample_consistency.csv`: descriptive slopes/directions
+  (first-to-last changes and rank correlations), not new significance tests.
+- `FOS_cell_sample_state_localization.csv`,
+  `FOS_sample_pseudotime_localization.csv`,
+  `FOS_existing_cell_state_localization.csv`: individual cells/depth and
+  observed state/sample/bin composition; small-bin counts are retained.
+- `later_comparison_support.csv`: all six attempted later windows including
+  four unsupported windows; unsupported tests were not executed.
+- `later_native_URD_all_tested_genes.csv`, `later_gene_program_evidence.csv`:
+  all eligible later genes, native p values, direction correction, global BH,
+  fold changes and annotations. Mean expression differences are descriptive;
+  the native test concerns detection frequency.
+- `near_split_vs_later_evidence.csv`: early/later effects, separate FDR
+  families and availability/significance labels; inspect effect directions.
+- `consolidated_gene_evidence_all_early_tests.csv`: ALL original direction
+  tests with expanded annotations; it does not replace the complete profile
+  or later-test tables.
+
+`plots/` holds three figure groups in PDF/PNG/SVG: sample-specific individual
+gene curves across all branches; the CRABP1/MEF2C-focused curves; and FOS
+sample/bin detection. `METHODS_AND_LIMITATIONS.txt` records interpretation
+limits. Completion is computational, not completion of biological/visual review.
+The post-run live handoff adds completion details without changing its frozen
+pre-submission carbon copy.
