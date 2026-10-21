@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=div90_function
+#SBATCH --time=02:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=16G
+#SBATCH --nodes=1
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/65_div90_urd_neuronal_function_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/65_div90_urd_neuronal_function_%j.log
+set -Eeuo pipefail
+export TZ=America/Detroit
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+RUN_DIR='__RUN_DIR__'
+finish() {
+  result=$?
+  printf 'ended_at\texit_code\n%s\t%s\n' "$(date --iso-8601=seconds)" "$result" > "$RUN_DIR/provenance/job_exit.tsv"
+  if [[ "$result" != 0 ]]; then printf 'FAILED\nexit_code=%s\n' "$result" > "$RUN_DIR/FAILED.txt"; fi
+}
+trap finish EXIT
+printf 'started_at\tslurm_job_id\thost\n%s\t%s\t%s\n' "$(date --iso-8601=seconds)" "$SLURM_JOB_ID" "$(hostname)" > "$RUN_DIR/provenance/job_start.tsv"
+cd "$RUN_DIR"
+sha256sum --check provenance/frozen_sha256.txt
+sha256sum --check provenance/source_sha256.txt
+module load R/4.5.1
+export R_LIBS="/home/elcrespo/R/x86_64-pc-linux-gnu-library/4.4:/home/elcrespo/R/x86_64-pc-linux-gnu-library/4.5:${R_LIBS:-}"
+Rscript --vanilla "$RUN_DIR/code/41_div90_urd_neuronal_function.R" "$RUN_DIR" '__PREVIOUS__' '__SOURCE_RDS__'
+sha256sum --check provenance/source_sha256.txt
+find tables plots -type f -printf '%p\t%s\n' > provenance/output_manifest.tsv
+printf 'COMPLETED\nended_at=%s\nsource_hash_verified=TRUE\n' "$(date --iso-8601=seconds)" > COMPLETED.txt

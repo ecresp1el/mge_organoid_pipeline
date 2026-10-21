@@ -25,6 +25,12 @@ read_settings <- function(path) {
 safe_name <- function(s) gsub("[^A-Za-z0-9_.-]", "_", s)
 bind <- function(x) rbindlist(x, fill = TRUE, use.names = TRUE)
 write_tsv <- function(x, p) fwrite(x, p, sep = "\t", na = "NA")
+effect_flags <- function(log2fc,detection_difference,auc_ratio,cfg) {
+  keep <- log2fc>=cfg$minimum_log2fc
+  if(cfg$minimum_detection_difference>0)keep<-keep & detection_difference>=cfg$minimum_detection_difference
+  if(cfg$minimum_auc_ratio>0)keep<-keep & !is.na(auc_ratio) & auc_ratio>=cfg$minimum_auc_ratio
+  keep
+}
 
 # No topology changes: locally select only original exclusive segment memberships.
 select_window <- function(pt, a, b, lo, hi, cfg, balanced = FALSE) {
@@ -144,6 +150,10 @@ native_statistics <- function(object, a, b, cfg) {
 }
 
 self_test <- function() {
+  filters<-list(minimum_log2fc=.25,minimum_detection_difference=0,minimum_auc_ratio=0)
+  stopifnot(effect_flags(1,0,NA_real_,filters))
+  filters$minimum_detection_difference<-.1;filters$minimum_auc_ratio<-1.2
+  stopifnot(!effect_flags(1,0,NA_real_,filters))
   cfg <- list(matching_bins = 5, minimum_bin_cells = 2, minimum_joint_bins = 3, minimum_cells = 10, seed = 7,
     pseudotime = "pt", minimum_detection = .1)
   ca <- paste0("a", 1:50); cb <- paste0("b", 1:50); pt <- setNames(rep(seq(.01,.99,length.out=50),2),c(ca,cb))
@@ -209,8 +219,12 @@ main <- function(opt) {
   limits <- object@tree$segment.pseudotime.limits
   limit <- function(s,k) as.numeric(limits[s,k])
   parents <- unique(joins[order(pseudotime),parent]); R <- diff(range(pt))
-  focused <- isTRUE(cfg$single_comparison==1)
-  analysis_parents <- if(focused) as.character(cfg$focus_parent) else parents
+  single <- isTRUE(cfg$single_comparison==1)
+  neuronal <- isTRUE(cfg$neuronal_comparisons==1)
+  focused <- single || neuronal
+  analysis_parents <- if(neuronal)c("11","9") else if(single)as.character(cfg$focus_parent) else parents
+  stopifnot(all(analysis_parents %in% parents),!(single && neuronal))
+  log_msg("ANALYSIS_SCOPE",if(neuronal)"SIX neuronal sibling contrasts at BP11 and BP9; ONE window each" else if(single)"ONE focused contrast" else "configured full scope")
   branchpoints <- bind(lapply(parents,function(p) {
     kids <- get_children(p); stopifnot(setequal(kids,joins[parent==p,child]))
     data.table(branchpoint=paste0("BP",p),parent=p,daughter=kids,split_time=unique(joins[parent==p,pseudotime]),
@@ -261,7 +275,7 @@ main <- function(opt) {
     b <- unique(joins[parent==p,pseudotime]); kids <- get_children(p)
     for(pair in combn(kids,2,simplify=FALSE)) {
       aa <- pair[1]; bb <- pair[2]
-      if(focused && !setequal(pair,as.character(c(cfg$focus_daughter_A,cfg$focus_daughter_B))))next
+      if(single && !setequal(pair,as.character(c(cfg$focus_daughter_A,cfg$focus_daughter_B))))next
       local_end <- min(limit(aa,2),limit(bb,2))
       for(anchor in cfg$anchor_fractions) for(w in cfg$window_fractions) {
         pivot <- b+anchor*R; lo <- max(b,pivot,limit(aa,1),limit(bb,1)); hi <- min(pivot+w*R,local_end)
@@ -282,6 +296,8 @@ main <- function(opt) {
     }
   }
   requests <- bind(requests)
+  if(neuronal)stopifnot(nrow(requests)==6L,all(requests$stage=="local"),all(requests$anchor_fraction==0))
+  if(single)stopifnot(nrow(requests)==1L)
   requests[,duplicate_selection:=!is.na(selection_id) & duplicated(selection_id)]
   write_tsv(requests,file.path(outdir,"tables/window_support.tsv"))
   memberships_export <- bind(cell_rows);fwrite(memberships_export,file.path(outdir,"tables/comparison_cells.tsv.gz"),sep="\t")
@@ -292,6 +308,8 @@ main <- function(opt) {
     cache <- file.path(outdir,"checkpoints",paste0(key,".rds"))
     if(file.exists(cache)) return(readRDS(cache))
     s <- selections[[key]]; started <- Sys.time()
+    info <- requests[selection_id==key][1]
+    log_msg("CONTRAST_START",info$branchpoint,"daughter",info$daughter_A,"versus",info$daughter_B,"window",info$window)
     z <- native_statistics(object,s$a,s$b,cfg)
     z[,selection_id:=key]
     saveRDS(z,cache)
@@ -315,8 +333,9 @@ main <- function(opt) {
   }));rm(detail);gc()
   results <- merge(results,tf,by="gene",all.x=TRUE,sort=FALSE)
   results[is.na(is_tf),`:=`(is_tf=FALSE,tf_family="unmapped_or_nonTF",tf_reference="Lambert_HumanTFs_v1.01")]
-  results[,`:=`(effect_supported=log2fc>=cfg$minimum_log2fc & detection_difference>=cfg$minimum_detection_difference & !is.na(AUCPR_ratio) & AUCPR_ratio>=cfg$minimum_auc_ratio,
-    detection_significant=global_fdr<=cfg$maximum_fdr)]
+  results[,`:=`(effect_supported=effect_flags(log2fc,detection_difference,AUCPR_ratio,cfg),detection_significant=global_fdr<=cfg$maximum_fdr)]
+  # Zero disables these inclusion rules entirely, including for missing AUCPR.
+  # Values remain descriptive columns and never silently exclude a TF.
   results[,candidate:=effect_supported & detection_significant]
   # Summaries use distinct original-anchor widths, avoiding duplicated clipped windows.
   local <- unique(results[stage=="local" & anchor_fraction==0 & variant=="native_all_cells"],by=c("branchpoint","daughter_A","daughter_B","reported_daughter","gene","selection_id"))
@@ -326,8 +345,13 @@ main <- function(opt) {
     max_early_log2fc=max(log2fc),best_local_auc_ratio=suppressWarnings(max(AUCPR_ratio,na.rm=TRUE))),by=group]
   timing[!is.finite(best_local_auc_ratio),best_local_auc_ratio:=NA_real_]
   late <- results[stage=="late" & variant=="native_all_cells"]
-  late_summary <- late[,.(later_effect_bins=sum(effect_supported),later_candidate_bins=sum(candidate)),
-    by=c(group,"leaf_A","leaf_B")][,.(later_effect_bins=max(later_effect_bins),later_candidate_bins=max(later_candidate_bins)),by=group]
+  if(nrow(late)) {
+    late_summary <- late[,.(later_effect_bins=sum(effect_supported),later_candidate_bins=sum(candidate)),
+      by=c(group,"leaf_A","leaf_B")][,.(later_effect_bins=max(later_effect_bins),later_candidate_bins=max(later_candidate_bins)),by=group]
+  } else {
+    late_summary <- copy(timing[0,..group])
+    late_summary[,`:=`(later_effect_bins=numeric(),later_candidate_bins=numeric())]
+  }
   timing <- merge(timing,late_summary,by=group,all=TRUE)
   for(n in c("supported_widths","early_effect_widths","early_candidate_widths","later_effect_bins","later_candidate_bins")) set(timing,which(is.na(timing[[n]])),n,0)
   timing[,timing_class:="window_sensitive_or_unresolved"]
@@ -432,7 +456,11 @@ main <- function(opt) {
     tf_hits<-unique(ranking[branchpoint==bp & is_tf==TRUE & candidate==TRUE,gene])
     summary<-c(summary,paste(bp,"TFs passing candidate thresholds:",if(length(tf_hits))paste(head(tf_hits,12),collapse=", ")else"none; see ranked TF table for descriptive results"))
   }
-  if(focused)summary<-c(summary,"ONE comparison only: native BP12 OPC (segment 7) versus neuronal branch (segment 11), 5% pseudotime window. No window/anchor/balancing/late DE sweep. Later curves are descriptive; single-window findings do not establish robust early/late timing.")
+  if(single)summary<-c(summary,"ONE comparison only: native BP12 OPC (segment 7) versus neuronal branch (segment 11), 5% pseudotime window.")
+  if(neuronal)summary<-c(summary,"SIX comparisons only: three actual daughter pairs each at neuronal BP11 and BP9; ONE 5% pseudotime window per pair. No OPC/astrocyte contrasts.")
+  if(focused)summary<-c(summary,"No window/anchor/balancing/late DE sweep. Later curves are descriptive; single-window findings do not establish robust early/late timing.")
+  summary<-c(summary,paste("Candidate rules: log2FC >=",cfg$minimum_log2fc,"and detection-test BH FDR <=",cfg$maximum_fdr),
+    paste("Detection-difference cutoff:",cfg$minimum_detection_difference,"; AUCPR-ratio cutoff:",cfg$minimum_auc_ratio,"; zero means disabled, descriptive values retained."))
   writeLines(summary,file.path(outdir,"analysis_summary.txt"))
   writeLines(capture.output(sessionInfo()),file.path(outdir,"provenance/sessionInfo.txt"))
   writeLines(c(stamp,"Analysis and plots completed; source hash check pending in job wrapper."),file.path(outdir,"ANALYSIS_COMPLETE.txt"))
@@ -461,7 +489,7 @@ render_plots <- function(a,outdir) {
   tree<-ggplot()+geom_segment(data=as.data.table(a$tree),aes(x=x1,y=y1,xend=x2,yend=y2),color="grey35",linewidth=.45)+
     geom_point(data=layout,aes(x,y,color=segment),size=.3,alpha=.4)+
     scale_color_manual(values=palette)+theme_void()+theme(legend.position="none")+
-    labs(title=if(isTRUE(cfg$single_comparison==1))"Saved seven-tip URD context: only BP12 OPC versus neuronal branch tested" else "DIV90 saved URD tree: four inferred branchpoints",subtitle=subtitle)
+    labs(title=if(isTRUE(cfg$neuronal_comparisons==1))"Saved URD context: neuronal branches at BP11 and BP9" else if(isTRUE(cfg$single_comparison==1))"Saved seven-tip URD context: only BP12 OPC versus neuronal branch tested" else "DIV90 saved URD tree: four inferred branchpoints",subtitle=subtitle)
   label_rows<-bind(lapply(unique(a$branchpoints$parent),function(s) {
     kids<-a$branchpoints[parent==s,daughter]
     # Find the existing parent/daughter junction from layout boundary cells.

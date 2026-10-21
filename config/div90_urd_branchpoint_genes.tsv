@@ -2,7 +2,8 @@ parameter	value
 pseudotime	div90_jia_rootscore_root
 window_fractions	0.05
 anchor_fractions	0
-single_comparison	1
+single_comparison	0
+neuronal_comparisons	1
 focus_parent	12
 focus_daughter_A	7
 focus_daughter_B	11
@@ -14,8 +15,8 @@ matching_bins	5
 late_bins	4
 minimum_detection	0.10
 minimum_log2fc	0.25
-minimum_detection_difference	0.10
-minimum_auc_ratio	1.20
+minimum_detection_difference	0
+minimum_auc_ratio	0
 maximum_fdr	0.05
 seed	7
 top_plot_genes	12

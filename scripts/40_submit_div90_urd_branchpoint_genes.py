@@ -44,7 +44,12 @@ def main():
     args = parser.parse_args()
     now = dt.datetime.now().astimezone()
     commit = command('git', 'rev-parse', 'HEAD')
-    run_id = f'div90_BP12_OPC_vs_neurons_single_window_{now:%Y%m%d_%H%M%S_%Z}_{commit[:7]}'
+    with (ROOT / 'config/div90_urd_branchpoint_genes.tsv').open() as f:
+        settings = {r['parameter']: r['value'] for r in csv.DictReader(f, delimiter='\t')}
+    prefix = ('div90_neuronal_BP11_BP9_single_window'
+              if settings.get('neuronal_comparisons') == '1'
+              else 'div90_BP12_OPC_vs_neurons_single_window')
+    run_id = f'{prefix}_{now:%Y%m%d_%H%M%S_%Z}_{commit[:7]}'
     run = PROJECT / 'results/div90_urd_branchpoint_genes' / run_id
     job = PROJECT / 'jobs' / f'{run_id}.sbatch'
     sources = {

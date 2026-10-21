@@ -2,7 +2,7 @@
 
 Date: 2026-06-11
 
-Current status (2026-10-21): the canonical seven-tip DIV90 production tree is saved. The user cancelled the broad downstream gene sweep and requested deletion of its outputs and one biologically clear comparison. The current scope is BP12 OPC versus neuronal branch, one 5% pseudotime window; see the latest section below. Earlier broad-run and smoke/planning sections are historical, not instructions to rerun them.
+Current status (2026-10-21): the canonical seven-tip DIV90 production tree is saved. The focused BP12 OPC-versus-neuronal run completed. The user now requests the SAME native URD method within neuronal branches, without switching to Slingshot/tradeSeq: BP11 and BP9, six actual daughter-pair contrasts total, one 5% pseudotime window each. Detection-difference and AUCPR inclusion cutoffs are disabled at the user's request. See the latest section below; earlier broader scopes are historical.
 
 This handoff records the DIV90 URD plan after the DIV90 UMAP/metadata audit. It is intentionally aligned with the DIV30 URD workflow, but the DIV90 biological question is different because the DIV90 object has real terminal cluster labels.
 
@@ -1855,3 +1855,187 @@ multiple windows. No later DE tests were run; curves beyond the window are
 descriptive. Two empty-late-summary `max()` warnings were emitted by unused
 generic timing code; all exported later-effect counts were checked to be zero.
 Neither warning affected native tests, ranks, source preservation, or job success.
+
+### Current request: repeat the same analysis within neuronal branches (2026-10-21)
+
+User instruction: "do exactly what you did ... for the neuronal lineages.
+don't deviate yet." This authorizes native URD comparisons within neurons,
+not Slingshot, tradeSeq, new pseudotime, or gene-module inference at this stage.
+Preserve the completed BP12 outputs and all original URD results.
+
+The two neuronal branchpoints are genuine three-way divergences. Compare all
+three unordered daughter pairs at each, for exactly **six biological contrasts**:
+
+| Branchpoint | Daughter pair | Native biological identities |
+| --- | --- | --- |
+| BP11 | 5 versus 9 | NR2F1/NR2F2 versus the subtree containing LHX8/ISL1 states 1/2 and LHX6-associated cortical tip |
+| BP11 | 5 versus 3 | NR2F1/NR2F2 versus CRABP1/ANGPT2 fetal precursor |
+| BP11 | 9 versus 3 | LHX8/LHX6-associated subtree versus CRABP1/ANGPT2 fetal precursor |
+| BP9 | 1 versus 2 | LHX8/ISL1 state 1 versus state 2 |
+| BP9 | 1 versus 4 | LHX8/ISL1 state 1 versus LHX6/NFIA/EPHA5/MEF2C cortical |
+| BP9 | 2 versus 4 | LHX8/ISL1 state 2 versus LHX6/NFIA/EPHA5/MEF2C cortical |
+
+Use exactly the completed focused run's native tests, original segment
+membership, five-bin overlap/cell-support rules, `0.05*R` downstream window,
+128-gene small-matrix batching, progress prints, TF reference, CSVs and
+PNG/PDF/SVG outputs. Each contrast reports its two directions; these are
+not additional independent biological contrasts. Code asserts six requests.
+No glial comparisons, shifted anchors, multiple widths, balancing reruns,
+later-path DE, or tree refitting. Later expression curves remain descriptive.
+
+The user explicitly removed these two inclusion gates:
+
+- Detection difference >= 10 percentage points: **disabled**.
+- AUCPR/random-baseline ratio >= 1.2: **disabled**.
+
+Keep their numeric values as descriptive columns. A missing AUCPR value also
+must not silently exclude a gene. The remaining inherited, provisional rules
+are log2 fold change >= 0.25 and detection-test BH FDR <= 0.05. Preserve the
+10% expression prefilter (different from a between-branch detection-difference
+threshold) and export every tested gene. All significance is still native
+detection-frequency evidence, not a new mean-expression or tradeSeq test.
+The global BH family spans the six unique comparisons' eligible gene tests;
+TFs are annotated subsets, not separately retested with a smaller FDR family.
+
+Resources/storage: same standalone one-CPU/16G template and timestamped NFS
+carbon copies. Run prefix `div90_neuronal_BP11_BP9_single_window_...`; one
+consolidated gene CSV and spreadsheet summary, with separate BP11/BP9 plot
+folders and a shared visual overview. The original source and BP12 package
+remain unchanged. The unused empty-late-summary warning has been guarded
+without changing any tested statistics. A synthetic check confirms that
+disabled gates accept genes even with zero detection difference/missing AUCPR;
+batch-value and native-method tests are retained.
+
+Neuronal job submitted: **64493643**, run ID
+`div90_neuronal_BP11_BP9_single_window_20261021_160849_EDT_5baa285`.
+NFS run directory:
+`PROJECT_ROOT/results/div90_urd_branchpoint_genes/div90_neuronal_BP11_BP9_single_window_20261021_160849_EDT_5baa285/`.
+Exact job copy:
+`PROJECT_ROOT/jobs/div90_neuronal_BP11_BP9_single_window_20261021_160849_EDT_5baa285.sbatch`.
+Log: `PROJECT_ROOT/logs/64_div90_urd_branchpoint_genes_64493643.log`.
+The source RDS, terminal mapping, frozen code/configuration/reference and job
+copies are hashed. Native-helper and disabled-gate tests, shell/Python/R
+syntax and diff checks passed before submission. Submission alone does not
+establish completion; use Slurm and this package's exit/completion records.
+
+Neuronal run completed: its job-local start record is
+`2026-10-21T16:09:12-04:00`, and its exit record is
+`2026-10-21T16:15:20-04:00`, exit code **0** (6:08 elapsed). All six native
+contrasts completed in 32–40 seconds each. Source/mapping checks passed before
+and after computation, and all frozen-code/config/reference hashes were
+independently verified afterward. `COMPLETED.txt` and the output manifest exist.
+Accounting caveat: a subsequent unfiltered `sacct -j 64493643` returned an
+archival entry dated 2023 with a 19-second runtime; that row does not describe
+this timestamped run and must not replace its job-local execution records.
+
+Verified support and per-comparison gene counts:
+
+| Branchpoint | Pair | Cells A / B | Genes tested |
+| --- | --- | --- | --- |
+| BP11 | 5 / 9 | 197 / 184 | 9,696 |
+| BP11 | 5 / 3 | 197 / 143 | 8,834 |
+| BP11 | 9 / 3 | 184 / 143 | 9,774 |
+| BP9 | 1 / 2 | 208 / 210 | 10,488 |
+| BP9 | 1 / 4 | 208 / 264 | 10,153 |
+| BP9 | 2 / 4 | 210 / 264 | 10,196 |
+
+Entry points in the neuronal run directory:
+
+- `DIV90_URD_gene_summary.csv`: **59,141 gene/contrast rows** (genes repeat
+  across contrasts; this is not 59,141 unique genes).
+- `DIV90_URD_gene_results.csv`: **118,282 direction-reporting rows**.
+- `DIV90_URD_gene_overview.pdf`, plus separate gene/TF curves, heatmaps,
+  sample curves and window panels under `plots/BP11/` and `plots/BP9/`.
+- `provenance/final_validation.json`: scope, file integrity, gate semantics,
+  hash validation and result-row checks. BP9 TF trajectories were visually
+  inspected; all requested PDFs have complete headers/trailers.
+
+Every full-results candidate flag was checked against log2FC/FDR alone.
+13,053 passing direction rows have detection differences below 0.10;
+16,302 pass without meeting the old AUCPR-ratio cutoff. Thus neither removed
+gate remains active. These are overlapping gene/contrast counts, not distinct
+TFs or independent biological replications.
+
+Examples of higher-expression TFs that pass the remaining rules versus BOTH
+siblings at BP9 are NR4A2, GBX1 and ETV1 for LHX8/ISL1 state 1; ONECUT1,
+ZFHX3 and LHX1 for state 2; and ZEB2, MAF and TCF4 for the LHX6-associated
+cortical branch. These are observed expression associations in one near-split
+window, not established causal drivers. BP11 results are included in the
+same tables. No Slingshot/tradeSeq or other additional approach was run.
+
+### Complementary neuronal function extension — 2026-10-21 EDT
+
+User approved the downstream proposal and explicitly requested "submit now".
+This extension preserves all source URD/TF results and reuses the completed
+six neuronal comparisons and their original 5% windows, cells, native
+detection-test statistics, global FDR and log2FC rules. No DE or trajectory
+inference is rerun. Detection-difference and AUCPR inclusion gates stay disabled.
+
+Separate implementation: `scripts/41_div90_urd_neuronal_function.R`,
+`scripts/41_div90_function_references.py`,
+`scripts/41_submit_div90_urd_neuronal_function.py`, and
+`slurm_templates/65_div90_urd_neuronal_function.sbatch.template`.
+Runtime destination: `PROJECT_ROOT/results/div90_urd_neuronal_function/`
+with timestamp/EDT-or-EST/Git run IDs. The submission wrapper freezes exact
+code, reference/configuration data, this handoff and rendered job, plus Git
+status/diff, hashes and local/UTC timestamps before sbatch. R/4.5.1, existing
+URD libraries, standard/parent0, one CPU, 16G, two hours; no package installs.
+The job executes NFS carbon copies and prints stage/segment/plot progress.
+
+Gene categories use frozen human GO annotations/ontology with recorded headers,
+URLs and hashes, plus SynGO 1.3 hierarchical gene sets. GO ion-channel,
+excitability, synaptic and maturation descendants propagate via is_a/part_of;
+NOT annotations are excluded. GO activity-associated terms are resolved by
+documented name phrases and remain separate from canonical immediate-early
+panels. Requested targeted gene panels are explicitly labelled as hypotheses,
+not presented as independently curated discoveries. Overlapping categories
+are retained. The annotation/coverage tables identify untested/absent genes.
+
+One master CSV retains every tested gene/direction with original statistics,
+functional annotations, original-window expression percentages and means,
+and both-sibling versus one-sibling status. Separate exhaustive category and
+whole-native-segment/sample tables report percentage/number expressing,
+linear normalized means and log-normalized means including zeros. Sparse
+expression is read from the protected object without copying or saving it.
+Descriptive trajectories use 12 bins per original segment, >=5 cells per bin;
+shared ancestors retain native identities, not future fate assignments.
+
+Maturation, canonical immediate-early response, and broader activity-associated
+regulation are interpreted separately. Fixed-reference cell module z scores,
+sample/depth summaries and core IEG coexpression counts assess whether a
+pattern is broad or confined to a subset. These are descriptive, not new
+replicate-level significance tests or threshold-based activation calls.
+Enrichment uses eligible tested genes (intersection for both-sibling lists),
+hypergeometric tests, 5-2000 mapped background genes per set and one global
+BH family across the reported enrichment tests. Module scores and enrichment
+remain distinct from inherited gene-level DE.
+
+Five figure groups use fixed branch colors and PDF/300-dpi PNG/editable SVG.
+Figure 1 shows up to 15 ranked functional DE genes per daughter; Figure 3
+up to 10 synaptic DE genes per daughter plus requested landmarks. Selection
+tables document these plotting subsets; complete tables remain exhaustive.
+Channel and targeted activity panels are paginated. Dedicated CRABP1 versus
+MEF2C trajectory panels distinguish competence/maturation from IEG responses.
+Pseudotime is not developmental time; expression does not establish firing,
+synaptic activity, recent activation timing or causal fate commitment.
+Job submission/completion must be recorded separately from this specification.
+
+Pre-submission checks: Python/R/shell syntax and whitespace checks; streaming
+validation of all 118,282 original direction rows, six comparisons and unchanged
+candidate rules. The R table-only login preflight was killed (exit 137); no
+object was loaded or outputs written by that check. Heavy work is reserved
+for Slurm (16G). References: SynGO 1.3; human GAF generated 2026-05-21. Its
+requested 2026-04-27 ontology archive was unavailable (HTTP 404), so the frozen
+GO 2026-07-26 ontology is used with explicit version provenance and excluded
+unrecognized-term audit in config/reference_manifest.json. Activity-associated
+GO categories remain broader than canonical neuronal immediate-early panels.
+
+Functional extension submitted **2026-10-21T16:44:41-04:00**, Slurm job
+**64497634**. Run: `PROJECT_ROOT/results/div90_urd_neuronal_function/
+div90_neuronal_function_20261021_163824_EDT_5baa285/` (single path; line
+break above is formatting only). Exact submitted job: `PROJECT_ROOT/jobs/
+div90_neuronal_function_20261021_163824_EDT_5baa285.sbatch`. Log:
+`PROJECT_ROOT/logs/65_div90_urd_neuronal_function_64497634.log`.
+Frozen files/hashes and byte-identical submitted job verified before sbatch.
+The frozen handoff records pre-submission state; this live entry records
+actual submission, not completion. See run-local submission/start/exit records.
