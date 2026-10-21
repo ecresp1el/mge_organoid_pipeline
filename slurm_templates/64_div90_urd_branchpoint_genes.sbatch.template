@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Render __RUN_DIR__ and __SOURCE_RDS__ before submission. Execute carbon copies.
+#SBATCH --job-name=div90_bp_genes
+#SBATCH --time=12:00:00
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=64G
+#SBATCH --nodes=1
+#SBATCH --partition=standard
+#SBATCH --account=parent0
+#SBATCH --output=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/64_div90_urd_branchpoint_genes_%j.log
+#SBATCH --error=/nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/64_div90_urd_branchpoint_genes_%j.log
+set -Eeuo pipefail
+export TZ=America/Detroit
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+RUN_DIR='__RUN_DIR__'
+SOURCE_RDS='__SOURCE_RDS__'
+finish() {
+  result=$?
+  printf 'ended_at\texit_code\n%s\t%s\n' "$(date --iso-8601=seconds)" "$result" > "$RUN_DIR/provenance/job_exit.tsv"
+  if [[ "$result" != 0 ]]; then
+    printf 'FAILED\nexit_code=%s\n' "$result" > "$RUN_DIR/FAILED.txt"
+  fi
+}
+trap finish EXIT
+printf 'started_at\tslurm_job_id\thost\n%s\t%s\t%s\n' "$(date --iso-8601=seconds)" "${SLURM_JOB_ID:-NA}" "$(hostname)" > "$RUN_DIR/provenance/job_start.tsv"
+cd "$RUN_DIR"
+sha256sum --check provenance/frozen_sha256.txt
+sha256sum --check provenance/source_sha256.txt
+module load R/4.5.1
+# Same existing library combination used for the final editable URD figure.
+export R_LIBS="/home/elcrespo/R/x86_64-pc-linux-gnu-library/4.4:/home/elcrespo/R/x86_64-pc-linux-gnu-library/4.5:${R_LIBS:-}"
+Rscript --vanilla "$RUN_DIR/code/40_div90_urd_branchpoint_genes.R" \
+  --tree-rds "$SOURCE_RDS" --outdir "$RUN_DIR" \
+  --config "$RUN_DIR/config/div90_urd_branchpoint_genes.tsv" \
+  --tf-reference "$RUN_DIR/config/DatabaseExtract_v_1.01.csv" \
+  --cores "${SLURM_CPUS_PER_TASK:-4}"
+sha256sum --check provenance/source_sha256.txt
+printf 'COMPLETED\nended_at=%s\nsource_hash_verified=TRUE\n' "$(date --iso-8601=seconds)" > "$RUN_DIR/COMPLETED.txt"
+python3 - "$RUN_DIR" <<'PY'
+import csv
+import datetime
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+target = root / 'provenance/output_manifest.tsv'
+with target.open('w') as f:
+    writer = csv.writer(f, delimiter='\t')
+    writer.writerow(['path', 'bytes', 'modified_utc'])
+    for p in sorted(root.rglob('*')):
+        if p.is_file() and p != target:
+            s = p.stat()
+            writer.writerow([str(p.relative_to(root)), s.st_size, datetime.datetime.fromtimestamp(s.st_mtime,datetime.timezone.utc).isoformat()])
+PY

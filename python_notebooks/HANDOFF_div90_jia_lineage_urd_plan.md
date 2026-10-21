@@ -2,7 +2,7 @@
 
 Date: 2026-06-11
 
-Current status (2026-10-21): the canonical seven-tip DIV90 production tree is saved. The downstream branchpoint-gene analysis proposed at the end of this handoff is awaiting implementation review; it has not been executed. Earlier smoke/planning sections below are historical, not the current run definition.
+Current status (2026-10-21): the canonical seven-tip DIV90 production tree is saved. The downstream branchpoint-gene analysis at the end of this handoff has been implemented; the user authorized execution after planning review. Technical validation precedes timestamped carbon-copy submission. Earlier smoke/planning sections below are historical, not the current run definition.
 
 This handoff records the DIV90 URD plan after the DIV90 UMAP/metadata audit. It is intentionally aligned with the DIV30 URD workflow, but the DIV90 biological question is different because the DIV90 object has real terminal cluster labels.
 
@@ -1248,6 +1248,10 @@ projection, and output manifests.
 
 ## Proposed downstream step: genes associated with each DIV90 divergence (2026-10-21)
 
+Planning revision timestamp: `2026-10-21T14:10:54-04:00`
+(`America/Detroit`, EDT; `2026-10-21T18:10:54Z`). This records the planning
+revision, not an analysis execution or submission time.
+
 ### Scope and review boundary
 
 Analyze every divergence in the saved final seven-tip tree, including neuronal
@@ -1257,17 +1261,20 @@ Identify expression associated with divergence and candidate transcriptional
 regulators; expression differences do not establish causal fate determinants.
 An inferred URD split is not necessarily the biological time of commitment.
 
-This section is a proposed implementation specification. No DE tests, cascade
-fits, figures, job submissions, new scripts, or runtime output directories were
-created for this step. Read-only RDS inspection and inspection of the installed
-URD functions were performed to inform the proposal. Review the implementation
-before executing analysis. Approval of this plan is not approval to submit jobs.
+This section began as the implementation specification reviewed with the user.
+The user subsequently explicitly authorized implementation and execution
+("proceed ... run the analysis ... now"). That instruction supersedes the
+earlier hold on execution. Read-only object inspection informed the design;
+synthetic validation precedes biological execution. Submission/run records
+below distinguish authorization, validation, and actual scheduler state.
 
 ### Storage and job conventions
 
 Follow `WORKFLOW.md`: the checkout contains code/configuration/documentation;
 runtime data, generated figures, tables, caches, job files, and logs live on Turbo.
-Only this existing handoff is edited at the planning stage.
+Only this existing handoff was edited at the planning stage. Implementation
+code and configuration are now present in the repository; runtime artifacts
+remain on NFS, including clearly named synthetic validation packages.
 
 Protected input (read-only):
 
@@ -1280,31 +1287,69 @@ TREE_RDS=${SOURCE_RUN}/lineage_tree_jia_endpoint_tips_v1/div30_urd_lineage_tree_
 Proposed independent runtime destination, outside the protected source run:
 
 ```text
-${PROJECT_ROOT}/results/div90_urd_branchpoint_genes/div90_final_7tips_branchpoint_genes_v1/
+${PROJECT_ROOT}/results/div90_urd_branchpoint_genes/div90_final_7tips_branchpoint_genes_v1_<YYYYMMDD_HHMMSS_EDT-or-EST>_<git-short>/
+  code/          # carbon copy of the exact reviewed code executed
+  config/        # carbon copy of resolved settings and reference paths
   tables/
   plots/
   provenance/
   checkpoints/   # small per-comparison results only, not copies of the URD object
 ```
 
-Proposed implementation files (not yet created):
+Implementation files:
 
 - `scripts/40_div90_urd_branchpoint_genes.R`
 - `config/div90_urd_branchpoint_genes.tsv`
 - `slurm_templates/64_div90_urd_branchpoint_genes.sbatch.template`
+- `scripts/40_submit_div90_urd_branchpoint_genes.py` (dry run, carbon copies,
+  reference provenance, immutable job rendering and submission).
 
 After implementation review and explicit execution approval, copy/render the
-template to `${PROJECT_ROOT}/jobs/64_div90_urd_branchpoint_genes_v1.sbatch`
+template to `${PROJECT_ROOT}/jobs/<run_id>.sbatch`
 and submit that NFS job file with `sbatch`. Use absolute Slurm log paths under
 `${PROJECT_ROOT}/logs/64_div90_urd_branchpoint_genes_%j.log`; Slurm does not
 expand shell variables in `#SBATCH` paths. Use the established `standard`
-partition, `parent0` account, and module-managed R/4.4.3 with the existing URD
-library. No package installations in jobs. Proposed initial resources are one
+partition, `parent0` account, and module-managed R/4.5.1 with the existing 4.4
+URD library and 4.5 `svglite` library, matching the final URD figure's library
+combination. R/4.4.3 alone lacks `svglite` here. No package installations in jobs.
+Initial resources are one
 node, 4 CPUs, 64G, 12 hours; these are planning estimates to review after the
 implementation's memory strategy is known. Keep sparse matrices sparse and
 process genes/comparisons in blocks. Do not call the original full-pipeline or
 posthoc-refresh templates: they regenerate source outputs and have historical
-defaults. No commands in this section have been submitted.
+defaults. The submission record below gives the actual job ID and paths.
+
+#### Timestamping and carbon copies at submission
+
+This follows the existing snapshot/submission convention documented in
+`paper2_mge_organoid_atlas/HANDOFF.md` and implemented in its `bin/submit.sh`;
+frozen-code execution is also used in `paper3_pcdh19/slurm/hicat_method_pilot.sbatch`.
+It does not route this DIV90 analysis into either paper's data directories.
+
+- Generate one run ID before submission, using `America/Detroit` wall time,
+  an explicit EDT/EST suffix, and the Git short revision. Store the exact
+  ISO-8601 timestamp with numeric UTC offset and a UTC counterpart in the
+  manifest. Refuse a run-directory collision instead of overwriting it.
+- Before `sbatch`, carbon-copy the reviewed R script, all sourced helpers,
+  resolved configuration, and the relevant handoff into that NFS run package.
+  Preserve relative helper paths. Save Git commit, working-tree status and
+  relevant uncommitted diff: the commit alone does not capture edited code.
+- Keep the exact rendered `.sbatch` at `${PROJECT_ROOT}/jobs/<run_id>.sbatch`
+  and a byte-identical copy at `<run_dir>/provenance/submitted.sbatch`.
+  Record file sizes and SHA256 hashes for the code/config/job snapshots.
+- The job executes `<run_dir>/code/...` with `<run_dir>/config/...`, verifies
+  those hashes before computation, and never reads mutable repo scripts or
+  configuration while queued/running. The protected source RDS is read by
+  its fixed NFS path and checksum, not duplicated into the package.
+- Capture `sbatch --parsable` output, exact submission command, job ID,
+  absolute scheduler log paths, submission/start/end timestamps, exit status,
+  session/package versions, and stage timings. A failed submission/run is
+  recorded as failed; do not create a success-shaped results package.
+- A later plotting-only job also gets its own timestamped carbon-copy bundle
+  and job record linked to the source analysis run. It consumes saved gene
+  tables/trajectories, does not rerun DE, and does not overwrite reviewed plots.
+
+Carbon-copy packages are created only by the explicit submission wrapper.
 
 ### Read-only inspection findings
 
@@ -1475,6 +1520,22 @@ globally significant merely because one of many windows passed local FDR.
 Any native helper that prevents complete p-value recovery requires an explicit
 reviewed adjustment; do not silently correct only an AUCPR-selected subset.
 
+Implementation resolution of native helper constraints: `markersBinom()` is
+called on every eligible gene with unequal detection, with stable in-memory
+population labels, minimal effect filtering and permissive p/FDR return limits.
+It returns the enriched direction's raw p-value. Multiply that p-value by two
+(capped at one) to conservatively account for choosing the enriched direction,
+then calculate local/global BH before selecting genes for AUCPR displays.
+Equal-detection genes have no enriched detection direction: retain raw p as
+missing, explicitly flag that status, and use one as a conservative BH input.
+Mirrored A/B reporting rows share this one corrected gene test; duplicate cell
+selections also share one test. Global BH spans all unique selection/gene tests,
+including shifted windows, balanced variants and later-path comparisons.
+No AUCPR preselection defines the detection p-value family. Single-gene native
+dimension-dropping is handled with a temporary duplicated padding row, removed
+after the call; native p-values are retained and BH is recomputed externally.
+Native FDR values from padded calls are flagged, not used for candidate calls.
+
 All native p-values are exploratory cell-level detection tests on the same
 data that produced the tree. They are not donor-level validation and do not
 account for tree-selection uncertainty. Inspect `orig.ident` representation;
@@ -1508,8 +1569,9 @@ from the [Lambert et al. author resource](https://humantfs.ccbr.utoronto.ca/down
 Record release/download URL, retrieval date, checksum, species, TF-inclusion
 field, symbol/Ensembl mappings, and unmapped/ambiguous identifiers. Do not infer
 TF status from gene-name prefixes. No suitable local TF list was identified
-in the targeted metadata/configuration search; reference acquisition is a
-pending implementation dependency, not a download performed in this step.
+in the targeted metadata/configuration search. The submission wrapper acquires
+the author v1.01 database, checks its schema, selects `Is TF? == Yes`, and
+stores a content-addressed reference plus the exact run copy and manifest.
 
 The reference data and mapping outputs belong under Turbo `reference/` and
 the new run's `provenance/`, respectively; only paths/settings belong in repo
@@ -1525,6 +1587,36 @@ in the all-gene results but must not be mislabeled DNA-binding TFs.
 
 All generated files go to the independent NFS runtime destination above:
 
+- **Single entry-point CSV: `<run_dir>/DIV90_URD_gene_results.csv`.** Use plain,
+  uncompressed UTF-8 CSV with proper quoting, one header row and stable column
+  names, for opening directly in a spreadsheet. One row represents one gene,
+  branchpoint, daughter-pair/direction, window, anchor and analysis variant.
+  Preserve all tested genes and nonsignificant results, not only top hits.
+  Include native daughter IDs and readable descendant labels; split time and
+  realized window; expression means/log2FC; detection fractions/difference;
+  AUCPR/baseline/ratio; p-values and local/global FDR; TF flag/family/reference;
+  early/late class and robustness counts; all-gene and TF ranks; sample/support
+  flags; run ID, generated-at timestamp and method versions; and relative paths
+  to the corresponding tree, trajectory and heatmap files. Mark untestable
+  comparisons explicitly with status rows and missing statistics, never zeros.
+  Supplementary per-cell membership and per-bin data remain in detailed tables;
+  the master CSV contains their paths and scientific summaries without
+  multiplying every gene row by every cell/bin. Record its row count/file size
+  and spreadsheet row-limit warning in `analysis_summary.txt` if applicable.
+- **Spreadsheet summary: `<run_dir>/DIV90_URD_gene_summary.csv`.** One ranked
+  representative per gene/branchpoint/daughter contrast, including TF status,
+  timing, distinct-window robustness, FDR and paths to the plots/full results.
+  This smaller CSV is the convenient browsing entry point if the complete
+  per-window master exceeds a worksheet's row limit; all tests remain retained.
+- **Visual entry point: `<run_dir>/DIV90_URD_gene_overview.pdf`.** Start with
+  the annotated unchanged tree and a daughter-label key. Give each of the four
+  branchpoints a readable section showing leading early-associated genes,
+  separately ranked TFs, observed daughter-expression trajectories, early/late
+  heatmaps and window robustness. Include insufficient-support splits rather
+  than dropping them. Mark inferred split positions and tested intervals on
+  pseudotime plots; explain shared upstream cells. Put run ID, generation
+  timestamp and source-tree identity in a caption/footer without crowding gene
+  panels. Export the individual panels as PNG/PDF/editable SVG in `plots/`.
 - `tables/branchpoints.tsv`: parent/daughter IDs, descendant tip labels,
   inferred split times, and root-boundary flags.
 - `tables/window_support.tsv` and `tables/comparison_cells.tsv.gz`: requested
@@ -1567,4 +1659,117 @@ running DE on this biological object. Confirm source and output paths cannot
 overlap and that existing output files will not be silently overwritten.
 Record the source RDS hash and compare after the eventual run. The existing
 tree, topology, pseudotime, identities, source checkpoints, and figure packages
-must remain unchanged. User review of implementation precedes any job submission.
+must remain unchanged. The user's explicit execution instruction now authorizes
+submission after technical validation; it does not authorize source reruns.
+
+### Execution implementation record
+
+Implementation prepared at `2026-10-21T14:20:23-04:00` (`America/Detroit`).
+No biological DE was run on the login node. Native-helper tests use synthetic
+matrices; the small end-to-end validation uses a synthetic seven-tip tree and
+saves its clearly identified validation artifacts only on NFS.
+
+Code responsibilities:
+
+- `scripts/40_div90_urd_branchpoint_genes.R`: window support/matching;
+  unmodified native URD tests; actual topology extraction; exclusive local
+  memberships and separate later daughter-to-tip paths; multiplicity handling;
+  timing/TF rankings; consolidated CSV; observed expression trajectories;
+  annotated tree, TF/gene panels, heatmaps and multi-page PDF overview.
+- `config/div90_urd_branchpoint_genes.tsv`: all prespecified thresholds,
+  matching windows, support limits, plot gene counts and random seed.
+- `scripts/40_submit_div90_urd_branchpoint_genes.py`: timestamped versioned
+  run ID; source/mapping checksums; code/config/handoff/reference carbon copies;
+  exact submitted job; Git state/diff; `sbatch --parsable` and durable job ID.
+- `slurm_templates/64_div90_urd_branchpoint_genes.sbatch.template`: frozen
+  hash verification, module/library environment, compute-node execution,
+  scheduler start/end/exit records, source hash recheck and output manifest.
+
+The implementation uses observed binned trajectories rather than optional
+impulse fitting. Genes can be visualized even if significance/support fails;
+the CSV retains `candidate`, `global_fdr`, timing and support flags. Where no
+local contrast is supported, later-path genes may still be plotted, explicitly
+remaining unresolved for early-divergence timing. No absent local evidence is
+presented as biological absence or fate commitment.
+
+Validation before biological submission:
+
+- R/Python parsing, shell syntax and `git diff --check`: passed.
+- Synthetic native-method checks: matched-window support, detection direction,
+  equal-detection genes, empty directional AUCPR results, and padded
+  single-gene p-value recovery: passed.
+- Synthetic seven-tip end-to-end check: passed at
+  `2026-10-21T14:22:59-04:00`, including a 5,600-row CSV and the tree,
+  gene/TF trajectories, heatmaps, sample curves and overview PDF. Validation
+  artifacts: `PROJECT_ROOT/results/div90_urd_branchpoint_genes/synthetic_validation_20261021_142031/`.
+  The synthetic plot was visually inspected. These are validation data, not
+  DIV90 biological findings. No biological inference was run on the login node.
+
+### Biological job submission attempt 1: 2026-10-21 14:23 EDT
+
+- Slurm job: **64478969**, submitted at `2026-10-21T14:23:17-04:00`.
+- Run ID: `div90_final_7tips_branchpoint_genes_v1_20261021_142315_EDT_2e9ba1e`.
+- Run directory: `PROJECT_ROOT/results/div90_urd_branchpoint_genes/div90_final_7tips_branchpoint_genes_v1_20261021_142315_EDT_2e9ba1e/`.
+- Submitted carbon copy: `PROJECT_ROOT/jobs/div90_final_7tips_branchpoint_genes_v1_20261021_142315_EDT_2e9ba1e.sbatch`;
+  byte-identical copy in the run's `provenance/submitted.sbatch`.
+- Scheduler log: `PROJECT_ROOT/logs/64_div90_urd_branchpoint_genes_64478969.log`.
+- Durable scheduler record: `<run_dir>/provenance/submission.json` and
+  `provenance/job_id.txt`; prepared/submitted timestamps include EDT offset
+  and UTC. The frozen handoff records pre-submission state; this live section
+  adds the returned job ID without modifying any frozen assets.
+- TF reference: Lambert HumanTFs v1.01, 2,765 annotated entries including
+  1,639 TF entries; the run stores the exact reference and its SHA256.
+- Source RDS SHA256: `30322446a2f1013496f6bcbfdd14924b8f5ad931406a333a6c46ae935fa9f984`.
+  Source/mapping and frozen-file checks are performed before computation;
+  source checks repeat before the job writes `COMPLETED.txt`.
+- State at submission verification: **PENDING (Priority)**, with no predicted
+  start time supplied by Slurm. This is not a completed analysis. Use `squeue`
+  and `sacct` for live state; `ANALYSIS_COMPLETE.txt` alone is not final success.
+- Expected entry points after successful execution:
+  `DIV90_URD_gene_summary.csv`, `DIV90_URD_gene_results.csv`,
+  `DIV90_URD_gene_overview.pdf`, `analysis_summary.txt` and
+  `provenance/output_manifest.tsv` inside the run directory.
+
+Attempt 1 outcome: **FAILED 1:0 after 26 seconds** at
+`2026-10-21T14:24:05-04:00`, before differential-expression comparisons. A
+negative-anchor/narrow-width combination produced a floating-point interval
+only about one numerical rounding unit wide; `cut()` rejected repeated bin
+edges. The source and frozen hashes had passed. The implementation now treats
+intervals narrower than 64 machine epsilons on this scale as unsupported,
+with a regression check. No window is widened or moved. Preserve this failed
+package and its log; the corrected attempt gets a fresh timestamp/carbon copy.
+
+Monitor without resubmitting or regenerating upstream URD:
+
+```bash
+squeue -j 64478969
+sacct -j 64478969 --format=JobID,State,ExitCode,Elapsed,MaxRSS
+tail -n 40 /nfs/turbo/umms-parent/mgeo_neuron_scrnaseq_projectfolder/logs/64_div90_urd_branchpoint_genes_64478969.log
+```
+
+### Corrected biological submission: 2026-10-21 14:25 EDT
+
+- Current job: **64479256**, submitted at `2026-10-21T14:25:16-04:00`.
+- Run ID: `div90_final_7tips_branchpoint_genes_v1_20261021_142513_EDT_2e9ba1e`.
+- Run directory: `PROJECT_ROOT/results/div90_urd_branchpoint_genes/div90_final_7tips_branchpoint_genes_v1_20261021_142513_EDT_2e9ba1e/`.
+- Job carbon copy: `PROJECT_ROOT/jobs/div90_final_7tips_branchpoint_genes_v1_20261021_142513_EDT_2e9ba1e.sbatch`.
+- Scheduler log: `PROJECT_ROOT/logs/64_div90_urd_branchpoint_genes_64479256.log`.
+- Includes the zero-width floating-point regression fix; native-method
+  synthetic tests passed again. Source/reference identities and configured
+  scientific windows are unchanged. The earlier failed package is preserved.
+- Initial scheduler state: PENDING (Priority); inspect live Slurm state and
+  this package's completion/exit records rather than assume completion.
+
+At `2026-10-21T14:26:15-04:00`, job 64479256 was RUNNING on `gl3183`,
+had passed all frozen/source checksum checks, loaded the unchanged saved
+tree, and completed topology/window setup: 214 supported requests collapsed
+to 182 unique native comparisons. Gene statistics then started in four
+workers. This is a progress observation, not completion.
+
+Support audit: BP13 has no supported local comparison under the prespecified
+rules (zero-time parent boundary and insufficient nearby daughter cells);
+24 later-path requests are supported. BP12 has 10 local and 40 later supported
+requests, BP11 has 48 local and 36 later, and BP9 has 48 local and 8 later.
+These counts include balanced variants and shifted anchors, not independent
+biological replications. BP13 early-divergence timing must remain unresolved;
+later markers cannot be relabeled as early fate regulators.
