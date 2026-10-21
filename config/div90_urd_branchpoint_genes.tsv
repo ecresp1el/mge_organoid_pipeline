@@ -1,7 +1,12 @@
 parameter	value
 pseudotime	div90_jia_rootscore_root
-window_fractions	0.02,0.05,0.10
-anchor_fractions	-0.02,0,0.02
+window_fractions	0.05
+anchor_fractions	0
+single_comparison	1
+focus_parent	12
+focus_daughter_A	7
+focus_daughter_B	11
+gene_batch_size	128
 minimum_cells	30
 minimum_bin_cells	5
 minimum_joint_bins	3

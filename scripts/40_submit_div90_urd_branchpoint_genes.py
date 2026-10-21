@@ -44,7 +44,7 @@ def main():
     args = parser.parse_args()
     now = dt.datetime.now().astimezone()
     commit = command('git', 'rev-parse', 'HEAD')
-    run_id = f'div90_final_7tips_branchpoint_genes_v1_{now:%Y%m%d_%H%M%S_%Z}_{commit[:7]}'
+    run_id = f'div90_BP12_OPC_vs_neurons_single_window_{now:%Y%m%d_%H%M%S_%Z}_{commit[:7]}'
     run = PROJECT / 'results/div90_urd_branchpoint_genes' / run_id
     job = PROJECT / 'jobs' / f'{run_id}.sbatch'
     sources = {

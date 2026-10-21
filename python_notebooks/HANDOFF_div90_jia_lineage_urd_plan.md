@@ -2,7 +2,7 @@
 
 Date: 2026-06-11
 
-Current status (2026-10-21): the canonical seven-tip DIV90 production tree is saved. The downstream branchpoint-gene analysis at the end of this handoff has been implemented; the user authorized execution after planning review. Technical validation precedes timestamped carbon-copy submission. Earlier smoke/planning sections below are historical, not the current run definition.
+Current status (2026-10-21): the canonical seven-tip DIV90 production tree is saved. The user cancelled the broad downstream gene sweep and requested deletion of its outputs and one biologically clear comparison. The current scope is BP12 OPC versus neuronal branch, one 5% pseudotime window; see the latest section below. Earlier broad-run and smoke/planning sections are historical, not instructions to rerun them.
 
 This handoff records the DIV90 URD plan after the DIV90 UMAP/metadata audit. It is intentionally aligned with the DIV30 URD workflow, but the DIV90 biological question is different because the DIV90 object has real terminal cluster labels.
 
@@ -1773,3 +1773,85 @@ requests, BP11 has 48 local and 36 later, and BP9 has 48 local and 8 later.
 These counts include balanced variants and shifted anchors, not independent
 biological replications. BP13 early-divergence timing must remain unresolved;
 later markers cannot be relabeled as early fate regulators.
+
+### Superseding scope: one OPC-versus-neuronal comparison (2026-10-21 15:09 EDT)
+
+The user explicitly instructed cancellation of the broad job, deletion of its
+outputs, and execution of the most biologically clear single comparison.
+Job **64479256 was cancelled**, confirmed by Slurm (`CANCELLED`, elapsed
+41:36). Its 182-comparison sweep is no longer authorized/current scope.
+
+The selected comparison is the native **BP12 binary split: segment 7 (OPC)
+versus segment 11 (neuronal branch)**. This directly contrasts distinct
+neuronal and oligodendroglial branches without pooling arbitrary terminal
+tips or comparing two subtly distinguished LHX8 states. It does not analyze
+the zero-time astrocyte split, whose local support was inadequate.
+
+- Keep original pseudotime, topology, identities and source files unchanged.
+- Exactly one comparison, using the original split at 0.173664130168718
+  and width `0.05 * R` (approximately 0.02766 units downstream).
+- Native exclusive immediate-daughter cells and the existing common-bin support
+  rules select **139 OPC-branch and 55 neuronal-branch cells**.
+- No shifted anchors, balancing reruns, additional widths, or later-path DE.
+  Later expression curves are descriptive only. A single window cannot establish
+  early/late robustness; results are labeled `near_split_difference_single_window`.
+- Screen the full expressed-gene universe once; native `markersBinom()` for
+  detection significance and native `markersAUCPR()` in the two directions of
+  this SAME biological comparison; rank DNA-binding TFs separately.
+- Native AUCPR now runs on transient **128-gene matrices containing only the
+  compared cells**, not repeated indexing of the entire sparse expression
+  object. Timestamp/PID messages print comparison start, screening, native
+  binomial start/end, and each AUCPR batch start/end. Synthetic checks confirm
+  batching preserves values and the direct native AUCPR result. No installed
+  URD code or source object is modified.
+- Request one CPU, 16G, two hours; timestamped carbon copies and source hashes
+  remain mandatory. The wrapper uses the explicit run prefix
+  `div90_BP12_OPC_vs_neurons_single_window_...`.
+
+Cleanup completed at `2026-10-21T19:08:50Z`: removed the run result directories
+`div90_final_7tips_branchpoint_genes_v1_20261021_142315_EDT_2e9ba1e`,
+`div90_final_7tips_branchpoint_genes_v1_20261021_142513_EDT_2e9ba1e`, and
+`synthetic_validation_20261021_142031` from the downstream result root. Their
+analysis outputs/checkpoints and synthetic input/output files were deleted
+(195 files). Code/configuration/provenance carbon copies of the submitted runs
+were moved to `PROJECT_ROOT/jobs/urd_branchpoint_cancelled_20261021/`; original
+submitted job files and scheduler logs remain for the audit trail. The exact
+cleanup inventory is that archive's `cleanup.json`. Historical paths above
+now refer to removed output packages. No original URD inputs, final objects,
+source checkpoints or final figures were deleted.
+
+Focused job submitted: **64485292** at `2026-10-21T15:10:18-04:00`.
+Run directory:
+`PROJECT_ROOT/results/div90_urd_branchpoint_genes/div90_BP12_OPC_vs_neurons_single_window_20261021_151016_EDT_c1972f7/`.
+Exact submitted carbon copy:
+`PROJECT_ROOT/jobs/div90_BP12_OPC_vs_neurons_single_window_20261021_151016_EDT_c1972f7.sbatch`.
+Log: `PROJECT_ROOT/logs/64_div90_urd_branchpoint_genes_64485292.log`.
+Initial verification: RUNNING on `gl3259`, all frozen/source hashes passed.
+The original job 64479256 is CANCELLED; it is not running alongside this one.
+
+Focused run outcome: **COMPLETED 0:0**, elapsed **00:02:01**, peak RSS
+4,048,096K. The one native comparison finished at
+`2026-10-21T15:11:25-04:00` in **30 seconds**, testing **9,299 genes**;
+all requested plotting finished at `2026-10-21T15:12:32-04:00`, followed by
+successful source/mapping checksum rechecks.
+
+Validated final entry points inside that focused run:
+
+- `DIV90_URD_gene_summary.csv`: 9,299 rows, one representative per gene.
+- `DIV90_URD_gene_results.csv`: 18,598 direction-reporting rows from exactly
+  ONE selection/biological comparison; no hidden additional contrasts.
+- `DIV90_URD_gene_overview.pdf`: completed multi-page visual overview.
+- `plots/BP12/gene_trajectories.{png,pdf,svg}`,
+  `tf_trajectories.{png,pdf,svg}`, `divergence_heatmap.{png,pdf,svg}`,
+  `sample_trajectories.{png,pdf,svg}` and `window_robustness.{png,pdf,svg}`.
+- `provenance/final_validation.json`: scope/row counts, finite FDRs, PDF
+  header/trailer checks, frozen hashes and no-late-test verification. The TF
+  trajectory image was visually inspected.
+
+At the configured exploratory effect/AUCPR/detection-FDR thresholds, 52 genes
+favor the OPC branch and 528 favor the neuronal branch. These are single-window
+expression associations, not demonstrated causal drivers or robustness across
+multiple windows. No later DE tests were run; curves beyond the window are
+descriptive. Two empty-late-summary `max()` warnings were emitted by unused
+generic timing code; all exported later-effect counts were checked to be zero.
+Neither warning affected native tests, ranks, source preservation, or job success.

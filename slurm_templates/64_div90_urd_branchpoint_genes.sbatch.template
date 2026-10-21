@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Render __RUN_DIR__ and __SOURCE_RDS__ before submission. Execute carbon copies.
 #SBATCH --job-name=div90_bp_genes
-#SBATCH --time=12:00:00
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=64G
+#SBATCH --time=02:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=16G
 #SBATCH --nodes=1
 #SBATCH --partition=standard
 #SBATCH --account=parent0

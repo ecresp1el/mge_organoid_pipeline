@@ -10,7 +10,7 @@ parse_args <- function(a) {
   names(out) <- sub("^--", "", a[seq(1, length(a), 2)])
   out
 }
-log_msg <- function(...) { cat(format(Sys.time(), "%FT%T%z"), ..., "\n"); flush.console() }
+log_msg <- function(...) { cat(format(Sys.time(), "%FT%T%z"), "pid",Sys.getpid(), ..., "\n"); flush.console() }
 needed <- c("URD", "Matrix", "data.table", "ggplot2", "cowplot", "svglite", "digest")
 for (p in needed) if (!requireNamespace(p, quietly = TRUE)) stop("Missing installed package: ", p)
 suppressPackageStartupMessages({library(URD); library(Matrix); library(data.table); library(ggplot2)})
@@ -85,11 +85,14 @@ native_detection <- function(object, a, b, genes, fa, fb, pn) {
 }
 
 native_statistics <- function(object, a, b, cfg) {
+  started <- Sys.time()
+  log_msg("COMPARISON_START", "cells_A",length(a),"cells_B",length(b))
   expr <- object@logupx.data
   fa <- Matrix::rowMeans(expr[, a, drop = FALSE] > 0)
   fb <- Matrix::rowMeans(expr[, b, drop = FALSE] > 0)
   genes <- rownames(expr)[pmax(fa, fb) >= cfg$minimum_detection]
   if (!length(genes)) return(data.table())
+  log_msg("GENE_SCREEN_DONE","eligible_genes",length(genes))
   fa <- fa[genes]; fb <- fb[genes]
   # URD logupx is log2(x+1); match native mean.of.logs (linear mean, logged).
   mean_linear <- function(cells) {
@@ -101,7 +104,9 @@ native_statistics <- function(object, a, b, cfg) {
     mean_log2upx_A = log2(ma + 1), mean_log2upx_B = log2(mb + 1),
     log2fc_A_vs_B = log2((ma + 1e-6)/(mb + 1e-6)), detection_A = fa, detection_B = fb,
     detection_difference_A_vs_B = fa - fb, n_A = length(a), n_B = length(b))
+  log_msg("NATIVE_BINOM_START",length(genes),"genes")
   de <- native_detection(object, a, b, genes, fa, fb, cfg$pseudotime)
+  log_msg("NATIVE_BINOM_DONE","elapsed_seconds",round(as.numeric(difftime(Sys.time(),started,units="secs")),2))
   z <- merge(z, de, by = "gene", sort = FALSE)
   z[, detection_test_status := fifelse(is.na(native_p_enriched), "equal_detection_no_directional_test", "native_enriched_direction_times_two")]
   z[, detection_p_direction_corrected := fifelse(is.na(native_p_enriched), 1, pmin(1, 2*native_p_enriched))]
@@ -111,8 +116,24 @@ native_statistics <- function(object, a, b, cfg) {
     native_fc <- log2((2^round(log2(ma+1),3)-1)/(2^round(log2(mb+1),3)-1))
     eligible <- genes[round(fa,3)!=round(fb,3) & if(direction=="A") native_fc>0 else native_fc<0]
     if(length(eligible)) {
-      au <- URD::markersAUCPR(object, cells.1 = aa, cells.2 = bb, genes.use = eligible,
-        effect.size = 0, frac.must.express = 0, frac.min.diff = 0, auc.factor = 0, max.auc.threshold = 1)
+      batch_size <- cfg$gene_batch_size %||% 128L
+      batches <- split(eligible,ceiling(seq_along(eligible)/batch_size))
+      chunks <- vector("list",length(batches))
+      selected <- unique(c(aa,bb))
+      for(i in seq_along(batches)) {
+        block <- batches[[i]]
+        log_msg("NATIVE_AUCPR_BATCH_START","direction",direction,"batch",i,"of",length(batches),"genes",length(block))
+        # Native marker calculations are gene-independent. Restricting the
+        # transient matrix avoids repeatedly indexing all 20,049 cells and
+        # 15,239 sparse rows for each gene; the native method is unchanged.
+        small <- methods::new("URD")
+        small@logupx.data <- expr[block,selected,drop=FALSE]
+        chunks[[i]] <- URD::markersAUCPR(small, cells.1 = aa, cells.2 = bb, genes.use = block,
+          effect.size = 0, frac.must.express = 0, frac.min.diff = 0, auc.factor = 0, max.auc.threshold = 1)
+        log_msg("NATIVE_AUCPR_BATCH_DONE","direction",direction,"batch",i,"of",length(batches),
+          "elapsed_seconds",round(as.numeric(difftime(Sys.time(),started,units="secs")),2))
+      }
+      au <- do.call(rbind,chunks)
     } else au <- data.frame(AUCPR=numeric(),AUCPR.ratio=numeric())
     idx <- match(z$gene, rownames(au)); baseline <- length(aa)/(length(aa) + length(bb))
     z[, (paste0("auc_", direction)) := au$AUCPR[idx]]
@@ -137,6 +158,12 @@ self_test <- function() {
   stopifnot(out[gene=="earlyA", log2fc_A_vs_B] > 0, out[gene=="earlyB", log2fc_A_vs_B] < 0,
     out[gene=="earlyA", detection_p_direction_corrected] < .05,
     out[gene=="equal", detection_p_direction_corrected] == 1, !"absent" %in% out$gene)
+  cfg$gene_batch_size <- 1
+  batched <- native_statistics(obj,ca,cb,cfg)
+  comparison <- all.equal(as.data.frame(out),as.data.frame(batched),check.attributes=FALSE)
+  if(!isTRUE(comparison))stop("Batch equivalence check: ",paste(comparison,collapse="; "))
+  direct <- URD::markersAUCPR(obj,cells.1=ca,cells.2=cb,genes.use="earlyA",effect.size=0,frac.must.express=0,frac.min.diff=0,auc.factor=0)
+  stopifnot(isTRUE(all.equal(out[gene=="earlyA",auc_A],direct["earlyA","AUCPR"])))
   fa <- setNames(.8,"earlyA"); fb <- setNames(.1,"earlyA")
   one <- native_detection(obj, ca, cb, "earlyA", fa, fb, "pt")
   stopifnot(is.finite(one$native_p_enriched), one$native_padding)
@@ -182,6 +209,8 @@ main <- function(opt) {
   limits <- object@tree$segment.pseudotime.limits
   limit <- function(s,k) as.numeric(limits[s,k])
   parents <- unique(joins[order(pseudotime),parent]); R <- diff(range(pt))
+  focused <- isTRUE(cfg$single_comparison==1)
+  analysis_parents <- if(focused) as.character(cfg$focus_parent) else parents
   branchpoints <- bind(lapply(parents,function(p) {
     kids <- get_children(p); stopifnot(setequal(kids,joins[parent==p,child]))
     data.table(branchpoint=paste0("BP",p),parent=p,daughter=kids,split_time=unique(joins[parent==p,pseudotime]),
@@ -197,7 +226,7 @@ main <- function(opt) {
   write_tsv(merge(data.table(gene=genes),tf,by="gene",all.x=TRUE),file.path(outdir,"provenance/tf_gene_mapping.tsv"))
   requests <- list(); selections <- list(); support <- list(); cell_rows <- list()
   add_request <- function(p,aa,bb,leaf_a,leaf_b,stage,wname,anchor,lo,hi,requested_lo,requested_hi,ca,cb) {
-    for (variant in c("native_all_cells","balanced_bins")) {
+    for (variant in if(focused) "native_all_cells" else c("native_all_cells","balanced_bins")) {
       selected <- select_window(pt,ca,cb,lo,hi,cfg,variant=="balanced_bins")
       id <- paste0("C",sprintf("%04d",length(requests)+1L))
       key <- if(selected$status=="supported") digest::digest(list(sort(selected$a),sort(selected$b)),algo="sha256") else NA_character_
@@ -228,15 +257,17 @@ main <- function(opt) {
     }; path
   }
   log_msg("Enumerating original daughter branches and window support")
-  for(p in parents) {
+  for(p in analysis_parents) {
     b <- unique(joins[parent==p,pseudotime]); kids <- get_children(p)
     for(pair in combn(kids,2,simplify=FALSE)) {
       aa <- pair[1]; bb <- pair[2]
+      if(focused && !setequal(pair,as.character(c(cfg$focus_daughter_A,cfg$focus_daughter_B))))next
       local_end <- min(limit(aa,2),limit(bb,2))
       for(anchor in cfg$anchor_fractions) for(w in cfg$window_fractions) {
         pivot <- b+anchor*R; lo <- max(b,pivot,limit(aa,1),limit(bb,1)); hi <- min(pivot+w*R,local_end)
         add_request(p,aa,bb,NA_character_,NA_character_,"local",paste0("w",w),anchor,lo,hi,pivot,pivot+w*R,memberships[[aa]],memberships[[bb]])
       }
+      if(focused)next
       # Late tests remain on separate daughter-to-tip paths; never pool fates.
       late_start <- min(b+max(cfg$window_fractions)*R,local_end)
       for(la in leaves(aa)) for(lb in leaves(bb)) {
@@ -303,6 +334,7 @@ main <- function(opt) {
   timing[early_effect_widths>=2 & smallest_width_effect==TRUE,timing_class:="early_associated"]
   timing[timing_class=="early_associated" & later_effect_bins>=2,timing_class:="early_and_sustained"]
   timing[supported_widths>=2 & max_early_log2fc<cfg$minimum_log2fc & later_effect_bins>=2,timing_class:="late_emerging"]
+  if(focused) timing[early_effect_widths>=1,timing_class:="near_split_difference_single_window"]
   sensitivity <- results[stage=="local",.(anchor_effect_fraction=mean(effect_supported),balanced_effect_fraction=mean(effect_supported[variant=="balanced_bins"])),by=group]
   timing <- merge(timing,sensitivity,by=group,all.x=TRUE)
   onset <- results[effect_supported==TRUE & variant=="native_all_cells" & anchor_fraction==0,
@@ -311,7 +343,8 @@ main <- function(opt) {
   write_tsv(timing,file.path(outdir,"tables/timing_window_stability.tsv"))
   results <- merge(results,timing,by=group,all.x=TRUE,sort=FALSE)
   # All-sibling labels require consistent evidence against every actual sibling.
-  sibling <- unique(results[stage=="local" & anchor_fraction==0 & variant=="native_all_cells" & candidate==TRUE & early_candidate_widths>=2,
+  required_widths <- if(focused)1L else 2L
+  sibling <- unique(results[stage=="local" & anchor_fraction==0 & variant=="native_all_cells" & candidate==TRUE & early_candidate_widths>=required_widths,
     .(branchpoint,reported_daughter,gene,daughter_A,daughter_B)])
   sibling <- sibling[,.(siblings_beaten=.N),by=.(branchpoint,reported_daughter,gene)]
   sibling[,siblings_required:=vapply(branchpoint,function(bp)nrow(branchpoints[branchpoint==bp])-1L,integer(1))]
@@ -382,11 +415,11 @@ main <- function(opt) {
   plot_assets <- list(tree=object@tree$tree.layout,segments=object@tree$segment.layout,
     cell_layout=object@tree$cell.layout,branchpoints=branchpoints,joins=joins,limits=limits,
     labels=labels,memberships=memberships,pt=pt,ranking=ranking,trajectories=trajectories,requests=requests,
-    cfg=cfg,run_id=run_id,stamp=stamp,source=source)
+    cfg=cfg,run_id=run_id,stamp=stamp,source=source,analysis_branchpoints=paste0("BP",analysis_parents))
   saveRDS(plot_assets,file.path(outdir,"checkpoints/plot_assets.rds"))
   render_plots(plot_assets,outdir)
   summary <- c(paste("Completed",stamp),paste("Run",run_id),paste("Source",source),
-    paste("Branchpoints",length(parents),"supported requests",sum(requests$status=="supported"),"unique comparisons",length(selections)),
+    paste("Analyzed branchpoints",length(analysis_parents),"supported requests",sum(requests$status=="supported"),"unique comparisons",length(selections)),
     paste("Master CSV rows",nrow(results),"bytes",file.info(file.path(outdir,"DIV90_URD_gene_results.csv"))$size),
     if(nrow(results)>1048575)"WARNING: master CSV exceeds Excel's worksheet row limit; filter/import with a data tool." else "Master CSV fits Excel's worksheet row limit.",
     "Native binomial p-values test detection; enriched-direction p multiplied by two before local/global BH.",
@@ -395,10 +428,11 @@ main <- function(opt) {
     "Statistical support is exploratory cell-level evidence; not causal or donor-level validation.",
     "Timing rules use descriptive effect support; inspect global FDR, sample curves and window support separately.",
     "No fitted impulse curves are required: trajectories show observed binned expression; later lineages stay separate.")
-  for(bp in unique(branchpoints$branchpoint)) {
+  for(bp in paste0("BP",analysis_parents)) {
     tf_hits<-unique(ranking[branchpoint==bp & is_tf==TRUE & candidate==TRUE,gene])
     summary<-c(summary,paste(bp,"TFs passing candidate thresholds:",if(length(tf_hits))paste(head(tf_hits,12),collapse=", ")else"none; see ranked TF table for descriptive results"))
   }
+  if(focused)summary<-c(summary,"ONE comparison only: native BP12 OPC (segment 7) versus neuronal branch (segment 11), 5% pseudotime window. No window/anchor/balancing/late DE sweep. Later curves are descriptive; single-window findings do not establish robust early/late timing.")
   writeLines(summary,file.path(outdir,"analysis_summary.txt"))
   writeLines(capture.output(sessionInfo()),file.path(outdir,"provenance/sessionInfo.txt"))
   writeLines(c(stamp,"Analysis and plots completed; source hash check pending in job wrapper."),file.path(outdir,"ANALYSIS_COMPLETE.txt"))
@@ -427,7 +461,7 @@ render_plots <- function(a,outdir) {
   tree<-ggplot()+geom_segment(data=as.data.table(a$tree),aes(x=x1,y=y1,xend=x2,yend=y2),color="grey35",linewidth=.45)+
     geom_point(data=layout,aes(x,y,color=segment),size=.3,alpha=.4)+
     scale_color_manual(values=palette)+theme_void()+theme(legend.position="none")+
-    labs(title="DIV90 saved URD tree: four inferred branchpoints",subtitle=subtitle)
+    labs(title=if(isTRUE(cfg$single_comparison==1))"Saved seven-tip URD context: only BP12 OPC versus neuronal branch tested" else "DIV90 saved URD tree: four inferred branchpoints",subtitle=subtitle)
   label_rows<-bind(lapply(unique(a$branchpoints$parent),function(s) {
     kids<-a$branchpoints[parent==s,daughter]
     # Find the existing parent/daughter junction from layout boundary cells.
@@ -458,7 +492,7 @@ render_plots <- function(a,outdir) {
   save_set(tree,file.path(outdir,"plots/urd_tree_branchpoints"),14,11)
   grDevices::cairo_pdf(file.path(outdir,"DIV90_URD_gene_overview.pdf"),width=14,height=11,onefile=TRUE)
   on.exit(grDevices::dev.off(),add=TRUE);print(tree)
-  for(bp in unique(a$branchpoints$branchpoint)) {
+  for(bp in a$analysis_branchpoints %||% unique(a$branchpoints$branchpoint)) {
     dir<-file.path(outdir,"plots",bp);rr<-a$ranking[branchpoint==bp]
     split<-unique(a$branchpoints[branchpoint==bp,split_time])
     selected<-head(unique(rr[order(all_gene_rank),gene]),cfg$top_plot_genes)
