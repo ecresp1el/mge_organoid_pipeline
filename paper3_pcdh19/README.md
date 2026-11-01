@@ -1,3 +1,9 @@
+# Approved exploratory MGE figure (2026-11-01)
+
+Exact source/input provenance, NFS locations, scientific definitions and the tested
+reproduction command: [figure reproduction handoff](APPROVED_MGE_FIGURE_REPRODUCTION.md).
+Runtime outputs live on Turbo; code/configuration/documentation remain here.
+
 # Paper 3: Ziobro PCDH19 MGE single-cell RNA-seq
 
 ## HiCAT: start here

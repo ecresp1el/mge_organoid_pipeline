@@ -1,0 +1,6 @@
+args<-commandArgs(trailingOnly=TRUE);base<-args[1];out<-args[2];suppressPackageStartupMessages(library(edgeR))
+f<-read.delim(gzfile(file.path(base,'C0006_counts.tsv.gz')),check.names=FALSE);md<-read.delim(file.path(base,'pseudobulk_metadata.tsv'),stringsAsFactors=FALSE);md<-md[match(names(f)[-(1:2)],md$library),]
+use<-(md$design_group=='WT_F' & md$gate=='A_positive')|(md$design_group=='HET_F' & md$gate %in% c('A_positive','Aneg_BC1'));md<-md[use,];xx<-as.matrix(f[,-(1:2)])[,use];m<-read.delim(file.path(out,'male_C0006_counts.tsv'),check.names=FALSE);stopifnot(identical(f$gene_id,m$gene_id));xx<-cbind(xx,as.matrix(m[,-(1:2)]));y<-calcNormFactors(DGEList(xx));lc<-cpm(y,log=TRUE,prior.count=2)
+write.table(data.frame(gene_id=f$gene_id,gene_symbol=f$gene_symbol,lc,check.names=FALSE),file.path(out,'matched_display_logCPM.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+write.table(md,file.path(out,'matched_female_display_metadata.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+writeLines('Common TMM normalization across the 15 sample/subset pseudobulks for display only; existing within-sex edgeR contrast fits unchanged. Expression heatmaps standardized within each sex.',file.path(out,'matched_display_normalization.txt'))

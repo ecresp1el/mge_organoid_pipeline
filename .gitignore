@@ -20,3 +20,9 @@ python_notebooks/outputs/
 /results/sst_pv_cortical_feasibility/
 /results/div90_cortical_subpallial_figures*.zip
 /final_figures/div90_guidance_with_sst/
+
+# Paper 3 runtime belongs on Turbo; see WORKFLOW.md and figure reproduction handoff.
+/paper3_pcdh19/results/
+/paper3_pcdh19/jobs/
+/paper3_pcdh19/logs/
+/paper3_pcdh19/final_figures/
