@@ -192,3 +192,128 @@ existing NFS run names collided and no Git history was rewritten.
 runtime results; their code/config lookups remain in the repository.
 `PCDH19_RUNTIME_ROOT` can override the default with an external path; checkout
 runtime roots are rejected. `.gitignore` excludes Paper 3 results/jobs/logs/final_figures.
+
+## Display clarity revision (1 November 2026)
+
+Subsequent requested display edits use `scripts/render_HET_display_clarity.py`.
+Outputs: `results/female_male_signaling_20261031/HET_display_clarity_figure.{png,pdf,svg}`
+on NFS. Source snapshot, exports and `PROVENANCE.json` are also saved under
+`final_figures/mge_display_clarity_20261101/`. Job 65177438 completed successfully;
+submitted job: `jobs/approved_mge_mosaic_20261101/display_clarity.sbatch`.
+The nine direct scientific inputs and all D/F gene values are unchanged.
+A now states 12 samples from 12 mice and 3 each WT female/HET female/WT male/KO male;
+inset dot area is 0.045 rather than 0.19 pt². B removes cap/cutoff text while
+retaining the >0.8 overlay rule and 1.5 color saturation. C uses a clear vertical
+zero marker and “0 exon-1 signal” for the all-zero probe-gated HET KO group.
+The previously approved frozen package and its exact reproduction command remain intact.
+
+## Exploratory activity / IEG bottom row (1 November 2026)
+
+`render_HET_activity_IEG_final.py` extends the display-clarity figure with a
+full-width final-row panel I. Submit with
+`sbatch --wait paper3_pcdh19/slurm/render_HET_activity_IEG_final.sbatch`.
+The new package is `final_figures/mge_activity_IEG_20261101/` under the study
+runtime; the combined exports are `HET_activity_IEG_final.{png,pdf,svg}`.
+Prior approved and display-clarity exports are preserved. The base renderer
+runs against copies of its seven OUT-directory inputs in the new package;
+its other source paths remain unchanged. The package retains source snapshots,
+paired IEG tables, a combined legend, and a SHA-256 provenance manifest.
+
+I shows Egr1, Npas4 and Nr4a1 pseudobulk CPM, paired across three HET embryos,
+in independently gated cycling-marker-negative inhibitory neurons. The
+exploratory Npas4 elevation is prominently qualified: 0 WT / 9 KO UMIs from
+16 WT / 151 KO cells, and the pattern weakens with a relaxed cycle gate.
+WT/KO denote the existing expression-based probe states. These data do not
+establish intracellular signaling activation, cortical residence, or a robust
+IEG mechanism. Each gene has its own y scale; no significance test is added.
+
+### Corrected four-row IEG dot layout
+
+The user rejected the added fifth row. The current renderer keeps the original
+7.2 × 8.49 inch canvas and panels A–F, and fits G/H/I across row four.
+I is a compact Egr1/Npas4/Nr4a1 circle plot: area shows percent of cells
+expressing; shared purple color shows mean log-normalized expression, including
+zeros. Zero detection uses a hollow circle. WT/KO rows pool three HET samples
+for descriptive display only. Source cell gate and sparse-count limitations
+are unchanged. Updated exports live in `final_figures/mge_activity_IEG_dots_20261101/`
+under the study runtime; `IEG_dot_values.tsv` retains the plotted values.
+The earlier five-row package is a superseded draft.
+
+### Typography and expanded neuronal IEG panel
+
+The current four-row renderer standardizes panel letters to 11 pt, headings to
+8 pt, body labels to 6–7 pt, and the dense atlas legend to 5.5 pt. Panel I now
+uses nine gene rows and two probe-state columns (WT/KO): Npas4, Fos, Fosb, Junb,
+Egr1, Egr2, Egr3, Arc and Nr4a1. All nine were already in the cached IEG screen;
+none are removed for zero detection or selected by effect direction. The circle
+size key is removed as requested; size still encodes detection percent, color
+still encodes shared-scale mean log expression, and zero detection is hollow.
+The complete values and definitions remain in the package TSV and legend.
+
+Biological context for the gene panel: Madabhushi et al., Cell (2015),
+https://pmc.ncbi.nlm.nih.gov/articles/PMC4886855/; The Neuroplasticity-Associated Arc Gene Is a Direct Transcriptional Target
+of Early Growth Response (Egr) Transcription Factors, https://pmc.ncbi.nlm.nih.gov/articles/PMC1291244/;
+Subregion-specific rules govern the distribution of neuronal immediate-early
+gene induction,
+https://pmc.ncbi.nlm.nih.gov/articles/PMC7519336/.
+These references establish activity-associated neuronal IEG context, not
+validation of activity or mechanism in this sparse E14.5 MGE subset.
+
+### Explicit ligand–receptor labels and male IEG columns
+
+G/H are now titled “Ligand–receptor network” and “Ligand–receptor changes”.
+Subtitles identify the female HET comparison and source-to-receiver direction;
+H labels its axis as change in inferred L–R strength. They retain the same
+expression-based interaction candidates and values, including curated contact
+interactions; this relabeling does not establish measured communication.
+
+I removes the exploratory artwork footer and now shows four columns grouped
+as HET female (WT cells, KO cells) and males (WT, KO). Known male samples use
+the same neuronal identity/core/cycling-marker gate, with all eligible male
+cells retained, without a Pcdh19 expression filter. The HET probe-state gates
+are unchanged. This differs intentionally from the positive-only WT-male
+Pcdh19 violin display in E, whose visualization filter is not used for IEGs.
+`IEG_dot_per_sample_values.tsv` preserves all sample-level readouts alongside
+the pooled display values. Scientific limitations remain in the full legend.
+
+### Revised C/E wording and expression-scaled, ranked IEG circles
+
+C now labels WT Females, HET WT Females and HET KO Females; the zero-signal
+text is removed. E labels only WT Males and KO Males. These wording changes
+do not change the documented probe states or E's positive-only WT display.
+
+I no longer uses detection for circle size. For each gene and sample, compute
+mean ln(1 + raw UMI / total UMI * 10000), including zeros; average the three
+sample means equally per group, then divide by that gene's maximum over the
+four groups. Color and area encode this 0–1 relative expression; positive area
+is 6 + 30 * relative expression pt², with a 5 pt² hollow circle for zero.
+Circle sizes are chosen for readability and do not represent cell fractions.
+Each gene has its own scale, so absolute expression is not comparable across
+rows; sparse genes may have a large relative circle. Raw values are preserved.
+
+Rank rows by descending average of female-HET and male KO-minus-WT scaled
+changes, weighting both comparisons equally. Alphabetical tie-breaking;
+all-zero genes last. This is descriptive effect ranking, not a significance
+ranking. All nine cached IEGs remain, including opposing changes and zeros.
+Per-sample tables, display scores, relative values and row ranks are exported.
+
+### Supplement expression with aligned KO-minus-WT circles
+
+I retains its four expression columns and adds two signed change columns,
+one for HET females and one for males, using the same gene rows and order.
+Change is KO minus WT on the existing per-gene relative-expression scale,
+not log fold change or statistical significance. Red means higher KO, blue
+lower KO. Area encodes absolute change (6+30*abs(change) pt²), with hollow
+zero references; color spans −1 to +1 consistently across both comparisons.
+`IEG_KO_minus_WT_changes.tsv` preserves both scaled changes and unscaled
+mean-log-expression differences. I is moved left and widened within row four;
+H is compacted horizontally. Title: “Activity-dependent gene expression”.
+The title identifies the gene class; there is no activity perturbation here.
+
+### Final wording preference
+
+User finalized the figure and requested singular sex labels everywhere.
+All visible “Males/males/Females/females” are now singular. C uses exactly
+“WT Female”, “HET Female WT cells”, “HET Female KO cells”; its longer group
+labels use 6 pt text. Underlying probe gates, measurements, and results remain
+unchanged. Preserve this singular-sex wording in subsequent figure revisions.
