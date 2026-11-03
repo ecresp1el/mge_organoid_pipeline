@@ -1,5 +1,15 @@
 # Approved exploratory MGE figure (2026-11-01)
 
+> **Current workflow — 3 November 2026:** The user authorized a clean-slate
+> Python rebuild, preserving the final figure archive and essential input
+> checkpoints while removing replaceable results. Old runtime links below
+> are historical and may have been intentionally removed. Start with
+> [the rebuild handoff](PCDH19_PYTHON_REBUILD_20261103.md). The preserved final
+> archive is `final_figures/mge_activity_IEG_FINAL_20261101/` on the study NFS
+> runtime; the new work is under `results/rebuild_20261103/`. Reclustering
+> remains Python HiCAT consensus; Allen mapping will use local Python.
+
+
 Exact source/input provenance, NFS locations, scientific definitions and the tested
 reproduction command: [figure reproduction handoff](APPROVED_MGE_FIGURE_REPRODUCTION.md).
 Runtime outputs live on Turbo; code/configuration/documentation remain here.

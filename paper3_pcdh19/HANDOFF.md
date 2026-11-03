@@ -1,5 +1,15 @@
 # Paper 3 Ziobro PCDH19 MGE single-cell RNA-seq: operational handoff
 
+> **Current workflow — 3 November 2026:** The user authorized a clean-slate
+> Python rebuild, preserving the final figure archive and essential input
+> checkpoints while removing replaceable results. Old runtime links below
+> are historical and may have been intentionally removed. Start with
+> [the rebuild handoff](PCDH19_PYTHON_REBUILD_20261103.md). The preserved final
+> archive is `final_figures/mge_activity_IEG_FINAL_20261101/` on the study NFS
+> runtime; the new work is under `results/rebuild_20261103/`. Reclustering
+> remains Python HiCAT consensus; Allen mapping will use local Python.
+
+
 Execution status updated: 2026-09-09 01:07 UTC (September 8, 9:07 PM Detroit).
 
 **Current HiCAT work:** 1/100 full-data subsample iterations has completed,
