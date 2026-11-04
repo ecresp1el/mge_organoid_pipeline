@@ -42,7 +42,7 @@ def resolve_cycle_genes(symbols,feature_ids,config):
     return resolved,audit
 
 
-def run(output):
+def run(output, min_genes=0):
     import anndata as ad
     import pandas as pd
     import scanpy as sc
@@ -70,10 +70,26 @@ def run(output):
     assert a.shape==(446349,19071)
     baseline=np.load(base/'baseline/original_step06_embeddings.npz',allow_pickle=False)
     ids=np.asarray(a.obs_names,dtype=str);assert np.array_equal(ids,baseline['cell_id'])
+    original_cells=a.n_obs
+    if min_genes:
+        keep=a.obs['n_genes_by_counts'].to_numpy()>=min_genes
+        a=a[keep].copy();ids=np.asarray(a.obs_names,dtype=str)
+        event('minimum_detected_genes_filter',minimum=min_genes,excluded=int((~keep).sum()),retained=a.n_obs)
+        baseline=None  # Refit both arms on the newly retained cell universe.
     oldvar=pd.read_csv(base/'baseline/original_step06_var.tsv.gz',sep='\t',index_col=0)
     assert np.array_equal(a.var_names.astype(str),oldvar.index.astype(str))
-    hvg=oldvar['highly_variable'].astype(str).str.lower().isin(['true','1']).to_numpy()
+    if not min_genes and 'highly_variable' in oldvar:
+        hvg=oldvar['highly_variable'].astype(str).str.lower().isin(['true','1']).to_numpy()
+        hvg_source='saved Step06 variable-gene flags'
+    else:
+        # Published Step06 reloads raw counts and does not attach the working HVG flags.
+        # Recreate exactly its raw-count, sample-aware feature-selection call.
+        event('rederive_original_HVGs',flavor='seurat_v3',n_top_genes=3000,batch_key='technical_sample_id')
+        sc.pp.highly_variable_genes(a,flavor='seurat_v3',n_top_genes=3000,batch_key='technical_sample_id',subset=False)
+        hvg=a.var['highly_variable'].to_numpy(dtype=bool)
+        hvg_source='rederived on retained raw counts using original Step06 settings'
     assert hvg.sum()==3000
+    pd.DataFrame({'feature_id':a.var_names,'highly_variable':hvg}).to_csv(output/'selected_HVGs.tsv',sep='\t',index=False)
     if 'gene_symbol' not in a.var:raise ValueError('Gene symbols missing')
     genes,audit=resolve_cycle_genes(a.var.gene_symbol.to_numpy(),a.var_names,cfg)
     (output/'cell_cycle_gene_coverage.json').write_text(json.dumps(audit,indent=2))
@@ -92,6 +108,19 @@ def run(output):
         if len(matches)==1:
             x=a.X[:,matches[0]];markers[gene]=np.asarray(x.toarray() if sparse.issparse(x) else x).ravel()
     del a;gc.collect()
+    if min_genes:
+        event('refit_unregressed_baseline')
+        uncorrected=diagnostic.copy()
+        sc.pp.scale(uncorrected,zero_center=False,max_value=10)
+        sc.tl.pca(uncorrected,n_comps=50,zero_center=True,svd_solver='arpack',random_state=seed)
+        baseline={'X_pca':uncorrected.obsm['X_pca'].copy()}
+        del uncorrected;gc.collect()
+        uncorrected=ad.AnnData(X=np.empty((len(obs),0),dtype=np.float32),obs=obs.copy())
+        uncorrected.obsm['X_pca']=baseline['X_pca']
+        sc.pp.neighbors(uncorrected,n_neighbors=30,n_pcs=50,use_rep='X_pca',metric='cosine',random_state=seed)
+        sc.tl.umap(uncorrected,min_dist=.3,spread=1.,random_state=seed)
+        baseline['X_umap']=uncorrected.obsm['X_umap'].copy()
+        del uncorrected;gc.collect()
     event('OLS_regression',matrix_shape=list(diagnostic.shape),covariates=['S_score','G2M_score'])
     coefficients=regress_blocks(diagnostic.X,covariates)
     sc.pp.scale(diagnostic,zero_center=False,max_value=10)
@@ -104,11 +133,13 @@ def run(output):
                pca_variance=diagnostic.uns['pca']['variance'],pca_variance_ratio=diagnostic.uns['pca']['variance_ratio'])
     np.savez_compressed(output/'regression_pca_model.npz',**model)
     corrected_pca=diagnostic.obsm['X_pca'].copy()
+    np.savez_compressed(output/'corrected_PCA_checkpoint.npz',cell_id=ids,X_pca=corrected_pca)
+    obs.to_csv(output/'cells_and_cycle_scores.tsv.gz',sep='\t',compression='gzip')
     del diagnostic;gc.collect()
     embedding=ad.AnnData(X=np.empty((len(obs),0),dtype=np.float32),obs=obs.copy())
     embedding.obsm['X_pca']=corrected_pca
     event('neighbors',neighbors=30,metric='cosine')
-    sc.pp.neighbors(embedding,n_neighbors=30,n_pcs=50,metric='cosine',random_state=seed)
+    sc.pp.neighbors(embedding,n_neighbors=30,n_pcs=50,use_rep='X_pca',metric='cosine',random_state=seed)
     event('UMAP',min_dist=.3,spread=1.,seed=seed)
     sc.tl.umap(embedding,min_dist=.3,spread=1.,random_state=seed)
     before=baseline['X_umap'];after=embedding.obsm['X_umap']
@@ -134,11 +165,11 @@ def run(output):
         ax.set_xticks([]);ax.set_yticks([]);ax.set_xlabel('UMAP 1');ax.set_ylabel('UMAP 2')
     event('render_comparison')
     fig,axes=plt.subplots(1,2,figsize=(11,5))
-    for ax,xy,title in zip(axes,[before,after],['Before · saved Step 06, no cell-cycle regression','After · S and G2M scores regressed']):
+    for ax,xy,title in zip(axes,[before,after],['Before · normalized/scaled, no cell-cycle regression','After · S and G2M scores regressed']):
         points(ax,xy);ax.set_title(title,fontsize=10)
     handles=[Line2D([0],[0],marker='o',ls='',color=colors[sn],label=sn,markersize=4) for sn in samples]
     fig.legend(handles=handles,loc='lower center',ncol=6,frameon=False)
-    fig.suptitle('E14.5 mouse MGE · same 446,349 cells · sample overlays',fontsize=12)
+    fig.suptitle('E14.5 mouse MGE · same {:,} cells · sample overlays'.format(len(obs)),fontsize=12)
     fig.tight_layout(rect=[0,.12,1,.92])
     for ext in ['png','pdf']:fig.savefig(output/('UMAP_before_after_samples.'+ext),dpi=250)
     plt.close(fig)
@@ -190,13 +221,13 @@ def run(output):
                 correlations.append(dict(arm=arm,PC=j+1,score=score,pearson_r=float(np.corrcoef(pcs[:,j],obs[score])[0,1])))
     pd.DataFrame(correlations).to_csv(output/'PC_cycle_correlations.tsv',sep='\t',index=False)
     pd.crosstab(obs[sample_field],obs['phase']).to_csv(output/'sample_phase_counts.tsv',sep='\t')
-    parameters=dict(input=str(raw_path),cells=len(obs),genes=19071,selected_HVGs=3000,seed=seed,
-                    before='saved original Step06 UMAP/PCA, all cell IDs verified',after='HVG log1p(CP10K) OLS residuals for intercept + S + G2M; SD scale/clip10; centered ARPACK PCA50; cosine k30; UMAP min_dist .3 spread1',
+    parameters=dict(input=str(raw_path),cells=len(obs),genes=19071,selected_HVGs=3000,hvg_source=hvg_source,seed=seed,
+                    minimum_detected_genes=min_genes,additional_QC_exclusions=original_cells-len(obs),before=('refitted on minimum-gene-filtered cells' if min_genes else 'saved original Step06 UMAP/PCA, all cell IDs verified'),after='HVG log1p(CP10K) OLS residuals for intercept + S + G2M; SD scale/clip10; centered ARPACK PCA50; cosine k30; UMAP min_dist .3 spread1',
                     cells_removed=0,raw_input_modified=False,regressed_covariates=['S_score','G2M_score'],
                     batch_integration=False,clustering='not run in this comparison; Python HiCAT consensus is next',
                     packages={p:importlib.metadata.version(p) for p in ['scanpy','anndata','numpy','scipy','umap-learn','scikit-learn']})
     (output/'parameters.json').write_text(json.dumps(parameters,indent=2))
-    (output/'README.md').write_text('# Cell-cycle regression comparison\n\nAll 446349 approved cells are retained. Before uses the saved Step06 embedding. After refits the high-dimensional graph after S/G2M regression. Same HVGs, cell IDs, normalization target and graph/UMAP settings. Separate layouts need not have the same orientation. Sample colors identify composition, not proof of batch correction. Scores/markers are from unregressed expression. Regression can remove real developmental biology; inspect lineage-marker context before adopting it for Python HiCAT. No new clusters or Allen labels are claimed yet. Raw counts remain the input for future DE and MapMyCells.\n')
+    (output/'README.md').write_text('# Cell-cycle regression comparison\n\nBoth arms contain the identical retained cells. For a minimum-gene filter both embeddings are refitted. After refits the high-dimensional graph after S/G2M regression. Same HVGs, cell IDs, normalization target and graph/UMAP settings. Separate layouts need not have the same orientation. Sample colors identify composition, not proof of batch correction. Scores/markers are from unregressed expression. Regression can remove real developmental biology; inspect lineage-marker context before adopting it for Python HiCAT. No new clusters or Allen labels are claimed yet. Raw counts remain the input for future DE and MapMyCells.\n')
     assert np.isfinite(after).all() and after.shape==before.shape
     event('complete',output=str(output),cells=len(obs),coordinates_finite=True)
     (output/'SUCCESS.json').write_text(json.dumps(parameters,indent=2))
@@ -205,4 +236,5 @@ def run(output):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=ROOT/'results/rebuild_20261103/cell_cycle_comparison')
-    args=parser.parse_args();run(args.output)
+    parser.add_argument('--min-genes',type=int,default=0)
+    args=parser.parse_args();run(args.output,args.min_genes)

@@ -1,5 +1,10 @@
 # Paper 3 Ziobro PCDH19 MGE single-cell RNA-seq: operational handoff
 
+> **Current Methods reference:** [Ordered workflow, parameters and executed code](PCDH19_PYTHON_REBUILD_20261103.md).
+> Current rerun: **445,254 cells**; HiCAT is running and its final cluster count
+> is pending. MapMyCells uses a custom developmental reference; query mapping
+> has not started. The older results below are historical.
+
 > **Current workflow — 3 November 2026:** The user authorized a clean-slate
 > Python rebuild, preserving the final figure archive and essential input
 > checkpoints while removing replaceable results. Old runtime links below

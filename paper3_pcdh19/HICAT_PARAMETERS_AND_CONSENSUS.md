@@ -1,5 +1,9 @@
 # PCDH19 HiCAT: exact parameters and how consensus is constructed
 
+> **Historical run:** This document describes the earlier unregressed HiCAT run.
+> For the current 445,254-cell rerun, S/G2M-adjusted representations and
+> MapMyCells preparation, use [the current Methods reference](PCDH19_PYTHON_REBUILD_20261103.md).
+
 **Start with [the one-page workflow overview](README.md#hicat-start-here).**
 This page is the detailed reference: [single-fit parameters](#3-what-each-of-the-100-iterations-does),
 [gene-separation tests](#4-exact-de-separation-thresholds-q1-qdiff-and-score150),
