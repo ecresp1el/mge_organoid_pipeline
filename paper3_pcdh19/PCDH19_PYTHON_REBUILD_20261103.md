@@ -1,6 +1,8 @@
 # PCDH19 mouse MGE: current Python workflow and Methods reference
 
-**Execution snapshot: 2026-11-03 18:23 EST.** This is the current ordered workflow through
+> **Storage/job update, 4 November:** See [scratch migration and current job pointer](SCRATCH_STORAGE_HANDOFF.md). Migration65352824 → scratch array65352825 (max20) → consensus65352826. Prior job IDs below are historical. Transfer is submitted; verify its completion seal.
+
+**Latest concurrency/status snapshot: 2026-11-04 08:39 EST.** Earlier stage descriptions below retain their explicitly dated historical context. This is the current ordered workflow through
 MapMyCells reference preparation. It replaces the chronological notes in
 [the execution history](PCDH19_REBUILD_EXECUTION_HISTORY_20261103.md).
 Do not use the older 446,349-cell / 34-cluster analysis as the outcome of this
@@ -15,7 +17,7 @@ rerun. The frozen approved main figure remains an earlier analysis.
 | Matched before/after regression PCA/UMAP | Completed on the same 445,254 cells | `cell_cycle_comparison_min500/parameters.json` and embeddings |
 | Revised QC/cell-cycle supplement | Completed, PNG/PDF/SVG | `supplementary_QC_cell_cycle/VALIDATION.json` |
 | HiCAT normalized input and global cycle model | Completed | `hicat_min500_cycle/PREPARED.json` |
-| HiCAT recursive fits / 100-iteration consensus | 1/100 fits completed (67 clusters in that fit); four fits and full initializer running; consensus pending | `hicat_min500_cycle/JOBS.json`, per-fit progress and completion files |
+| HiCAT recursive fits / 100-iteration consensus | 32/100 fits completed; 20 running, 48 pending; full initializer completed; consensus pending | `hicat_min500_cycle/JOBS.json`, per-fit progress and completion files |
 | Final new cluster count | Not available; requires completed consensus and separation review | Future `hicat_min500_cycle/final/SUCCESS.json` |
 | MapMyCells developmental reference | Method selected; metadata/taxonomy validation completed, final reference selection and marker fitting pending | `mapmycells_developmental_reference/REFERENCE_VALIDATION.json` |
 | Mapping the new query / URD | Not submitted / not started | No new mapping or URD results are claimed |
@@ -196,7 +198,7 @@ cells per sample with fixed sampling and matching colors.
 
 ## 6. HiCAT: modified rerun using the previous consensus settings
 
-**Clustering is running: 1/100 fits completed; no final consensus cluster count is available.** This uses the
+**Clustering is running: 32/100 fits completed at 2026-11-04 08:39 EST; no final consensus cluster count is available.** This uses the
 previous pinned Allen Python fitter and consensus implementation, with a new
 input cell universe and explicit S/G2M-adjusted clustering representation.
 It is not an unchanged rerun of the old 34-cluster / 98-iteration result.
@@ -509,3 +511,85 @@ annotations or URD trajectories are finalized.** Their Methods/result prose
 must be updated from completed output contracts and review records. The
 HiCAT parameters above describe the submitted/running implementation;
 MapMyCells details above describe method selection and reference validation.
+
+
+## Operational concurrency history — 4 November 2026
+
+The previous September production run allowed up to **10 simultaneous iteration
+jobs**. It scheduled 100 iterations; the separately published 34-cluster review
+used 98. That earlier 12-hour recovery snapshot included reused checkpoints and
+is not a clean end-to-end runtime benchmark.
+
+The current November run initially allowed **four simultaneous iteration jobs**
+(array 65323908, tasks 1–99, after separately completed iteration 0). On
+4 November the user requested increasing concurrency above ten urgently. The
+array throttle was raised from **4 to 20** without restarting completed work or
+changing the 100 iterations, seeds, sampling or scientific parameters. Each task
+requests 8 CPUs and 150 GiB; 20 running tasks request 160 CPUs and 3,000 GiB
+in total. The throttle is a maximum, not a promise of scheduler availability.
+
+**Observed scheduler snapshot: 2026-11-04 13:39 UTC / 08:39 EST:**
+20 iteration tasks actually RUNNING (032–051), 48 PENDING (052–099);
+32 iterations completed in the immediately preceding checkpoint/accounting
+check (000–031). Full initializer 65323907 completed; final consensus/DE
+65323909 awaits the iteration array. No final cluster count is available.
+
+Runtime change record: `RUN/hicat_min500_cycle/CONCURRENCY_UPDATE_20261104.json`.
+No background polling or monitoring process was started. A subsequent user
+message requested cancellation with an ambiguous target; clarification was
+requested before cancelling any jobs. This snapshot does not claim cancellation.
+
+
+### 2026-11-04 09:12 EST — temporary-storage failure and recovery
+
+At 09:11 EST, five tasks failed (037, 038, 040, 042, 046). Logs show
+Errno28/no space in inherited `/home/elcrespo/.codex/tmp`, contrary to the
+intended node-local scratch behavior. Increasing concurrency exposed this
+storage problem. The prior afternoon completion estimate is withdrawn.
+Stopped original unfinished array 65323908 and dependent consensus 65323909;
+all 32 completed iteration seals (000–031) preserved. Submitted remaining
+68 iterations as recovery array **65352448**, maximum **20 concurrent**,
+using a unique node-local `/tmp` directory per job with exit cleanup.
+Replacement consensus/DE **65352449** depends on successful recovery.
+Original frozen scientific source/config/seeds and wrapper are unchanged;
+a separate recovery wrapper sets temporary-storage environment explicitly.
+Runtime evidence: `hicat_min500_cycle/NODE_LOCAL_RECOVERY_20261104.json`;
+`JOBS.json` now records replacement jobs and preserves original job IDs.
+Recovery submitted; completion and actual concurrency require subsequent
+scheduler/checkpoint verification. No final consensus count available.
+
+
+## Restart correction — 4 November 2026, 10:05 AM EST
+
+Scratch migration65352824 completed at 09:23:57 EST; all908 files checksum
+verified. Array65352825 then failed on existing interrupted progress logs:
+`Progress` refuses to overwrite `hicat_progress_events.jsonl`. No new fits
+completed;32 sealed fits preserved. Failed/interrupted iteration directories
+are moved intact to `hicat_min500_cycle/interrupted_attempts_before_retry_20261104/`
+by preparation65353943 after old writers stop. Old array/consensus cancelled.
+Qualification iteration032:65353944. Remaining033–099:65353945, max20,
+dependent on successful qualification. Final consensus:65353946. This gate
+prevents repeating the failure across the full array before one full fit passes.
+No scientific settings changed. Scratch `SCRATCH_LOCATION.json` and HiCAT
+`JOBS.json` record current IDs. Prior IDs above are historical. Completion
+ETA withdrawn pending successful qualification and resumed throughput.
+
+
+### Immediate parallel release — 4 November 2026
+
+Removed single-fit dependency from array65353945 at user request.
+Iteration032 (65353944) continues independently;033–099 may run up to20
+at once (up to21 total while032 is active). Final65353946 explicitly awaits
+both65353944 and65353945. No cancelled/restarted numerical work in this change.
+Scratch outputs and sealed fits preserved. Current numerical progress already
+passed original scratch path and progress-file errors. See runtime
+`PARALLEL_RELEASE_20261104.json`.
+
+
+### User concurrency correction — 4 November 2026
+
+User reports prior testing supports only **10 jobs simultaneously**. This
+supersedes requests/records for20. Array65353945 throttle reduced to**9**,
+plus independent iteration032/65353944 gives at most10. No single-fit
+dependency on array; jobs eligible immediately. Keep total active HiCAT fits
+<=10. After032 completes, array may be raised to10 after verification.

@@ -1,0 +1,2 @@
+study_id	study_label	seurat_path	assay	layer	expression_transform	reduction	sample_col	cluster_col	include_in_first_plot
+example	Example study	study.rds	RNA	counts	log1p_cp10k	umap	sample	cluster	TRUE

@@ -227,3 +227,60 @@ from individual completion files and logs; submission does not imply completion.
 
 
 MapMyCells method locked by user (2026-11-03): use local Allen cell_type_mapper with a custom developmentally appropriate reference, not a replacement label-transfer algorithm. Official mapping_cells.md explicitly supports arbitrary taxonomies. Metadata validation uses the actual installed MapMyCells taxonomy API. La Manno published Class/Subclass/CellType need path-qualified machine IDs because generic Undefined labels occur beneath multiple parents; original published labels are preserved verbatim. Bandler CA301 later-MIND labels validate for 4,481 verified WT MGE cells, but one leaf has only one reference cell. These reference-coverage/support limitations remain to resolve before marker fitting and final mapping. See mapmycells_developmental_reference/REFERENCE_VALIDATION.json. Existing QC/HiCAT chain continues; no mapping job has been submitted.
+
+
+## 4 November 2026 — concurrency increased
+
+HiCAT array 65323908 was increased from four to 20 concurrent iteration jobs
+at user request. At 08:39 EST, the scheduler confirmed 20 actually running
+(tasks032–051), 48 pending; 32/100 iterations had completed at the preceding
+checkpoint check. Previous September concurrency was ten. Scientific settings
+and completed work were preserved. Final consensus/DE 65323909 remains
+dependent on completion. See the current workflow guide for the operational
+record. Cancellation target is awaiting clarification; no cancellation claimed.
+
+
+### 2026-11-04 09:12 EST — temporary-storage failure and recovery
+
+At 09:11 EST, five tasks failed (037, 038, 040, 042, 046). Logs show
+Errno28/no space in inherited `/home/elcrespo/.codex/tmp`, contrary to the
+intended node-local scratch behavior. Increasing concurrency exposed this
+storage problem. The prior afternoon completion estimate is withdrawn.
+Stopped original unfinished array 65323908 and dependent consensus 65323909;
+all 32 completed iteration seals (000–031) preserved. Submitted remaining
+68 iterations as recovery array **65352448**, maximum **20 concurrent**,
+using a unique node-local `/tmp` directory per job with exit cleanup.
+Replacement consensus/DE **65352449** depends on successful recovery.
+Original frozen scientific source/config/seeds and wrapper are unchanged;
+a separate recovery wrapper sets temporary-storage environment explicitly.
+Runtime evidence: `hicat_min500_cycle/NODE_LOCAL_RECOVERY_20261104.json`;
+`JOBS.json` now records replacement jobs and preserves original job IDs.
+Recovery submitted; completion and actual concurrency require subsequent
+scheduler/checkpoint verification. No final consensus count available.
+
+
+## Restart correction — 4 November 2026, 10:05 AM EST
+
+Scratch migration65352824 completed at 09:23:57 EST; all908 files checksum
+verified. Array65352825 then failed on existing interrupted progress logs:
+`Progress` refuses to overwrite `hicat_progress_events.jsonl`. No new fits
+completed;32 sealed fits preserved. Failed/interrupted iteration directories
+are moved intact to `hicat_min500_cycle/interrupted_attempts_before_retry_20261104/`
+by preparation65353943 after old writers stop. Old array/consensus cancelled.
+Qualification iteration032:65353944. Remaining033–099:65353945, max20,
+dependent on successful qualification. Final consensus:65353946. This gate
+prevents repeating the failure across the full array before one full fit passes.
+No scientific settings changed. Scratch `SCRATCH_LOCATION.json` and HiCAT
+`JOBS.json` record current IDs. Prior IDs above are historical. Completion
+ETA withdrawn pending successful qualification and resumed throughput.
+
+
+### Immediate parallel release — 4 November 2026
+
+Removed single-fit dependency from array65353945 at user request.
+Iteration032 (65353944) continues independently;033–099 may run up to20
+at once (up to21 total while032 is active). Final65353946 explicitly awaits
+both65353944 and65353945. No cancelled/restarted numerical work in this change.
+Scratch outputs and sealed fits preserved. Current numerical progress already
+passed original scratch path and progress-file errors. See runtime
+`PARALLEL_RELEASE_20261104.json`.

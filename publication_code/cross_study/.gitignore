@@ -1,0 +1,10 @@
+__pycache__/
+*.rds
+*.RData
+*.mtx
+*.h5ad
+*.h5Seurat
+*.tsv.gz
+marker_tables/
+marker_figures/
+studies.tsv

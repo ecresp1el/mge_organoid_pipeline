@@ -1,0 +1,9 @@
+__pycache__/
+*.h5ad
+*.mtx
+*.npz
+*.rds
+*.tsv.gz
+predictions.tsv
+reference_labels.tsv
+mapping_outputs/

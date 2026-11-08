@@ -1,5 +1,7 @@
 # Paper 3 Ziobro PCDH19 MGE single-cell RNA-seq: operational handoff
 
+> **Storage/job update, 4 November:** See [scratch migration and current job pointer](SCRATCH_STORAGE_HANDOFF.md). Migration65352824 completed; restart preparation65353943 → qualification65353944 → array65353945 (max20) → consensus65353946. Prior job IDs below are historical. Transfer is submitted; verify its completion seal.
+
 > **Current Methods reference:** [Ordered workflow, parameters and executed code](PCDH19_PYTHON_REBUILD_20261103.md).
 > Current rerun: **445,254 cells**; HiCAT is running and its final cluster count
 > is pending. MapMyCells uses a custom developmental reference; query mapping
